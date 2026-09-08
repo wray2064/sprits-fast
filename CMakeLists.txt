@@ -61,6 +61,8 @@ endif()
 # of toolkit stays replaceable.
 
 add_library(fast_core STATIC
+    src/app/bucket.cpp
+    src/app/dither.cpp
     src/app/document.cpp
     src/app/export_png.cpp
     src/app/file_io.cpp
@@ -163,6 +165,14 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_transform_tests tests/transform_tests.cpp)
     target_link_libraries(fast_transform_tests PRIVATE fast_core)
     add_test(NAME fast_transform COMMAND fast_transform_tests)
+
+    add_executable(fast_bucket_tests tests/bucket_tests.cpp)
+    target_link_libraries(fast_bucket_tests PRIVATE fast_core)
+    add_test(NAME fast_bucket COMMAND fast_bucket_tests)
+
+    add_executable(fast_dither_tests tests/dither_tests.cpp)
+    target_link_libraries(fast_dither_tests PRIVATE fast_core)
+    add_test(NAME fast_dither COMMAND fast_dither_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

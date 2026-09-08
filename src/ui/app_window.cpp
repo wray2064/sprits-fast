@@ -10,6 +10,8 @@
 
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/bucket.h"
+#include "app/dither.h"
 #include "app/paint.h"
 #include "app/transform.h"
 #include "app/ui_state.h"
@@ -32,7 +34,7 @@ namespace {
 
 using namespace ls;
 
-enum class Tool { Pencil, Eraser };
+enum class Tool { Pencil, Eraser, Bucket };
 
 // Everything the interface is holding on to. Deliberately small: the document
 // is the state, and this is only what is needed to talk about it.
@@ -51,6 +53,9 @@ struct Editor {
     char  renameBuffer[64] = {};
     int   exportScale = 1;          // whole-number magnification for a PNG export
     bool  draggingTransform = false;   // a slider is being held
+    bool  draggingDither = false;
+    fast::BucketSettings bucket;
+    fast::DitherSettings dither;
 
     fast::FileState files;
     bool  quitRequested = false;
@@ -138,13 +143,171 @@ bool newDocument(Editor& editor, uint32_t size) {
 
 // ------------------------------------------------------------------ panels --
 
+// The dither controls.
+//
+// Everything here drives parameters on one operation, so dragging any of it
+// recompiles from the drawing rather than adding to it. The anchor is the
+// control with no equivalent in a bitmap editor: it decides whether the screen
+// turns with the artwork, stays level with the canvas, or stays where it is
+// while the artwork moves across it.
+void drawDitherControls(Editor& editor, fast::CanvasView& canvas,
+                        const fast::PaintLayer& layer) {
+    fast::DitherSettings settings;
+    if (!fast::readDitherSettings(editor.doc, layer, &settings)) {
+        ImGui::TextDisabled("this layer is not dithered");
+        return;
+    }
+
+    bool changed = false;
+
+    ImGui::TextUnformatted("Pattern");
+    int pattern = static_cast<int>(settings.pattern);
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::Combo("##pattern", &pattern, fast::ditherPatternNames().data(),
+                     static_cast<int>(fast::ditherPatternNames().size()))) {
+        settings.pattern = static_cast<ls::DitherPatternKind>(pattern);
+        changed = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Threshold matrices, not stamps. The same tile works\n"
+                          "at every density and every step of a gradient.");
+    }
+
+    ImGui::TextUnformatted("Value");
+    int modulation = static_cast<int>(settings.modulation);
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::Combo("##modulation", &modulation, fast::ditherModulationNames().data(),
+                     static_cast<int>(fast::ditherModulationNames().size()))) {
+        settings.modulation = static_cast<ls::DitherModulation>(modulation);
+        changed = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Constant is a flat screen. The others vary the value\n"
+                          "across the shape, which is what makes a gradient\n"
+                          "out of dithered colour.");
+    }
+
+    if (settings.modulation == ls::DitherModulation::Constant) {
+        ImGui::SetNextItemWidth(-60.f);
+        if (ImGui::SliderFloat("Density", &settings.density, 0.f, 1.f, "%.2f")) {
+            changed = true;
+        }
+    } else {
+        float start[2] = { settings.gradientStart.x, settings.gradientStart.y };
+        float end[2]   = { settings.gradientEnd.x, settings.gradientEnd.y };
+        ImGui::SetNextItemWidth(-50.f);
+        if (ImGui::DragFloat2("From", start, 0.25f)) {
+            settings.gradientStart = { start[0], start[1] };
+            changed = true;
+        }
+        ImGui::SetNextItemWidth(-50.f);
+        if (ImGui::DragFloat2("To", end, 0.25f)) {
+            settings.gradientEnd = { end[0], end[1] };
+            changed = true;
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Anchor");
+    int anchor = static_cast<int>(settings.anchor);
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::Combo("##anchor", &anchor, fast::patternAnchorNames().data(),
+                     static_cast<int>(fast::patternAnchorNames().size()))) {
+        settings.anchor = static_cast<ls::PatternAnchor>(anchor);
+        changed = true;
+    }
+    ImGui::TextWrapped("%s",
+        settings.anchor == ls::PatternAnchor::Local
+            ? "Travels and turns with the artwork."
+        : settings.anchor == ls::PatternAnchor::Global
+            ? "Travels with the artwork, stays level with the canvas."
+            : "Stays put. The artwork moves across it.");
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Ramp");
+    float from[4] = { settings.from.r / 255.f, settings.from.g / 255.f,
+                      settings.from.b / 255.f, settings.from.a / 255.f };
+    float to[4]   = { settings.to.r / 255.f, settings.to.g / 255.f,
+                      settings.to.b / 255.f, settings.to.a / 255.f };
+    if (ImGui::ColorEdit4("Dark", from, ImGuiColorEditFlags_NoInputs)) {
+        settings.from = toColor(from);
+        changed = true;
+    }
+    if (ImGui::ColorEdit4("Light", to, ImGuiColorEditFlags_NoInputs)) {
+        settings.to = toColor(to);
+        changed = true;
+    }
+
+    // One history entry per drag, the same bracket the other sliders use.
+    if (ImGui::IsItemActivated() && !editor.draggingDither) {
+        editor.doc.beginAction("Dither");
+        editor.draggingDither = true;
+    }
+    if (editor.draggingDither && ImGui::IsItemDeactivated()) {
+        editor.doc.endAction();
+        editor.draggingDither = false;
+    }
+
+    if (changed) {
+        if (!editor.draggingDither) {
+            editor.doc.beginAction("Dither");
+            editor.doc.endAction();
+        }
+        fast::applyDitherSettings(editor.doc, layer, settings);
+        editor.dither = settings;
+        canvas.invalidate();
+        editor.status = "recompiled from the drawing";
+    }
+}
+
 void drawToolPanel(Editor& editor, fast::CanvasView& canvas) {
     ImGui::TextUnformatted("Tool");
     if (ImGui::RadioButton("Pencil", editor.tool == Tool::Pencil)) { editor.tool = Tool::Pencil; }
     ImGui::SameLine();
     if (ImGui::RadioButton("Eraser", editor.tool == Tool::Eraser)) { editor.tool = Tool::Eraser; }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Bucket", editor.tool == Tool::Bucket)) { editor.tool = Tool::Bucket; }
+
+    if (editor.tool == Tool::Bucket) {
+        ImGui::Indent();
+        ImGui::Checkbox("Follow diagonals", &editor.bucket.diagonal);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Off by default: a 1px diagonal is a wall in pixel\n"
+                              "art, and leaking through it is the classic\n"
+                              "paint-bucket annoyance.");
+        }
+        ImGui::Checkbox("Whole canvas", &editor.bucket.global);
+        ImGui::SetNextItemWidth(-70.f);
+        ImGui::SliderInt("Tolerance", &editor.bucket.tolerance, 0, 64);
+        ImGui::Unindent();
+    }
 
     ImGui::Separator();
+
+    // Solid or dithered is a property of the *layer*, since it is the rule that
+    // colours the drawing. Switching does not touch the drawing at all.
+    fast::PaintLayer* active = editor.active();
+    bool dithered = active != nullptr && fast::layerIsDithered(editor.doc, *active);
+
+    if (active != nullptr && ImGui::Checkbox("Dithered fill", &dithered)) {
+        editor.doc.beginAction(dithered ? "Dither the layer" : "Solid fill");
+        if (dithered) {
+            fast::setLayerDithered(editor.doc, *active, editor.dither);
+        } else {
+            fast::setLayerSolid(editor.doc, *active, toColor(editor.color));
+        }
+        editor.doc.endAction();
+        canvas.invalidate();
+        editor.status = dithered ? "the drawing is unchanged; only the rule that "
+                                   "colours it is different"
+                                 : "back to a solid fill, with the drawing intact";
+    }
+
+    if (dithered && active != nullptr) {
+        drawDitherControls(editor, canvas, *active);
+        return;
+    }
+
     ImGui::TextUnformatted("Colour");
 
     // Changing the colour recolours what is already drawn, because the colour
@@ -695,6 +858,18 @@ void handleStroke(Editor& editor, fast::CanvasView& canvas, bool overCanvas, Vec
         return;
     }
 
+    if (editor.tool == Tool::Bucket) {
+        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            editor.doc.beginAction("Fill");
+            const bool filled = fast::bucketFill(editor.doc, editor.sprite, *layer,
+                                                 pixel, editor.bucket);
+            editor.doc.endAction();
+            canvas.invalidate();
+            editor.status = filled ? "filled" : "nothing to fill there";
+        }
+        return;
+    }
+
     // A layer shown rotated is still drawn on straight. The pencil writes into
     // the region; the transform then acts on it. So the point under the cursor
     // has to be carried back into the layer's own space, or the cursor and the
@@ -836,6 +1011,18 @@ void drawDemoContent(Editor& editor, bool rotated) {
         fast::paintPixels(editor.doc, *layer, fast::linePixels({12, y}, {19, y}));
     }
     editor.doc.endAction();
+
+    // Dithered, because a flat screenshot says nothing about a dithering engine.
+    fast::DitherSettings dither;
+    dither.pattern = ls::DitherPatternKind::Bayer4;
+    dither.from = ls::Color{40, 50, 110, 255};
+    dither.to = ls::Color{240, 170, 90, 255};
+    dither.modulation = ls::DitherModulation::Linear;
+    dither.gradientStart = {6.f, 6.f};
+    dither.gradientEnd = {26.f, 26.f};
+    dither.anchor = ls::PatternAnchor::Local;
+    fast::setLayerDithered(editor.doc, *layer, dither);
+    editor.dither = dither;
 
     // Shown turned, because a screenshot of a square proves nothing about an
     // engine whose point is that turning is free.

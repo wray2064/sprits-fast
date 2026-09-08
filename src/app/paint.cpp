@@ -131,11 +131,16 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId* outSprite,
             continue;
         }
 
-        // The first solid fill that names a region is the one a pencil writes
-        // into. A layer built by another tool -- a gradient, a dither, a stroke
-        // along a path -- has no such operation, and is left alone.
+        // The first fill that names a region is the one a pencil writes into.
+        // Both kinds Fast makes are recognised: a solid colour and a dither are
+        // different *rules for colouring* the same drawing, so a layer switched
+        // to dithered must still be drawable after a reload.
+        //
+        // A layer built by another tool -- a gradient along an axis, a stroke
+        // following a path -- has no such operation and is left alone rather
+        // than guessed at.
         for (const ls::OperationInfo& op : operations.value) {
-            if (op.type != "FillSolidOp") {
+            if (op.type != "FillSolidOp" && op.type != "FillDitherOp") {
                 continue;
             }
             auto region = engine.getOperationParameter(op.id, "targetRegion");

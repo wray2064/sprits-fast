@@ -15,7 +15,8 @@ production suite.
 ## Status
 
 Early, but it runs: a window with a canvas, a pencil and an eraser, layers with
-rename and delete, undo/redo, and real file handling -- native Open and Save
+rename and delete, undo/redo, a paint bucket, dithered fills with pattern anchoring, and real file
+handling -- native Open and Save
 dialogs, recent files, drag-and-drop, atomic saves, a prompt before anything
 discards unsaved work, PNG export at whole-number scales, and files that open
 from the command line.
@@ -65,6 +66,31 @@ the entry, and the original returns exactly.
 
 The same idea one control over: change the colour in the picker and the drawing
 is not repainted. The colour lives on the fill rule rather than in the pixels.
+
+### Dithering, and the pattern that stays put
+
+Tick **Dithered fill** and the layer's colour rule becomes a dither: a value
+compared against a threshold matrix, choosing between two ramp stops. Constant
+density gives a classic two-tone screen; Linear, Radial or Angular vary the value
+across the shape, which is how a gradient gets built out of dithered pixels.
+Twelve prebaked patterns, all of them threshold matrices rather than one-bit
+stamps -- which is why the same tile works at any density and at every step of a
+gradient.
+
+The control with no equivalent in a bitmap editor is **anchoring**:
+
+![Local and global anchoring](docs/anchoring.png)
+
+Same drawing, same pattern, same rotation. On the top row the screen turns with
+the artwork and the checkerboard falls apart, because a checker rotated off-axis
+cannot stay a checker on a pixel grid. On the bottom it stays level with the
+canvas and survives the turn intact.
+
+In an editor that bakes dithering into pixels there is no choice to make: you get
+the top row. Here it is a parameter, and switching it recompiles from the same
+drawing. A third setting, **Fixed**, pins the screen to the canvas so the artwork
+slides across it -- that one differs from Global only once the artwork *moves*,
+so it does not show in a picture of something merely turning.
 
 **One honest note.** Look at the arrowhead in that strip. Single-pixel diagonals
 break into dashes at arbitrary angles — the solid body turns crisply, thin
