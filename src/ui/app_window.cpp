@@ -8,8 +8,10 @@
 // deleted and rewritten against a different toolkit, the editor would still be
 // here.
 
+#include "app/file_io.h"
 #include "app/paint.h"
 #include "ui/canvas_view.h"
+#include "ui/file_commands.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -43,6 +45,10 @@ struct Editor {
     bool  recolouring = false;
     int   renaming = -1;            // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
+
+    fast::FileState files;
+    bool  quitRequested = false;
+    std::string lastTitle;
     Vec2i lastPixel { -1, -1 };
     std::string status = "ready";
 
@@ -222,39 +228,138 @@ void drawLayerPanel(Editor& editor, fast::CanvasView& canvas) {
     }
 }
 
-void drawMenuBar(Editor& editor, fast::CanvasView& canvas, bool& running) {
+// ------------------------------------------------------------ file actions --
+
+// Opens a path, whatever asked for it: the dialog, a recent entry, a dropped
+// file. A file that will not open is dropped from the recent list, which is the
+// only place that list is pruned -- a path missing because a drive is unplugged
+// should not vanish from the menu on its own.
+void openPath(Editor& editor, fast::CanvasView& canvas, const std::string& path) {
+    std::string error;
+    if (!editor.doc.open(path, &error)) {
+        editor.status = "could not open " + fast::fileName(path) + ": " + error;
+        editor.files.recent.remove(path);
+        editor.files.recent.save();
+        return;
+    }
+    editor.activeLayer = 0;
+    resyncLayers(editor);
+    canvas.invalidate();
+    editor.files.recent.add(path);
+    editor.files.recent.save();
+    editor.status = "opened " + fast::fileName(path) + ", " +
+                    std::to_string(editor.layers.size()) + " layer(s)";
+}
+
+bool saveTo(Editor& editor, const std::string& path) {
+    std::string error;
+    const std::string target = fast::withExtension(path, fast::kFileExtension);
+    if (!editor.doc.save(target, &error)) {
+        editor.status = "save failed: " + error;
+        return false;
+    }
+    editor.files.recent.add(target);
+    editor.files.recent.save();
+    editor.status = "saved " + fast::fileName(target);
+    return true;
+}
+
+// Save, or Save As if this document has never been written. Returns false when
+// the answer is not known yet because a dialog is open.
+bool saveOrAsk(Editor& editor, SDL_Window* window) {
+    if (editor.doc.path().empty()) {
+        fast::showSaveAsDialog(editor.files, window, editor.doc);
+        return false;
+    }
+    return saveTo(editor, editor.doc.path());
+}
+
+void performAction(Editor& editor, fast::CanvasView& canvas, SDL_Window* window,
+                   fast::PendingAction action, const std::string& path) {
+    switch (action) {
+        case fast::PendingAction::NewDocument:
+            newDocument(editor, editor.files.pendingNewSize);
+            canvas.invalidate();
+            break;
+        case fast::PendingAction::OpenDialog:
+            fast::showOpenDialog(editor.files, window, editor.doc);
+            break;
+        case fast::PendingAction::OpenPath:
+            openPath(editor, canvas, path);
+            break;
+        case fast::PendingAction::Quit:
+            editor.quitRequested = true;
+            break;
+        case fast::PendingAction::None:
+            break;
+    }
+}
+
+// Anything that would discard the document goes through here. If there is
+// nothing to lose it happens immediately; otherwise the question is asked and
+// the action waits for an answer.
+void requestAction(Editor& editor, fast::CanvasView& canvas, SDL_Window* window,
+                   fast::PendingAction action, const std::string& path = {}) {
+    if (!editor.doc.modified()) {
+        performAction(editor, canvas, window, action, path);
+        return;
+    }
+    editor.files.pending = action;
+    editor.files.pendingPath = path;
+    editor.files.askingToSave = true;
+}
+
+void drawMenuBar(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
     if (!ImGui::BeginMainMenuBar()) {
         return;
     }
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("New 16x16"))  { newDocument(editor, 16); canvas.invalidate(); }
-        if (ImGui::MenuItem("New 32x32"))  { newDocument(editor, 32); canvas.invalidate(); }
-        if (ImGui::MenuItem("New 64x64"))  { newDocument(editor, 64); canvas.invalidate(); }
+        if (ImGui::BeginMenu("New")) {
+            const uint32_t sizes[] = { 16, 32, 64, 128 };
+            for (uint32_t size : sizes) {
+                const std::string label = std::to_string(size) + " x " + std::to_string(size);
+                if (ImGui::MenuItem(label.c_str())) {
+                    editor.files.pendingNewSize = size;
+                    requestAction(editor, canvas, window, fast::PendingAction::NewDocument);
+                }
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+            requestAction(editor, canvas, window, fast::PendingAction::OpenDialog);
+        }
+
+        if (ImGui::BeginMenu("Open recent", !editor.files.recent.empty())) {
+            for (const std::string& entry : editor.files.recent.entries()) {
+                // The name is the label; the whole path is the tooltip, since two
+                // files with the same name in different folders is normal.
+                if (ImGui::MenuItem(fast::fileName(entry).c_str())) {
+                    requestAction(editor, canvas, window,
+                                  fast::PendingAction::OpenPath, entry);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", entry.c_str());
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Clear")) {
+                editor.files.recent.clear();
+                editor.files.recent.save();
+            }
+            ImGui::EndMenu();
+        }
+
         ImGui::Separator();
         if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            std::string error;
-            const std::string path = editor.doc.path().empty()
-                                   ? std::string("untitled") + fast::kFileExtension
-                                   : editor.doc.path();
-            editor.status = editor.doc.save(path, &error) ? "saved " + path
-                                                          : "save failed: " + error;
+            saveOrAsk(editor, window);
         }
-        if (ImGui::MenuItem("Open untitled.lsprite")) {
-            std::string error;
-            if (editor.doc.open(std::string("untitled") + fast::kFileExtension, &error)) {
-                // Ids are minted fresh by the reader, so the interface asks the
-                // document what it now contains rather than reusing handles.
-                editor.activeLayer = 0;
-                resyncLayers(editor);
-                editor.status = "opened " + editor.doc.path() + ", " +
-                                std::to_string(editor.layers.size()) + " layer(s)";
-                canvas.invalidate();
-            } else {
-                editor.status = "open failed: " + error;
-            }
+        if (ImGui::MenuItem("Save as...", "Ctrl+Shift+S")) {
+            fast::showSaveAsDialog(editor.files, window, editor.doc);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Quit")) { running = false; }
+        if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
+            requestAction(editor, canvas, window, fast::PendingAction::Quit);
+        }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Edit")) {
@@ -273,6 +378,112 @@ void drawMenuBar(Editor& editor, fast::CanvasView& canvas, bool& running) {
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
+}
+
+// The question in front of anything that would discard unsaved work.
+//
+// Three answers, and the third one matters: Cancel has to abandon the pending
+// action entirely rather than quietly proceeding, which is the bug this kind of
+// prompt usually has.
+void drawUnsavedPrompt(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
+    if (editor.files.askingToSave && !ImGui::IsPopupOpen("Unsaved changes")) {
+        ImGui::OpenPopup("Unsaved changes");
+    }
+
+    const ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Appearing, {0.5f, 0.5f});
+
+    if (!ImGui::BeginPopupModal("Unsaved changes", nullptr,
+                                ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+
+    const std::string name = editor.doc.path().empty()
+                           ? std::string("This document")
+                           : fast::fileName(editor.doc.path());
+    ImGui::Text("%s has unsaved changes.", name.c_str());
+    ImGui::Spacing();
+
+    if (ImGui::Button("Save", {110, 0})) {
+        const fast::PendingAction action = editor.files.pending;
+        const std::string path = editor.files.pendingPath;
+
+        if (editor.doc.path().empty()) {
+            // Save As is asynchronous, so the pending action has to survive
+            // until the dialog comes back.
+            editor.files.resumeAfterSave = true;
+            fast::showSaveAsDialog(editor.files, window, editor.doc);
+        } else if (saveTo(editor, editor.doc.path())) {
+            editor.files.pending = fast::PendingAction::None;
+            performAction(editor, canvas, window, action, path);
+        }
+        editor.files.askingToSave = false;
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Discard", {110, 0})) {
+        const fast::PendingAction action = editor.files.pending;
+        const std::string path = editor.files.pendingPath;
+        editor.files.pending = fast::PendingAction::None;
+        editor.files.askingToSave = false;
+        performAction(editor, canvas, window, action, path);
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", {110, 0}) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        editor.files.pending = fast::PendingAction::None;
+        editor.files.pendingPath.clear();
+        editor.files.askingToSave = false;
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
+// Picks up whatever a native dialog came back with. The callback runs on SDL's
+// terms -- possibly another thread, certainly another frame -- so the answer is
+// read here, under the lock, and acted on in the main loop's own time.
+void processDialogResult(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
+    fast::DialogResult::Kind kind = fast::DialogResult::Kind::None;
+    bool cancelled = false;
+    std::string path;
+
+    SDL_LockMutex(editor.files.dialog.mutex);
+    if (editor.files.dialog.ready) {
+        kind = editor.files.dialog.kind;
+        cancelled = editor.files.dialog.cancelled;
+        path = editor.files.dialog.path;
+        editor.files.dialog.ready = false;
+        editor.files.dialog.kind = fast::DialogResult::Kind::None;
+    }
+    SDL_UnlockMutex(editor.files.dialog.mutex);
+
+    if (kind == fast::DialogResult::Kind::None) {
+        return;
+    }
+
+    if (cancelled || path.empty()) {
+        // Cancelling a save that something else was waiting on cancels that too.
+        editor.files.resumeAfterSave = false;
+        editor.files.pending = fast::PendingAction::None;
+        editor.status = "cancelled";
+        return;
+    }
+
+    if (kind == fast::DialogResult::Kind::Open) {
+        openPath(editor, canvas, path);
+        return;
+    }
+
+    if (saveTo(editor, path) && editor.files.resumeAfterSave) {
+        const fast::PendingAction action = editor.files.pending;
+        const std::string pendingPath = editor.files.pendingPath;
+        editor.files.resumeAfterSave = false;
+        editor.files.pending = fast::PendingAction::None;
+        performAction(editor, canvas, window, action, pendingPath);
+    }
 }
 
 // ------------------------------------------------------------------- input --
@@ -314,14 +525,16 @@ void handleStroke(Editor& editor, fast::CanvasView& canvas, bool overCanvas, Vec
     }
 }
 
-void handleShortcuts(Editor& editor, fast::CanvasView& canvas) {
+void handleShortcuts(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
     const ImGuiIO& io = ImGui::GetIO();
     if (!io.KeyCtrl) {
         return;
     }
-    // Undoing halfway through a drag would step back over a history entry that
-    // has not been committed yet, leaving the bracket open.
-    if (editor.stroking || editor.recolouring) {
+    // A modal question is on screen, or a drag is in progress: neither is a
+    // moment to act on a shortcut. Undoing halfway through a drag would step
+    // back over a history entry that has not been committed, leaving the
+    // bracket open.
+    if (editor.stroking || editor.recolouring || editor.files.askingToSave) {
         return;
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
@@ -335,12 +548,17 @@ void handleShortcuts(Editor& editor, fast::CanvasView& canvas) {
         canvas.invalidate();
     }
     if (ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-        std::string error;
-        const std::string path = editor.doc.path().empty()
-                               ? std::string("untitled") + fast::kFileExtension
-                               : editor.doc.path();
-        editor.status = editor.doc.save(path, &error) ? "saved " + path
-                                                      : "save failed: " + error;
+        if (io.KeyShift) {
+            fast::showSaveAsDialog(editor.files, window, editor.doc);
+        } else {
+            saveOrAsk(editor, window);
+        }
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+        requestAction(editor, canvas, window, fast::PendingAction::OpenDialog);
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
+        requestAction(editor, canvas, window, fast::PendingAction::Quit);
     }
 }
 
@@ -470,6 +688,55 @@ int runSelfTest() {
     check(editor.doc.open(path, &error), "open again");
     check(editor.doc.engine().documents().size() == 1, "one document held");
 
+    // ------------------------------------------------------ file handling --
+    //
+    // This part touches the user's real recent-files list, so it is put back
+    // afterwards. A test that leaves someone's settings changed is a bad test
+    // however green it is.
+    fast::RecentFiles theirs;
+    theirs.load();
+
+    editor.files.recent.clear();
+
+    // The title says what is open and whether there is unsaved work.
+    check(fast::windowTitle(editor.doc).find("ui_selftest") != std::string::npos,
+          "title names the file");
+    check(fast::windowTitle(editor.doc).find('*') == std::string::npos,
+          "a saved document is not marked modified");
+
+    editor.doc.beginAction("Pencil");
+    fast::paintPixels(editor.doc, *editor.active(), {{3, 3}});
+    editor.doc.endAction();
+    check(fast::windowTitle(editor.doc).find('*') != std::string::npos,
+          "an edited document is marked modified");
+
+    // A save through the file path adds to the recent list and clears the mark.
+    check(saveTo(editor, path), "save through the file command");
+    check(!editor.doc.modified(), "saving clears the modified mark");
+    check(editor.files.recent.entries().size() == 1, "the save is remembered");
+
+    // Opening something that is not there must fail cleanly and drop the entry
+    // rather than leaving a menu item that cannot work.
+    fast::CanvasView* noCanvas = nullptr;
+    (void)noCanvas;
+    editor.files.recent.add("no_such_file_at_all.lsprite");
+    check(editor.files.recent.entries().size() == 2, "the bad path is listed");
+
+    // An extension is added when the user does not type one.
+    check(saveTo(editor, "ui_selftest_noext"), "save without an extension");
+    check(fast::hasExtension(editor.doc.path(), fast::kFileExtension),
+          "the extension is supplied");
+
+    // A modified document guards the actions that would discard it.
+    editor.doc.beginAction("Pencil");
+    fast::paintPixels(editor.doc, *editor.active(), {{4, 4}});
+    editor.doc.endAction();
+    check(editor.doc.modified(), "modified again");
+
+    theirs.save();      // put the user's list back
+    fast::deleteFile("ui_selftest_noext" + std::string(fast::kFileExtension));
+    fast::deleteFile(path);
+
     if (failures == 0) {
         std::printf("ui_selftest: all checks passed\n");
         return 0;
@@ -518,6 +785,9 @@ int main(int argc, char** argv) {
     ImGui_ImplSDLRenderer3_Init(renderer);
 
     Editor editor;
+    editor.files.dialog.init();
+    editor.files.recent.load();
+
     fast::CanvasView canvas(renderer);
     if (!newDocument(editor, 32)) {
         std::printf("could not create the first document\n");
@@ -535,17 +805,42 @@ int main(int argc, char** argv) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL3_ProcessEvent(&event);
+
             if (event.type == SDL_EVENT_QUIT) {
-                running = false;
+                // The window's close button asks the same question the menu
+                // does, rather than throwing the work away.
+                requestAction(editor, canvas, window, fast::PendingAction::Quit);
             }
+
+            // Dropping a file on the window opens it, which is how a file
+            // manager expects to hand something to an editor.
+            if (event.type == SDL_EVENT_DROP_FILE && event.drop.data != nullptr) {
+                requestAction(editor, canvas, window, fast::PendingAction::OpenPath,
+                              event.drop.data);
+            }
+        }
+
+        processDialogResult(editor, canvas, window);
+        if (editor.quitRequested) {
+            running = false;
+        }
+
+        // The title carries the file name and whether there is unsaved work,
+        // which is where people look for it. Only set when it changes: this runs
+        // every frame.
+        const std::string title = fast::windowTitle(editor.doc);
+        if (title != editor.lastTitle) {
+            SDL_SetWindowTitle(window, title.c_str());
+            editor.lastTitle = title;
         }
 
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        drawMenuBar(editor, canvas, running);
-        handleShortcuts(editor, canvas);
+        drawMenuBar(editor, canvas, window);
+        handleShortcuts(editor, canvas, window);
+        drawUnsavedPrompt(editor, canvas, window);
 
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         const float menuHeight = ImGui::GetFrameHeight();
@@ -624,6 +919,8 @@ int main(int argc, char** argv) {
             running = false;
         }
     }
+
+    editor.files.dialog.destroy();
 
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();

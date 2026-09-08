@@ -62,7 +62,9 @@ endif()
 
 add_library(fast_core STATIC
     src/app/document.cpp
+    src/app/file_io.cpp
     src/app/paint.cpp
+    src/app/recent_files.cpp
 )
 
 target_include_directories(fast_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -95,6 +97,7 @@ if (FAST_BUILD_GUI)
     add_executable(sprits_fast WIN32
         src/ui/app_window.cpp
         src/ui/canvas_view.cpp
+        src/ui/file_commands.cpp
     )
     target_link_libraries(sprits_fast PRIVATE fast_core fast::imgui)
 
@@ -127,6 +130,14 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_robustness_tests tests/robustness_tests.cpp)
     target_link_libraries(fast_robustness_tests PRIVATE fast_core)
     add_test(NAME fast_robustness COMMAND fast_robustness_tests)
+
+    add_executable(fast_file_io_tests tests/file_io_tests.cpp)
+    target_link_libraries(fast_file_io_tests PRIVATE fast_core)
+    add_test(NAME fast_file_io COMMAND fast_file_io_tests)
+
+    add_executable(fast_recent_tests tests/recent_files_tests.cpp)
+    target_link_libraries(fast_recent_tests PRIVATE fast_core)
+    add_test(NAME fast_recent COMMAND fast_recent_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

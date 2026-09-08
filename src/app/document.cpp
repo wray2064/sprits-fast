@@ -2,51 +2,13 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/document.h"
-
-#include <fstream>
+#include "app/file_io.h"
 
 namespace fast {
 namespace {
 
 std::string engineError(ls::LSError error) {
     return std::string(ls::lsErrorString(error));
-}
-
-bool readFile(const std::string& path, std::vector<uint8_t>& out, std::string* error) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file) {
-        if (error) { *error = "could not open " + path; }
-        return false;
-    }
-    const std::streamsize size = file.tellg();
-    if (size < 0) {
-        if (error) { *error = "could not measure " + path; }
-        return false;
-    }
-    file.seekg(0, std::ios::beg);
-    out.resize(static_cast<size_t>(size));
-    if (size > 0 && !file.read(reinterpret_cast<char*>(out.data()), size)) {
-        if (error) { *error = "could not read " + path; }
-        return false;
-    }
-    return true;
-}
-
-bool writeFile(const std::string& path, const std::vector<uint8_t>& bytes, std::string* error) {
-    std::ofstream file(path, std::ios::binary | std::ios::trunc);
-    if (!file) {
-        if (error) { *error = "could not open " + path + " for writing"; }
-        return false;
-    }
-    if (!bytes.empty()) {
-        file.write(reinterpret_cast<const char*>(bytes.data()),
-                   static_cast<std::streamsize>(bytes.size()));
-    }
-    if (!file) {
-        if (error) { *error = "could not write " + path; }
-        return false;
-    }
-    return true;
 }
 
 } // namespace
@@ -105,7 +67,7 @@ bool Document::create(const std::string& name, uint32_t width, uint32_t height) 
 
 bool Document::open(const std::string& path, std::string* error) {
     std::vector<uint8_t> bytes;
-    if (!readFile(path, bytes, error)) {
+    if (!fast::readFile(path, bytes, error)) {
         return false;
     }
 
@@ -163,7 +125,7 @@ bool Document::save(const std::string& path, std::string* error) {
         return false;
     }
 
-    if (!writeFile(path, written.value.bytes, error)) {
+    if (!writeFileAtomic(path, written.value.bytes, error)) {
         return false;
     }
 

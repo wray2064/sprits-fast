@@ -14,8 +14,10 @@ production suite.
 
 ## Status
 
-Early, but it runs: a window with a canvas, a pencil and an eraser, layers,
-undo/redo and saving.
+Early, but it runs: a window with a canvas, a pencil and an eraser, layers with
+rename and delete, undo/redo, and real file handling -- native Open and Save
+dialogs, recent files, drag-and-drop, atomic saves, and a prompt before anything
+discards unsaved work.
 
 ```bash
 ./build.bat test        # fast_core and its tests — no toolkit, seconds
