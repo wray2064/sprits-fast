@@ -10,23 +10,34 @@ many times you change your mind.
 Fast is the small editor that introduces the idea. **Sprit's'pract** is the full
 production suite.
 
+![Sprit's'fast](docs/screenshot.png)
+
 ## Status
 
-Early. There is no user interface yet.
-
-What exists is `fast_core`: the document, the undo history, and file handling —
-the part of an editor that has nothing to do with drawing windows, built first so
-that it can be tested without one and so the choice of toolkit stays replaceable.
+Early, but it runs: a window with a canvas, a pencil and an eraser, layers,
+undo/redo and saving.
 
 ```bash
-./build.bat            # Windows; or use CMake directly, below
-build/fast_smoke       # drives a document end to end and prints the result
-ctest --test-dir build # 11 checks over undo, redo, save, reopen
+./build.bat test        # fast_core and its tests — no toolkit, seconds
+./build-gui.bat         # the editor — fetches and builds SDL3, minutes
+build-gui/sprits_fast
 ```
 
-`fast_smoke` makes a canvas, draws a square, undoes it, redoes it, saves a file
-and reopens it — printing what it sees at each step. It has no window on purpose:
-it proves the foundation works before any of it is hidden behind an interface.
+The core and the interface build separately on purpose. `fast_core` — the
+document, undo history, tools and file handling — has no toolkit and no window,
+so it can be tested without one and so the interface stays replaceable. Most of
+the work happens there, and it builds in seconds.
+
+`build/fast_smoke` drives a document end to end and prints what it sees at each
+step, with no window at all.
+
+### The thing to try first
+
+Draw something, then change the colour in the picker.
+
+The drawing is not repainted. The colour lives on the fill rule rather than in
+the pixels, so the whole layer changes colour through one parameter and nothing
+is resampled. That is the engine's premise in a single control.
 
 ## Build
 

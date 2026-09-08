@@ -62,6 +62,7 @@ endif()
 
 add_library(fast_core STATIC
     src/app/document.cpp
+    src/app/paint.cpp
 )
 
 target_include_directories(fast_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -79,6 +80,36 @@ endif()
 add_executable(fast_smoke src/main.cpp)
 target_link_libraries(fast_smoke PRIVATE fast_core)
 
+# -------------------------------------------------------------------- the UI --
+#
+# Off by default for a reason worth stating: turning it on fetches and builds
+# SDL3 from source, which takes minutes the first time. Working on fast_core --
+# the document, undo, tools, file handling -- does not need any of it, and that
+# is where most of the work is.
+
+option(FAST_BUILD_GUI "Build the windowed editor (fetches SDL3 and Dear ImGui)" OFF)
+
+if (FAST_BUILD_GUI)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Dependencies.cmake)
+
+    add_executable(sprits_fast WIN32
+        src/ui/app_window.cpp
+        src/ui/canvas_view.cpp
+    )
+    target_link_libraries(sprits_fast PRIVATE fast_core fast::imgui)
+
+    if (MSVC)
+        target_compile_options(sprits_fast PRIVATE /W4 /WX)
+        # WIN32 above hides the console for a released build; during development
+        # the printf diagnostics on start-up failure are worth more than that.
+        set_target_properties(sprits_fast PROPERTIES
+            LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE"
+            LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
+    else()
+        target_compile_options(sprits_fast PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+
 # ---------------------------------------------------------------- the tests --
 
 option(FAST_BUILD_TESTS "Build the tests" ON)
@@ -89,5 +120,20 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_document_tests PRIVATE fast_core)
     add_test(NAME fast_document COMMAND fast_document_tests)
 
+    add_executable(fast_paint_tests tests/paint_tests.cpp)
+    target_link_libraries(fast_paint_tests PRIVATE fast_core)
+    add_test(NAME fast_paint COMMAND fast_paint_tests)
+
     add_test(NAME fast_smoke COMMAND fast_smoke)
+
+    # The interface, checked without anyone looking at it. SDL's dummy video
+    # driver needs no display, so this runs on a CI machine and catches a UI
+    # that no longer starts, initialises or renders a frame -- the failure a
+    # test suite otherwise never sees until someone opens the program.
+    if (FAST_BUILD_GUI)
+        add_test(NAME fast_ui_starts
+                 COMMAND sprits_fast --frames 5 --demo-stroke)
+        set_tests_properties(fast_ui_starts PROPERTIES
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+    endif()
 endif()

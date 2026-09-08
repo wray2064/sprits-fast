@@ -48,3 +48,40 @@ jobs:
       - name: Test
         working-directory: fast
         run: ctest --test-dir build --build-config RelWithDebInfo --output-on-failure
+
+  # The editor itself. Separate from the core job because it fetches and builds
+  # SDL3, which is slow, and because a broken core should fail before this does.
+  gui:
+    name: the editor builds and starts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Fast
+        uses: actions/checkout@v4
+        with:
+          path: fast
+
+      - name: Check out the engine
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.LIVESPRITE_REPO || github.repository }}
+          path: engine
+        continue-on-error: true
+
+      - name: Install SDL build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev libxrandr-dev             libxcursor-dev libxi-dev libxfixes-dev libwayland-dev             libxkbcommon-dev libegl1-mesa-dev
+
+      - name: Build
+        working-directory: fast
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release                 -DLIVESPRITE_DIR=../engine -DFAST_BUILD_GUI=ON
+          cmake --build build
+
+      # No display on a CI runner, so SDL's dummy driver stands in. This proves
+      # the whole stack comes up and draws a frame.
+      - name: Start it
+        working-directory: fast
+        env:
+          SDL_VIDEODRIVER: dummy
+        run: ./build/sprits_fast --frames 5 --demo-stroke

@@ -13,3 +13,5 @@ CMakeCache.txt
 CMakeFiles/
 .ninja_deps
 .ninja_log
+build/
+build-gui/
