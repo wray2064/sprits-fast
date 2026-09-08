@@ -47,6 +47,24 @@ bool erasePixels(Document& doc, const PaintLayer& target,
 bool setPaintColor(Document& doc, const PaintLayer& target, ls::Color color);
 ls::Color paintColor(Document& doc, const PaintLayer& target);
 
+// Reconstructs the paint layers of a document that was just opened.
+//
+// A file carries operations, not the handles the interface was holding when it
+// was written -- the reader mints fresh ids by design. So after an open, the
+// editor has to look at what it has and work out which layers it can draw on:
+// a layer whose first fill names a region is a paint layer, and that region is
+// where the pencil accumulates.
+//
+// Layers it does not recognise are skipped rather than guessed at. A file may
+// contain gradients, dithers, strokes and transforms that Fast has no tool for;
+// those still compile and still display, they simply cannot be drawn on with a
+// pencil. Skipping them is what lets Fast open a file made by a richer editor
+// without either breaking it or pretending to understand it.
+//
+// Returns false only if the document has no sprite at all.
+bool adoptPaintLayers(Document& doc, ls::SpriteId* outSprite,
+                      std::vector<PaintLayer>* outLayers);
+
 // The pixels between two points, so a fast drag does not leave gaps. Bresenham,
 // inclusive of both ends.
 std::vector<ls::Vec2i> linePixels(ls::Vec2i from, ls::Vec2i to);

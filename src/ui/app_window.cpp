@@ -40,6 +40,9 @@ struct Editor {
     float color[4] = { 0.85f, 0.35f, 0.25f, 1.f };
 
     bool  stroking = false;
+    bool  recolouring = false;
+    int   renaming = -1;            // index of the layer being renamed, or -1
+    char  renameBuffer[64] = {};
     Vec2i lastPixel { -1, -1 };
     std::string status = "ready";
 
@@ -56,6 +59,29 @@ Color toColor(const float rgba[4]) {
              static_cast<uint8_t>(rgba[1] * 255.f + 0.5f),
              static_cast<uint8_t>(rgba[2] * 255.f + 0.5f),
              static_cast<uint8_t>(rgba[3] * 255.f + 0.5f) };
+}
+
+// Rebuilds the layer list from the document.
+//
+// The interface holds handles; undo, redo and open all change what exists. Undo
+// restores ids exactly, so re-adopting after one gives back the same handles --
+// but an undone "Add layer" leaves the panel holding a layer that is no longer
+// there, and drawing on it would fail silently. Asking the document what it now
+// contains is cheaper than tracking that by hand and cannot drift.
+void resyncLayers(Editor& editor) {
+    std::vector<fast::PaintLayer> found;
+    SpriteId sprite;
+    if (!fast::adoptPaintLayers(editor.doc, &sprite, &found)) {
+        return;
+    }
+    editor.sprite = sprite;
+    editor.layers = std::move(found);
+    if (editor.activeLayer >= static_cast<int>(editor.layers.size())) {
+        editor.activeLayer = static_cast<int>(editor.layers.size()) - 1;
+    }
+    if (editor.activeLayer < 0) {
+        editor.activeLayer = 0;
+    }
 }
 
 bool newDocument(Editor& editor, uint32_t size) {
@@ -90,14 +116,28 @@ void drawToolPanel(Editor& editor, fast::CanvasView& canvas) {
     // Changing the colour recolours what is already drawn, because the colour
     // lives on the fill rule rather than in the pixels. That is worth seeing
     // happen: it is the whole premise of the engine in one control.
-    if (ImGui::ColorPicker4("##colour", editor.color,
-                            ImGuiColorEditFlags_NoSidePreview |
-                            ImGuiColorEditFlags_NoSmallPreview)) {
+    const bool changed = ImGui::ColorPicker4("##colour", editor.color,
+                                            ImGuiColorEditFlags_NoSidePreview |
+                                            ImGuiColorEditFlags_NoSmallPreview);
+
+    // One history entry for a whole drag of the picker, not one per frame: the
+    // bracket opens when the control is grabbed and closes when it is let go.
+    // Without this a recolour was not undoable at all, and did not even mark the
+    // document as modified.
+    if (ImGui::IsItemActivated()) {
+        editor.doc.beginAction("Recolour");
+        editor.recolouring = true;
+    }
+    if (changed) {
         if (fast::PaintLayer* layer = editor.active()) {
             fast::setPaintColor(editor.doc, *layer, toColor(editor.color));
             canvas.invalidate();
             editor.status = "recoloured the layer without touching the drawing";
         }
+    }
+    if (editor.recolouring && ImGui::IsItemDeactivated()) {
+        editor.doc.endAction();
+        editor.recolouring = false;
     }
 
     ImGui::Separator();
@@ -121,6 +161,16 @@ void drawLayerPanel(Editor& editor, fast::CanvasView& canvas) {
             canvas.invalidate();
         }
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Delete") && editor.layers.size() > 1) {
+        if (fast::PaintLayer* layer = editor.active()) {
+            editor.doc.beginAction("Delete layer");
+            editor.doc.engine().deleteLayer(layer->layer);
+            editor.doc.endAction();
+            resyncLayers(editor);
+            canvas.invalidate();
+        }
+    }
     ImGui::Separator();
 
     // Topmost first, which is how a layer stack reads.
@@ -138,8 +188,35 @@ void drawLayerPanel(Editor& editor, fast::CanvasView& canvas) {
             canvas.invalidate();
         }
         ImGui::SameLine();
-        if (ImGui::Selectable(name.c_str(), editor.activeLayer == i)) {
-            editor.activeLayer = i;
+
+        // Double-click to rename, which is what a layer name in a list means
+        // everywhere else.
+        if (editor.renaming == i) {
+            ImGui::SetNextItemWidth(-1.f);
+            if (ImGui::IsWindowAppearing() || ImGui::IsItemDeactivated()) {
+                ImGui::SetKeyboardFocusHere();
+            }
+            if (ImGui::InputText("##rename", editor.renameBuffer,
+                                 sizeof(editor.renameBuffer),
+                                 ImGuiInputTextFlags_EnterReturnsTrue)) {
+                editor.doc.beginAction("Rename layer");
+                editor.doc.engine().setLayerName(
+                    editor.layers[static_cast<size_t>(i)].layer, editor.renameBuffer);
+                editor.doc.endAction();
+                editor.renaming = -1;
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                editor.renaming = -1;
+            }
+        } else {
+            if (ImGui::Selectable(name.c_str(), editor.activeLayer == i)) {
+                editor.activeLayer = i;
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                editor.renaming = i;
+                std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
+                              "%s", name.c_str());
+            }
         }
         ImGui::PopID();
     }
@@ -165,15 +242,12 @@ void drawMenuBar(Editor& editor, fast::CanvasView& canvas, bool& running) {
         if (ImGui::MenuItem("Open untitled.lsprite")) {
             std::string error;
             if (editor.doc.open(std::string("untitled") + fast::kFileExtension, &error)) {
-                auto info = editor.doc.engine().getDocumentInfo(editor.doc.id());
-                if (info.ok() && !info.value.sprites.empty()) {
-                    // Ids are minted fresh by the reader, so the interface has
-                    // to ask the document what it now contains.
-                    editor.sprite = info.value.sprites.front();
-                    editor.layers.clear();
-                    editor.activeLayer = 0;
-                    editor.status = "opened; drawing on reopened layers is not wired up yet";
-                }
+                // Ids are minted fresh by the reader, so the interface asks the
+                // document what it now contains rather than reusing handles.
+                editor.activeLayer = 0;
+                resyncLayers(editor);
+                editor.status = "opened " + editor.doc.path() + ", " +
+                                std::to_string(editor.layers.size()) + " layer(s)";
                 canvas.invalidate();
             } else {
                 editor.status = "open failed: " + error;
@@ -188,10 +262,12 @@ void drawMenuBar(Editor& editor, fast::CanvasView& canvas, bool& running) {
         const std::string redo = "Redo " + editor.doc.redoLabel();
         if (ImGui::MenuItem(undo.c_str(), "Ctrl+Z", false, editor.doc.canUndo())) {
             editor.doc.undo();
+            resyncLayers(editor);
             canvas.invalidate();
         }
         if (ImGui::MenuItem(redo.c_str(), "Ctrl+Y", false, editor.doc.canRedo())) {
             editor.doc.redo();
+            resyncLayers(editor);
             canvas.invalidate();
         }
         ImGui::EndMenu();
@@ -243,12 +319,19 @@ void handleShortcuts(Editor& editor, fast::CanvasView& canvas) {
     if (!io.KeyCtrl) {
         return;
     }
+    // Undoing halfway through a drag would step back over a history entry that
+    // has not been committed yet, leaving the bracket open.
+    if (editor.stroking || editor.recolouring) {
+        return;
+    }
     if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
         if (io.KeyShift ? editor.doc.redo() : editor.doc.undo()) {
+            resyncLayers(editor);
             canvas.invalidate();
         }
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Y, false) && editor.doc.redo()) {
+        resyncLayers(editor);
         canvas.invalidate();
     }
     if (ImGui::IsKeyPressed(ImGuiKey_S, false)) {
@@ -275,6 +358,7 @@ struct Options {
     int         frames = 0;          // 0 = run until the user quits
     std::string screenshot;
     bool        demoStroke = false;
+    bool        selfTest = false;
 };
 
 Options parseOptions(int argc, char** argv) {
@@ -287,6 +371,8 @@ Options parseOptions(int argc, char** argv) {
             options.screenshot = argv[++i];
         } else if (arg == "--demo-stroke") {
             options.demoStroke = true;
+        } else if (arg == "--self-test") {
+            options.selfTest = true;
         }
     }
     return options;
@@ -309,8 +395,94 @@ void drawDemoContent(Editor& editor) {
     editor.status = "demo content";
 }
 
+// The state management the interface does, driven without the interface.
+//
+// resyncLayers and the undo/open glue around it are the parts that were wrong:
+// the panel held handles to layers that undo had removed, and an opened file
+// could not be drawn on. None of that is reachable from a fast_core test,
+// because it is the window's own bookkeeping -- so it is driven directly here
+// rather than left to be found by clicking.
+int runSelfTest() {
+    int failures = 0;
+    const auto check = [&failures](bool condition, const char* what) {
+        if (!condition) {
+            std::printf("FAIL %s\n", what);
+            ++failures;
+        }
+    };
+
+    Editor editor;
+    check(newDocument(editor, 16), "new document");
+    check(editor.layers.size() == 1, "one layer to start");
+
+    // Draw, as a stroke would.
+    editor.doc.beginAction("Pencil");
+    fast::paintPixels(editor.doc, *editor.active(), fast::linePixels({2, 2}, {2, 9}));
+    editor.doc.endAction();
+
+    // Add a layer, then undo it. The panel must not be left holding a layer that
+    // no longer exists -- this was the bug.
+    fast::PaintLayer added;
+    check(fast::createPaintLayer(editor.doc, editor.sprite, "layer 2",
+                                 Color{40, 80, 220, 255}, &added), "add layer");
+    editor.layers.push_back(added);
+    check(editor.layers.size() == 2, "two layers");
+
+    check(editor.doc.undo(), "undo the added layer");
+    resyncLayers(editor);
+    check(editor.layers.size() == 1, "panel drops the undone layer");
+    check(editor.activeLayer == 0, "active index stays in range");
+    check(editor.active() != nullptr, "still something to draw on");
+
+    // Redo brings it back, and the panel picks it up again.
+    check(editor.doc.canRedo(), "the undone layer can be redone");
+    check(editor.doc.redo(), "redo");
+    resyncLayers(editor);
+    check(editor.layers.size() == 2, "the redone layer reappears in the panel");
+
+    check(editor.doc.undo(), "undo it again");
+    resyncLayers(editor);
+    check(editor.layers.size() == 1, "and goes away again");
+
+    // Drawing after an undo discards the redo branch, which is what every editor
+    // does: the history is a line, not a tree. The surviving layer must still be
+    // drawable rather than a stale handle.
+    editor.doc.beginAction("Pencil");
+    check(fast::paintPixels(editor.doc, *editor.active(), {{7, 7}}), "draw after undo");
+    editor.doc.endAction();
+    check(!editor.doc.canRedo(), "a new action drops the redo branch");
+
+    // Save, reopen, keep drawing: the loop that makes it an editor.
+    std::string error;
+    const std::string path = "ui_selftest.lsprite";
+    check(editor.doc.save(path, &error), "save");
+    check(editor.doc.open(path, &error), "open");
+    resyncLayers(editor);
+    check(!editor.layers.empty(), "reopened file has drawable layers");
+    check(editor.active() != nullptr, "reopened file can be drawn on");
+
+    editor.doc.beginAction("Pencil");
+    check(fast::paintPixels(editor.doc, *editor.active(), {{11, 11}}), "draw after reopen");
+    editor.doc.endAction();
+    check(editor.doc.canUndo(), "the new stroke is undoable");
+
+    // Opening repeatedly must not accumulate documents.
+    check(editor.doc.open(path, &error), "open again");
+    check(editor.doc.engine().documents().size() == 1, "one document held");
+
+    if (failures == 0) {
+        std::printf("ui_selftest: all checks passed\n");
+        return 0;
+    }
+    std::printf("ui_selftest: %d check(s) failed\n", failures);
+    return 1;
+}
+
 int main(int argc, char** argv) {
     const Options options = parseOptions(argc, argv);
+    if (options.selfTest) {
+        return runSelfTest();
+    }
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::printf("SDL_Init failed: %s\n", SDL_GetError());
@@ -337,6 +509,11 @@ int main(int argc, char** argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
+
+    // Every window here is positioned explicitly each frame, so ImGui's saved
+    // layout would never be read -- it would only drop an imgui.ini into
+    // whatever directory the editor happened to be started from.
+    ImGui::GetIO().IniFilename = nullptr;
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
 

@@ -54,6 +54,29 @@ bool writeFile(const std::string& path, const std::vector<uint8_t>& bytes, std::
 Document::Document() : engine_(ls::LSContext::create()) {}
 Document::~Document() = default;
 
+// Lets go of the document this one is replacing.
+//
+// An editor that opens ten files should be holding one document, not ten. The
+// context owns every entity handed out through it, so a document that is no
+// longer on screen is not merely idle: it keeps its sprites, layers, regions and
+// operations alive, and keeps them in the dependency graph, for as long as the
+// window is open.
+//
+// Snapshots are dropped first. They hold engine state for the document that is
+// going away, and an undo history for something no longer on screen is not
+// something any interface can offer.
+void Document::releasePrevious(ls::DocumentId replacement) {
+    undoStack_.clear();
+    redoStack_.clear();
+    pending_ = ls::DocumentSnapshot{};
+    pendingLabel_.clear();
+    actionDepth_ = 0;
+
+    if (id_.valid() && id_ != replacement) {
+        engine_->deleteDocument(id_);
+    }
+}
+
 // ------------------------------------------------------------------- life --
 
 bool Document::create(const std::string& name, uint32_t width, uint32_t height) {
@@ -66,6 +89,9 @@ bool Document::create(const std::string& name, uint32_t width, uint32_t height) 
     if (created.fail()) {
         return false;
     }
+    // The new document is built before the old one is let go, so a failure
+    // leaves the editor holding what it had.
+    releasePrevious(created.value);
     id_ = created.value;
     name_ = name;
     path_.clear();
@@ -96,6 +122,7 @@ bool Document::open(const std::string& path, std::string* error) {
         return false;
     }
 
+    releasePrevious(loaded.value);
     id_ = loaded.value;
     path_ = path;
     modified_ = false;

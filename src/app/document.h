@@ -110,6 +110,7 @@ private:
         std::string          label;
     };
 
+    void releasePrevious(ls::DocumentId replacement);
     void pushHistory(HistoryEntry entry);
     void trimHistory();
 

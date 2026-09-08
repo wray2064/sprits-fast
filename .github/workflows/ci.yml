@@ -84,4 +84,6 @@ jobs:
         working-directory: fast
         env:
           SDL_VIDEODRIVER: dummy
-        run: ./build/sprits_fast --frames 5 --demo-stroke
+        run: |
+          ./build/sprits_fast --frames 5 --demo-stroke
+          ./build/sprits_fast --self-test

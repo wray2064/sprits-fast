@@ -124,6 +124,10 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)
     add_test(NAME fast_paint COMMAND fast_paint_tests)
 
+    add_executable(fast_robustness_tests tests/robustness_tests.cpp)
+    target_link_libraries(fast_robustness_tests PRIVATE fast_core)
+    add_test(NAME fast_robustness COMMAND fast_robustness_tests)
+
     add_test(NAME fast_smoke COMMAND fast_smoke)
 
     # The interface, checked without anyone looking at it. SDL's dummy video
@@ -135,5 +139,10 @@ if (FAST_BUILD_TESTS)
                  COMMAND sprits_fast --frames 5 --demo-stroke)
         set_tests_properties(fast_ui_starts PROPERTIES
             ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+
+        # The window's own bookkeeping -- rebuilding the layer panel after undo,
+        # redo and open. None of it is reachable from a fast_core test, and all
+        # of it was wrong once.
+        add_test(NAME fast_ui_state COMMAND sprits_fast --self-test)
     endif()
 endif()

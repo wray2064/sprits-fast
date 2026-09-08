@@ -105,6 +105,59 @@ ls::Color paintColor(Document& doc, const PaintLayer& target) {
     return ls::Color{0, 0, 0, 0};
 }
 
+bool adoptPaintLayers(Document& doc, ls::SpriteId* outSprite,
+                      std::vector<PaintLayer>* outLayers) {
+    if (outSprite == nullptr || outLayers == nullptr) {
+        return false;
+    }
+    outLayers->clear();
+
+    ls::LSContext& engine = doc.engine();
+
+    auto document = engine.getDocumentInfo(doc.id());
+    if (document.fail() || document.value.sprites.empty()) {
+        return false;
+    }
+    *outSprite = document.value.sprites.front();
+
+    auto sprite = engine.getSpriteInfo(*outSprite);
+    if (sprite.fail()) {
+        return false;
+    }
+
+    for (ls::LayerId layer : sprite.value.layers) {
+        auto operations = engine.getLayerOperations(layer);
+        if (operations.fail()) {
+            continue;
+        }
+
+        // The first solid fill that names a region is the one a pencil writes
+        // into. A layer built by another tool -- a gradient, a dither, a stroke
+        // along a path -- has no such operation, and is left alone.
+        for (const ls::OperationInfo& op : operations.value) {
+            if (op.type != "FillSolidOp") {
+                continue;
+            }
+            auto region = engine.getOperationParameter(op.id, "targetRegion");
+            if (region.fail()) {
+                continue;
+            }
+            const uint64_t* handle = std::get_if<uint64_t>(&region.value);
+            if (handle == nullptr || *handle == 0) {
+                continue;
+            }
+
+            PaintLayer found;
+            found.layer = layer;
+            found.fill = op.id;
+            found.region.value = *handle;
+            outLayers->push_back(found);
+            break;
+        }
+    }
+    return true;
+}
+
 std::vector<ls::Vec2i> linePixels(ls::Vec2i from, ls::Vec2i to) {
     // Bresenham. A drag reports positions per frame, not per pixel, so without
     // this a quick stroke is a row of dots.
