@@ -27,6 +27,19 @@ constexpr const char* kFileExtension = ".lsprite";
 // annotating the same file cannot collide with them.
 constexpr const char* kUiStateEntry = "fast/ui-state.json";
 
+// How large a canvas Fast is willing to work with.
+//
+// This is Fast's decision, not the engine's. The engine refuses only what it
+// cannot safely represent, which is far larger; everything below that is a
+// judgement about cost, and the cost is steep -- a compile is area times layers,
+// so 4096x4096 with eight layers takes seconds. Pract, which is willing to wait,
+// sets its own.
+//
+// 16384 on a side leaves room for a long sprite sheet, which is cheap. The area
+// bound is what keeps a raster to 64 MB whatever the aspect ratio.
+constexpr uint32_t kMaxCanvasDimension = 16384;
+constexpr uint64_t kMaxCanvasPixels    = 4096ull * 4096ull;
+
 class Document {
 public:
     Document();

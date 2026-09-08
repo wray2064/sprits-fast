@@ -1,0 +1,24 @@
+Sprit's'fast
+Copyright (c) 2026 the Sprit's'fast authors
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+This product depends on software from third parties, listed here with the
+licences they carry. None of them impose obligations on a fork of Fast, which
+was a condition of choosing them.
+
+  LiveSprite engine   Business Source License 1.1, converting to Apache-2.0
+                      https://github.com/<owner>/livesprite
+                      Fast is Apache-2.0; the engine it requires is not. That is
+                      stated in the README rather than left to be discovered.
+
+  SDL3                zlib licence
+                      https://github.com/libsdl-org/SDL
+
+  Dear ImGui          MIT licence
+                      https://github.com/ocornut/imgui
+
+  stb_image_write.h   Public domain (Unlicense), or MIT at your option
+                      https://github.com/nothings/stb
+                      Vendored in third_party/ -- see the README there for the
+                      pinned version and hash.

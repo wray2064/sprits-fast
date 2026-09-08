@@ -13,7 +13,16 @@ std::string engineError(ls::LSError error) {
 
 } // namespace
 
-Document::Document() : engine_(ls::LSContext::create()) {}
+Document::Document() : engine_(ls::LSContext::create()) {
+    // Say what this application works with rather than inheriting a default it
+    // did not choose. It also decides which files will open: a document larger
+    // than this is refused by the reader instead of arriving as something the
+    // canvas cannot draw.
+    ls::CanvasLimits limits;
+    limits.maxDimension = kMaxCanvasDimension;
+    limits.maxPixels = kMaxCanvasPixels;
+    engine_->setCanvasLimits(limits);
+}
 Document::~Document() = default;
 
 // Lets go of the document this one is replacing.

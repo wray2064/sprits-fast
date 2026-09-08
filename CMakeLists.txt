@@ -62,13 +62,24 @@ endif()
 
 add_library(fast_core STATIC
     src/app/document.cpp
+    src/app/export_png.cpp
     src/app/file_io.cpp
     src/app/paint.cpp
     src/app/recent_files.cpp
     src/app/ui_state.cpp
 )
 
-target_include_directories(fast_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(fast_core
+    PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+
+# stb is somebody else's code and is not held to our warning settings. Ours is:
+# this only relaxes the file that includes it.
+if (MSVC)
+    set_source_files_properties(src/app/export_png.cpp PROPERTIES COMPILE_OPTIONS "/W3")
+else()
+    set_source_files_properties(src/app/export_png.cpp PROPERTIES COMPILE_OPTIONS "-Wno-error")
+endif()
 target_link_libraries(fast_core PUBLIC livesprite::livesprite)
 
 if (MSVC)
@@ -143,6 +154,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_ui_state_tests tests/ui_state_tests.cpp)
     target_link_libraries(fast_ui_state_tests PRIVATE fast_core)
     add_test(NAME fast_ui_state_format COMMAND fast_ui_state_tests)
+
+    add_executable(fast_export_tests tests/export_tests.cpp)
+    target_link_libraries(fast_export_tests PRIVATE fast_core)
+    add_test(NAME fast_export COMMAND fast_export_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

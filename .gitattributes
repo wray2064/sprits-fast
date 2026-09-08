@@ -3,3 +3,4 @@
 
 *.png     binary
 *.lsprite binary
+third_party/*.h -text

@@ -17,7 +17,8 @@ production suite.
 Early, but it runs: a window with a canvas, a pencil and an eraser, layers with
 rename and delete, undo/redo, and real file handling -- native Open and Save
 dialogs, recent files, drag-and-drop, atomic saves, a prompt before anything
-discards unsaved work, and files that open from the command line.
+discards unsaved work, PNG export at whole-number scales, and files that open
+from the command line.
 
 ```bash
 build-gui/sprits_fast hero.lsprite
@@ -36,6 +37,15 @@ the work happens there, and it builds in seconds.
 
 `build/fast_smoke` drives a document end to end and prints what it sees at each
 step, with no window at all.
+
+### Getting work out
+
+**File -> Export PNG** writes a picture at 1x through 16x. Scaling is pixel
+duplication, never interpolation: a sprite at 4x is exactly four identical pixels
+per side, because anything else defeats the point of the format.
+
+Export compiles at `Export` quality rather than writing what is on screen, and
+leaves the document untouched -- exporting is not saving.
 
 ### The thing to try first
 
@@ -99,7 +109,8 @@ promise that quietly stops being true.
 ## Licence
 
 Fast is **Apache-2.0**. Fork it, gut it, ship something better — that is what it
-is for.
+is for. Third-party components and their licences are listed in [NOTICE](NOTICE);
+all of them were chosen so that none imposes anything on a fork.
 
 Being open does not make the whole product open source: Fast depends on the
 LiveSprite engine, which is **source-available under the Business Source License

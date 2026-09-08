@@ -64,6 +64,31 @@ void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc)
                            suggestion.empty() ? nullptr : suggestion.c_str());
 }
 
+void showExportDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportPng, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    static const SDL_DialogFileFilter pngFilters[] = {
+        { "PNG image", "png" },
+        { "All files", "*" },
+    };
+
+    // Suggest the sprite's own name with a .png beside it, which is what people
+    // expect and saves them retyping.
+    const std::string suggestion = doc.path().empty()
+                                 ? std::string()
+                                 : withExtension(fileStem(doc.path()), ".png");
+    const std::string location = doc.path().empty() ? std::string()
+                                                    : directoryOf(doc.path());
+    const std::string start = location.empty() ? suggestion
+                            : location + "/" + suggestion;
+
+    SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, pngFilters,
+                           static_cast<int>(SDL_arraysize(pngFilters)),
+                           start.empty() ? nullptr : start.c_str());
+}
+
 std::string windowTitle(const Document& doc) {
     std::string name = doc.path().empty() ? std::string("untitled")
                                           : fileName(doc.path());

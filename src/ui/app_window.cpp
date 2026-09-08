@@ -8,6 +8,7 @@
 // deleted and rewritten against a different toolkit, the editor would still be
 // here.
 
+#include "app/export_png.h"
 #include "app/file_io.h"
 #include "app/paint.h"
 #include "app/ui_state.h"
@@ -46,6 +47,7 @@ struct Editor {
     bool  recolouring = false;
     int   renaming = -1;            // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
+    int   exportScale = 1;          // whole-number magnification for a PNG export
 
     fast::FileState files;
     bool  quitRequested = false;
@@ -406,6 +408,22 @@ void drawMenuBar(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
             fast::showSaveAsDialog(editor.files, window, editor.doc);
         }
         ImGui::Separator();
+
+        // Export is not Save. It writes a picture somebody else can open, and
+        // leaves the document exactly as it was.
+        if (ImGui::BeginMenu("Export PNG")) {
+            const int scales[] = { 1, 2, 4, 8, 16 };
+            for (int scale : scales) {
+                const std::string label = std::to_string(scale) + "x";
+                if (ImGui::MenuItem(label.c_str())) {
+                    editor.exportScale = scale;
+                    fast::showExportDialog(editor.files, window, editor.doc);
+                }
+            }
+            ImGui::EndMenu();
+        }
+
+        ImGui::Separator();
         if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
             requestAction(editor, canvas, window, fast::PendingAction::Quit);
         }
@@ -523,6 +541,19 @@ void processDialogResult(Editor& editor, fast::CanvasView& canvas, SDL_Window* w
 
     if (kind == fast::DialogResult::Kind::Open) {
         openPath(editor, canvas, path);
+        return;
+    }
+
+    if (kind == fast::DialogResult::Kind::ExportPng) {
+        fast::ExportSettings settings;
+        settings.scale = static_cast<uint32_t>(editor.exportScale);
+        std::string error;
+        if (fast::exportSpriteToPng(editor.doc, editor.sprite, path, settings, &error)) {
+            editor.status = "exported " + fast::fileName(path) + " at " +
+                            std::to_string(editor.exportScale) + "x";
+        } else {
+            editor.status = "export failed: " + error;
+        }
         return;
     }
 
