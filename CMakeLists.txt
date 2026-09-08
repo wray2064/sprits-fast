@@ -66,6 +66,7 @@ add_library(fast_core STATIC
     src/app/file_io.cpp
     src/app/paint.cpp
     src/app/recent_files.cpp
+    src/app/transform.cpp
     src/app/ui_state.cpp
 )
 
@@ -158,6 +159,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_export_tests tests/export_tests.cpp)
     target_link_libraries(fast_export_tests PRIVATE fast_core)
     add_test(NAME fast_export COMMAND fast_export_tests)
+
+    add_executable(fast_transform_tests tests/transform_tests.cpp)
+    target_link_libraries(fast_transform_tests PRIVATE fast_core)
+    add_test(NAME fast_transform COMMAND fast_transform_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

@@ -49,11 +49,28 @@ leaves the document untouched -- exporting is not saving.
 
 ### The thing to try first
 
-Draw something, then change the colour in the picker.
+Draw something, add a **Rotate** in the Transform panel, and drag the angle.
 
-The drawing is not repainted. The colour lives on the fill rule rather than in
-the pixels, so the whole layer changes colour through one parameter and nothing
-is resampled. That is the engine's premise in a single control.
+![Rotating and returning](docs/rotation.png)
+
+That is one sprite at 0, 24, 90, 137, 300 and 0 degrees again. The last frame is
+not *close to* the first, it is byte-for-byte identical — SHA-256 and all. In any
+editor that resamples, five turns would have left it soft and chewed.
+
+Nothing is spent because nothing accumulates: the rotation is an entry in the
+layer's operation list, and every compile resolves it against the pixels that
+were drawn, not against the last frame. Drag the slider through two hundred
+angles and there is still exactly one operation. Set it back to zero, or delete
+the entry, and the original returns exactly.
+
+The same idea one control over: change the colour in the picker and the drawing
+is not repainted. The colour lives on the fill rule rather than in the pixels.
+
+**One honest note.** Look at the arrowhead in that strip. Single-pixel diagonals
+break into dashes at arbitrary angles — the solid body turns crisply, thin
+features do not. That is a property of resolving coverage without
+anti-aliasing, which is the right trade for pixel art, but it is worth seeing
+before you rely on it.
 
 ## Build
 

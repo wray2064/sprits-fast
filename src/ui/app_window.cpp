@@ -11,6 +11,7 @@
 #include "app/export_png.h"
 #include "app/file_io.h"
 #include "app/paint.h"
+#include "app/transform.h"
 #include "app/ui_state.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
@@ -21,6 +22,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -48,6 +50,7 @@ struct Editor {
     int   renaming = -1;            // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
     int   exportScale = 1;          // whole-number magnification for a PNG export
+    bool  draggingTransform = false;   // a slider is being held
 
     fast::FileState files;
     bool  quitRequested = false;
@@ -178,6 +181,124 @@ void drawToolPanel(Editor& editor, fast::CanvasView& canvas) {
     }
     if (ImGui::Button("Reset view")) {
         canvas.resetView();
+    }
+}
+
+// The transform panel.
+//
+// This is the part of Fast that has no equivalent elsewhere, so it is worth
+// being clear about what it is: a *list you can edit*, not a record of things
+// you have done. Dragging the angle changes a parameter and recompiles from the
+// pixels that were authored. Setting it back to zero gives them back exactly,
+// and removing the entry does the same. Nothing here is ever spent.
+void drawTransformPanel(Editor& editor, fast::CanvasView& canvas) {
+    fast::PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        ImGui::TextDisabled("no layer selected");
+        return;
+    }
+
+    const ls::Vec2f centre = [&] {
+        auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+        if (size.fail()) { return ls::Vec2f{0.f, 0.f}; }
+        return ls::Vec2f{ static_cast<float>(size.value.x) * 0.5f,
+                          static_cast<float>(size.value.y) * 0.5f };
+    }();
+
+    if (ImGui::Button("Rotate")) {
+        editor.doc.beginAction("Add rotate");
+        fast::addRotate(editor.doc, layer->layer, 0.f, centre);
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Scale")) {
+        editor.doc.beginAction("Add scale");
+        fast::addScale(editor.doc, layer->layer, {1.f, 1.f}, centre);
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Mirror")) {
+        editor.doc.beginAction("Add mirror");
+        fast::addMirror(editor.doc, layer->layer, ls::MirrorAxis::X, centre);
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+
+    const std::vector<fast::TransformEntry> transforms =
+        fast::listTransforms(editor.doc, layer->layer);
+
+    if (transforms.empty()) {
+        ImGui::Spacing();
+        ImGui::TextDisabled("Nothing applied.");
+        ImGui::TextWrapped("Add a rotation, then drag it. The picture is rebuilt "
+                           "from the drawing each time, so returning to zero "
+                           "returns the original pixels exactly.");
+        return;
+    }
+
+    ImGui::Separator();
+
+    for (size_t i = 0; i < transforms.size(); ++i) {
+        const fast::TransformEntry& entry = transforms[i];
+        ImGui::PushID(static_cast<int>(i));
+
+        ImGui::TextUnformatted(entry.label().c_str());
+
+        bool changed = false;
+        if (entry.kind == fast::TransformKind::Rotate) {
+            float angle = entry.angleDegrees;
+            ImGui::SetNextItemWidth(-60.f);
+            if (ImGui::SliderFloat("##angle", &angle, -360.f, 360.f, "%.1f deg")) {
+                fast::setRotateAngle(editor.doc, entry.id, angle);
+                changed = true;
+            }
+        } else if (entry.kind == fast::TransformKind::Scale) {
+            float factor[2] = { entry.factor.x, entry.factor.y };
+            ImGui::SetNextItemWidth(-60.f);
+            if (ImGui::SliderFloat2("##factor", factor, 0.1f, 8.f, "%.2f")) {
+                fast::setScaleFactor(editor.doc, entry.id, {factor[0], factor[1]});
+                changed = true;
+            }
+        } else {
+            ImGui::TextDisabled("(mirrors have no parameters)");
+        }
+
+        // One history entry for a whole drag, the same bracket the colour picker
+        // uses. Without it a slider would either be unundoable or would leave
+        // hundreds of entries.
+        if (ImGui::IsItemActivated()) {
+            editor.doc.beginAction("Transform");
+            editor.draggingTransform = true;
+        }
+        if (editor.draggingTransform && ImGui::IsItemDeactivated()) {
+            editor.doc.endAction();
+            editor.draggingTransform = false;
+        }
+        if (changed) {
+            canvas.invalidate();
+            editor.status = "recompiled from the drawing, not from the last frame";
+        }
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) {
+            editor.doc.beginAction("Remove transform");
+            fast::removeTransform(editor.doc, layer->layer, entry.id);
+            editor.doc.endAction();
+            canvas.invalidate();
+            ImGui::PopID();
+            break;
+        }
+        ImGui::PopID();
+    }
+
+    ImGui::Separator();
+    if (ImGui::Button("Remove all")) {
+        editor.doc.beginAction("Remove transforms");
+        fast::clearTransforms(editor.doc, layer->layer);
+        editor.doc.endAction();
+        canvas.invalidate();
     }
 }
 
@@ -574,6 +695,25 @@ void handleStroke(Editor& editor, fast::CanvasView& canvas, bool overCanvas, Vec
         return;
     }
 
+    // A layer shown rotated is still drawn on straight. The pencil writes into
+    // the region; the transform then acts on it. So the point under the cursor
+    // has to be carried back into the layer's own space, or the cursor and the
+    // mark part company the moment an angle is set.
+    if (overCanvas) {
+        Vec2f mapped;
+        if (fast::mapCanvasPointToLayer(editor.doc, layer->layer,
+                                        {static_cast<float>(pixel.x),
+                                         static_cast<float>(pixel.y)}, &mapped)) {
+            pixel = { static_cast<int32_t>(std::floor(mapped.x + 0.5f)),
+                      static_cast<int32_t>(std::floor(mapped.y + 0.5f)) };
+        } else {
+            // A transform with no inverse -- a scale of zero. Drawing would put
+            // marks somewhere arbitrary, so it does not.
+            editor.status = "this transform cannot be drawn through";
+            overCanvas = false;
+        }
+    }
+
     // A whole drag is one history entry, so the bracket opens on press and
     // closes on release rather than per sample.
     if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -614,7 +754,8 @@ void handleShortcuts(Editor& editor, fast::CanvasView& canvas, SDL_Window* windo
     // moment to act on a shortcut. Undoing halfway through a drag would step
     // back over a history entry that has not been committed, leaving the
     // bracket open.
-    if (editor.stroking || editor.recolouring || editor.files.askingToSave) {
+    if (editor.stroking || editor.recolouring || editor.draggingTransform ||
+        editor.files.askingToSave) {
         return;
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
@@ -683,7 +824,7 @@ Options parseOptions(int argc, char** argv) {
 
 // An X and a filled block, drawn through exactly the calls the pencil makes, so
 // a screenshot shows the real path rather than a special one.
-void drawDemoContent(Editor& editor) {
+void drawDemoContent(Editor& editor, bool rotated) {
     fast::PaintLayer* layer = editor.active();
     if (layer == nullptr) {
         return;
@@ -695,6 +836,14 @@ void drawDemoContent(Editor& editor) {
         fast::paintPixels(editor.doc, *layer, fast::linePixels({12, y}, {19, y}));
     }
     editor.doc.endAction();
+
+    // Shown turned, because a screenshot of a square proves nothing about an
+    // engine whose point is that turning is free.
+    if (rotated) {
+        editor.doc.beginAction("Demo rotate");
+        fast::addRotate(editor.doc, layer->layer, 24.f, {16.f, 16.f});
+        editor.doc.endAction();
+    }
     editor.status = "demo content";
 }
 
@@ -924,7 +1073,7 @@ int main(int argc, char** argv) {
         openPath(editor, canvas, options.openPath);
     }
     if (options.demoStroke) {
-        drawDemoContent(editor);
+        drawDemoContent(editor, true);
         canvas.invalidate();
     }
 
@@ -985,8 +1134,17 @@ int main(int argc, char** argv) {
         ImGui::End();
 
         ImGui::SetNextWindowPos({viewport->WorkPos.x + viewport->WorkSize.x - sidebar,
+                                 viewport->WorkPos.y + (viewport->WorkSize.y - statusHeight) * 0.5f});
+        ImGui::SetNextWindowSize({sidebar, (viewport->WorkSize.y - statusHeight) * 0.5f});
+        ImGui::Begin("Transform", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoCollapse);
+        drawTransformPanel(editor, canvas);
+        ImGui::End();
+
+        ImGui::SetNextWindowPos({viewport->WorkPos.x + viewport->WorkSize.x - sidebar,
                                  viewport->WorkPos.y});
-        ImGui::SetNextWindowSize({sidebar, viewport->WorkSize.y - statusHeight});
+        ImGui::SetNextWindowSize({sidebar, (viewport->WorkSize.y - statusHeight) * 0.5f});
         ImGui::Begin("Layers", nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoCollapse);

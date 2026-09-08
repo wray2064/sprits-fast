@@ -89,6 +89,35 @@ that follows:
 - While dragging, drive parameters through `setOperationParameter` rather than
   rebuilding operations, so the dependency graph invalidates narrowly.
 
+## Transforms are a list, not a history
+
+The part of Fast with no equivalent elsewhere, and the reason the engine exists.
+
+A rotation is an entry in the layer's operation stack. The Transform panel shows
+that stack and lets it be edited: drag the angle and a parameter changes, then
+the layer recompiles from the region and fill that were authored. Set it back to
+zero and the original pixels return exactly. Remove the entry and the same. Two
+hundred drags of the slider leave one operation, because nothing was ever
+applied to anything -- there is only one transform resolved against untouched
+source.
+
+`tests/transform_tests.cpp` states that as something that can fail: not "roughly
+as good" but the same bytes, after wandering through forty angles and back.
+
+Two consequences for the interface:
+
+**The pencil has to be mapped back.** A layer shown rotated is still drawn on
+straight -- the pencil writes into the region and the transform then acts on it.
+So a point under the cursor is carried through the inverse of the layer's
+composed transform before it becomes a pixel. Without that, cursor and mark part
+company the moment an angle is set. A transform with no inverse, such as a scale
+of zero, refuses to be drawn through rather than putting marks somewhere
+arbitrary.
+
+**A slider drag is one history entry.** The same bracket the colour picker uses:
+open on grab, close on release. Without it a drag is either not undoable at all
+or leaves hundreds of entries.
+
 ## Files
 
 A `.lsprite` file is a LiveSprite package: a ZIP with stored (uncompressed)
