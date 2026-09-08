@@ -118,6 +118,24 @@ there, which is the worst thing a save can do.
 The temporary sits beside the target rather than in a system temp directory, so
 the rename stays within one filesystem and is therefore atomic.
 
+### Where you were when you closed it
+
+Zoom, pan and the selected layer are not part of the artwork, so none of it goes
+near the engine's document. It rides in the package as a `fast/` entry, which is
+what namespaced app entries are for: another application ignores it, and Fast
+writing the file back does not disturb what that application keeps beside it.
+
+**It is also untrusted input.** It arrives from whoever sent the file, and a zoom
+of 1e30, a NaN pan or a layer index of four billion all take about ten seconds to
+produce in a text editor. `app/ui_state` parses a deliberately small subset of
+JSON -- a flat object of numbers, no nesting, no escapes -- refuses infinities at
+the parser, and clamps everything else before it reaches the canvas. A pan far
+outside any plausible window puts the artwork somewhere the user cannot scroll
+back to, which looks exactly like a file that failed to open.
+
+Unknown fields are ignored rather than refused, so a newer Fast can record
+something this build has never heard of without making the file unopenable.
+
 ### Asking before discarding
 
 New, Open, opening a recent file, a dropped file and the window's close button

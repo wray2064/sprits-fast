@@ -16,8 +16,12 @@ production suite.
 
 Early, but it runs: a window with a canvas, a pencil and an eraser, layers with
 rename and delete, undo/redo, and real file handling -- native Open and Save
-dialogs, recent files, drag-and-drop, atomic saves, and a prompt before anything
-discards unsaved work.
+dialogs, recent files, drag-and-drop, atomic saves, a prompt before anything
+discards unsaved work, and files that open from the command line.
+
+```bash
+build-gui/sprits_fast hero.lsprite
+```
 
 ```bash
 ./build.bat test        # fast_core and its tests — no toolkit, seconds

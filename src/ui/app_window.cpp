@@ -10,6 +10,7 @@
 
 #include "app/file_io.h"
 #include "app/paint.h"
+#include "app/ui_state.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
@@ -67,6 +68,27 @@ Color toColor(const float rgba[4]) {
              static_cast<uint8_t>(rgba[3] * 255.f + 0.5f) };
 }
 
+// Points the colour picker at whatever layer is selected.
+//
+// Without this the picker keeps whatever it was last set to, so after opening a
+// file -- or just clicking a different layer -- it shows one colour while the
+// layer is another. Nudging it then repaints the layer to the stale value, which
+// is worse than merely looking wrong.
+void syncColorFromLayer(Editor& editor) {
+    fast::PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        return;
+    }
+    const Color colour = fast::paintColor(editor.doc, *layer);
+    if (colour.a == 0) {
+        return;                 // nothing resolved; leave the picker alone
+    }
+    editor.color[0] = static_cast<float>(colour.r) / 255.f;
+    editor.color[1] = static_cast<float>(colour.g) / 255.f;
+    editor.color[2] = static_cast<float>(colour.b) / 255.f;
+    editor.color[3] = static_cast<float>(colour.a) / 255.f;
+}
+
 // Rebuilds the layer list from the document.
 //
 // The interface holds handles; undo, redo and open all change what exists. Undo
@@ -104,6 +126,7 @@ bool newDocument(Editor& editor, uint32_t size) {
         return false;
     }
     editor.layers.push_back(layer);
+    editor.doc.setUiState({});
     editor.status = "new " + std::to_string(size) + "x" + std::to_string(size) + " document";
     return true;
 }
@@ -217,6 +240,7 @@ void drawLayerPanel(Editor& editor, fast::CanvasView& canvas) {
         } else {
             if (ImGui::Selectable(name.c_str(), editor.activeLayer == i)) {
                 editor.activeLayer = i;
+                syncColorFromLayer(editor);
             }
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 editor.renaming = i;
@@ -244,6 +268,22 @@ void openPath(Editor& editor, fast::CanvasView& canvas, const std::string& path)
     }
     editor.activeLayer = 0;
     resyncLayers(editor);
+
+    // Put the view back where it was when this file was last closed. Everything
+    // in here came out of a file, so it is clamped before it reaches the canvas
+    // rather than trusted: a zoom of 1e30 or a pan of four million looks exactly
+    // like a file that failed to open.
+    fast::UiState view;
+    if (fast::fromJson(editor.doc.uiState(), &view)) {
+        view.clamp(static_cast<int>(editor.layers.size()));
+        canvas.setZoom(view.zoom);
+        canvas.setPan(view.panX, view.panY);
+        editor.activeLayer = view.activeLayer;
+    } else {
+        canvas.resetView();
+    }
+
+    syncColorFromLayer(editor);
     canvas.invalidate();
     editor.files.recent.add(path);
     editor.files.recent.save();
@@ -251,7 +291,16 @@ void openPath(Editor& editor, fast::CanvasView& canvas, const std::string& path)
                     std::to_string(editor.layers.size()) + " layer(s)";
 }
 
-bool saveTo(Editor& editor, const std::string& path) {
+bool saveTo(Editor& editor, const fast::CanvasView& canvas, const std::string& path) {
+    // Where the user was looking is not part of the artwork, so it rides in the
+    // package as a fast/ entry rather than going anywhere near the document.
+    fast::UiState view;
+    view.zoom = canvas.zoom();
+    view.panX = canvas.panX();
+    view.panY = canvas.panY();
+    view.activeLayer = editor.activeLayer;
+    editor.doc.setUiState(fast::toJson(view));
+
     std::string error;
     const std::string target = fast::withExtension(path, fast::kFileExtension);
     if (!editor.doc.save(target, &error)) {
@@ -266,12 +315,12 @@ bool saveTo(Editor& editor, const std::string& path) {
 
 // Save, or Save As if this document has never been written. Returns false when
 // the answer is not known yet because a dialog is open.
-bool saveOrAsk(Editor& editor, SDL_Window* window) {
+bool saveOrAsk(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
     if (editor.doc.path().empty()) {
         fast::showSaveAsDialog(editor.files, window, editor.doc);
         return false;
     }
-    return saveTo(editor, editor.doc.path());
+    return saveTo(editor, canvas, editor.doc.path());
 }
 
 void performAction(Editor& editor, fast::CanvasView& canvas, SDL_Window* window,
@@ -351,7 +400,7 @@ void drawMenuBar(Editor& editor, fast::CanvasView& canvas, SDL_Window* window) {
 
         ImGui::Separator();
         if (ImGui::MenuItem("Save", "Ctrl+S")) {
-            saveOrAsk(editor, window);
+            saveOrAsk(editor, canvas, window);
         }
         if (ImGui::MenuItem("Save as...", "Ctrl+Shift+S")) {
             fast::showSaveAsDialog(editor.files, window, editor.doc);
@@ -413,7 +462,7 @@ void drawUnsavedPrompt(Editor& editor, fast::CanvasView& canvas, SDL_Window* win
             // until the dialog comes back.
             editor.files.resumeAfterSave = true;
             fast::showSaveAsDialog(editor.files, window, editor.doc);
-        } else if (saveTo(editor, editor.doc.path())) {
+        } else if (saveTo(editor, canvas, editor.doc.path())) {
             editor.files.pending = fast::PendingAction::None;
             performAction(editor, canvas, window, action, path);
         }
@@ -477,7 +526,7 @@ void processDialogResult(Editor& editor, fast::CanvasView& canvas, SDL_Window* w
         return;
     }
 
-    if (saveTo(editor, path) && editor.files.resumeAfterSave) {
+    if (saveTo(editor, canvas, path) && editor.files.resumeAfterSave) {
         const fast::PendingAction action = editor.files.pending;
         const std::string pendingPath = editor.files.pendingPath;
         editor.files.resumeAfterSave = false;
@@ -551,7 +600,7 @@ void handleShortcuts(Editor& editor, fast::CanvasView& canvas, SDL_Window* windo
         if (io.KeyShift) {
             fast::showSaveAsDialog(editor.files, window, editor.doc);
         } else {
-            saveOrAsk(editor, window);
+            saveOrAsk(editor, canvas, window);
         }
     }
     if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
@@ -577,6 +626,7 @@ struct Options {
     std::string screenshot;
     bool        demoStroke = false;
     bool        selfTest = false;
+    std::string openPath;       // a file named on the command line
 };
 
 Options parseOptions(int argc, char** argv) {
@@ -591,6 +641,10 @@ Options parseOptions(int argc, char** argv) {
             options.demoStroke = true;
         } else if (arg == "--self-test") {
             options.selfTest = true;
+        } else if (!arg.empty() && arg[0] != '-') {
+            // A bare argument is a file to open, which is how a file manager
+            // hands one over when someone double-clicks it.
+            options.openPath = arg;
         }
     }
     return options;
@@ -698,6 +752,10 @@ int runSelfTest() {
 
     editor.files.recent.clear();
 
+    // No renderer here: nothing in these paths draws, the canvas only carries
+    // zoom and pan.
+    fast::CanvasView canvas(nullptr);
+
     // The title says what is open and whether there is unsaved work.
     check(fast::windowTitle(editor.doc).find("ui_selftest") != std::string::npos,
           "title names the file");
@@ -711,19 +769,17 @@ int runSelfTest() {
           "an edited document is marked modified");
 
     // A save through the file path adds to the recent list and clears the mark.
-    check(saveTo(editor, path), "save through the file command");
+    check(saveTo(editor, canvas, path), "save through the file command");
     check(!editor.doc.modified(), "saving clears the modified mark");
     check(editor.files.recent.entries().size() == 1, "the save is remembered");
 
     // Opening something that is not there must fail cleanly and drop the entry
     // rather than leaving a menu item that cannot work.
-    fast::CanvasView* noCanvas = nullptr;
-    (void)noCanvas;
     editor.files.recent.add("no_such_file_at_all.lsprite");
     check(editor.files.recent.entries().size() == 2, "the bad path is listed");
 
     // An extension is added when the user does not type one.
-    check(saveTo(editor, "ui_selftest_noext"), "save without an extension");
+    check(saveTo(editor, canvas, "ui_selftest_noext"), "save without an extension");
     check(fast::hasExtension(editor.doc.path(), fast::kFileExtension),
           "the extension is supplied");
 
@@ -732,6 +788,45 @@ int runSelfTest() {
     fast::paintPixels(editor.doc, *editor.active(), {{4, 4}});
     editor.doc.endAction();
     check(editor.doc.modified(), "modified again");
+
+    // ------------------------------------------------------- loading a file --
+    //
+    // The view and the selected layer ride in the package and have to come back.
+    canvas.setZoom(19.f);
+    canvas.setPan(-33.f, 21.f);
+    check(saveTo(editor, canvas, path), "save with a view to restore");
+
+    // A second editor, as a fresh launch would be.
+    Editor reopened;
+    canvas.resetView();
+    check(canvas.zoom() == 8.f, "the view is reset before loading");
+
+    openPath(reopened, canvas, path);
+    check(!reopened.layers.empty(), "the reopened file has layers");
+    check(canvas.zoom() == 19.f, "zoom comes back");
+    check(canvas.panX() == -33.f, "pan x comes back");
+    check(canvas.panY() == 21.f, "pan y comes back");
+
+    // The picker must show the colour of the layer it is pointed at, not
+    // whatever it happened to hold before.
+    check(reopened.active() != nullptr, "there is an active layer to check");
+    if (reopened.active() != nullptr) {
+        const Color onDisk = fast::paintColor(reopened.doc, *reopened.active());
+        const Color inPicker = toColor(reopened.color);
+        check(onDisk.r == inPicker.r && onDisk.g == inPicker.g &&
+              onDisk.b == inPicker.b,
+              "the picker matches the loaded layer");
+    }
+
+    // A file with no view recorded, and one with a hostile view, both have to
+    // open rather than putting the artwork somewhere unreachable.
+    reopened.doc.setUiState("{\"zoom\":1e6,\"panX\":-9e9,\"activeLayer\":9999}");
+    check(reopened.doc.save(path, &error), "save a hostile view");
+    openPath(reopened, canvas, path);
+    check(canvas.zoom() <= 64.f, "an absurd zoom is clamped");
+    check(canvas.panX() >= -20000.f, "an absurd pan is clamped");
+    check(reopened.activeLayer < static_cast<int>(reopened.layers.size()),
+          "an out-of-range layer index is clamped");
 
     theirs.save();      // put the user's list back
     fast::deleteFile("ui_selftest_noext" + std::string(fast::kFileExtension));
@@ -794,6 +889,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    if (!options.openPath.empty()) {
+        openPath(editor, canvas, options.openPath);
+    }
     if (options.demoStroke) {
         drawDemoContent(editor);
         canvas.invalidate();

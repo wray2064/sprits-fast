@@ -65,6 +65,7 @@ add_library(fast_core STATIC
     src/app/file_io.cpp
     src/app/paint.cpp
     src/app/recent_files.cpp
+    src/app/ui_state.cpp
 )
 
 target_include_directories(fast_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -138,6 +139,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_recent_tests tests/recent_files_tests.cpp)
     target_link_libraries(fast_recent_tests PRIVATE fast_core)
     add_test(NAME fast_recent COMMAND fast_recent_tests)
+
+    add_executable(fast_ui_state_tests tests/ui_state_tests.cpp)
+    target_link_libraries(fast_ui_state_tests PRIVATE fast_core)
+    add_test(NAME fast_ui_state_format COMMAND fast_ui_state_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

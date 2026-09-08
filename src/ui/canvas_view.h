@@ -40,6 +40,11 @@ public:
     float zoom() const { return zoom_; }
     void  resetView() { zoom_ = 8.f; panX_ = 0.f; panY_ = 0.f; }
 
+    // The view, for saving into a file and putting back on load.
+    void  setPan(float x, float y) { panX_ = x; panY_ = y; }
+    float panX() const { return panX_; }
+    float panY() const { return panY_; }
+
     // Milliseconds the last real compile took, for the status bar. An editor
     // should show this: it is the number that decides whether the canvas needs
     // to move to a background thread.
