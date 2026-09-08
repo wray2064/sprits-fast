@@ -1,0 +1,15 @@
+build/
+out/
+
+# Files the tests and the smoke run write into the working directory.
+*.lsprite
+
+*.obj
+*.lib
+*.exe
+*.pdb
+*.ilk
+CMakeCache.txt
+CMakeFiles/
+.ninja_deps
+.ninja_log

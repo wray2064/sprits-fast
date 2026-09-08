@@ -1,0 +1,27 @@
+                                 Apache License
+                           Version 2.0, January 2004
+
+  Copyright (c) 2026 <YOUR LEGAL NAME OR COMPANY>
+
+-----------------------------------------------------------------------------
+
+  !!  THIS FILE IS NOT YET A VALID LICENSE.  !!
+
+  Sprit's'fast is Apache-2.0. The full licence text has to be pasted in here,
+  verbatim, from the authoritative source:
+
+      https://www.apache.org/licenses/LICENSE-2.0.txt
+
+  It was not reproduced from memory on purpose: a licence with one clause
+  subtly wrong is worse than no licence at all. GitHub can also insert it for
+  you -- Add file -> Create new file -> name it LICENSE -> "Choose a license
+  template" -> Apache License 2.0.
+
+  Note that Fast being Apache-2.0 does not make the whole product open source.
+  It depends on the LiveSprite engine, which is source-available under the
+  Business Source License 1.1. That is stated plainly in the README rather than
+  left to be discovered, and it is worth keeping stated.
+
+  Remove this marker once the text is in place.
+
+-----------------------------------------------------------------------------

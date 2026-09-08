@@ -1,0 +1,50 @@
+name: ci
+
+# Fast is built against the engine from source. Until the engine has a git
+# remote, CI needs it checked out alongside; LIVESPRITE_DIR points the build at
+# wherever that lands.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "windows / msvc",      os: windows-latest, args: "" }
+          - { name: "ubuntu / gcc",        os: ubuntu-latest,
+              args: "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" }
+          - { name: "macos / apple clang", os: macos-latest, args: "" }
+
+    steps:
+      - name: Check out Fast
+        uses: actions/checkout@v4
+        with:
+          path: fast
+
+      # Replace with the engine's repository once it has one.
+      - name: Check out the engine
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.LIVESPRITE_REPO || github.repository }}
+          path: engine
+        continue-on-error: true
+
+      - name: Configure
+        working-directory: fast
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIVESPRITE_DIR=../engine ${{ matrix.args }}
+
+      - name: Build
+        working-directory: fast
+        run: cmake --build build --config RelWithDebInfo
+
+      - name: Test
+        working-directory: fast
+        run: ctest --test-dir build --build-config RelWithDebInfo --output-on-failure

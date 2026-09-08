@@ -1,0 +1,5 @@
+# LF in the repository. Development happens on Windows; CI does not.
+* text=auto eol=lf
+
+*.png     binary
+*.lsprite binary
