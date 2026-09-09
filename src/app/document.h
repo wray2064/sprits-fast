@@ -71,6 +71,14 @@ public:
     const std::string& path() const { return path_; }
     bool             modified() const { return modified_; }
 
+    // Declares the current state to be the baseline, without writing anything.
+    //
+    // Building a new document takes real actions -- creating its first layer is
+    // one -- so it arrives already marked as changed, and File > New would ask
+    // whether to save a document that has never been touched. This says: this
+    // is what empty looks like.
+    void markUnmodified() { modified_ = false; }
+
     // ---------------------------------------------------------------- undo --
     //
     // Every change to the document is bracketed:

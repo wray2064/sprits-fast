@@ -225,6 +225,40 @@ three independent users in the engine's CI — a C test suite compiled by the C
 compiler, a Python ctypes run, and the installed-package consumer job. Making
 Fast a fourth would slow Fast down for proof that already exists.
 
+## How the interface is put together
+
+```
+  src/ui/theme.*        colours, spacing, and the small shared widgets
+  src/ui/editor.*       what the interface holds: tool, active layer, drag state
+  src/ui/panels.*       one function per panel
+  src/ui/canvas_view.*  the compiled sprite on screen, zoom, pan, hit testing
+  src/ui/app_window.cpp the loop, the layout, input, and the file commands
+```
+
+Three rules the look follows, in `theme.cpp`:
+
+**The interface must not compete with the artwork.** Every colour in the
+interface is a low-saturation neutral. The only saturated colour is one accent
+used for selection and focus. A blue panel beside a blue sprite makes the sprite
+harder to judge, and judging the sprite is what the window is for.
+
+**Contrast only where it carries meaning.** Labels are dim, values bright,
+borders barely visible. What is bright is what has been drawn.
+
+**Nothing moves that does not have to.** No animated transitions. A tool that
+flickers while you work is a tool you stop trusting.
+
+The interface font is the system's own, found by trying a short list of the faces
+each platform actually ships and falling back to ImGui's built-in face. That
+built-in face is a 13-pixel bitmap designed for debug output, and it is most of
+why an ImGui program looks like one.
+
+### One rule for every live control
+
+A slider drag must be **one** undo step -- not none, and not three hundred. That
+is easy to get wrong and invisible until somebody tries to undo, so it is written
+once, as `bracketDrag` in `panels.cpp`, and every live control uses it.
+
 ## Testing a program that has a window
 
 Three layers, deliberately:

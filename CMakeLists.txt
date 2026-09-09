@@ -64,6 +64,7 @@ add_library(fast_core STATIC
     src/app/bucket.cpp
     src/app/dither.cpp
     src/app/document.cpp
+    src/app/palette.cpp
     src/app/export_png.cpp
     src/app/file_io.cpp
     src/app/paint.cpp
@@ -112,6 +113,9 @@ if (FAST_BUILD_GUI)
     add_executable(sprits_fast WIN32
         src/ui/app_window.cpp
         src/ui/canvas_view.cpp
+        src/ui/editor.cpp
+        src/ui/panels.cpp
+        src/ui/theme.cpp
         src/ui/file_commands.cpp
     )
     target_link_libraries(sprits_fast PRIVATE fast_core fast::imgui)
@@ -173,6 +177,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_dither_tests tests/dither_tests.cpp)
     target_link_libraries(fast_dither_tests PRIVATE fast_core)
     add_test(NAME fast_dither COMMAND fast_dither_tests)
+
+    add_executable(fast_palette_tests tests/palette_tests.cpp)
+    target_link_libraries(fast_palette_tests PRIVATE fast_core)
+    add_test(NAME fast_palette COMMAND fast_palette_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

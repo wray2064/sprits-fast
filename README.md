@@ -14,12 +14,18 @@ production suite.
 
 ## Status
 
-Early, but it runs: a window with a canvas, a pencil and an eraser, layers with
-rename and delete, undo/redo, a paint bucket, dithered fills with pattern anchoring, and real file
-handling -- native Open and Save
-dialogs, recent files, drag-and-drop, atomic saves, a prompt before anything
-discards unsaved work, PNG export at whole-number scales, and files that open
-from the command line.
+Early, but it is a real editor.
+
+**Drawing** — pencil, eraser, paint bucket and eyedropper, with keyboard
+shortcuts; layers with rename, delete, visibility and a colour swatch each.
+
+**What makes it different** — non-destructive transforms you can edit after the
+fact, dithered fills with pattern anchoring, and a palette whose entries recolour
+every layer that uses them.
+
+**Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
+saves, a prompt before anything discards unsaved work, PNG export at whole-number
+scales, and files that open from the command line.
 
 ```bash
 build-gui/sprits_fast hero.lsprite
@@ -38,6 +44,18 @@ the work happens there, and it builds in seconds.
 
 `build/fast_smoke` drives a document end to end and prints what it sees at each
 step, with no window at all.
+
+### The palette
+
+Every document has one. Colours are **roles** rather than values: a layer paints
+through a palette slot, and changing that slot recolours every layer using it on
+the next compile -- from the drawing, not over it. Swapping a character's palette
+for a night version or a second team colour is one edit, not a reselect and
+repaint.
+
+Click a swatch to point the layer at it, double-click to change what the slot
+means. A layer can also carry its own colour, which is what files written before
+palettes existed do.
 
 ### Getting work out
 
@@ -122,10 +140,11 @@ means two sets of golden hashes that drift apart.
 ## How it is put together
 
 ```
-src/app/     the document, undo history, file handling — no interface
-src/ui/      the interface — empty, awaiting a toolkit decision
-src/main.cpp the smoke run
-tests/       what fast_core promises, checked without a window
+src/app/       the document, undo, tools, palette, files — no interface at all
+src/ui/        the interface: theme, panels, canvas, window
+src/main.cpp   the smoke run, which has no window
+third_party/   stb_image_write, vendored and pinned
+tests/         what fast_core promises, checked without a window
 ```
 
 `fast_core` is a separate library from anything that draws. Every tool, panel and
