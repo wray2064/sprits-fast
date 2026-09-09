@@ -32,6 +32,11 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas);
 // The transform list: a stack that can be edited, not a history of actions.
 void drawTransformPanel(Editor& editor, CanvasView& canvas);
 
+// The corner preview: the sprite at the size it will really be seen, over a
+// background the author chooses. Drawn as an overlay inside the canvas window,
+// so it must be called while that window is current.
+void drawPreviewOverlay(Editor& editor, const CanvasView& canvas);
+
 // The bar along the bottom: where the cursor is, how big the canvas is, what
 // the last compile cost.
 void drawStatusBar(Editor& editor, const CanvasView& canvas);

@@ -106,16 +106,25 @@ void UiState::clamp(int layerCount) {
     } else {
         activeLayer = std::min(std::max(activeLayer, 0), layerCount - 1);
     }
+
+    previewScale = std::min(std::max(previewScale, 1), 4);
+    previewTransparent = previewTransparent != 0 ? 1 : 0;
+    previewColor &= 0xFFFFFF;      // a packed colour, so the top byte is not ours
 }
 
 std::string toJson(const UiState& state) {
     char buffer[256];
     std::snprintf(buffer, sizeof(buffer),
-                  "{\"zoom\":%.3f,\"panX\":%.3f,\"panY\":%.3f,\"activeLayer\":%d}",
+                  "{\"zoom\":%.3f,\"panX\":%.3f,\"panY\":%.3f,\"activeLayer\":%d,"
+                  "\"previewScale\":%d,\"previewTransparent\":%d,"
+                  "\"previewColor\":%d}",
                   static_cast<double>(state.zoom),
                   static_cast<double>(state.panX),
                   static_cast<double>(state.panY),
-                  state.activeLayer);
+                  state.activeLayer,
+                  state.previewScale,
+                  state.previewTransparent,
+                  state.previewColor);
     return std::string(buffer);
 }
 
@@ -151,6 +160,11 @@ bool fromJson(const std::string& text, UiState* out) {
         else if (key == "panX")        { parsed.panX = static_cast<float>(value); }
         else if (key == "panY")        { parsed.panY = static_cast<float>(value); }
         else if (key == "activeLayer") { parsed.activeLayer = static_cast<int>(value); }
+        else if (key == "previewScale") { parsed.previewScale = static_cast<int>(value); }
+        else if (key == "previewTransparent") {
+            parsed.previewTransparent = static_cast<int>(value);
+        }
+        else if (key == "previewColor") { parsed.previewColor = static_cast<int>(value); }
         // Anything else is ignored rather than refused: a newer Fast may write a
         // field this build has never heard of, and that should not stop the file
         // from opening.

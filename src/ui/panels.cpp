@@ -7,6 +7,7 @@
 #include "app/shape.h"
 #include "app/transform.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -691,6 +692,155 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
         editor.doc.endAction();
         canvas.invalidate();
     }
+}
+
+// ---------------------------------------------------------------- preview --
+
+namespace {
+
+// Backgrounds worth checking a sprite against. Not a palette: these are the
+// situations a sprite has to survive -- a bright sky, a dark interior, snow,
+// grass -- and they are the ones that catch a silhouette that does not read or
+// an outline that disappears.
+struct Backdrop {
+    const char* name;
+    ImU32       colour;
+};
+
+const Backdrop kBackdrops[] = {
+    { "Black",  IM_COL32(  8,   8,  10, 255) },
+    { "Dark",   IM_COL32( 42,  40,  52, 255) },
+    { "Grey",   IM_COL32(128, 128, 130, 255) },
+    { "White",  IM_COL32(244, 246, 248, 255) },
+    { "Sky",    IM_COL32( 92, 140, 200, 255) },
+    { "Grass",  IM_COL32( 86, 132,  70, 255) },
+    { "Sand",   IM_COL32(214, 184, 130, 255) },
+    { "Blood",  IM_COL32(120,  38,  40, 255) },
+};
+
+} // namespace
+
+void drawPreviewOverlay(Editor& editor, const CanvasView& canvas) {
+    if (!editor.preview.visible || canvas.compiledWidth() == 0) {
+        return;
+    }
+
+    const theme::Palette& c = theme::palette();
+    const float scale = static_cast<float>(editor.preview.scale);
+    const float artWidth = static_cast<float>(canvas.compiledWidth()) * scale;
+    const float artHeight = static_cast<float>(canvas.compiledHeight()) * scale;
+
+    const float padding = 10.f;
+    const float swatchRow = 16.f;
+
+    // Two rows of controls, not one: the scales and the colour, then the
+    // backdrops. Sizing the box for one leaves the second hanging outside it.
+    const float controlsHeight =
+        ImGui::GetFrameHeight() + theme::metrics().itemSpacing + swatchRow + 12.f;
+
+    // Wide enough for the controls even when the sprite is tiny, which it
+    // usually is: a 16x16 at 1x is smaller than the buttons under it.
+    // Wide enough for eight backdrop swatches in a row, whatever the sprite.
+    const float backdropRow = 8.f * swatchRow + 7.f * 3.f;
+    const float boxWidth = std::max(artWidth + padding * 2.f,
+                                    backdropRow + padding * 2.f + 4.f);
+    const float boxHeight = artHeight + controlsHeight + padding * 2.f;
+
+    // Bottom right of the canvas, out of the way of the artwork, which is
+    // usually centred.
+    const ImVec2 windowMin = ImGui::GetWindowPos();
+    const ImVec2 windowSize = ImGui::GetWindowSize();
+    const ImVec2 at(windowMin.x + windowSize.x - boxWidth - 14.f,
+                    windowMin.y + windowSize.y - boxHeight - 14.f);
+
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->AddRectFilled(at, ImVec2(at.x + boxWidth, at.y + boxHeight),
+                        ImGui::GetColorU32(c.windowBackground), 4.f);
+    draw->AddRect(at, ImVec2(at.x + boxWidth, at.y + boxHeight),
+                  ImGui::GetColorU32(c.border), 4.f);
+
+    const ImVec2 artAt(at.x + (boxWidth - artWidth) * 0.5f, at.y + padding);
+    canvas.drawSample(draw, artAt, scale,
+                      ImGui::ColorConvertFloat4ToU32(
+                          ImVec4(editor.preview.color[0], editor.preview.color[1],
+                                 editor.preview.color[2], editor.preview.color[3])),
+                      editor.preview.transparent);
+
+    // A hairline round the artwork, so a sprite whose edge matches the backdrop
+    // still has a visible extent.
+    draw->AddRect(artAt, ImVec2(artAt.x + artWidth, artAt.y + artHeight),
+                  ImGui::GetColorU32(c.border));
+
+    // The controls sit inside the box as a real ImGui region, so they can be
+    // clicked rather than only looked at.
+    ImGui::SetCursorScreenPos(ImVec2(at.x + padding, at.y + artHeight + padding + 4.f));
+    ImGui::BeginGroup();
+    ImGui::PushID("preview");
+
+    for (int step = 1; step <= 4; ++step) {
+        if (step > 1) {
+            ImGui::SameLine(0.f, 3.f);
+        }
+        const bool selected = editor.preview.scale == step;
+        ImGui::PushStyleColor(ImGuiCol_Button,
+                              selected ? c.accentDim : ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_Text, selected ? c.accent : c.textDim);
+        char label[8];
+        std::snprintf(label, sizeof(label), "%dx", step);
+        if (ImGui::Button(label, ImVec2(26.f, 0.f))) {
+            editor.preview.scale = step;
+        }
+        ImGui::PopStyleColor(2);
+    }
+
+    ImGui::SameLine(0.f, 8.f);
+    if (theme::swatch("transparent", IM_COL32(0, 0, 0, 0),
+                      editor.preview.transparent, 18.f)) {
+        editor.preview.transparent = true;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("No background");
+    }
+
+    ImGui::SameLine(0.f, 3.f);
+    ImGui::SetNextItemWidth(40.f);
+    if (ImGui::ColorEdit4("##bg", editor.preview.color,
+                          ImGuiColorEditFlags_NoInputs |
+                          ImGuiColorEditFlags_NoLabel)) {
+        editor.preview.transparent = false;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Background colour");
+    }
+
+    // The situations a sprite has to survive, one click each.
+    for (size_t i = 0; i < sizeof(kBackdrops) / sizeof(kBackdrops[0]); ++i) {
+        if (i % 8 != 0) {
+            ImGui::SameLine(0.f, 3.f);
+        }
+        const ImU32 colour = kBackdrops[i].colour;
+        // Packed without ImGui::GetColorU32, which multiplies in the global
+        // style alpha and so would never compare equal to a literal colour.
+        const bool selected =
+            !editor.preview.transparent &&
+            colour == ImGui::ColorConvertFloat4ToU32(
+                ImVec4(editor.preview.color[0], editor.preview.color[1],
+                       editor.preview.color[2], editor.preview.color[3]));
+        if (theme::swatch(kBackdrops[i].name, colour, selected, 16.f)) {
+            const ImVec4 unpacked = ImGui::ColorConvertU32ToFloat4(colour);
+            editor.preview.color[0] = unpacked.x;
+            editor.preview.color[1] = unpacked.y;
+            editor.preview.color[2] = unpacked.z;
+            editor.preview.color[3] = unpacked.w;
+            editor.preview.transparent = false;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", kBackdrops[i].name);
+        }
+    }
+
+    ImGui::PopID();
+    ImGui::EndGroup();
 }
 
 // ------------------------------------------------------------- status bar --

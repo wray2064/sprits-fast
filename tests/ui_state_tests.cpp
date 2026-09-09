@@ -30,6 +30,9 @@ void testRoundTrip() {
     written.panX = -40.5f;
     written.panY = 17.25f;
     written.activeLayer = 3;
+    written.previewScale = 3;
+    written.previewTransparent = 0;
+    written.previewColor = 0x123456;
 
     fast::UiState read;
     CHECK(fast::fromJson(fast::toJson(written), &read));
@@ -37,6 +40,26 @@ void testRoundTrip() {
     CHECK(read.panX == -40.5f);
     CHECK(read.panY == 17.25f);
     CHECK(read.activeLayer == 3);
+    CHECK(read.previewScale == 3);
+    CHECK(read.previewTransparent == 0);
+    CHECK(read.previewColor == 0x123456);
+}
+
+// The preview settings come out of a file like everything else here, so they are
+// clamped rather than trusted.
+void testPreviewSettingsAreClamped() {
+    fast::UiState absurd;
+    CHECK(fast::fromJson("{\"previewScale\":9999,\"previewTransparent\":7,"
+                         "\"previewColor\":-1}", &absurd));
+    absurd.clamp(1);
+    CHECK(absurd.previewScale >= 1 && absurd.previewScale <= 4);
+    CHECK(absurd.previewTransparent == 1);
+    CHECK((absurd.previewColor & ~0xFFFFFF) == 0);
+
+    fast::UiState negative;
+    negative.previewScale = -3;
+    negative.clamp(1);
+    CHECK(negative.previewScale == 1);
 }
 
 void testDefaultsWhenSilent() {
@@ -115,6 +138,7 @@ void testWhitespaceIsTolerated() {
 
 int main() {
     testRoundTrip();
+    testPreviewSettingsAreClamped();
     testDefaultsWhenSilent();
     testRubbishIsRefused();
     testHostileNumbersAreClamped();

@@ -61,6 +61,13 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
         canvas.setZoom(view.zoom);
         canvas.setPan(view.panX, view.panY);
         editor.activeLayer = view.activeLayer;
+
+        editor.preview.scale = view.previewScale;
+        editor.preview.transparent = view.previewTransparent != 0;
+        editor.preview.color[0] = static_cast<float>((view.previewColor >> 16) & 0xFF) / 255.f;
+        editor.preview.color[1] = static_cast<float>((view.previewColor >> 8) & 0xFF) / 255.f;
+        editor.preview.color[2] = static_cast<float>(view.previewColor & 0xFF) / 255.f;
+        editor.preview.color[3] = 1.f;
     } else {
         canvas.resetView();
     }
@@ -82,6 +89,12 @@ bool saveTo(Editor& editor, const CanvasView& canvas, const std::string& path) {
     view.panX = canvas.panX();
     view.panY = canvas.panY();
     view.activeLayer = editor.activeLayer;
+    view.previewScale = editor.preview.scale;
+    view.previewTransparent = editor.preview.transparent ? 1 : 0;
+    view.previewColor =
+        (static_cast<int>(editor.preview.color[0] * 255.f + 0.5f) << 16) |
+        (static_cast<int>(editor.preview.color[1] * 255.f + 0.5f) << 8) |
+         static_cast<int>(editor.preview.color[2] * 255.f + 0.5f);
     editor.doc.setUiState(toJson(view));
 
     std::string error;
@@ -233,6 +246,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         bool grid = canvas.gridVisible();
         if (ImGui::MenuItem("Pixel grid", nullptr, &grid)) { canvas.setGridVisible(grid); }
+        ImGui::MenuItem("Preview", "P", &editor.preview.visible);
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -494,6 +508,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::IsKeyPressed(ImGuiKey_R, false)) { editor.tool = Tool::Rectangle; }
         if (ImGui::IsKeyPressed(ImGuiKey_U, false)) { editor.tool = Tool::Ellipse; }
         if (ImGui::IsKeyPressed(ImGuiKey_L, false)) { editor.tool = Tool::Line; }
+        if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+            editor.preview.visible = !editor.preview.visible;
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
             canvas.setZoom(canvas.zoom() - 1.f);
         }
@@ -605,7 +622,13 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ls::Vec2i hovered { -1, -1 };
     const bool overCanvas = canvas.draw(editor.doc, editor.sprite, &hovered);
     editor.hovered = hovered;
-    handleStroke(editor, canvas, overCanvas, hovered);
+
+    // The preview goes on top of the canvas and takes its clicks first, so a
+    // stroke is not started by someone reaching for a backdrop swatch.
+    drawPreviewOverlay(editor, canvas);
+    const bool overPreview = ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive();
+
+    handleStroke(editor, canvas, overCanvas && !overPreview, hovered);
     ImGui::End();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
@@ -687,6 +710,15 @@ void drawDemoContent(Editor& editor) {
     editor.doc.beginAction("Demo rotate");
     addRotate(editor.doc, layer->layer, 24.f, {16.f, 16.f});
     editor.doc.endAction();
+    // The demo shows the preview over a colour rather than the chequer, since
+    // checking a sprite against a background it will really be seen on is the
+    // reason the panel exists.
+    editor.preview.transparent = false;
+    editor.preview.color[0] = 0.36f;
+    editor.preview.color[1] = 0.55f;
+    editor.preview.color[2] = 0.78f;
+    editor.preview.scale = 2;
+
     editor.say("Demo content");
 }
 

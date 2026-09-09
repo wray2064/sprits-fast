@@ -23,6 +23,21 @@ namespace fast {
 
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line };
 
+// The corner preview.
+//
+// Working at 26x, a person loses all sense of what the sprite reads like at the
+// size it will actually be seen. The preview shows it at 1x beside the work, and
+// the background matters as much as the scale: a sprite that reads perfectly on
+// the chequer can vanish against sky blue or lose its outline against black.
+// Checking that is the whole point, so the background is a control rather than
+// a fixed choice.
+struct PreviewSettings {
+    bool  visible = true;
+    int   scale = 1;                 // whole numbers only, like everything else
+    bool  transparent = true;        // the chequer rather than a colour
+    float color[4] = { 0.36f, 0.55f, 0.78f, 1.f };   // a sky, to start somewhere
+};
+
 struct Editor {
     Document                doc;
     ls::SpriteId            sprite;
@@ -48,8 +63,9 @@ struct Editor {
     ls::Vec2i lastPixel { -1, -1 };
     ls::Vec2i hovered { -1, -1 };
 
-    BucketSettings bucket;
-    DitherSettings dither;
+    BucketSettings  bucket;
+    DitherSettings  dither;
+    PreviewSettings preview;
 
     // A shape being dragged out. It exists from the press: the shape is created
     // immediately and then driven as the mouse moves, so what is on the canvas

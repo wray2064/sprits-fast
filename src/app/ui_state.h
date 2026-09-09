@@ -26,6 +26,13 @@ struct UiState {
     float panY = 0.f;
     int   activeLayer = 0;
 
+    // The corner preview. Which backdrop someone checks their sprite against is
+    // a property of the sprite, not of the session: a character for a night
+    // level wants a dark one every time it is opened.
+    int   previewScale = 1;
+    int   previewTransparent = 1;    // stored as a number; the format has no bool
+    int   previewColor = 0x5C8CC8;   // packed 0xRRGGBB
+
     // Forces every field into a range the editor can actually use. Called on
     // everything that comes out of a file, before any of it reaches the canvas.
     void clamp(int layerCount);

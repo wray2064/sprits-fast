@@ -147,6 +147,14 @@ there, which is the worst thing a save can do.
 The temporary sits beside the target rather than in a system temp directory, so
 the rename stays within one filesystem and is therefore atomic.
 
+### The preview costs nothing on purpose
+
+The corner preview draws the sprite again at a different scale, which sounds like
+a second compile and must not be one. `CanvasView` already holds the texture it
+uploaded for the canvas, so `drawSample` reuses it: a preview is a textured quad
+and a background rectangle. Compiling twice a frame for the same picture would be
+the obvious implementation and the wrong one.
+
 ### Where you were when you closed it
 
 Zoom, pan and the selected layer are not part of the artwork, so none of it goes

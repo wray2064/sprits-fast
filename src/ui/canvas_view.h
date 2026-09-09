@@ -16,6 +16,8 @@
 
 #include "app/document.h"
 
+#include <imgui.h>
+
 #include <SDL3/SDL.h>
 
 namespace fast {
@@ -59,6 +61,24 @@ public:
     // the point is outside the canvas or nothing has been compiled yet. Reading
     // the cached raster rather than recompiling means picking is free.
     const ls::Color* colorAt(ls::Vec2i pixel) const;
+
+    // Draws the compiled sprite somewhere else at a whole-number scale, over a
+    // background of the caller's choosing.
+    //
+    // Reuses the texture the canvas has already uploaded, so a preview costs a
+    // textured quad and nothing else. Compiling a second time for it would be
+    // the obvious implementation and the wrong one: the same picture would be
+    // resolved twice a frame for no reason.
+    //
+    // `checker` draws the transparency chequer instead of a flat colour, which
+    // is what "no background" has to mean for a sprite with holes in it.
+    void drawSample(ImDrawList* draw, ImVec2 at, float scale,
+                    ImU32 background, bool checker) const;
+
+    // The size of the sprite as last compiled, so a caller can lay out a
+    // preview before drawing it.
+    uint32_t compiledWidth() const { return textureWidth_; }
+    uint32_t compiledHeight() const { return textureHeight_; }
 
     // Milliseconds the last real compile took, for the status bar. An editor
     // should show this: it is the number that decides whether the canvas needs

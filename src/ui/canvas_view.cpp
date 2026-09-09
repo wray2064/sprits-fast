@@ -92,6 +92,40 @@ bool CanvasView::recompile(Document& doc, ls::SpriteId sprite) {
     return true;
 }
 
+void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
+                            ImU32 background, bool checker) const {
+    if (texture_ == nullptr || textureWidth_ == 0 || textureHeight_ == 0) {
+        return;
+    }
+    const float width = static_cast<float>(textureWidth_) * scale;
+    const float height = static_cast<float>(textureHeight_) * scale;
+    const ImVec2 corner(at.x + width, at.y + height);
+
+    if (checker) {
+        const theme::Palette& c = theme::palette();
+        draw->AddRectFilled(at, corner, ImGui::GetColorU32(c.checkerDark));
+        draw->PushClipRect(at, corner, true);
+        for (float y = 0.f; y < height; y += kCheckerSize) {
+            for (float x = 0.f; x < width; x += kCheckerSize) {
+                if ((static_cast<int>(x / kCheckerSize) +
+                     static_cast<int>(y / kCheckerSize)) % 2 == 0) {
+                    continue;
+                }
+                draw->AddRectFilled(
+                    ImVec2(at.x + x, at.y + y),
+                    ImVec2(at.x + std::min(x + kCheckerSize, width),
+                           at.y + std::min(y + kCheckerSize, height)),
+                    ImGui::GetColorU32(c.checkerLight));
+            }
+        }
+        draw->PopClipRect();
+    } else {
+        draw->AddRectFilled(at, corner, background);
+    }
+
+    draw->AddImage(reinterpret_cast<ImTextureID>(texture_), at, corner);
+}
+
 bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered) {
     if (dirty_ && !recompile(doc, sprite)) {
         ImGui::TextUnformatted("nothing to compile");

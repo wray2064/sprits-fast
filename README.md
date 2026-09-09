@@ -18,7 +18,8 @@ Early, but it is a real editor.
 
 **Drawing** — pencil, eraser, paint bucket, eyedropper, and rectangle, ellipse
 and line tools, all with keyboard shortcuts; layers with rename, delete,
-visibility and a colour swatch each.
+visibility and a colour swatch each; a corner preview at true size over any
+background.
 
 **What makes it different** — shapes that stay editable after they are drawn,
 outlines that follow the artwork, non-destructive transforms, dithered fills with
@@ -86,6 +87,23 @@ the entry, and the original returns exactly.
 
 The same idea one control over: change the colour in the picker and the drawing
 is not repainted. The colour lives on the fill rule rather than in the pixels.
+
+### The corner preview
+
+Working at 26x, you lose all sense of what the sprite reads like at the size it
+will actually be seen. The preview shows it at 1x to 4x in the corner of the
+canvas, and it costs nothing: it reuses the texture the canvas has already
+uploaded rather than compiling the sprite a second time.
+
+The background is the part that earns its keep. A sprite that reads perfectly on
+the transparency chequer can vanish against sky blue or lose its outline against
+black, and there is no way to find that out except to look. So there are eight
+backdrops for the situations a sprite has to survive -- black, dark, grey, white,
+sky, grass, sand, blood -- plus any colour you like. Which one is chosen is saved
+with the file: a character for a night level should open against a dark one every
+time.
+
+Toggle it with **P**, or from the View menu.
 
 ### Shapes that stay shapes
 
