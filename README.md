@@ -16,12 +16,14 @@ production suite.
 
 Early, but it is a real editor.
 
-**Drawing** — pencil, eraser, paint bucket and eyedropper, with keyboard
-shortcuts; layers with rename, delete, visibility and a colour swatch each.
+**Drawing** — pencil, eraser, paint bucket, eyedropper, and rectangle, ellipse
+and line tools, all with keyboard shortcuts; layers with rename, delete,
+visibility and a colour swatch each.
 
-**What makes it different** — non-destructive transforms you can edit after the
-fact, dithered fills with pattern anchoring, and a palette whose entries recolour
-every layer that uses them.
+**What makes it different** — shapes that stay editable after they are drawn,
+outlines that follow the artwork, non-destructive transforms, dithered fills with
+pattern anchoring, and a palette whose entries recolour every layer that uses
+them.
 
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
 saves, a prompt before anything discards unsaved work, PNG export at whole-number
@@ -84,6 +86,26 @@ the entry, and the original returns exactly.
 
 The same idea one control over: change the colour in the picker and the drawing
 is not repainted. The colour lives on the fill rule rather than in the pixels.
+
+### Shapes that stay shapes
+
+Drag out a rectangle with **R**, an ellipse with **U**, a line with **L**.
+
+![Editing a shape after drawing it](docs/shapes.png)
+
+That is one rectangle. Drawn once, then widened, given rounded corners, then
+moved and reshaped -- and the outline follows it every time, because the outline
+is generated during the compile from whatever the layer draws rather than being
+stamped in when you asked for it.
+
+In every other pixel editor a shape becomes pixels the moment you release the
+mouse. Getting it two pixels wider means undoing and drawing it again, and the
+outline you added has to be redone as well. Here the rectangle is still a
+rectangle an hour later: it still has an origin, a width and a corner radius,
+and all three are in the Shape panel.
+
+A layer drawn freehand has no shape to edit, and the panel says so rather than
+offering controls that would do nothing. The outline works on it regardless.
 
 ### Dithering, and the pattern that stays put
 

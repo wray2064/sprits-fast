@@ -50,7 +50,7 @@ bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& nam
 
 bool paintPixels(Document& doc, const PaintLayer& target,
                  const std::vector<ls::Vec2i>& pixels) {
-    if (!target.valid() || pixels.empty()) {
+    if (!target.drawable() || pixels.empty()) {
         return false;
     }
 
@@ -74,7 +74,7 @@ bool paintPixels(Document& doc, const PaintLayer& target,
 
 bool erasePixels(Document& doc, const PaintLayer& target,
                  const std::vector<ls::Vec2i>& pixels) {
-    if (!target.valid() || pixels.empty()) {
+    if (!target.drawable() || pixels.empty()) {
         return false;
     }
     return doc.engine().erasePixelsFromRegion(target.region, pixels).ok();
@@ -140,6 +140,17 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId* outSprite,
         // following a path -- has no such operation and is left alone rather
         // than guessed at.
         for (const ls::OperationInfo& op : operations.value) {
+            // A stroked line has no region -- it names a polyline and encloses
+            // no area. It is still a layer the panel must list, or it would go
+            // on drawing while vanishing from the interface.
+            if (op.type == "StrokePolylineOp") {
+                PaintLayer found;
+                found.layer = layer;
+                found.fill = op.id;
+                outLayers->push_back(found);
+                break;
+            }
+
             if (op.type != "FillSolidOp" && op.type != "FillDitherOp") {
                 continue;
             }

@@ -111,7 +111,7 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
 
 bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,
                 ls::Vec2i seed, const BucketSettings& settings) {
-    if (!target.valid()) {
+    if (!target.drawable()) {
         return false;
     }
 

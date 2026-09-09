@@ -28,7 +28,12 @@ struct PaintLayer {
     ls::RegionId    region;
     ls::OperationId fill;
 
-    bool valid() const { return layer.valid() && region.valid() && fill.valid(); }
+    // A layer and the operation that colours it. The region is separate,
+    // because not every drawable layer has one: a stroked line names a polyline
+    // directly and encloses no area at all. Anything that writes pixels needs
+    // `drawable()`; anything that only recolours or transforms needs `valid()`.
+    bool valid() const { return layer.valid() && fill.valid(); }
+    bool drawable() const { return valid() && region.valid(); }
 };
 
 // Adds a layer to `sprite` that can be drawn on. Brackets its own undo action.

@@ -69,6 +69,7 @@ add_library(fast_core STATIC
     src/app/file_io.cpp
     src/app/paint.cpp
     src/app/recent_files.cpp
+    src/app/shape.cpp
     src/app/transform.cpp
     src/app/ui_state.cpp
 )
@@ -181,6 +182,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_palette_tests tests/palette_tests.cpp)
     target_link_libraries(fast_palette_tests PRIVATE fast_core)
     add_test(NAME fast_palette COMMAND fast_palette_tests)
+
+    add_executable(fast_shape_tests tests/shape_tests.cpp)
+    target_link_libraries(fast_shape_tests PRIVATE fast_core)
+    add_test(NAME fast_shape COMMAND fast_shape_tests)
 
     add_test(NAME fast_smoke COMMAND fast_smoke)
 

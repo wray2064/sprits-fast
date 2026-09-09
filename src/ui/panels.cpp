@@ -4,6 +4,7 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 
+#include "app/shape.h"
 #include "app/transform.h"
 
 #include <cstdio>
@@ -61,6 +62,14 @@ void drawToolbar(Editor& editor) {
           "you ask them to." },
         { Tool::Picker, theme::Icon::Dropper, "Pick colour", "I",
           "Take the colour under the cursor, then return to the previous tool." },
+        { Tool::Rectangle, theme::Icon::Rectangle, "Rectangle", "R",
+          "Drag out a rectangle. It stays a rectangle: its size, position and "
+          "corner radius can be changed afterwards, and anything built on it "
+          "follows." },
+        { Tool::Ellipse, theme::Icon::Ellipse, "Ellipse", "U",
+          "Drag out an ellipse, editable afterwards in the same way." },
+        { Tool::Line, theme::Icon::Line, "Line", "L",
+          "Drag out a line. Both ends stay adjustable." },
     };
 
     for (const Entry& entry : kTools) {
@@ -368,6 +377,105 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
                            "from the drawing rather than over it.");
         ImGui::PopStyleColor();
     }
+}
+
+// ------------------------------------------------------------------ shape --
+
+void drawShapePanel(Editor& editor, CanvasView& canvas) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        ImGui::TextDisabled("No layer selected.");
+        return;
+    }
+
+    ShapeLayer shape;
+    const bool isShape = shapeOfLayer(editor.doc, *layer, &shape);
+
+    if (isShape) {
+        ShapeParams params;
+        if (readShapeParams(editor.doc, shape, &params)) {
+            theme::sectionHeader(shapeKindName(shape.kind));
+
+            bool changed = false;
+            float from[2] = { params.from.x, params.from.y };
+            float to[2]   = { params.to.x, params.to.y };
+
+            ImGui::SetNextItemWidth(-42.f);
+            if (ImGui::DragFloat2("from", from, 0.25f, 0.f, 0.f, "%.0f")) {
+                params.from = { from[0], from[1] };
+                changed = true;
+            }
+            bracketDrag(editor, editor.editingShape, "Edit shape");
+
+            ImGui::SetNextItemWidth(-42.f);
+            if (ImGui::DragFloat2("to", to, 0.25f, 0.f, 0.f, "%.0f")) {
+                params.to = { to[0], to[1] };
+                changed = true;
+            }
+
+            if (shape.kind == ShapeKind::Rectangle) {
+                ImGui::SetNextItemWidth(-42.f);
+                if (ImGui::SliderFloat("round", &editor.shapeCorner, 0.f, 12.f,
+                                       "%.1f")) {
+                    changed = true;
+                }
+                bracketDrag(editor, editor.editingShape, "Corner radius");
+                params.cornerRadius = editor.shapeCorner;
+            }
+
+            if (changed) {
+                updateShape(editor.doc, shape, params);
+                canvas.invalidate();
+                editor.say("The shape is still a shape");
+            }
+        }
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        ImGui::TextWrapped("This layer was drawn by hand, so there is no shape "
+                           "to edit. Draw with a shape tool to get one that "
+                           "stays adjustable.");
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    theme::sectionHeader("OUTLINE");
+
+    bool outlined = hasOutline(editor.doc, *layer);
+    if (ImGui::Checkbox("Outline this layer", &outlined)) {
+        editor.doc.beginAction(outlined ? "Add outline" : "Remove outline");
+        if (outlined) {
+            addOutline(editor.doc, *layer, ls::Color{20, 22, 28, 255}, 1);
+        } else {
+            removeOutline(editor.doc, *layer);
+        }
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    ImGui::SameLine();
+    theme::hint("Generated during the compile from whatever the layer draws, "
+                "so it follows the artwork instead of being stamped where the "
+                "artwork used to be. Move the shape and the outline moves.");
+
+    if (!outlined) {
+        return;
+    }
+
+    int thickness = outlineThickness(editor.doc, *layer);
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::SliderInt("##thickness", &thickness, 1, 8, "thickness  %d")) {
+        setOutlineThickness(editor.doc, *layer, thickness);
+        canvas.invalidate();
+    }
+    bracketDrag(editor, editor.editingShape, "Outline thickness");
+
+    const ls::Color current = outlineColor(editor.doc, *layer);
+    float rgba[4];
+    fromColor(current, rgba);
+    if (ImGui::ColorEdit4("colour", rgba, ImGuiColorEditFlags_NoInputs)) {
+        setOutlineColor(editor.doc, *layer, toColor(rgba));
+        canvas.invalidate();
+    }
+    bracketDrag(editor, editor.editingShape, "Outline colour");
 }
 
 // ----------------------------------------------------------------- layers --

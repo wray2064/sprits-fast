@@ -12,6 +12,7 @@
 #include "app/dither.h"
 #include "app/paint.h"
 #include "app/palette.h"
+#include "app/shape.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
@@ -20,7 +21,7 @@
 
 namespace fast {
 
-enum class Tool { Pencil, Eraser, Bucket, Picker };
+enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line };
 
 struct Editor {
     Document                doc;
@@ -39,6 +40,7 @@ struct Editor {
     bool  draggingTransform = false;
     bool  draggingDither = false;
     bool  draggingPalette = false;
+    bool  editingShape = false;      // a slider in the shape panel
 
     int   renaming = -1;              // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
@@ -48,6 +50,15 @@ struct Editor {
 
     BucketSettings bucket;
     DitherSettings dither;
+
+    // A shape being dragged out. It exists from the press: the shape is created
+    // immediately and then driven as the mouse moves, so what is on the canvas
+    // during the drag is the real thing rather than a preview that has to agree
+    // with it afterwards.
+    bool       draggingShape = false;
+    ShapeLayer pendingShape;
+    ls::Vec2f  shapeAnchor;
+    float      shapeCorner = 0.f;
 
     FileState   files;
     bool        quitRequested = false;
@@ -61,9 +72,12 @@ struct Editor {
         return &layers[static_cast<size_t>(activeLayer)];
     }
 
+    // True while any interaction holds a history bracket open. Shortcuts stand
+    // aside for all of them: acting on one mid-drag would step over an entry
+    // that has not been committed yet.
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
-               draggingPalette;
+               draggingPalette || editingShape || draggingShape;
     }
 
     void say(const std::string& message);

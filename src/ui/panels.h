@@ -22,6 +22,10 @@ void drawToolPanel(Editor& editor, CanvasView& canvas);
 // through. Changing an entry recolours every layer using it.
 void drawPalettePanel(Editor& editor, CanvasView& canvas);
 
+// The shape on the active layer, if it has one, and the outline that follows
+// whatever the layer draws.
+void drawShapePanel(Editor& editor, CanvasView& canvas);
+
 // The layer stack, topmost first.
 void drawLayerPanel(Editor& editor, CanvasView& canvas);
 

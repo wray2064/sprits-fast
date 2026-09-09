@@ -289,6 +289,32 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Rectangle: {
+            // Outlined rather than filled, because these tools make outlines of
+            // shapes as often as they make solid ones, and a filled square is
+            // hard to tell from a colour swatch at this size.
+            const float weight = std::max(1.6f, size * 0.085f);
+            draw->AddRect(s(0.16f, 0.24f), s(0.84f, 0.76f), colour, 0.f, 0, weight);
+            break;
+        }
+
+        case Icon::Ellipse: {
+            const float weight = std::max(1.6f, size * 0.085f);
+            draw->AddEllipse(s(0.5f, 0.5f), ImVec2(0.34f * size, 0.26f * size),
+                             colour, 0.f, 24, weight);
+            break;
+        }
+
+        case Icon::Line: {
+            const float weight = std::max(1.8f, size * 0.09f);
+            draw->AddLine(s(0.18f, 0.82f), s(0.82f, 0.18f), colour, weight);
+            // End points, so it reads as a segment with handles rather than as
+            // a stray diagonal.
+            draw->AddCircleFilled(s(0.18f, 0.82f), size * 0.085f, colour, 10);
+            draw->AddCircleFilled(s(0.82f, 0.18f), size * 0.085f, colour, 10);
+            break;
+        }
+
         case Icon::Dropper: {
             // A pipette. The bulb is a circle rather than a wider quad: a quad
             // merges into the shaft and the whole thing reads as a carrot.

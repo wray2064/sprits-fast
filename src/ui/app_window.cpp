@@ -12,6 +12,7 @@
 
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/shape.h"
 #include "app/transform.h"
 #include "app/ui_state.h"
 #include "ui/editor.h"
@@ -370,6 +371,51 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         return;
     }
 
+    // Shapes are created on press and driven while the mouse moves, so what is
+    // on screen during the drag is the real object rather than a preview that
+    // then has to be reproduced exactly.
+    if (editor.tool == Tool::Rectangle || editor.tool == Tool::Ellipse ||
+        editor.tool == Tool::Line) {
+        const ShapeKind kind = editor.tool == Tool::Rectangle ? ShapeKind::Rectangle
+                             : editor.tool == Tool::Ellipse   ? ShapeKind::Ellipse
+                                                              : ShapeKind::Line;
+        const ls::Vec2f here { static_cast<float>(pixel.x),
+                               static_cast<float>(pixel.y) };
+
+        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            ShapeParams params;
+            params.from = here;
+            params.to = { here.x + 1.f, here.y + 1.f };
+            params.cornerRadius = editor.shapeCorner;
+            if (createShapeLayer(editor.doc, editor.sprite, kind, params,
+                                 toColor(editor.color), &editor.pendingShape)) {
+                editor.draggingShape = true;
+                editor.shapeAnchor = here;
+                resyncLayers(editor);
+                // Select the shape that was just made, so the panel is showing
+                // the thing under the cursor.
+                editor.activeLayer = static_cast<int>(editor.layers.size()) - 1;
+                canvas.invalidate();
+            }
+        }
+
+        if (editor.draggingShape && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            ShapeParams params;
+            params.from = editor.shapeAnchor;
+            params.to = here;
+            params.cornerRadius = editor.shapeCorner;
+            updateShape(editor.doc, editor.pendingShape, params);
+            canvas.invalidate();
+        }
+
+        if (editor.draggingShape && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            editor.draggingShape = false;
+            editor.say(std::string(shapeKindName(kind)) +
+                       " drawn, and still editable");
+        }
+        return;
+    }
+
     if (editor.tool == Tool::Bucket) {
         if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             editor.doc.beginAction("Fill");
@@ -445,6 +491,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.toolBeforePicker = editor.tool;
             editor.tool = Tool::Picker;
         }
+        if (ImGui::IsKeyPressed(ImGuiKey_R, false)) { editor.tool = Tool::Rectangle; }
+        if (ImGui::IsKeyPressed(ImGuiKey_U, false)) { editor.tool = Tool::Ellipse; }
+        if (ImGui::IsKeyPressed(ImGuiKey_L, false)) { editor.tool = Tool::Line; }
         if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
             canvas.setZoom(canvas.zoom() - 1.f);
         }
@@ -527,13 +576,19 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     const float rightX = left + viewport->WorkSize.x - m.sidebarWidth;
     ImGui::SetNextWindowPos({rightX, top});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.5f});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.42f});
     ImGui::Begin("Layers", nullptr, kPanel);
     drawLayerPanel(editor, canvas);
     ImGui::End();
 
-    ImGui::SetNextWindowPos({rightX, top + bodyHeight * 0.5f});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.5f});
+    ImGui::SetNextWindowPos({rightX, top + bodyHeight * 0.42f});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.29f});
+    ImGui::Begin("Shape", nullptr, kPanel);
+    drawShapePanel(editor, canvas);
+    ImGui::End();
+
+    ImGui::SetNextWindowPos({rightX, top + bodyHeight * 0.71f});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.29f});
     ImGui::Begin("Transform", nullptr, kPanel);
     drawTransformPanel(editor, canvas);
     ImGui::End();
