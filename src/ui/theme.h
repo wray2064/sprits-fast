@@ -8,13 +8,18 @@
 // job here is not decoration: it is to make an editor that a person can work in
 // for an afternoon without friction, which mostly means restraint.
 //
+// The look is Source-era Valve: a cold, desaturated slate shell with one hot
+// amber running through it. They work together because they are opposites --
+// the slate is cool and almost colourless, so the amber reads as light rather
+// than as another surface.
+//
 // Three rules the palette below follows.
 //
-// **The interface must not compete with the artwork.** Everything here is a low
-// saturation neutral. The only saturated colour in the whole interface is the
-// single accent used for selection and focus, and the artwork itself. A blue
-// panel next to a blue sprite makes the sprite harder to judge, and judging the
-// sprite is the entire purpose of the window.
+// **The interface must not compete with the artwork.** Every surface here is a
+// low-saturation slate. The accent appears in exactly two roles: selection and
+// focus, and the section labels that give a panel its structure. Nowhere else.
+// A blue panel next to a blue sprite makes the sprite harder to judge, and
+// judging the sprite is the entire purpose of the window.
 //
 // **Contrast where it carries meaning, nowhere else.** Section labels are dim,
 // values are bright. Borders are barely visible because they separate rather
@@ -87,9 +92,21 @@ void loadFonts(float scale);
 // A dim, letter-spaced label above a group of controls.
 void sectionHeader(const char* label);
 
+// ------------------------------------------------------------------ icons --
+//
+// Drawn from primitives rather than loaded from an icon font. Four tools do not
+// justify a font file, a licence and a build step, and a drawn icon scales with
+// the interface without a second atlas -- it is also the only way to have them
+// pick up the accent colour when selected.
+
+enum class Icon { Pencil, Eraser, Bucket, Dropper };
+
+// Draws `icon` inside a square of `size` at `at`, in `colour`.
+void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour);
+
 // A toolbar button: fixed size, selected state, and a tooltip carrying the
 // shortcut. Returns true when clicked.
-bool toolButton(const char* glyph, const char* name, const char* shortcutHint,
+bool toolButton(Icon icon, const char* name, const char* shortcutHint,
                 bool selected, const char* description = nullptr);
 
 // A colour swatch. `selected` draws the ring that marks the active colour.

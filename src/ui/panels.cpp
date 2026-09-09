@@ -43,27 +43,28 @@ void singleAction(Editor& editor, const char* label) {
 void drawToolbar(Editor& editor) {
     struct Entry {
         Tool        tool;
-        const char* glyph;
+        theme::Icon icon;
         const char* name;
         const char* shortcut;
         const char* description;
     };
-    // Text glyphs rather than icons: shipping an icon font for four tools is a
-    // licence, a build step and 200 KB to save four characters.
+    // Drawn from primitives rather than an icon font: four tools do not justify
+    // a font file, a licence and a build step, and a drawn icon can take the
+    // accent colour when selected.
     static const Entry kTools[] = {
-        { Tool::Pencil, "P", "Pencil", "B",
+        { Tool::Pencil, theme::Icon::Pencil,  "Pencil", "B",
           "Draw single pixels. A drag is one undo step." },
-        { Tool::Eraser, "E", "Eraser", "E",
-          "Remove pixels from the active layer's shape." },
-        { Tool::Bucket, "F", "Fill",   "G",
+        { Tool::Eraser, theme::Icon::Eraser,  "Eraser", "E",
+          "Remove pixels from the shape of the active layer." },
+        { Tool::Bucket, theme::Icon::Bucket,  "Fill",   "G",
           "Flood the area under the cursor. Diagonals do not conduct unless "
           "you ask them to." },
-        { Tool::Picker, "I", "Pick colour", "I",
+        { Tool::Picker, theme::Icon::Dropper, "Pick colour", "I",
           "Take the colour under the cursor, then return to the previous tool." },
     };
 
     for (const Entry& entry : kTools) {
-        if (theme::toolButton(entry.glyph, entry.name, entry.shortcut,
+        if (theme::toolButton(entry.icon, entry.name, entry.shortcut,
                               editor.tool == entry.tool, entry.description)) {
             if (entry.tool == Tool::Picker && editor.tool != Tool::Picker) {
                 editor.toolBeforePicker = editor.tool;

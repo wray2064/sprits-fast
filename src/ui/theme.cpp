@@ -3,6 +3,8 @@
 
 #include "ui/theme.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -15,22 +17,33 @@ constexpr ImVec4 rgb(int r, int g, int b, float a = 1.f) {
                   static_cast<float>(b) / 255.f, a);
 }
 
+// Slate and amber.
+//
+// The reference is Source-era Valve: a cold, desaturated blue-grey shell with
+// one hot amber running through it. The two work because they are opposites --
+// the slate is cool and almost colourless, so the amber reads as light rather
+// than as another surface. Warming the greys would put them in competition with
+// the accent and make both look muddy.
+//
+// The greys are tinted blue on purpose, by a few points only. Enough that they
+// read as slate rather than as neutral grey; not enough to become a colour and
+// start arguing with whatever is on the canvas.
 const Palette kPalette {
-    /* windowBackground */ rgb(24, 25, 28),
-    /* panelBackground  */ rgb(31, 33, 37),
-    /* canvasBackground */ rgb(18, 19, 21),
-    /* control          */ rgb(44, 47, 52),
-    /* controlHovered   */ rgb(56, 60, 66),
-    /* controlActive    */ rgb(66, 71, 78),
-    /* border           */ rgb(48, 51, 57),
-    /* text             */ rgb(198, 202, 209),
-    /* textDim          */ rgb(126, 131, 140),
-    /* textBright       */ rgb(233, 236, 240),
-    /* accent           */ rgb(226, 143, 65),
-    /* accentDim        */ rgb(226, 143, 65, 0.28f),
-    /* danger           */ rgb(206, 88, 76),
-    /* checkerLight     */ rgb(58, 60, 65),
-    /* checkerDark      */ rgb(46, 48, 52),
+    /* windowBackground */ rgb(20, 24, 29),
+    /* panelBackground  */ rgb(29, 34, 41),
+    /* canvasBackground */ rgb(14, 17, 21),
+    /* control          */ rgb(43, 51, 61),
+    /* controlHovered   */ rgb(57, 68, 81),
+    /* controlActive    */ rgb(70, 83, 98),
+    /* border           */ rgb(50, 60, 71),
+    /* text             */ rgb(190, 202, 214),
+    /* textDim          */ rgb(116, 130, 146),
+    /* textBright       */ rgb(228, 238, 248),
+    /* accent           */ rgb(255, 158, 38),
+    /* accentDim        */ rgb(255, 158, 38, 0.22f),
+    /* danger           */ rgb(214, 84, 68),
+    /* checkerLight     */ rgb(56, 64, 74),
+    /* checkerDark      */ rgb(44, 51, 60),
 };
 
 const Metrics kMetrics {};
@@ -164,14 +177,143 @@ void loadFonts(float scale) {
 // ---------------------------------------------------------------- widgets --
 
 void sectionHeader(const char* label) {
+    // A muted amber rather than grey. It is the one place a second use of the
+    // accent earns its keep: it separates the structure of the panel from its
+    // contents at a glance, and it is dim enough not to pull the eye off the
+    // canvas. Anything brighter here and the panel starts shouting.
+    const ImVec4 muted { kPalette.accent.x, kPalette.accent.y, kPalette.accent.z,
+                         0.72f };
     ImGui::Dummy(ImVec2(0.f, 2.f));
-    ImGui::PushStyleColor(ImGuiCol_Text, kPalette.textDim);
+    ImGui::PushStyleColor(ImGuiCol_Text, muted);
     ImGui::TextUnformatted(label);
     ImGui::PopStyleColor();
-    ImGui::Spacing();
+
+    // A hairline under it, running to the edge of the panel: the Source-era
+    // habit, and it does the separating so the label does not have to be loud.
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const float width = ImGui::GetContentRegionAvail().x;
+    ImGui::GetWindowDrawList()->AddLine(
+        ImVec2(at.x, at.y + 1.f), ImVec2(at.x + width, at.y + 1.f),
+        ImGui::GetColorU32(kPalette.border));
+    ImGui::Dummy(ImVec2(0.f, 3.f));
 }
 
-bool toolButton(const char* glyph, const char* name, const char* shortcutHint,
+// ------------------------------------------------------------------ icons --
+//
+// Each icon is described in a unit square and scaled to wherever it is drawn, so
+// one definition serves the toolbar and anything else that wants it. The shapes
+// are deliberately chunky: an icon rendered at 18 pixels loses any detail
+// thinner than about a tenth of its width, and a thin outline reads as grey mush.
+
+namespace {
+
+// A point in the unit square of an icon, placed into a real one.
+struct IconSpace {
+    ImVec2 at;
+    float  size;
+    ImVec2 operator()(float x, float y) const {
+        return ImVec2(at.x + x * size, at.y + y * size);
+    }
+};
+
+// A quad along an axis, used for the barrel of the pencil and the dropper. The
+// axis runs from `from` to `to`; `halfWidth` is measured across it.
+void axisQuad(ImDrawList* draw, const IconSpace& s, ImVec2 from, ImVec2 to,
+              float halfWidth, ImU32 colour) {
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    const float length = std::sqrt(dx * dx + dy * dy);
+    if (length <= 0.f) {
+        return;
+    }
+    const float px = -dy / length * halfWidth;
+    const float py = dx / length * halfWidth;
+    draw->AddQuadFilled(s(from.x + px, from.y + py), s(to.x + px, to.y + py),
+                        s(to.x - px, to.y - py), s(from.x - px, from.y - py), colour);
+}
+
+} // namespace
+
+void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) {
+    const IconSpace s { at, size };
+
+    switch (icon) {
+        case Icon::Pencil: {
+            // A pencil on the usual diagonal, tip toward the bottom left.
+            const ImVec2 tip { 0.14f, 0.86f };
+            const ImVec2 shoulder { 0.36f, 0.64f };
+            const ImVec2 tail { 0.86f, 0.14f };
+
+            axisQuad(draw, s, shoulder, tail, 0.115f, colour);
+
+            // The sharpened point: a triangle narrowing to the tip.
+            const float px = 0.115f * 0.7071f;
+            draw->AddTriangleFilled(s(tip.x, tip.y),
+                                    s(shoulder.x + px, shoulder.y + px),
+                                    s(shoulder.x - px, shoulder.y - px), colour);
+
+            // The ferrule, a band across the barrel near the tail. Drawn in the
+            // panel colour so it reads as a gap rather than another shape.
+            axisQuad(draw, s, ImVec2(0.68f, 0.32f), ImVec2(0.735f, 0.265f), 0.115f,
+                     ImGui::GetColorU32(kPalette.panelBackground));
+            break;
+        }
+
+        case Icon::Eraser: {
+            // A block eraser, tilted. The seam between the rubber and the sleeve
+            // is a hairline: any wider and the icon reads as two separate blocks
+            // rather than one object, which is what a full gap did here.
+            axisQuad(draw, s, ImVec2(0.22f, 0.76f), ImVec2(0.78f, 0.28f), 0.185f,
+                     colour);
+            draw->AddLine(s(0.36f, 0.75f), s(0.66f, 0.43f),
+                          ImGui::GetColorU32(kPalette.panelBackground),
+                          std::max(1.5f, size * 0.075f));
+            break;
+        }
+
+        case Icon::Bucket: {
+            // Upright rather than tipped. A tipped bucket needs the handle, the
+            // mouth and the pour all legible at once, and at eighteen pixels it
+            // simply becomes a blob; upright reads immediately.
+            draw->AddQuadFilled(s(0.26f, 0.40f), s(0.72f, 0.40f),
+                                s(0.64f, 0.86f), s(0.34f, 0.86f), colour);
+
+            // The handle springs from the lip corners, so it belongs to the
+            // bucket instead of floating above it.
+            draw->PathClear();
+            draw->PathArcTo(s(0.49f, 0.41f), 0.23f * size, 3.34f, 6.09f, 16);
+            draw->PathStroke(colour, 0, std::max(1.6f, size * 0.075f));
+
+            // A drop off the rim, because a plain trapezoid reads as a box.
+            draw->AddCircleFilled(s(0.85f, 0.63f), size * 0.09f, colour, 10);
+            break;
+        }
+
+        case Icon::Dropper: {
+            // A pipette. The bulb is a circle rather than a wider quad: a quad
+            // merges into the shaft and the whole thing reads as a carrot.
+            draw->AddCircleFilled(s(0.735f, 0.265f), size * 0.175f, colour, 16);
+
+            // A collar, so bulb and shaft are two parts rather than one taper.
+            axisQuad(draw, s, ImVec2(0.60f, 0.40f), ImVec2(0.66f, 0.34f), 0.105f,
+                     colour);
+            draw->AddLine(s(0.585f, 0.415f), s(0.675f, 0.325f),
+                          ImGui::GetColorU32(kPalette.panelBackground),
+                          std::max(1.2f, size * 0.055f));
+
+            axisQuad(draw, s, ImVec2(0.28f, 0.72f), ImVec2(0.60f, 0.40f), 0.062f,
+                     colour);
+
+            const float px = 0.062f * 0.7071f;
+            draw->AddTriangleFilled(s(0.13f, 0.87f),
+                                    s(0.28f + px, 0.72f + px),
+                                    s(0.28f - px, 0.72f - px), colour);
+            break;
+        }
+    }
+}
+
+bool toolButton(Icon icon, const char* name, const char* shortcutHint,
                 bool selected, const char* description) {
     const Palette& c = kPalette;
     const float side = 30.f;
@@ -181,27 +323,48 @@ bool toolButton(const char* glyph, const char* name, const char* shortcutHint,
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
                           selected ? c.accentDim : c.controlHovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, c.controlActive);
-    ImGui::PushStyleColor(ImGuiCol_Text, selected ? c.accent : c.text);
 
-    const bool pressed = ImGui::Button(glyph, ImVec2(side, side));
+    ImGui::PushID(name);
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const bool pressed = ImGui::Button("##tool", ImVec2(side, side));
+    const bool hovered = ImGui::IsItemHovered();
+    ImGui::PopID();
+    ImGui::PopStyleColor(3);
 
-    ImGui::PopStyleColor(4);
+    // The icon carries the selected state as well as the background does, which
+    // matters because an accent-tinted background is subtle at a glance.
+    const float inset = side * 0.18f;
+    drawIcon(ImGui::GetWindowDrawList(), icon,
+             ImVec2(at.x + inset, at.y + inset), side - inset * 2.f,
+             ImGui::GetColorU32(selected ? c.accent
+                              : hovered  ? c.textBright
+                                         : c.text));
 
-    if (ImGui::IsItemHovered()) {
+    // A bar down the selected tool left edge. The background tint alone is easy
+    // to miss; this is unambiguous without being loud.
+    if (selected) {
+        ImGui::GetWindowDrawList()->AddRectFilled(
+            ImVec2(at.x - 6.f, at.y + 4.f), ImVec2(at.x - 3.f, at.y + side - 4.f),
+            ImGui::GetColorU32(c.accent), 1.f);
+    }
+
+    if (hovered) {
         ImGui::BeginTooltip();
         ImGui::PushStyleColor(ImGuiCol_Text, c.textBright);
         ImGui::TextUnformatted(name);
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, c.textDim);
-        ImGui::Text("(%s)", shortcutHint);
+        ImGui::PushStyleColor(ImGuiCol_Text, c.accent);
+        ImGui::TextUnformatted(shortcutHint);
+        ImGui::PopStyleColor();
         if (description != nullptr) {
+            ImGui::PushStyleColor(ImGuiCol_Text, c.textDim);
             ImGui::Spacing();
             ImGui::PushTextWrapPos(260.f);
             ImGui::TextUnformatted(description);
             ImGui::PopTextWrapPos();
+            ImGui::PopStyleColor();
         }
-        ImGui::PopStyleColor();
         ImGui::EndTooltip();
     }
     return pressed;
