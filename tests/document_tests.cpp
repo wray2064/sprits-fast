@@ -62,7 +62,7 @@ struct Scene {
 
     bool build(uint32_t canvas = 16) {
         if (!doc.create("test", canvas, canvas)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         layer = doc.engine().createLayer(sprite, {"main"}).value;
         return sprite.valid() && layer.valid();
     }

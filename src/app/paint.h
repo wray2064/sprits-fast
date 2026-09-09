@@ -70,6 +70,16 @@ ls::Color paintColor(Document& doc, const PaintLayer& target);
 bool adoptPaintLayers(Document& doc, ls::SpriteId* outSprite,
                       std::vector<PaintLayer>* outLayers);
 
+// The same, for a sprite the caller has already chosen.
+//
+// A document holds a list of sprites, and once frames exist that list is the
+// timeline -- so "the document's layers" stops being a question with one answer
+// and becomes "the layers of the frame being looked at". The overload above
+// answers the old question by taking the first sprite, which is the right answer
+// for a document with one frame and the wrong one for any other.
+bool adoptPaintLayers(Document& doc, ls::SpriteId sprite,
+                      std::vector<PaintLayer>* outLayers);
+
 // The pixels between two points, so a fast drag does not leave gaps. Bresenham,
 // inclusive of both ends.
 std::vector<ls::Vec2i> linePixels(ls::Vec2i from, ls::Vec2i to);

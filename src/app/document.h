@@ -67,6 +67,11 @@ public:
 
     ls::LSContext&   engine()      { return *engine_; }
     ls::DocumentId   id()    const { return id_; }
+
+    // The document's first sprite -- which, once frames exist, is its first
+    // frame. A document always has one: create() makes it, and the timeline
+    // refuses to delete the last one. Null only if the document failed to open.
+    ls::SpriteId     sprite() const;
     const std::string& name() const { return name_; }
     const std::string& path() const { return path_; }
     bool             modified() const { return modified_; }

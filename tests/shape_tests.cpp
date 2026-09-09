@@ -49,7 +49,7 @@ struct Canvas {
 
     bool build() {
         if (!doc.create("shape", kSize, kSize)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         return sprite.valid();
     }
 

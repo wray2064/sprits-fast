@@ -45,7 +45,7 @@ struct Canvas {
 
     bool build(uint32_t size = 16, Color color = Color{200, 60, 60, 255}) {
         if (!doc.create("paint", size, size)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         return fast::createPaintLayer(doc, sprite, "layer 1", color, &paint);
     }
 

@@ -107,20 +107,27 @@ ls::Color paintColor(Document& doc, const PaintLayer& target) {
 
 bool adoptPaintLayers(Document& doc, ls::SpriteId* outSprite,
                       std::vector<PaintLayer>* outLayers) {
-    if (outSprite == nullptr || outLayers == nullptr) {
+    if (outSprite == nullptr) {
+        return false;
+    }
+    auto document = doc.engine().getDocumentInfo(doc.id());
+    if (document.fail() || document.value.sprites.empty()) {
+        return false;
+    }
+    *outSprite = document.value.sprites.front();
+    return adoptPaintLayers(doc, *outSprite, outLayers);
+}
+
+bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
+                      std::vector<PaintLayer>* outLayers) {
+    if (outLayers == nullptr) {
         return false;
     }
     outLayers->clear();
 
     ls::LSContext& engine = doc.engine();
 
-    auto document = engine.getDocumentInfo(doc.id());
-    if (document.fail() || document.value.sprites.empty()) {
-        return false;
-    }
-    *outSprite = document.value.sprites.front();
-
-    auto sprite = engine.getSpriteInfo(*outSprite);
+    auto sprite = engine.getSpriteInfo(spriteId);
     if (sprite.fail()) {
         return false;
     }

@@ -33,7 +33,7 @@ struct Canvas {
 
     bool build() {
         if (!doc.create("bucket", kSize, kSize)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         return fast::createPaintLayer(doc, sprite, "layer 1",
                                       Color{200, 80, 50, 255}, &paint);
     }

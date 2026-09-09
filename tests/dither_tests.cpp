@@ -50,7 +50,7 @@ struct Canvas {
 
     bool build() {
         if (!doc.create("dither", kSize, kSize)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         if (!fast::createPaintLayer(doc, sprite, "layer 1",
                                     Color{200, 80, 50, 255}, &paint)) {
             return false;

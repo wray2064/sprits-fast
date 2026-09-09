@@ -142,7 +142,7 @@ void testDocumentRoundTripsThroughAnAccentedPath() {
 
     fast::Document doc;
     REQUIRE(doc.create("accented", 8, 8));
-    const ls::SpriteId sprite = doc.engine().createSprite(doc.id()).value;
+    const ls::SpriteId sprite = doc.sprite();
     const ls::LayerId layer = doc.engine().createLayer(sprite, {"main"}).value;
     const ls::GeometryId rect =
         doc.engine().createRect(doc.id(), {{2.f, 2.f}, 4.f, 4.f, 0.f}).value;

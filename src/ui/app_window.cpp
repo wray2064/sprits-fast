@@ -10,6 +10,7 @@
 // This is still the only part of Fast that knows what toolkit is in use.
 // Everything it does goes through fast_core, which knows nothing about windows.
 
+#include "app/animation.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
 #include "app/shape.h"
@@ -57,7 +58,12 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     // trusted: an absurd zoom or pan looks exactly like a file that failed.
     UiState view;
     if (fromJson(editor.doc.uiState(), &view)) {
-        view.clamp(static_cast<int>(editor.layers.size()));
+        // Clamped against what this document actually holds. A file can name
+        // frame 40 of a document with four, and a cycle that is no longer
+        // there.
+        const int frameCount = static_cast<int>(readFrames(editor.doc).size());
+        view.clamp(static_cast<int>(editor.layers.size()), frameCount,
+                   static_cast<int>(readCycles(editor.doc, frameCount).size()));
         canvas.setZoom(view.zoom);
         canvas.setPan(view.panX, view.panY);
         editor.activeLayer = view.activeLayer;

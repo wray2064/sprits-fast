@@ -61,7 +61,14 @@ bool newDocument(Editor& editor, uint32_t size) {
     }
     editor.layers.clear();
     editor.activeLayer = 0;
-    editor.sprite = editor.doc.engine().createSprite(editor.doc.id()).value;
+    // The document already has its first sprite -- Document::create makes one,
+    // because a document with no sprite has nothing to draw on. Making another
+    // here would open every new file on frame two of two.
+    auto info = editor.doc.engine().getDocumentInfo(editor.doc.id());
+    if (info.fail() || info.value.sprites.empty()) {
+        return false;
+    }
+    editor.sprite = info.value.sprites.front();
 
     // Every document starts with a palette, so the colours are a named set from
     // the first stroke rather than something to be organised later.

@@ -60,6 +60,15 @@ bool Document::create(const std::string& name, uint32_t width, uint32_t height) 
     if (created.fail()) {
         return false;
     }
+    // A document is born with one sprite, because a document with none has
+    // nothing to draw on. It is the same rule the timeline enforces at the other
+    // end -- the last frame cannot be deleted -- applied at birth rather than
+    // only on the way out, so nothing downstream has to handle a document that
+    // has no frame in it.
+    if (engine_->createSprite(created.value).fail()) {
+        engine_->deleteDocument(created.value);
+        return false;
+    }
     // The new document is built before the old one is let go, so a failure
     // leaves the editor holding what it had.
     releasePrevious(created.value);
@@ -72,6 +81,14 @@ bool Document::create(const std::string& name, uint32_t width, uint32_t height) 
     foreignEntries_.clear();
     uiState_.clear();
     return true;
+}
+
+ls::SpriteId Document::sprite() const {
+    auto info = engine_->getDocumentInfo(id_);
+    if (info.fail() || info.value.sprites.empty()) {
+        return ls::SpriteId::null();
+    }
+    return info.value.sprites.front();
 }
 
 bool Document::open(const std::string& path, std::string* error) {

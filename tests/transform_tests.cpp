@@ -52,7 +52,7 @@ struct Canvas {
 
     bool build() {
         if (!doc.create("transform", kSize, kSize)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         if (!fast::createPaintLayer(doc, sprite, "layer 1",
                                     Color{220, 90, 40, 255}, &paint)) {
             return false;

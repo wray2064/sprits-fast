@@ -87,7 +87,7 @@ bool expect(const std::string& text, size_t& at, char c) {
 
 } // namespace
 
-void UiState::clamp(int layerCount) {
+void UiState::clamp(int layerCount, int frameCount, int cycleCount) {
     if (!std::isfinite(zoom)) { zoom = 8.f; }
     if (!std::isfinite(panX)) { panX = 0.f; }
     if (!std::isfinite(panY)) { panY = 0.f; }
@@ -107,24 +107,37 @@ void UiState::clamp(int layerCount) {
         activeLayer = std::min(std::max(activeLayer, 0), layerCount - 1);
     }
 
+    // A frame index from a file can name a frame the document does not have.
+    if (frameCount <= 0) {
+        activeFrame = 0;
+    } else {
+        activeFrame = std::min(std::max(activeFrame, 0), frameCount - 1);
+    }
+    // Anything outside the cycle list means the default: every frame, in order.
+    if (activeCycle < 0 || activeCycle >= cycleCount) {
+        activeCycle = -1;
+    }
+
     previewScale = std::min(std::max(previewScale, 1), 4);
     previewTransparent = previewTransparent != 0 ? 1 : 0;
     previewColor &= 0xFFFFFF;      // a packed colour, so the top byte is not ours
 }
 
 std::string toJson(const UiState& state) {
-    char buffer[256];
+    char buffer[320];
     std::snprintf(buffer, sizeof(buffer),
                   "{\"zoom\":%.3f,\"panX\":%.3f,\"panY\":%.3f,\"activeLayer\":%d,"
                   "\"previewScale\":%d,\"previewTransparent\":%d,"
-                  "\"previewColor\":%d}",
+                  "\"previewColor\":%d,\"activeFrame\":%d,\"activeCycle\":%d}",
                   static_cast<double>(state.zoom),
                   static_cast<double>(state.panX),
                   static_cast<double>(state.panY),
                   state.activeLayer,
                   state.previewScale,
                   state.previewTransparent,
-                  state.previewColor);
+                  state.previewColor,
+                  state.activeFrame,
+                  state.activeCycle);
     return std::string(buffer);
 }
 
@@ -165,6 +178,8 @@ bool fromJson(const std::string& text, UiState* out) {
             parsed.previewTransparent = static_cast<int>(value);
         }
         else if (key == "previewColor") { parsed.previewColor = static_cast<int>(value); }
+        else if (key == "activeFrame") { parsed.activeFrame = static_cast<int>(value); }
+        else if (key == "activeCycle") { parsed.activeCycle = static_cast<int>(value); }
         // Anything else is ignored rather than refused: a newer Fast may write a
         // field this build has never heard of, and that should not stop the file
         // from opening.

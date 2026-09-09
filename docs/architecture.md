@@ -194,6 +194,78 @@ entries and validates entry names rather than repairing them. What it hands back
 is still only a *claim* about what those entries contain: a content type in a
 manifest is what the writer said, not a fact.
 
+## Frames
+
+**A frame is a sprite.** A LiveSprite document already holds an ordered list of
+sprites, each with its own layers, operations and transforms, and that list is
+what a saved file carries. So Fast keeps no frame list of its own: the document's
+sprite order *is* the timeline.
+
+That is worth stating because the alternative is so tempting. A parallel
+`std::vector<Frame>` in the app is easier to write and wrong in a way that shows
+up weeks later -- it has to be kept in step with the engine through every add,
+delete, undo, reorder and reload, and the first time it slips the editor is
+showing frame 3 while drawing into frame 4. With one list there is nothing to
+keep in step, and undo -- which restores engine state wholesale -- puts the
+timeline back without being told a timeline exists.
+
+Everything the engine has no opinion about is stored beside it, and where it goes
+follows from what it is:
+
+| | Lives in | Because |
+|---|---|---|
+| The frames, in order | The document's sprite list | It is the thing itself |
+| How long a frame is held, its name | Engine metadata on the sprite | Part of the artwork: undone with it, saved with it |
+| Cycles -- named runs like "walk" | Engine metadata on the document | Same |
+| Which frame is being looked at | The `fast/` view entry | Where you were, not what you made |
+
+### Duplicate, then change one thing
+
+That gesture is what animation is made of, and it is `cloneSprite`. When this was
+built the engine's clone shared what it should have copied: the copy's operations
+still named the original's regions and geometry, so moving the arm in frame 2
+moved it in frame 1, with nothing on screen to say why. The engine now copies the
+drawing (geometry and regions) and shares the document's resources (palettes,
+ramps, patterns) -- a palette role that recolours every frame at once is the
+reason roles exist. `tests/animation_tests.cpp` draws a square, duplicates it,
+moves the copy and checks the original is byte-for-byte unchanged.
+
+### A cycle names pictures, not positions
+
+Drag frame 3 to the front and a cycle that played `0, 2` has to still play the
+same two pictures. So every reorder and delete renumbers the cycles that
+reference them, and a cycle left with no frames is dropped rather than kept
+empty -- an empty cycle is a trap for every loop downstream that reads it. This
+is the bug every timeline written in a hurry has, so it is a test rather than a
+comment.
+
+### Playback is stateless
+
+`frameAt(frames, cycle, elapsedMs)` is a function of time, not a playhead that
+accumulates. Scrubbing backwards therefore lands on exactly what playing forwards
+showed, which an accumulating playhead cannot promise. Loop, Once and PingPong
+are the three modes, and ping-pong does not play either end twice -- four frames
+is six steps, not eight.
+
+### Cycles are stored as text, not JSON
+
+The view entry's parser reads a flat object of numbers and nothing else, on
+purpose: it parses data from files other people send, and a parser nobody can
+check is a bad place for that. Cycles need names and lists, so rather than grow
+that parser into a general one they use a small line format of their own, with
+`|`, newline and `%` percent-escaped in names so a name cannot say a new field or
+a new line. Malformed lines are dropped rather than failing the read: one bad
+cycle should not cost a person the other seven.
+
+### What is still missing
+
+The interface. There is no timeline, no onion skin, no playback control -- this
+is the model and the engine work under them, with the app's single-frame
+assumptions taken out (`adoptPaintLayers` now takes a sprite, and a document is
+born with one frame rather than having one bolted on by the window). A sprite
+sheet -- several frames laid into one canvas for export -- is a separate concern
+that uses `CompileProfile::exportOrigin`, and is not built either.
+
 ## The toolkit
 
 **Dear ImGui on SDL3**, drawing through `SDL_Renderer` rather than a hand-rolled

@@ -134,6 +134,44 @@ void testWhitespaceIsTolerated() {
     CHECK(read.panY == -3.f);
 }
 
+void testTheActiveFrameIsClampedToWhatExists() {
+    fast::UiState state;
+    state.activeFrame = 4000;
+    state.activeCycle = 12;
+    state.clamp(1, 3, 2);
+    CHECK(state.activeFrame == 2);
+    CHECK(state.activeCycle == -1);      // no such cycle: back to every frame
+
+    fast::UiState negative;
+    negative.activeFrame = -7;
+    negative.activeCycle = -3;
+    negative.clamp(1, 3, 2);
+    CHECK(negative.activeFrame == 0);
+    CHECK(negative.activeCycle == -1);
+
+    // A document with no frames yet, which is what a failed open looks like.
+    fast::UiState empty;
+    empty.activeFrame = 2;
+    empty.clamp(1, 0, 0);
+    CHECK(empty.activeFrame == 0);
+
+    // And a cycle that does exist survives.
+    fast::UiState kept;
+    kept.activeCycle = 1;
+    kept.clamp(1, 3, 2);
+    CHECK(kept.activeCycle == 1);
+}
+
+void testTheActiveFrameRoundTrips() {
+    fast::UiState written;
+    written.activeFrame = 5;
+    written.activeCycle = 2;
+    fast::UiState read;
+    CHECK(fast::fromJson(fast::toJson(written), &read));
+    CHECK(read.activeFrame == 5);
+    CHECK(read.activeCycle == 2);
+}
+
 } // namespace
 
 int main() {
@@ -143,6 +181,8 @@ int main() {
     testRubbishIsRefused();
     testHostileNumbersAreClamped();
     testWhitespaceIsTolerated();
+    testTheActiveFrameIsClampedToWhatExists();
+    testTheActiveFrameRoundTrips();
 
     if (failures == 0) {
         std::printf("fast_ui_state: all checks passed\n");

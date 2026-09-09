@@ -26,6 +26,12 @@ struct UiState {
     float panY = 0.f;
     int   activeLayer = 0;
 
+    // Which frame was being looked at, and which cycle was selected. Neither is
+    // part of the artwork -- the frames themselves are the document's sprites --
+    // so both belong here with the zoom rather than in the engine.
+    int   activeFrame = 0;
+    int   activeCycle = -1;          // -1 means every frame, in order
+
     // The corner preview. Which backdrop someone checks their sprite against is
     // a property of the sprite, not of the session: a character for a night
     // level wants a dark one every time it is opened.
@@ -35,7 +41,7 @@ struct UiState {
 
     // Forces every field into a range the editor can actually use. Called on
     // everything that comes out of a file, before any of it reaches the canvas.
-    void clamp(int layerCount);
+    void clamp(int layerCount, int frameCount = 1, int cycleCount = 0);
 };
 
 std::string toJson(const UiState& state);

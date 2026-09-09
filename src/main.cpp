@@ -65,7 +65,7 @@ int main() {
 
     LSContext& engine = doc.engine();
 
-    const SpriteId sprite = engine.createSprite(doc.id()).value;
+    const SpriteId sprite = doc.sprite();
     const LayerId layer = engine.createLayer(sprite, {"main"}).value;
 
     // One action: a shape filled with a colour. Bracketing it is what makes it

@@ -46,7 +46,7 @@ struct Canvas {
 
     bool build() {
         if (!doc.create("palette", kSize, kSize)) { return false; }
-        sprite = doc.engine().createSprite(doc.id()).value;
+        sprite = doc.sprite();
         return fast::ensurePalette(doc, sprite);
     }
 
