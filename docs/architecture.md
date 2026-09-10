@@ -322,9 +322,32 @@ after it, because *under* is the point: ghosts painted over the live frame haze
 the thing being judged. It only ever draws frames that already have textures --
 paying a compile for a convenience would undo the reason it is affordable.
 
-**Still missing:** a cycle editor (the model holds cycles; nothing creates them
-yet), and sprite sheets -- several frames laid into one canvas for export, which
-is a separate concern using `CompileProfile::exportOrigin`.
+### A cycle is a sequence, not a subset
+
+The step row under the strip is the cycle editor, and its shape follows from one
+fact: **a step names a frame, and two steps may name the same one.** A four-frame
+walk is authored once and played `0 1 2 1`; two cycles share drawings without
+either owning them.
+
+That is why the obvious design -- a checkbox per frame saying "in this cycle" --
+was not built. It cannot say `0 1 2 1`, and it cannot say what order. So the
+frames and the steps are two rows, labelled differently, because they are two
+lists: what was drawn, and the order it plays in.
+
+The strip still carries the connection. A frame gets one accent dot per time the
+cycle plays it, and a frame no step names is dimmed rather than flagged -- an
+in-between kept for later is an ordinary thing to have, not a mistake.
+
+The loop mode belongs to the cycle rather than to the editor, because "hurt"
+plays once and "walk" loops, in the same document, at the same time.
+
+The last step of a cycle stays, for the same reason the last frame of a document
+does: `setCycles` drops a cycle with no steps, so removing the last one would
+silently delete the cycle -- and deleting a cycle is a different thing, which a
+person asks for differently.
+
+**Still missing:** sprite sheets -- several frames laid into one canvas for
+export, a separate concern using `CompileProfile::exportOrigin`.
 
 ## The toolkit
 

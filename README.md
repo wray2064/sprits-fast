@@ -22,7 +22,7 @@ visibility and a colour swatch each; a corner preview at true size over any
 background.
 
 **Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
-per frame, playback, and an onion skin.
+per frame, named cycles with their own loop mode, playback, and an onion skin.
 
 **What makes it different** — shapes that stay editable after they are drawn,
 outlines that follow the artwork, non-destructive transforms, dithered fills with
@@ -135,6 +135,22 @@ one while drawing. `--expect-idle` makes that a CI failure rather than a claim.
 Playback is a function of elapsed time rather than a playhead that is stepped,
 so a dropped frame costs nothing and scrubbing lands on exactly what playing
 showed.
+
+### Cycles
+
+A cycle is a named run of frames -- "walk", "hurt" -- with its own loop mode, so
+one plays once and another loops in the same document at the same time. They are
+saved with the file.
+
+The thing worth knowing is that a cycle is a **sequence, not a subset**. A step
+names a frame, and two steps may name the same one, so a four-frame walk is drawn
+once and played `0 1 2 1`. That is why the editor is a second row of steps rather
+than a checkbox per frame: a checkbox cannot say a frame twice, and it cannot say
+what order.
+
+The strip stays connected to it -- a frame carries one dot per time the cycle
+plays it, and a frame no step names is dimmed rather than flagged, because an
+in-between kept for later is an ordinary thing to have.
 
 ### Shapes that stay shapes
 

@@ -43,6 +43,11 @@ void drawPreviewOverlay(Editor& editor, const CanvasView& canvas);
 // compiles.
 void drawTimelinePanel(Editor& editor, CanvasView& canvas);
 
+// How tall the strip needs to be. It grows when a cycle is selected, because a
+// cycle's steps are a second row: the frames are what was drawn, the steps are
+// the order they play in, and those are different lists.
+float timelinePanelHeight(const Editor& editor);
+
 // The frames either side of this one, faint, under the live artwork. Drawn as
 // an overlay inside the canvas window, so it must be called while that window
 // is current and before the canvas image itself.

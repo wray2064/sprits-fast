@@ -440,6 +440,164 @@ void testTheNumberOfCyclesIsBounded() {
     CHECK(read.size() <= kMaxCycles);
 }
 
+
+// --- editing cycles -------------------------------------------------------
+
+// Three frames, so a cycle has something to be a sequence over.
+bool buildThree(Document& doc) {
+    if (!build(doc)) {
+        return false;
+    }
+    return duplicateFrame(doc, 0) == 1 && duplicateFrame(doc, 1) == 2;
+}
+
+void testANewCycleCoversEveryFrame() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+    const std::vector<Cycle> cycles = readCycles(doc, 3);
+    REQUIRE(cycles.size() == 1);
+    CHECK(cycles.front().name == "walk");
+    CHECK(cycles.front().frames == std::vector<int>({ 0, 1, 2 }));
+    CHECK(cycles.front().loop == LoopMode::Loop);
+
+    // A second one is a second one, not a replacement.
+    REQUIRE(addCycle(doc, "hurt", 3) == 1);
+    CHECK(readCycles(doc, 3).size() == 2);
+}
+
+// The reason a cycle is a sequence over frames rather than a set of them: a
+// step may name a frame another step already named.
+void testACycleCanPlayAFrameTwice() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+
+    // 0 1 2 -> 0 1 2 1, the shape every four-frame walk actually has.
+    REQUIRE(addCycleStep(doc, 0, 2, 1, 3) == 3);
+    std::vector<Cycle> cycles = readCycles(doc, 3);
+    REQUIRE(cycles.size() == 1);
+    CHECK(cycles.front().frames == std::vector<int>({ 0, 1, 2, 1 }));
+
+    // And the two steps naming frame 1 are independent: removing one leaves
+    // the other.
+    REQUIRE(removeCycleStep(doc, 0, 1, 3));
+    cycles = readCycles(doc, 3);
+    CHECK(cycles.front().frames == std::vector<int>({ 0, 2, 1 }));
+}
+
+void testStepsInsertWhereAsked() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+
+    REQUIRE(addCycleStep(doc, 0, 0, 2, 3) == 1);          // after the first step
+    CHECK(readCycles(doc, 3).front().frames == std::vector<int>({ 0, 2, 1, 2 }));
+
+    // A step index outside the cycle appends rather than failing.
+    REQUIRE(addCycleStep(doc, 0, 999, 0, 3) == 4);
+    CHECK(readCycles(doc, 3).front().frames == std::vector<int>({ 0, 2, 1, 2, 0 }));
+
+    // A frame index outside the document is refused rather than stored and
+    // dropped on the next read.
+    CHECK(addCycleStep(doc, 0, 0, 9, 3) < 0);
+    CHECK(addCycleStep(doc, 0, 0, -1, 3) < 0);
+    CHECK(addCycleStep(doc, 7, 0, 0, 3) < 0);             // no such cycle
+}
+
+void testTheLastStepStays() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    REQUIRE(addCycle(doc, "one", 3) == 0);
+
+    REQUIRE(removeCycleStep(doc, 0, 0, 3));
+    REQUIRE(removeCycleStep(doc, 0, 0, 3));
+    REQUIRE(readCycles(doc, 3).front().frames.size() == 1);
+
+    // Removing the last one would delete the cycle rather than empty it, which
+    // is a different thing a person asks for differently.
+    CHECK(!removeCycleStep(doc, 0, 0, 3));
+    CHECK(readCycles(doc, 3).size() == 1);
+
+    CHECK(deleteCycle(doc, 0, 3));
+    CHECK(readCycles(doc, 3).empty());
+}
+
+void testStepsReorder() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+
+    REQUIRE(moveCycleStep(doc, 0, 2, 0, 3));
+    CHECK(readCycles(doc, 3).front().frames == std::vector<int>({ 2, 0, 1 }));
+
+    REQUIRE(moveCycleStep(doc, 0, 0, 2, 3));
+    CHECK(readCycles(doc, 3).front().frames == std::vector<int>({ 0, 1, 2 }));
+
+    CHECK(!moveCycleStep(doc, 0, 0, 0, 3));      // nowhere is not a move
+    CHECK(!moveCycleStep(doc, 0, 0, 9, 3));
+}
+
+void testRenamingAndLooping() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+
+    REQUIRE(renameCycle(doc, 0, "run", 3));
+    CHECK(readCycles(doc, 3).front().name == "run");
+
+    REQUIRE(setCycleLoop(doc, 0, LoopMode::PingPong, 3));
+    CHECK(readCycles(doc, 3).front().loop == LoopMode::PingPong);
+
+    CHECK(!renameCycle(doc, 4, "nope", 3));
+    CHECK(!setCycleLoop(doc, 4, LoopMode::Once, 3));
+}
+
+void testEveryCycleEditIsOneUndoStep() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    doc.markUnmodified();
+
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+    CHECK(doc.modified());
+    REQUIRE(addCycleStep(doc, 0, 0, 2, 3) >= 0);
+    CHECK(readCycles(doc, 3).front().frames.size() == 4);
+
+    REQUIRE(doc.undo());
+    CHECK(readCycles(doc, 3).front().frames.size() == 3);   // the step came back off
+    REQUIRE(doc.undo());
+    CHECK(readCycles(doc, 3).empty());                      // and the cycle itself
+    REQUIRE(doc.redo());
+    CHECK(readCycles(doc, 3).size() == 1);
+}
+
+// Deleting a frame has to reach the cycles that name it, including the steps
+// that named it twice.
+void testDeletingAFrameCleansEveryStep() {
+    Document doc;
+    REQUIRE(buildThree(doc));
+    REQUIRE(addCycle(doc, "walk", 3) == 0);
+    REQUIRE(addCycleStep(doc, 0, 2, 1, 3) == 3);        // 0 1 2 1
+
+    REQUIRE(deleteFrame(doc, 1));                        // the frame both steps named
+
+    const std::vector<Cycle> after = readCycles(doc, 2);
+    REQUIRE(after.size() == 1);
+    // Both steps naming frame 1 are gone, and frame 2 renumbered down to 1.
+    CHECK(after.front().frames == std::vector<int>({ 0, 1 }));
+}
+
+void testCyclesAreBounded() {
+    Document doc;
+    REQUIRE(build(doc));
+
+    for (size_t i = 0; i < kMaxCycles + 8; ++i) {
+        addCycle(doc, "c" + std::to_string(i), 1);
+    }
+    CHECK(readCycles(doc, 1).size() == kMaxCycles);
+}
+
 } // namespace
 
 int main() {
@@ -463,6 +621,15 @@ int main() {
     testARubbishCycleFileIsRefusedOrIgnored();
     testAFileCannotNameFramesThatDoNotExist();
     testTheNumberOfCyclesIsBounded();
+    testANewCycleCoversEveryFrame();
+    testACycleCanPlayAFrameTwice();
+    testStepsInsertWhereAsked();
+    testTheLastStepStays();
+    testStepsReorder();
+    testRenamingAndLooping();
+    testEveryCycleEditIsOneUndoStep();
+    testDeletingAFrameCleansEveryStep();
+    testCyclesAreBounded();
     if (failures == 0) {
         std::printf("animation: all checks passed\n");
         return 0;

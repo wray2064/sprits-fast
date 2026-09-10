@@ -93,15 +93,33 @@ void selectFrame(Editor& editor, int index) {
     syncColorFromLayer(editor);
 }
 
+Cycle activeCycle(const Editor& editor) {
+    if (editor.timeline.activeCycle >= 0 &&
+        editor.timeline.activeCycle < static_cast<int>(editor.cycles.size())) {
+        return editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)];
+    }
+    return everyFrame(static_cast<int>(editor.frames.size()));
+}
+
+void selectCycle(Editor& editor, int index) {
+    const int count = static_cast<int>(editor.cycles.size());
+    editor.timeline.activeCycle = (index >= 0 && index < count) ? index : -1;
+    editor.timeline.selectedStep = 0;
+    editor.timeline.playing = false;
+
+    // Land on the cycle's first picture, so selecting one shows what it starts
+    // with rather than leaving the canvas on whatever was there before.
+    const Cycle cycle = activeCycle(editor);
+    if (!cycle.frames.empty()) {
+        selectFrame(editor, cycle.frames.front());
+    }
+}
+
 int frameToShow(const Editor& editor, uint64_t nowMs) {
     if (!editor.timeline.playing || editor.frames.empty()) {
         return editor.timeline.activeFrame;
     }
-    const Cycle cycle =
-        (editor.timeline.activeCycle >= 0 &&
-         editor.timeline.activeCycle < static_cast<int>(editor.cycles.size()))
-            ? editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)]
-            : everyFrame(static_cast<int>(editor.frames.size()));
+    const Cycle cycle = activeCycle(editor);
 
     // A function of elapsed time rather than a counter that is stepped. A UI
     // frame that took too long therefore costs nothing: the next one lands

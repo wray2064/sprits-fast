@@ -19,12 +19,19 @@
 #include <algorithm>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace fast {
 namespace {
 
-constexpr float kThumbSize   = 56.f;   // the cell, in screen pixels
-constexpr float kStripHeight = 134.f;
+constexpr float kThumbSize = 56.f;    // the frame cell, in screen pixels
+constexpr float kStepSize  = 34.f;    // a step chip, which carries a number
+
+// A step row is a second list under the frames, so the panel is taller when a
+// cycle is selected. It is not always shown because most of the time there is
+// nothing in it to say.
+constexpr float kBaseHeight  = 158.f;
+constexpr float kStepsHeight = 52.f;
 
 // How many frames the strip may compile in one UI frame.
 //
@@ -84,7 +91,279 @@ void drawThumbnail(ImDrawList* draw, const CanvasView& canvas,
     canvas.drawFrameTinted(draw, entry, at, scale, IM_COL32_WHITE);
 }
 
+const char* loopName(LoopMode mode) {
+    switch (mode) {
+        case LoopMode::Loop:     return "Loop";
+        case LoopMode::Once:     return "Once";
+        case LoopMode::PingPong: return "Ping-pong";
+    }
+    return "Loop";
+}
+
+// The controls that make and unmake cycles. Kept apart from the frame controls
+// because they act on different things: one edits the drawings, the other edits
+// the order they play in.
+void drawCycleControls(Editor& editor) {
+    const theme::Palette& c = theme::palette();
+    TimelineSettings& timeline = editor.timeline;
+    const int frameCount = static_cast<int>(editor.frames.size());
+
+    ImGui::TextColored(c.textDim, "Cycle");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(150.f);
+
+    // "Every frame" is not a cycle, it is what a document without one plays.
+    // Naming it in the same list is how a person discovers cycles exist.
+    const std::string current = timeline.activeCycle < 0
+        ? std::string("Every frame")
+        : (editor.cycles[static_cast<size_t>(timeline.activeCycle)].name.empty()
+               ? "Cycle " + std::to_string(timeline.activeCycle + 1)
+               : editor.cycles[static_cast<size_t>(timeline.activeCycle)].name);
+
+    if (ImGui::BeginCombo("##cycle", current.c_str())) {
+        if (ImGui::Selectable("Every frame", timeline.activeCycle < 0)) {
+            selectCycle(editor, -1);
+        }
+        for (int i = 0; i < static_cast<int>(editor.cycles.size()); ++i) {
+            ImGui::PushID(i);
+            const std::string label = editor.cycles[static_cast<size_t>(i)].name.empty()
+                ? "Cycle " + std::to_string(i + 1)
+                : editor.cycles[static_cast<size_t>(i)].name;
+            if (ImGui::Selectable(label.c_str(), i == timeline.activeCycle)) {
+                selectCycle(editor, i);
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled(editor.cycles.size() >= kMaxCycles || frameCount == 0);
+    if (ImGui::Button("New")) {
+        const int at = addCycle(editor.doc, "cycle " +
+                                std::to_string(editor.cycles.size() + 1), frameCount);
+        if (at >= 0) {
+            resyncFrames(editor);
+            selectCycle(editor, at);
+            editor.say("New cycle over every frame -- trim it to taste");
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("A new cycle covering every frame in order.\n"
+                          "It plays straight away; refining it is subtraction.");
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled(timeline.activeCycle < 0);
+    if (ImGui::Button("Rename")) {
+        const std::string& name =
+            editor.cycles[static_cast<size_t>(timeline.activeCycle)].name;
+        std::snprintf(timeline.cycleNameBuffer, sizeof(timeline.cycleNameBuffer),
+                      "%s", name.c_str());
+        ImGui::OpenPopup("rename cycle");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Delete##cycle")) {
+        if (deleteCycle(editor.doc, timeline.activeCycle, frameCount)) {
+            resyncFrames(editor);
+            selectCycle(editor, -1);
+        }
+    }
+
+    // The loop mode belongs to the cycle, not to the editor: "hurt" plays once
+    // and "walk" loops, in the same document, at the same time.
+    ImGui::SameLine();
+    ImGui::TextColored(c.textDim, "when it ends");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(112.f);
+    if (timeline.activeCycle >= 0) {
+        const Cycle& cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
+        if (ImGui::BeginCombo("##loop", loopName(cycle.loop))) {
+            for (LoopMode mode : { LoopMode::Loop, LoopMode::Once, LoopMode::PingPong }) {
+                if (ImGui::Selectable(loopName(mode), mode == cycle.loop)) {
+                    setCycleLoop(editor.doc, timeline.activeCycle, mode, frameCount);
+                    resyncFrames(editor);
+                }
+            }
+            ImGui::EndCombo();
+        }
+    } else {
+        ImGui::BeginDisabled(true);
+        ImGui::BeginCombo("##loop", "Loop", ImGuiComboFlags_NoArrowButton);
+        ImGui::EndDisabled();
+    }
+    ImGui::EndDisabled();
+
+    // How long this cycle runs, which is not the same as how long the frames
+    // add up to: a cycle can leave frames out, or play one twice.
+    ImGui::SameLine();
+    const Cycle playing = activeCycle(editor);
+    const int length = cycleDurationMs(editor.frames, playing);
+    const std::string summary = std::to_string(playing.frames.size()) + " steps, " +
+                                timingOf(length);
+    ImGui::TextColored(c.textDim, "%s", summary.c_str());
+
+    if (ImGui::BeginPopup("rename cycle")) {
+        ImGui::SetNextItemWidth(200.f);
+        const bool done = ImGui::InputText("##name", timeline.cycleNameBuffer,
+                                           sizeof(timeline.cycleNameBuffer),
+                                           ImGuiInputTextFlags_EnterReturnsTrue);
+        if (done || ImGui::Button("Rename##ok")) {
+            if (timeline.activeCycle >= 0) {
+                renameCycle(editor.doc, timeline.activeCycle,
+                            timeline.cycleNameBuffer, frameCount);
+                resyncFrames(editor);
+            }
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
+// The cycle as a sequence: one chip per step, each naming a frame.
+//
+// This row exists because a cycle is not a subset of the frames -- it is an
+// order over them, and a frame may appear in it more than once. A row of
+// checkboxes on the strip could not say "0 1 2 1", which is the shape every
+// four-frame walk actually has.
+void drawStepRow(Editor& editor) {
+    const theme::Palette& c = theme::palette();
+    TimelineSettings& timeline = editor.timeline;
+    if (timeline.activeCycle < 0 ||
+        timeline.activeCycle >= static_cast<int>(editor.cycles.size())) {
+        return;
+    }
+    const int frameCount = static_cast<int>(editor.frames.size());
+    const Cycle& cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
+    const int steps = static_cast<int>(cycle.frames.size());
+
+    if (timeline.selectedStep >= steps) {
+        timeline.selectedStep = steps - 1;
+    }
+    if (timeline.selectedStep < 0) {
+        timeline.selectedStep = 0;
+    }
+
+    // Which step the clock is on, so playback can be read here as well as on
+    // the strip -- with a repeated frame, the strip alone cannot say which of
+    // the two passes is running.
+    const int playingStep = timeline.playing
+        ? cyclePositionAt(editor.frames, cycle,
+                          static_cast<int64_t>(SDL_GetTicks() - timeline.startedAtMs))
+        : -1;
+
+    ImGui::BeginChild("steps", ImVec2(0.f, kStepSize + 8.f), false,
+                      ImGuiWindowFlags_HorizontalScrollbar);
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+
+    // Two rows of numbered boxes sitting on top of each other need telling
+    // apart: the strip is what was drawn, this is the order it plays in.
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(c.textDim, "Plays");
+    ImGui::SameLine(0.f, 8.f);
+
+    for (int i = 0; i < steps; ++i) {
+        ImGui::PushID(i);
+        ImGui::SameLine(0.f, 4.f);
+        const int frame = cycle.frames[static_cast<size_t>(i)];
+        const ImVec2 chip = ImGui::GetCursorScreenPos();
+
+        if (ImGui::InvisibleButton("step", ImVec2(kStepSize, kStepSize))) {
+            timeline.playing = false;
+            timeline.selectedStep = i;
+            selectFrame(editor, frame);
+        }
+        const bool hovered = ImGui::IsItemHovered();
+
+        // Middle-click removes, which keeps the chip a chip rather than a chip
+        // with an x on it at this size.
+        if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
+            if (removeCycleStep(editor.doc, timeline.activeCycle, i, frameCount)) {
+                resyncFrames(editor);
+            }
+            ImGui::PopID();
+            break;
+        }
+
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+            ImGui::SetDragDropPayload("step", &i, sizeof(int));
+            ImGui::Text("Step %d", i + 1);
+            ImGui::EndDragDropSource();
+        }
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("step")) {
+                const int from = *static_cast<const int*>(payload->Data);
+                if (moveCycleStep(editor.doc, timeline.activeCycle, from, i, frameCount)) {
+                    resyncFrames(editor);
+                    timeline.selectedStep = i;
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+        if (hovered) {
+            ImGui::SetTooltip("Step %d plays frame %d\nMiddle-click to remove, "
+                              "drag to reorder", i + 1, frame + 1);
+        }
+
+        const ImVec2 corner(chip.x + kStepSize, chip.y + kStepSize);
+        const bool selected = (i == timeline.selectedStep);
+        draw->AddRectFilled(chip, corner,
+                            ImGui::GetColorU32(selected ? c.controlActive : c.control),
+                            theme::metrics().rounding);
+        if (selected) {
+            draw->AddRect(chip, corner, ImGui::ColorConvertFloat4ToU32(c.accent),
+                          theme::metrics().rounding, 0, 2.f);
+        } else if (hovered) {
+            draw->AddRect(chip, corner, ImGui::GetColorU32(c.border),
+                          theme::metrics().rounding, 0, 1.f);
+        }
+        if (i == playingStep) {
+            draw->AddRectFilled(ImVec2(chip.x, corner.y - 3.f), corner,
+                                ImGui::ColorConvertFloat4ToU32(c.accent));
+        }
+
+        const std::string label = std::to_string(frame + 1);
+        const ImVec2 size = ImGui::CalcTextSize(label.c_str());
+        draw->AddText(ImVec2(chip.x + (kStepSize - size.x) * 0.5f,
+                             chip.y + (kStepSize - size.y) * 0.5f),
+                      ImGui::GetColorU32(selected ? c.textBright : c.text),
+                      label.c_str());
+        ImGui::PopID();
+    }
+
+    // Appending the selected frame is the ordinary way a cycle is built up,
+    // and it lands after the selected step rather than at the end, so a step
+    // can be put in the middle of a sequence that already exists.
+    ImGui::SameLine(0.f, 8.f);
+    ImGui::BeginDisabled(cycle.frames.size() >= kMaxFramesPerCycle);
+    if (ImGui::Button("+", ImVec2(kStepSize, kStepSize))) {
+        const int at = addCycleStep(editor.doc, timeline.activeCycle,
+                                    timeline.selectedStep, timeline.activeFrame,
+                                    frameCount);
+        if (at >= 0) {
+            resyncFrames(editor);
+            timeline.selectedStep = at;
+        }
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Add frame %d to this cycle, after the selected step.\n"
+                          "A frame may appear more than once.",
+                          timeline.activeFrame + 1);
+    }
+
+    ImGui::EndChild();
+}
+
 } // namespace
+
+float timelinePanelHeight(const Editor& editor) {
+    if (!editor.timeline.visible) {
+        return 0.f;
+    }
+    return editor.timeline.activeCycle >= 0 ? kBaseHeight + kStepsHeight : kBaseHeight;
+}
 
 void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
                    ImVec2 origin, float zoom) {
@@ -127,8 +406,6 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
     const theme::Palette& c = theme::palette();
     TimelineSettings& timeline = editor.timeline;
-
-    ImGui::BeginChild("timeline", ImVec2(0.f, kStripHeight), true);
 
     // ------------------------------------------------------------ controls --
     if (ImGui::Button(timeline.playing ? "Stop" : "Play", ImVec2(56.f, 0.f))) {
@@ -213,9 +490,28 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         ImGui::TextColored(c.textDim, "%s", summary.c_str());
     }
 
+    // -------------------------------------------------------------- cycle --
+    drawCycleControls(editor);
+
     // -------------------------------------------------------------- strip --
     ImGui::Separator();
-    ImGui::BeginChild("strip", ImVec2(0.f, 0.f), false,
+
+    // What the cycle plays, so the strip can say which frames are in it and
+    // how many times each is used. A frame in no cycle is not a mistake -- an
+    // in-between kept for later is an ordinary thing to have -- so it is
+    // marked quietly rather than flagged.
+    const Cycle playing = activeCycle(editor);
+    std::vector<int> usage(editor.frames.size(), 0);
+    for (int step : playing.frames) {
+        if (step >= 0 && step < static_cast<int>(usage.size())) {
+            ++usage[static_cast<size_t>(step)];
+        }
+    }
+
+    const float stripHeight = timeline.activeCycle >= 0
+        ? -(kStepSize + 12.f)
+        : 0.f;
+    ImGui::BeginChild("strip", ImVec2(0.f, stripHeight), false,
                       ImGuiWindowFlags_HorizontalScrollbar);
 
     const int showing = frameToShow(editor, SDL_GetTicks());
@@ -301,6 +597,22 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
                                 ImGui::ColorConvertFloat4ToU32(c.accent));
         }
 
+        // A dot per time this cycle plays the frame, in the corner of the
+        // cell: present, twice, or absent, readable without counting chips.
+        if (timeline.activeCycle >= 0) {
+            const int times = usage[static_cast<size_t>(i)];
+            if (times == 0) {
+                // Dimmed rather than marked: the frame is still a frame.
+                draw->AddRectFilled(cell, corner, IM_COL32(0, 0, 0, 120),
+                                    theme::metrics().rounding);
+            }
+            for (int dot = 0; dot < times && dot < 4; ++dot) {
+                draw->AddCircleFilled(
+                    ImVec2(corner.x - 6.f - static_cast<float>(dot) * 7.f, cell.y + 6.f),
+                    2.5f, ImGui::ColorConvertFloat4ToU32(c.accent));
+            }
+        }
+
         const std::string label = labelOf(frame, i);
         draw->AddText(ImVec2(cell.x + 3.f, corner.y + 6.f),
                       ImGui::GetColorU32(selected ? c.textBright : c.textDim),
@@ -317,7 +629,9 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
 
     ImGui::EndChild();
-    ImGui::EndChild();
+
+    // ------------------------------------------------------------- steps --
+    drawStepRow(editor);
 }
 
 } // namespace fast

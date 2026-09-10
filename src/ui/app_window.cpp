@@ -79,6 +79,15 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
         editor.preview.color[1] = static_cast<float>((view.previewColor >> 8) & 0xFF) / 255.f;
         editor.preview.color[2] = static_cast<float>(view.previewColor & 0xFF) / 255.f;
         editor.preview.color[3] = 1.f;
+
+        // Which frame and cycle were open. Clamped above against what this
+        // document actually holds, so a file naming frame 40 of four lands on
+        // a frame that exists rather than on nothing.
+        editor.timeline.activeCycle = view.activeCycle;
+        selectFrame(editor, view.activeFrame);
+        // The strip opens by itself for a document that has more than one
+        // frame: an animation whose timeline is hidden looks like a still.
+        editor.timeline.visible = editor.frames.size() > 1;
     } else {
         canvas.resetView();
     }
@@ -106,6 +115,8 @@ bool saveTo(Editor& editor, const CanvasView& canvas, const std::string& path) {
         (static_cast<int>(editor.preview.color[0] * 255.f + 0.5f) << 16) |
         (static_cast<int>(editor.preview.color[1] * 255.f + 0.5f) << 8) |
          static_cast<int>(editor.preview.color[2] * 255.f + 0.5f);
+    view.activeFrame = editor.timeline.activeFrame;
+    view.activeCycle = editor.timeline.activeCycle;
     editor.doc.setUiState(toJson(view));
 
     std::string error;
@@ -658,7 +669,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // The strip takes its height out of the canvas rather than overlapping it:
     // an animator wants to see the frame and the strip at the same time, and a
     // timeline floating over the artwork hides the thing it is describing.
-    const float timelineHeight = editor.timeline.visible ? 144.f : 0.f;
+    const float timelineHeight = timelinePanelHeight(editor);
     ImGui::SetNextWindowPos({canvasX, top});
     ImGui::SetNextWindowSize({canvasWidth, bodyHeight - timelineHeight});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
@@ -828,6 +839,23 @@ void drawDemoContent(Editor& editor) {
         setFrameDuration(editor.doc, at, 80 + i * 10);
     }
     resyncFrames(editor);
+
+    // A cycle that is not simply "every frame", because that is the case the
+    // step row exists for: it leaves a frame out and plays another twice, which
+    // no row of checkboxes over the strip could say.
+    const int frameCount = static_cast<int>(editor.frames.size());
+    if (addCycle(editor.doc, "swing", frameCount) == 0) {
+        resyncFrames(editor);
+        // every frame -> 0 1 2 3 4 2
+        removeCycleStep(editor.doc, 0, 5, frameCount);
+        resyncFrames(editor);
+        addCycleStep(editor.doc, 0, 4, 2, frameCount);
+        resyncFrames(editor);
+        setCycleLoop(editor.doc, 0, LoopMode::PingPong, frameCount);
+        resyncFrames(editor);
+        selectCycle(editor, 0);
+    }
+
     selectFrame(editor, 0);
     editor.timeline.visible = true;
     editor.timeline.onion = true;
@@ -979,6 +1007,70 @@ int runSelfTest() {
     // The last frame cannot be deleted, so the editor can never reach a state
     // with nothing to draw on.
     check(!deleteFrame(editor.doc, 0), "the last frame stays");
+
+    // ------------------------------------------------------------ cycles --
+    //
+    // The window's half of the cycle editor: that selecting one changes what
+    // plays and what the canvas shows, and that a step is not a frame.
+
+    check(duplicateFrame(editor.doc, 0) == 1, "a second frame to cycle over");
+    check(duplicateFrame(editor.doc, 1) == 2, "and a third");
+    resyncFrames(editor);
+    check(editor.frames.size() == 3, "three frames");
+
+    check(editor.timeline.activeCycle == -1, "no cycle to start");
+    check(activeCycle(editor).frames.size() == 3,
+          "with none selected, every frame plays");
+
+    check(addCycle(editor.doc, "walk", 3) == 0, "make a cycle");
+    resyncFrames(editor);
+    selectCycle(editor, 0);
+    check(editor.timeline.activeCycle == 0, "it is selected");
+    check(editor.timeline.activeFrame == 0, "and it starts on its first picture");
+
+    // 0 1 2 -> 0 2, then 0 2 2: a cycle that leaves a frame out and plays
+    // another twice, which is the whole reason steps are a separate list.
+    check(removeCycleStep(editor.doc, 0, 1, 3), "drop the middle step");
+    resyncFrames(editor);
+    check(addCycleStep(editor.doc, 0, 1, 2, 3) == 2, "and play the last twice");
+    resyncFrames(editor);
+    check(activeCycle(editor).frames == std::vector<int>({ 0, 2, 2 }),
+          "the cycle is a sequence, not a set");
+
+    // Playback follows the selected cycle rather than the frame list, so the
+    // frame that was left out never shows.
+    editor.timeline.playing = true;
+    editor.timeline.startedAtMs = 0;
+    {
+        bool sawTheDroppedFrame = false;
+        for (uint64_t t = 0; t < static_cast<uint64_t>(kDefaultFrameMs) * 3; t += 10) {
+            if (frameToShow(editor, t) == 1) {
+                sawTheDroppedFrame = true;
+            }
+        }
+        check(!sawTheDroppedFrame, "a frame no step names never plays");
+    }
+    editor.timeline.playing = false;
+
+    // Deleting the frame two steps named must clean up both of them.
+    check(deleteFrame(editor.doc, 2), "delete the repeated frame");
+    resyncFrames(editor);
+    check(activeCycle(editor).frames == std::vector<int>({ 0 }),
+          "both steps naming it are gone");
+
+    // And a cycle can be got rid of, leaving every frame playing again.
+    check(deleteCycle(editor.doc, 0, 2), "delete the cycle");
+    resyncFrames(editor);
+    selectCycle(editor, -1);
+    check(editor.cycles.empty(), "it is gone");
+    check(activeCycle(editor).frames.size() == 2, "every frame plays again");
+
+    while (editor.frames.size() > 1) {
+        check(deleteFrame(editor.doc, static_cast<int>(editor.frames.size()) - 1),
+              "back to one frame");
+        resyncFrames(editor);
+    }
+    resyncLayers(editor);
 
     // ------------------------------------------------------ file handling --
     //

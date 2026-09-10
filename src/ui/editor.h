@@ -63,6 +63,13 @@ struct TimelineSettings {
 
     int  renamingFrame = -1;
     char renameBuffer[64] = {};
+
+    // The step of the selected cycle being looked at. A step is not a frame:
+    // two steps can name the same frame, so which *step* is selected is a
+    // separate question from which frame is, and the strip and the step row
+    // answer different halves of it.
+    int  selectedStep = 0;
+    char cycleNameBuffer[64] = {};
 };
 
 struct Editor {
@@ -174,5 +181,14 @@ void selectFrame(Editor& editor, int index);
 // Where playback is now. Returns the frame index to show, which is the active
 // frame when nothing is playing.
 int frameToShow(const Editor& editor, uint64_t nowMs);
+
+// Points the editor at a cycle, or at -1 for every frame in order. Stops
+// playback, because which cycle is playing changing under a running clock is
+// a jump with no cause a person can see.
+void selectCycle(Editor& editor, int index);
+
+// The cycle currently driving playback: the selected one, or every frame in
+// order when none is selected.
+Cycle activeCycle(const Editor& editor);
 
 } // namespace fast

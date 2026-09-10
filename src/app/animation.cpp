@@ -427,6 +427,131 @@ bool setCycles(Document& doc, const std::vector<Cycle>& cycles, int frameCount) 
     return true;
 }
 
+// ------------------------------------------------------------------ cycles --
+
+namespace {
+
+// Read the list, change one cycle, write it back. Every cycle edit is this
+// shape, and doing it in one place is what keeps the bounds and the undo
+// bracket from being remembered separately each time.
+template<typename Change>
+bool editCycles(Document& doc, int frameCount, const Change& change) {
+    std::vector<Cycle> cycles = readCycles(doc, frameCount);
+    if (!change(cycles)) {
+        return false;
+    }
+    return setCycles(doc, cycles, frameCount);
+}
+
+bool namesACycle(const std::vector<Cycle>& cycles, int index) {
+    return index >= 0 && static_cast<size_t>(index) < cycles.size();
+}
+
+} // namespace
+
+int addCycle(Document& doc, const std::string& name, int frameCount) {
+    if (frameCount <= 0) {
+        return -1;
+    }
+    std::vector<Cycle> cycles = readCycles(doc, frameCount);
+    if (cycles.size() >= kMaxCycles) {
+        return -1;
+    }
+    Cycle made = everyFrame(frameCount);
+    made.name = trimName(name);
+    cycles.push_back(std::move(made));
+
+    if (!setCycles(doc, cycles, frameCount)) {
+        return -1;
+    }
+    return static_cast<int>(cycles.size()) - 1;
+}
+
+bool renameCycle(Document& doc, int index, const std::string& name, int frameCount) {
+    return editCycles(doc, frameCount, [&](std::vector<Cycle>& cycles) {
+        if (!namesACycle(cycles, index)) {
+            return false;
+        }
+        cycles[static_cast<size_t>(index)].name = trimName(name);
+        return true;
+    });
+}
+
+bool deleteCycle(Document& doc, int index, int frameCount) {
+    return editCycles(doc, frameCount, [&](std::vector<Cycle>& cycles) {
+        if (!namesACycle(cycles, index)) {
+            return false;
+        }
+        cycles.erase(cycles.begin() + index);
+        return true;
+    });
+}
+
+bool setCycleLoop(Document& doc, int index, LoopMode loop, int frameCount) {
+    return editCycles(doc, frameCount, [&](std::vector<Cycle>& cycles) {
+        if (!namesACycle(cycles, index)) {
+            return false;
+        }
+        cycles[static_cast<size_t>(index)].loop = loop;
+        return true;
+    });
+}
+
+int addCycleStep(Document& doc, int cycleIndex, int afterStep, int frame,
+                 int frameCount) {
+    int landed = -1;
+    const bool ok = editCycles(doc, frameCount, [&](std::vector<Cycle>& cycles) {
+        if (!namesACycle(cycles, cycleIndex) || !inRange(frame, static_cast<size_t>(
+                std::max(frameCount, 0)))) {
+            return false;
+        }
+        std::vector<int>& steps = cycles[static_cast<size_t>(cycleIndex)].frames;
+        if (steps.size() >= kMaxFramesPerCycle) {
+            return false;
+        }
+        const size_t at = inRange(afterStep, steps.size())
+            ? static_cast<size_t>(afterStep) + 1
+            : steps.size();
+        steps.insert(steps.begin() + static_cast<ptrdiff_t>(at), frame);
+        landed = static_cast<int>(at);
+        return true;
+    });
+    return ok ? landed : -1;
+}
+
+bool removeCycleStep(Document& doc, int cycleIndex, int step, int frameCount) {
+    return editCycles(doc, frameCount, [&](std::vector<Cycle>& cycles) {
+        if (!namesACycle(cycles, cycleIndex)) {
+            return false;
+        }
+        std::vector<int>& steps = cycles[static_cast<size_t>(cycleIndex)].frames;
+        // The last step stays: setCycles drops a cycle with none, so removing
+        // it would silently delete the cycle rather than empty it, and deleting
+        // the cycle is a different thing a person asks for differently.
+        if (!inRange(step, steps.size()) || steps.size() <= 1) {
+            return false;
+        }
+        steps.erase(steps.begin() + step);
+        return true;
+    });
+}
+
+bool moveCycleStep(Document& doc, int cycleIndex, int from, int to, int frameCount) {
+    return editCycles(doc, frameCount, [&](std::vector<Cycle>& cycles) {
+        if (!namesACycle(cycles, cycleIndex)) {
+            return false;
+        }
+        std::vector<int>& steps = cycles[static_cast<size_t>(cycleIndex)].frames;
+        if (!inRange(from, steps.size()) || !inRange(to, steps.size()) || from == to) {
+            return false;
+        }
+        const int moving = steps[static_cast<size_t>(from)];
+        steps.erase(steps.begin() + from);
+        steps.insert(steps.begin() + to, moving);
+        return true;
+    });
+}
+
 // ---------------------------------------------------------------- playback --
 
 int cycleDurationMs(const std::vector<Frame>& frames, const Cycle& cycle) {

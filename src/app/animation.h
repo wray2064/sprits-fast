@@ -116,6 +116,38 @@ bool setFrameName(Document& doc, int index, const std::string& name);
 // Replaces the whole cycle list. Bounded and cleaned before it is written.
 bool setCycles(Document& doc, const std::vector<Cycle>& cycles, int frameCount);
 
+// ------------------------------------------------------------------ cycles --
+//
+// A cycle is a sequence of steps, and a step names a frame. That is a level of
+// indirection over "the frames, in order", and it is the level that earns its
+// keep: a step can name a frame another step already named, so a four-frame
+// walk can be authored once and played 0 1 2 1, and two cycles can share the
+// same drawings without either owning them.
+//
+// Each of these brackets its own undo action and writes the whole list, which a
+// cycle list is small enough for. `frameCount` is what the indices are checked
+// against -- a step naming a frame that does not exist is dropped rather than
+// carried into the interface.
+
+// A new cycle covering every frame in order, which is the useful thing to start
+// from: it plays immediately, and refining it is subtraction. Returns its index,
+// or -1.
+int addCycle(Document& doc, const std::string& name, int frameCount);
+
+bool renameCycle(Document& doc, int index, const std::string& name, int frameCount);
+bool deleteCycle(Document& doc, int index, int frameCount);
+bool setCycleLoop(Document& doc, int index, LoopMode loop, int frameCount);
+
+// Puts `frame` into the cycle just after step `afterStep`; a step index outside
+// the cycle appends. Returns the new step's position, or -1.
+int addCycleStep(Document& doc, int cycleIndex, int afterStep, int frame, int frameCount);
+
+// The last step of a cycle stays, for the same reason the last frame of a
+// document does: an empty cycle is a trap for every loop that reads it, and
+// deleting the cycle is the thing that was actually meant.
+bool removeCycleStep(Document& doc, int cycleIndex, int step, int frameCount);
+bool moveCycleStep(Document& doc, int cycleIndex, int from, int to, int frameCount);
+
 // ---------------------------------------------------------------- playback --
 //
 // Deterministic, and stateless on purpose: given a time, these say what to show.
