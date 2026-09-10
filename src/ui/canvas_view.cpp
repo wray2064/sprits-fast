@@ -20,76 +20,18 @@ constexpr float kCheckerSize = 8.f;
 
 } // namespace
 
-CanvasView::~CanvasView() {
-    if (texture_ != nullptr) {
-        SDL_DestroyTexture(texture_);
-    }
-}
-
 void CanvasView::setZoom(float zoom) {
     zoom_ = std::clamp(std::floor(zoom + 0.5f), 1.f, 64.f);
 }
 
 const ls::Color* CanvasView::colorAt(ls::Vec2i pixel) const {
-    if (raster_.empty() || pixel.x < 0 || pixel.y < 0 ||
-        pixel.x >= static_cast<int32_t>(raster_.width) ||
-        pixel.y >= static_cast<int32_t>(raster_.height)) {
+    if (raster_ == nullptr || raster_->empty() || pixel.x < 0 || pixel.y < 0 ||
+        pixel.x >= static_cast<int32_t>(raster_->width) ||
+        pixel.y >= static_cast<int32_t>(raster_->height)) {
         return nullptr;
     }
-    sampled_ = ls::readPixel(raster_, pixel.x, pixel.y);
+    sampled_ = ls::readPixel(*raster_, pixel.x, pixel.y);
     return &sampled_;
-}
-
-bool CanvasView::recompile(Document& doc, ls::SpriteId sprite) {
-    auto size = doc.engine().getCanvasSize(doc.id());
-    if (size.fail() || size.value.x <= 0 || size.value.y <= 0) {
-        return false;
-    }
-    const uint32_t width = static_cast<uint32_t>(size.value.x);
-    const uint32_t height = static_cast<uint32_t>(size.value.y);
-
-    ls::CompileProfile profile;
-    profile.type = ls::CompileProfileType::Preview;   // Export is for files
-    profile.outputWidth = width;
-    profile.outputHeight = height;
-    profile.palette = ls::PalettePolicy::Unconstrained;
-
-    const auto started = std::chrono::steady_clock::now();
-    auto compiled = doc.engine().compileSprite(sprite, profile);
-    const auto finished = std::chrono::steady_clock::now();
-    lastCompileMs_ =
-        std::chrono::duration<double, std::milli>(finished - started).count();
-
-    if (compiled.fail()) {
-        return false;
-    }
-    raster_ = std::move(compiled.value.raster);
-
-    if (texture_ == nullptr || textureWidth_ != width || textureHeight_ != height) {
-        if (texture_ != nullptr) {
-            SDL_DestroyTexture(texture_);
-        }
-        // RGBA32 is byte-order RGBA on every platform, which is exactly how the
-        // engine lays out a raster, so the upload is a straight copy.
-        texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32,
-                                     SDL_TEXTUREACCESS_STREAMING,
-                                     static_cast<int>(width), static_cast<int>(height));
-        if (texture_ == nullptr) {
-            return false;
-        }
-        // Pixel art, so never interpolate when magnifying.
-        SDL_SetTextureScaleMode(texture_, SDL_SCALEMODE_NEAREST);
-        SDL_SetTextureBlendMode(texture_, SDL_BLENDMODE_BLEND);
-        textureWidth_ = width;
-        textureHeight_ = height;
-    }
-
-    if (!raster_.pixels.empty()) {
-        SDL_UpdateTexture(texture_, nullptr, raster_.pixels.data(),
-                          static_cast<int>(raster_.stride));
-    }
-    dirty_ = false;
-    return true;
 }
 
 void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
@@ -126,14 +68,20 @@ void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
     draw->AddImage(reinterpret_cast<ImTextureID>(texture_), at, corner);
 }
 
-bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered) {
-    if (dirty_ && !recompile(doc, sprite)) {
+bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
+                      const Underlay& underlay) {
+    // One lookup, and a compile only if the engine says this frame changed.
+    const FrameCache::Entry* entry = frames_.entryFor(doc, sprite);
+    if (entry == nullptr || entry->texture == nullptr) {
         ImGui::TextUnformatted("nothing to compile");
+        texture_ = nullptr;
+        raster_ = nullptr;
         return false;
     }
-    if (texture_ == nullptr) {
-        return false;
-    }
+    texture_ = entry->texture;
+    textureWidth_ = entry->width;
+    textureHeight_ = entry->height;
+    raster_ = &entry->raster;
 
     ImGuiIO& io = ImGui::GetIO();
     const ImVec2 available = ImGui::GetContentRegionAvail();
@@ -224,6 +172,10 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered) {
     }
     draw->PopClipRect();
 
+    if (underlay) {
+        underlay(draw, origin, zoom_);
+    }
+
     draw->AddImage(reinterpret_cast<ImTextureID>(texture_), origin, corner);
 
     // The pixel grid, once the zoom is large enough for it to help rather than
@@ -270,6 +222,17 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered) {
     }
 
     return inside && windowHovered;
+}
+
+void CanvasView::drawFrameTinted(ImDrawList* draw, const FrameCache::Entry& entry,
+                                 ImVec2 at, float scale, ImU32 tint) const {
+    if (entry.texture == nullptr || entry.width == 0 || entry.height == 0) {
+        return;
+    }
+    const ImVec2 corner(at.x + static_cast<float>(entry.width) * scale,
+                        at.y + static_cast<float>(entry.height) * scale);
+    draw->AddImage(reinterpret_cast<ImTextureID>(entry.texture), at, corner,
+                   ImVec2(0.f, 0.f), ImVec2(1.f, 1.f), tint);
 }
 
 } // namespace fast

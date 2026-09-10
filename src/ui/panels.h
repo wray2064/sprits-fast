@@ -37,6 +37,18 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas);
 // so it must be called while that window is current.
 void drawPreviewOverlay(Editor& editor, const CanvasView& canvas);
 
+// The frame strip along the bottom: every frame as a thumbnail, its duration,
+// and the playback controls. Thumbnails are the textures the cache already
+// holds, scaled down -- drawing eight frames costs eight quads, not eight
+// compiles.
+void drawTimelinePanel(Editor& editor, CanvasView& canvas);
+
+// The frames either side of this one, faint, under the live artwork. Drawn as
+// an overlay inside the canvas window, so it must be called while that window
+// is current and before the canvas image itself.
+void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
+                   ImVec2 origin, float zoom);
+
 // The bar along the bottom: where the cursor is, how big the canvas is, what
 // the last compile cost.
 void drawStatusBar(Editor& editor, const CanvasView& canvas);

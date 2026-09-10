@@ -8,6 +8,7 @@
 // talk about it: which tool, which layer, what a drag is currently doing. If
 // something here could be asked of the document instead, it should be.
 
+#include "app/animation.h"
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/paint.h"
@@ -38,6 +39,32 @@ struct PreviewSettings {
     float color[4] = { 0.36f, 0.55f, 0.78f, 1.f };   // a sky, to start somewhere
 };
 
+// The timeline.
+//
+// Playback is not a playhead that accumulates: it is a start time, and which
+// frame shows is a function of how long ago that was. Scrubbing therefore lands
+// on exactly what playing showed, and a dropped UI frame costs nothing rather
+// than putting the animation permanently behind.
+struct TimelineSettings {
+    bool visible = false;
+    bool playing = false;
+    int  activeFrame = 0;
+    int  activeCycle = -1;          // -1 is every frame, in order
+
+    // Milliseconds since SDL started, at the moment play began.
+    uint64_t startedAtMs = 0;
+
+    // Onion skin: the frames either side, drawn faint under the live one. It
+    // costs nothing here that it would not cost anyway, because both neighbours
+    // already have textures in the cache.
+    bool onion = false;
+    int  onionBefore = 1;
+    int  onionAfter  = 1;
+
+    int  renamingFrame = -1;
+    char renameBuffer[64] = {};
+};
+
 struct Editor {
     Document                doc;
     ls::SpriteId            sprite;
@@ -63,9 +90,17 @@ struct Editor {
     ls::Vec2i lastPixel { -1, -1 };
     ls::Vec2i hovered { -1, -1 };
 
-    BucketSettings  bucket;
-    DitherSettings  dither;
-    PreviewSettings preview;
+    BucketSettings   bucket;
+    DitherSettings   dither;
+    PreviewSettings  preview;
+    TimelineSettings timeline;
+
+    // The document's frames, re-read whenever they can have changed. Held
+    // rather than re-read every draw because a panel asks for them several
+    // times in one pass, and the list is the authority for nothing -- the
+    // document's sprite order is.
+    std::vector<Frame> frames;
+    std::vector<Cycle> cycles;
 
     // A shape being dragged out. It exists from the press: the shape is created
     // immediately and then driven as the mouse moves, so what is on the canvas
@@ -96,6 +131,17 @@ struct Editor {
                draggingPalette || editingShape || draggingShape;
     }
 
+    // The frame being edited, which is the sprite every tool draws into. Falls
+    // back to the document's first frame, so a stale index can never point a
+    // tool at nothing.
+    ls::SpriteId activeSprite() const {
+        if (timeline.activeFrame >= 0 &&
+            timeline.activeFrame < static_cast<int>(frames.size())) {
+            return frames[static_cast<size_t>(timeline.activeFrame)].sprite;
+        }
+        return sprite;
+    }
+
     void say(const std::string& message);
 };
 
@@ -115,5 +161,18 @@ void resyncLayers(Editor& editor);
 void syncColorFromLayer(Editor& editor);
 
 bool newDocument(Editor& editor, uint32_t size);
+
+// Re-reads the frame and cycle lists from the document and clamps the active
+// frame to them. Called after anything that can change what frames exist --
+// adding, deleting, reordering, undo, redo, opening a file.
+void resyncFrames(Editor& editor);
+
+// Points the editor at a frame: clamps the index, re-adopts that frame's
+// layers, and puts the colour control on the layer that is now active.
+void selectFrame(Editor& editor, int index);
+
+// Where playback is now. Returns the frame index to show, which is the active
+// frame when nothing is playing.
+int frameToShow(const Editor& editor, uint64_t nowMs);
 
 } // namespace fast

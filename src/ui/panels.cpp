@@ -880,7 +880,21 @@ void drawStatusBar(Editor& editor, const CanvasView& canvas) {
     std::snprintf(buffer, sizeof(buffer), "%.2f ms", canvas.lastCompileMs());
     const std::string compile = buffer;
 
-    const float rightWidth = 430.f;
+    // How many compiles this UI frame actually cost. It is the number that says
+    // whether the frame cache is doing its job: 0 at rest, 1 while drawing, and
+    // never once per frame on screen.
+    std::snprintf(buffer, sizeof(buffer), "%d", canvas.compilesThisFrame());
+    const std::string compiles = buffer;
+
+    std::string frameLabel = "-";
+    if (!editor.frames.empty()) {
+        std::snprintf(buffer, sizeof(buffer), "%d / %d",
+                      editor.timeline.activeFrame + 1,
+                      static_cast<int>(editor.frames.size()));
+        frameLabel = buffer;
+    }
+
+    const float rightWidth = 580.f;
     ImGui::SameLine(ImGui::GetWindowWidth() - rightWidth);
 
     theme::statusItem("Canvas", canvasSize.c_str());
@@ -889,11 +903,21 @@ void drawStatusBar(Editor& editor, const CanvasView& canvas) {
     ImGui::SameLine(0.f, 18.f);
     theme::statusItem("Zoom", zoom.c_str());
     ImGui::SameLine(0.f, 18.f);
+    theme::statusItem("Frame", frameLabel.c_str());
+    ImGui::SameLine(0.f, 18.f);
     theme::statusItem("Compile", compile.c_str(), false);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("How long the last real compile took. Cached frames "
                           "cost nothing, so this only moves when something "
                           "changed.");
+    }
+    ImGui::SameLine(0.f, 10.f);
+    // Bright only when it is not zero, so at rest it does not draw the eye.
+    theme::statusItem("x", compiles.c_str(), canvas.compilesThisFrame() > 0);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Compiles this frame. Zero at rest and one while "
+                          "drawing: every other frame on screen is a texture "
+                          "that already exists, not a second compile.");
     }
 }
 

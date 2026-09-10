@@ -71,23 +71,69 @@ The id-exactness is the part that makes this work at all. If undo renumbered
 entities, every handle the interface was holding — the selected layer, the
 operation shown in a panel — would be dangling after one undo.
 
-## The canvas
+## The canvas, and why there is no thread
 
-The number that shapes this: a full compile at 256×256 with 20 layers takes
-about **37 ms**, while a cached compile costs microseconds.
+Measured on this machine with `livesprite_bench`, a compile is **O(area) and
+barely notices layers**:
 
-So the canvas must not compile synchronously on the interaction path. The shape
-that follows:
+| Canvas | 8 layers | | Layers at 64x64 | |
+|---|---|---|---|---|
+| 32x32   | 0.14 ms | | 1  | 0.45 ms |
+| 64x64   | 0.82 ms | | 4  | 0.69 ms |
+| 128x128 | 3.9 ms  | | 16 | 0.89 ms |
+| 256x256 | 16.5 ms | | 32 | 1.22 ms |
 
-- Compile on a background thread; show the last good raster until the new one
-  arrives. `LSContext` is not thread-safe, so either the compile owns the context
-  for its duration or there is a lock — decide this before writing the canvas,
-  not after it stutters.
-- Redraw freely from cache. Idle repaints are effectively free.
-- Use `CompileProfileType::Preview` while editing and `Export` when writing a
-  file.
-- While dragging, drive parameters through `setOperationParameter` rather than
-  rebuilding operations, so the dependency graph invalidates narrowly.
+A cached compile is 0.001 ms. Driving one parameter costs the same as compiling
+everything -- the engine has an incremental path, but it does not help here.
+
+So for every sprite a person actually draws, a full compile fits inside a frame
+with room to spare. The canvas is live, synchronously, and needs no help. The
+budget breaks at 256x256, which is where a drag starts costing a frame of
+latency.
+
+**A background thread was the wrong answer, and would have been even if the
+numbers were worse.** `LSContext` is not thread-safe, so a background compile
+means either handing it the context for the compile's duration -- blocking the
+very edit the compile exists to show -- or copying the document per compile,
+which costs more than compiling. And it does not touch the problem that actually
+arrives with frames: a timeline shows eight frames at once, and eight compiles a
+frame is 31 ms at 128x128 whether they happen on one thread or four.
+
+### One texture per frame
+
+What fixes that is not compiling them. `FrameCache` keeps a texture per frame
+and asks the engine which sprites actually changed. The engine tracks that
+exactly -- editing one frame leaves its neighbours clean, a geometry edit reaches
+the sprite that draws it, and an undo dirties everything -- so trusting it is
+both correct and the only thing that makes a timeline affordable.
+
+Editing frame 3 therefore costs one compile of frame 3. The timeline thumbnails,
+the onion skin, the corner preview and playback are all textured quads over
+textures that already exist.
+
+The number that says so is on the status bar: **compiles this frame**. Zero at
+rest, one while drawing, and never once per frame on screen. `--expect-idle`
+makes it a CI failure rather than a claim: a settled editor that compiles
+anything is one that has quietly lost this design, and no screenshot would show
+it.
+
+### The strip has a budget
+
+Two cases would otherwise stall. Opening a long animation has nothing cached, and
+an **undo dirties the whole document** -- the engine restores state wholesale and
+cannot know what actually differs -- so every thumbnail goes stale at once. At
+128x128 with twenty frames, refreshing them all in one pass is a 78 ms hitch
+after every Ctrl+Z.
+
+So the strip compiles at most two frames per pass and draws what it already has
+in the meantime. A thumbnail one pass behind is invisible; a hitch is not. The
+canvas is never delayed by this, because it compiles before the strip is reached.
+
+### The rule that has not changed
+
+Use `CompileProfileType::Preview` while editing and `Export` when writing a file,
+and drive parameters through `setOperationParameter` during a drag rather than
+rebuilding operations.
 
 ## Transforms are a list, not a history
 
@@ -257,14 +303,28 @@ that parser into a general one they use a small line format of their own, with
 a new line. Malformed lines are dropped rather than failing the read: one bad
 cycle should not cost a person the other seven.
 
-### What is still missing
+### The interface
 
-The interface. There is no timeline, no onion skin, no playback control -- this
-is the model and the engine work under them, with the app's single-frame
-assumptions taken out (`adoptPaintLayers` now takes a sprite, and a document is
-born with one frame rather than having one bolted on by the window). A sprite
-sheet -- several frames laid into one canvas for export -- is a separate concern
-that uses `CompileProfile::exportOrigin`, and is not built either.
+A strip along the bottom of the canvas, toggled with **T**. Every thumbnail is a
+texture the cache already holds, drawn at a whole-number scale -- whole numbers
+matter as much here as on the canvas, because a thumbnail at 3.7x has pixels of
+two different widths, which is exactly the artefact someone is looking at a
+thumbnail to check for.
+
+Selection and the playhead are marked differently -- an amber ring and a bar --
+because during playback they are different frames, and conflating them makes
+playback look like it is moving the selection. Drawing is refused while playing
+rather than landing silently on a frame nobody is looking at.
+
+Onion skin draws the neighbours under the live frame, warm behind and cool
+ahead. It is an underlay hook inside `CanvasView::draw` rather than a second call
+after it, because *under* is the point: ghosts painted over the live frame haze
+the thing being judged. It only ever draws frames that already have textures --
+paying a compile for a convenience would undo the reason it is affordable.
+
+**Still missing:** a cycle editor (the model holds cycles; nothing creates them
+yet), and sprite sheets -- several frames laid into one canvas for export, which
+is a separate concern using `CompileProfile::exportOrigin`.
 
 ## The toolkit
 

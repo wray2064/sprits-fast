@@ -26,10 +26,41 @@ void fromColor(ls::Color colour, float rgba[4]) {
     rgba[3] = static_cast<float>(colour.a) / 255.f;
 }
 
+void resyncFrames(Editor& editor) {
+    editor.frames = readFrames(editor.doc);
+    editor.cycles = readCycles(editor.doc, static_cast<int>(editor.frames.size()));
+
+    // Undo, redo and a delete can all leave the index past the end.
+    if (editor.frames.empty()) {
+        editor.timeline.activeFrame = 0;
+    } else if (editor.timeline.activeFrame >= static_cast<int>(editor.frames.size())) {
+        editor.timeline.activeFrame = static_cast<int>(editor.frames.size()) - 1;
+    }
+    if (editor.timeline.activeFrame < 0) {
+        editor.timeline.activeFrame = 0;
+    }
+    if (editor.timeline.activeCycle >= static_cast<int>(editor.cycles.size())) {
+        editor.timeline.activeCycle = -1;
+    }
+    if (!editor.frames.empty()) {
+        editor.sprite =
+            editor.frames[static_cast<size_t>(editor.timeline.activeFrame)].sprite;
+    }
+}
+
 void resyncLayers(Editor& editor) {
+    // Which sprite the layers come from is the active frame's, not the
+    // document's first. Before frames those were the same thing, which is
+    // exactly the assumption that had to come out.
+    resyncFrames(editor);
+
     std::vector<PaintLayer> found;
-    ls::SpriteId sprite;
-    if (!adoptPaintLayers(editor.doc, &sprite, &found)) {
+    ls::SpriteId sprite = editor.activeSprite();
+    if (!sprite.valid()) {
+        if (!adoptPaintLayers(editor.doc, &sprite, &found)) {
+            return;
+        }
+    } else if (!adoptPaintLayers(editor.doc, sprite, &found)) {
         return;
     }
     editor.sprite = sprite;
@@ -41,6 +72,43 @@ void resyncLayers(Editor& editor) {
     if (editor.activeLayer < 0) {
         editor.activeLayer = 0;
     }
+}
+
+void selectFrame(Editor& editor, int index) {
+    if (editor.frames.empty()) {
+        return;
+    }
+    const int last = static_cast<int>(editor.frames.size()) - 1;
+    editor.timeline.activeFrame = index < 0 ? 0 : (index > last ? last : index);
+
+    // A different frame is a different set of layers, so the panel and the
+    // colour control both have to follow. Selecting the layer at the same
+    // position keeps the obvious thing working: step through frames while
+    // drawing on "the outline layer" and stay on it.
+    const int wasActive = editor.activeLayer;
+    resyncLayers(editor);
+    if (wasActive < static_cast<int>(editor.layers.size())) {
+        editor.activeLayer = wasActive;
+    }
+    syncColorFromLayer(editor);
+}
+
+int frameToShow(const Editor& editor, uint64_t nowMs) {
+    if (!editor.timeline.playing || editor.frames.empty()) {
+        return editor.timeline.activeFrame;
+    }
+    const Cycle cycle =
+        (editor.timeline.activeCycle >= 0 &&
+         editor.timeline.activeCycle < static_cast<int>(editor.cycles.size()))
+            ? editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)]
+            : everyFrame(static_cast<int>(editor.frames.size()));
+
+    // A function of elapsed time rather than a counter that is stepped. A UI
+    // frame that took too long therefore costs nothing: the next one lands
+    // where the clock says, not one step further on.
+    const int64_t elapsed = static_cast<int64_t>(nowMs - editor.timeline.startedAtMs);
+    const int at = frameAt(editor.frames, cycle, elapsed);
+    return at < 0 ? editor.timeline.activeFrame : at;
 }
 
 void syncColorFromLayer(Editor& editor) {
@@ -80,6 +148,9 @@ bool newDocument(Editor& editor, uint32_t size) {
         return false;
     }
     editor.layers.push_back(layer);
+    editor.timeline.activeFrame = 0;
+    editor.timeline.playing = false;
+    resyncFrames(editor);
     editor.doc.setUiState({});
 
     // Setting up a document is not editing it. Without this a brand-new file is

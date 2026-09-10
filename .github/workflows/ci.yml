@@ -85,5 +85,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
         run: |
-          ./build/sprits_fast --frames 5 --demo-stroke
+          # Enough frames for the strip to settle, then a check that a
+          # settled editor compiles nothing at all.
+          ./build/sprits_fast --frames 30 --demo-stroke --expect-idle
           ./build/sprits_fast --self-test

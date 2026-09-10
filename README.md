@@ -21,6 +21,9 @@ and line tools, all with keyboard shortcuts; layers with rename, delete,
 visibility and a colour swatch each; a corner preview at true size over any
 background.
 
+**Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
+per frame, playback, and an onion skin.
+
 **What makes it different** — shapes that stay editable after they are drawn,
 outlines that follow the artwork, non-destructive transforms, dithered fills with
 pattern anchoring, and a palette whose entries recolour every layer that uses
@@ -104,6 +107,34 @@ with the file: a character for a night level should open against a dark one ever
 time.
 
 Toggle it with **P**, or from the View menu.
+
+### Frames, and a canvas that stays live
+
+Press **T** for the strip, **space** to play, **,** and **.** to step, **O** for
+onion skin.
+
+A frame is a sprite, and the document's sprite order is the timeline -- so there
+is no second list to fall out of step with the first, and undo puts the frames
+back without being told a timeline exists. Duplicating a frame copies the
+drawing and shares the palette, which is why recolouring a slot recolours every
+frame at once.
+
+The reason this is affordable is worth stating, because the obvious answer is
+the wrong one. Compiles here are **O(area)**: 0.14 ms at 32x32, 0.82 ms at
+64x64, 3.9 ms at 128x128, and going from 4 layers to 32 moves 0.69 ms to 1.22 ms.
+So the canvas is live synchronously and needs no background thread -- and a
+thread would not have helped anyway, since a timeline showing eight frames is
+eight compiles a frame whether they run on one core or four.
+
+Instead each frame keeps its texture, and the engine is asked which frames
+actually changed. Editing frame 3 costs one compile of frame 3; the strip, the
+onion skin, the corner preview and playback are all textured quads over textures
+that already exist. The status bar shows **compiles this frame**: zero at rest,
+one while drawing. `--expect-idle` makes that a CI failure rather than a claim.
+
+Playback is a function of elapsed time rather than a playhead that is stepped,
+so a dropped frame costs nothing and scrubbing lands on exactly what playing
+showed.
 
 ### Shapes that stay shapes
 

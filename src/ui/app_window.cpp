@@ -51,6 +51,11 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
         return;
     }
     editor.activeLayer = 0;
+    editor.timeline.activeFrame = 0;
+    editor.timeline.playing = false;
+    // Every id in the new document is freshly minted, so nothing cached under
+    // the old ones means anything.
+    canvas.frames().clear();
     resyncLayers(editor);
 
     // Put the view back where it was when this file was last closed. It came
@@ -517,11 +522,43 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
             editor.preview.visible = !editor.preview.visible;
         }
+        if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
+            editor.timeline.visible = !editor.timeline.visible;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+            editor.timeline.playing = !editor.timeline.playing;
+            editor.timeline.startedAtMs = SDL_GetTicks();
+            editor.timeline.visible = true;
+        }
+        // Comma and full stop step frames -- the keys every animation tool
+        // uses, and the ones already under the fingers on a keyboard.
+        if (ImGui::IsKeyPressed(ImGuiKey_Comma, true)) {
+            editor.timeline.playing = false;
+            selectFrame(editor, editor.timeline.activeFrame - 1);
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Period, true)) {
+            editor.timeline.playing = false;
+            selectFrame(editor, editor.timeline.activeFrame + 1);
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+            editor.timeline.onion = !editor.timeline.onion;
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
             canvas.setZoom(canvas.zoom() - 1.f);
         }
         if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, true)) {
             canvas.setZoom(canvas.zoom() + 1.f);
+        }
+        return;
+    }
+
+    if (ImGui::IsKeyPressed(ImGuiKey_D, false) && io.KeyShift) {
+        const int at = duplicateFrame(editor.doc, editor.timeline.activeFrame);
+        if (at >= 0) {
+            resyncFrames(editor);
+            selectFrame(editor, at);
+            editor.timeline.visible = true;
+            editor.say("Duplicated frame");
         }
         return;
     }
@@ -618,15 +655,31 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     const float canvasX = left + toolbarWidth + m.sidebarWidth;
     const float canvasWidth = viewport->WorkSize.x - toolbarWidth - m.sidebarWidth * 2.f;
+    // The strip takes its height out of the canvas rather than overlapping it:
+    // an animator wants to see the frame and the strip at the same time, and a
+    // timeline floating over the artwork hides the thing it is describing.
+    const float timelineHeight = editor.timeline.visible ? 144.f : 0.f;
     ImGui::SetNextWindowPos({canvasX, top});
-    ImGui::SetNextWindowSize({canvasWidth, bodyHeight});
+    ImGui::SetNextWindowSize({canvasWidth, bodyHeight - timelineHeight});
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, theme::palette().canvasBackground);
     ImGui::Begin("##canvas", nullptr,
                  kPanel | ImGuiWindowFlags_NoTitleBar |
                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ls::Vec2i hovered { -1, -1 };
-    const bool overCanvas = canvas.draw(editor.doc, editor.sprite, &hovered);
+    // While playing, the canvas shows the frame the clock says rather than the
+    // frame being edited. Selection does not move with it -- stopping is what
+    // changes which frame the tools act on.
+    const int showing = frameToShow(editor, SDL_GetTicks());
+    const ls::SpriteId onScreen =
+        (showing >= 0 && showing < static_cast<int>(editor.frames.size()))
+            ? editor.frames[static_cast<size_t>(showing)].sprite
+            : editor.sprite;
+    const bool overCanvas = canvas.draw(
+        editor.doc, onScreen, &hovered,
+        [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
+            drawOnionSkin(editor, canvas, draw, origin, zoom);
+        });
     editor.hovered = hovered;
 
     // The preview goes on top of the canvas and takes its clicks first, so a
@@ -634,10 +687,23 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawPreviewOverlay(editor, canvas);
     const bool overPreview = ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive();
 
-    handleStroke(editor, canvas, overCanvas && !overPreview, hovered);
+    // Drawing is refused while playing rather than silently landing on a frame
+    // the person is not looking at.
+    handleStroke(editor, canvas,
+                 overCanvas && !overPreview && !editor.timeline.playing, hovered);
     ImGui::End();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
+
+    if (editor.timeline.visible) {
+        ImGui::SetNextWindowPos({canvasX, top + bodyHeight - timelineHeight});
+        ImGui::SetNextWindowSize({canvasWidth, timelineHeight});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
+        ImGui::Begin("##timeline", nullptr, kPanel | ImGuiWindowFlags_NoTitleBar);
+        drawTimelinePanel(editor, canvas);
+        ImGui::End();
+        ImGui::PopStyleVar();
+    }
 
     ImGui::SetNextWindowPos({left, top + bodyHeight});
     ImGui::SetNextWindowSize({viewport->WorkSize.x, statusHeight});
@@ -662,6 +728,7 @@ struct Options {
     int         frames = 0;          // 0 = run until the user quits
     std::string screenshot;
     bool        demoStroke = false;
+    bool        expectIdle = false;
     bool        selfTest = false;
     std::string openPath;
 };
@@ -676,6 +743,12 @@ Options parseOptions(int argc, char** argv) {
             options.screenshot = argv[++i];
         } else if (arg == "--demo-stroke") {
             options.demoStroke = true;
+        } else if (arg == "--expect-idle") {
+            // Fails the run if the last frame compiled anything. Nothing is
+            // changing by then, so a compile means something asked for a
+            // picture it already had -- which is the whole performance design
+            // quietly coming undone, and is invisible in a screenshot.
+            options.expectIdle = true;
         } else if (arg == "--self-test") {
             options.selfTest = true;
         } else if (!arg.empty() && arg[0] != '-') {
@@ -724,6 +797,40 @@ void drawDemoContent(Editor& editor) {
     editor.preview.color[1] = 0.55f;
     editor.preview.color[2] = 0.78f;
     editor.preview.scale = 2;
+
+    // Six frames of the same drawing at different angles.
+    //
+    // This is the demo worth having, because in any editor that resamples it
+    // would be six degraded copies -- each frame stamped from the last, softer
+    // than the one before. Here every frame owns the same authored pixels and
+    // one rotation parameter, so frame six is exactly as sharp as frame one and
+    // the file is not six times larger.
+    resyncFrames(editor);
+    for (int i = 1; i < 6; ++i) {
+        const int at = duplicateFrame(editor.doc, i - 1);
+        if (at < 0) {
+            break;
+        }
+        resyncFrames(editor);
+        selectFrame(editor, at);
+        PaintLayer* frameLayer = editor.active();
+        if (frameLayer == nullptr) {
+            continue;
+        }
+        const std::vector<TransformEntry> stack =
+            listTransforms(editor.doc, frameLayer->layer);
+        if (!stack.empty()) {
+            editor.doc.beginAction("Demo angle");
+            setRotateAngle(editor.doc, stack.front().id,
+                           24.f + static_cast<float>(i) * 12.f);
+            editor.doc.endAction();
+        }
+        setFrameDuration(editor.doc, at, 80 + i * 10);
+    }
+    resyncFrames(editor);
+    selectFrame(editor, 0);
+    editor.timeline.visible = true;
+    editor.timeline.onion = true;
 
     editor.say("Demo content");
 }
@@ -791,6 +898,87 @@ int runSelfTest() {
           "keep what is on screen");
     check(setLayerRole(editor.doc, *editor.active(), ls::kColorRoleNone), "detach");
     check(layerRole(editor.doc, *editor.active()) == ls::kColorRoleNone, "detached");
+
+    // ------------------------------------------------------------ frames --
+    //
+    // The window's own bookkeeping, none of which a fast_core test can reach:
+    // that selecting a frame changes which layers the panel holds, and that a
+    // tool then acts on the frame being looked at rather than on the first one.
+
+    check(editor.frames.size() == 1, "a new document is one frame");
+    check(editor.timeline.activeFrame == 0, "on the first frame");
+
+    check(duplicateFrame(editor.doc, 0) == 1, "duplicate the frame");
+    resyncFrames(editor);
+    check(editor.frames.size() == 2, "the strip sees two frames");
+
+    selectFrame(editor, 1);
+    check(editor.timeline.activeFrame == 1, "the second frame is selected");
+    check(editor.activeSprite() == editor.frames[1].sprite,
+          "the active sprite is the selected frame");
+    check(editor.active() != nullptr, "the second frame has a layer to draw on");
+
+    // The one that matters: paint through the interface's own handles and only
+    // the selected frame may change.
+    {
+        const auto pixelsOf = [&](ls::SpriteId sprite) {
+            ls::CompileProfile profile;
+            profile.type = ls::CompileProfileType::Export;
+            profile.outputWidth = 16;
+            profile.outputHeight = 16;
+            profile.palette = ls::PalettePolicy::Unconstrained;
+            auto compiled = editor.doc.engine().compileSprite(sprite, profile);
+            return compiled.ok() ? compiled.value.raster.pixels
+                                 : std::vector<uint8_t>{};
+        };
+        const std::vector<uint8_t> firstBefore = pixelsOf(editor.frames[0].sprite);
+
+        editor.doc.beginAction("Pencil");
+        check(paintPixels(editor.doc, *editor.active(), linePixels({11, 2}, {11, 13})),
+              "draw on the second frame");
+        editor.doc.endAction();
+
+        check(pixelsOf(editor.frames[0].sprite) == firstBefore,
+              "the first frame did not change");
+        check(pixelsOf(editor.frames[1].sprite) != firstBefore,
+              "the second frame did");
+    }
+
+    // Selecting back must give back the first frame's layers, not the second's.
+    selectFrame(editor, 0);
+    check(editor.activeSprite() == editor.frames[0].sprite, "back on the first frame");
+
+    // Playing shows the frame the clock says, and does not move the selection.
+    editor.timeline.playing = true;
+    editor.timeline.startedAtMs = 0;
+    check(frameToShow(editor, 0) == 0, "playback starts at the beginning");
+    check(frameToShow(editor, static_cast<uint64_t>(kDefaultFrameMs) + 5) == 1,
+          "and moves on when the frame's time is up");
+    check(editor.timeline.activeFrame == 0, "playing does not change the selection");
+    // It is a function of time, so the same point of a later pass is the same
+    // picture. Two frames of the default hold, so the cycle is twice that.
+    {
+        const uint64_t cycle = static_cast<uint64_t>(kDefaultFrameMs) * 2;
+        const uint64_t at = static_cast<uint64_t>(kDefaultFrameMs) + 5;
+        check(frameToShow(editor, at) == 1, "the second frame at that point");
+        check(frameToShow(editor, at + cycle * 10) == frameToShow(editor, at),
+              "the same point of a later pass is the same frame");
+    }
+    editor.timeline.playing = false;
+
+    // An undone frame must not leave the strip holding one that is gone.
+    selectFrame(editor, 1);
+    check(editor.doc.undo(), "undo the drawing on frame two");
+    check(editor.doc.undo(), "undo the frame itself");
+    resyncFrames(editor);
+    check(editor.frames.size() == 1, "the strip drops the undone frame");
+    check(editor.timeline.activeFrame == 0, "and the selection comes back in range");
+    resyncLayers(editor);
+    check(editor.active() != nullptr, "still something to draw on");
+
+    // The last frame cannot be deleted, so the editor can never reach a state
+    // with nothing to draw on.
+    check(!deleteFrame(editor.doc, 0), "the last frame stays");
 
     // ------------------------------------------------------ file handling --
     //
@@ -922,6 +1110,7 @@ int main(int argc, char** argv) {
     }
 
     bool running = true;
+    bool idleBroken = false;
     int frame = 0;
     while (running) {
         SDL_Event event;
@@ -955,6 +1144,7 @@ int main(int argc, char** argv) {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
+        canvas.frames().beginFrame();
 
         drawMenuBar(editor, canvas, window);
         handleShortcuts(editor, canvas, window);
@@ -989,6 +1179,21 @@ int main(int argc, char** argv) {
         SDL_RenderPresent(renderer);
 
         if (options.frames > 0 && ++frame >= options.frames) {
+            // What the last settled frame cost. Nothing changed for the whole
+            // run after the demo was built, so this must be zero -- if it is
+            // not, something is compiling a picture it already has, and this
+            // is where CI notices.
+            std::printf("frames: %zu textures held, %d compile(s) in the last "
+                        "frame, %.2f ms for the last one\n",
+                        canvas.frames().heldTextures(),
+                        canvas.frames().compilesThisFrame(),
+                        canvas.frames().lastCompileMs());
+            if (options.expectIdle && canvas.frames().compilesThisFrame() != 0) {
+                std::printf("FAIL a settled editor compiled %d time(s); every "
+                            "frame on screen should already have a texture\n",
+                            canvas.frames().compilesThisFrame());
+                idleBroken = true;
+            }
             running = false;
         }
     }
@@ -1001,5 +1206,5 @@ int main(int argc, char** argv) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    return 0;
+    return idleBroken ? 1 : 0;
 }

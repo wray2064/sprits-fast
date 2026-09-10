@@ -4,39 +4,56 @@
 
 // canvas_view.h — the compiled sprite, on screen.
 //
-// The engine hands back an RGBA buffer; this turns it into a texture, draws it
-// at a whole-number zoom with nearest-neighbour sampling, and converts mouse
-// positions back into sprite pixels.
+// Zoom, pan, hit testing, and drawing the active frame at a whole-number scale
+// with nearest-neighbour sampling.
 //
-// The important thing it does is *not* compile every frame. A full compile at
-// 256x256 with twenty layers costs about 37 ms, which inside a frame is a
-// visibly stuttering canvas; a cached one costs microseconds. So the raster is
-// recompiled only when the document says it has changed, and the texture is
-// reuploaded only when the raster does.
+// It does not own a texture. Every frame's texture lives in the FrameCache,
+// which compiles a frame only when the engine says that frame changed -- see
+// frame_cache.h for why that is the whole performance story and a background
+// thread is not.
 
 #include "app/document.h"
+#include "ui/frame_cache.h"
 
 #include <imgui.h>
 
 #include <SDL3/SDL.h>
 
+#include <functional>
+
 namespace fast {
 
 class CanvasView {
 public:
-    explicit CanvasView(SDL_Renderer* renderer) : renderer_(renderer) {}
-    ~CanvasView();
+    explicit CanvasView(SDL_Renderer* renderer)
+        : renderer_(renderer), frames_(renderer) {}
 
     CanvasView(const CanvasView&) = delete;
     CanvasView& operator=(const CanvasView&) = delete;
 
-    // Called after anything that changes the picture. Cheap: it sets a flag.
-    void invalidate() { dirty_ = true; }
+    // Kept because every tool calls it, but it no longer decides anything: the
+    // cache asks the engine which frames changed, which is exact where a flag
+    // set by hand is only as good as the last person to remember it.
+    void invalidate() {}
+
+    // Every frame's texture. The timeline, the onion skin and the corner
+    // preview all draw from here rather than compiling anything of their own.
+    FrameCache&       frames()       { return frames_; }
+    const FrameCache& frames() const { return frames_; }
+
+    // Anything drawn beneath the artwork: the onion skin is the only user.
+    //
+    // It is a hook rather than a second call after draw() because "beneath" is
+    // the whole point -- ghosts painted over the live frame haze the thing the
+    // artist is judging. Only draw() knows where the artwork landed, so this is
+    // called from inside it, between the chequer and the image.
+    using Underlay = std::function<void(ImDrawList*, ImVec2 origin, float zoom)>;
 
     // Draws the canvas into the current ImGui window, handling zoom and pan.
     // Returns true while the pointer is over the artwork, with the pixel it is
     // over in `hovered`.
-    bool draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered);
+    bool draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
+              const Underlay& underlay = nullptr);
 
     // Zoom is kept to whole numbers: a pixel-art canvas at 3.7x looks wrong,
     // and a pixel that is sometimes three and sometimes four screen pixels wide
@@ -62,12 +79,12 @@ public:
     // the cached raster rather than recompiling means picking is free.
     const ls::Color* colorAt(ls::Vec2i pixel) const;
 
-    // Draws the compiled sprite somewhere else at a whole-number scale, over a
+    // Draws the active frame somewhere else at a whole-number scale, over a
     // background of the caller's choosing.
     //
-    // Reuses the texture the canvas has already uploaded, so a preview costs a
-    // textured quad and nothing else. Compiling a second time for it would be
-    // the obvious implementation and the wrong one: the same picture would be
+    // Reuses the texture the cache already holds, so a preview costs a textured
+    // quad and nothing else. Compiling a second time for it would be the
+    // obvious implementation and the wrong one: the same picture would be
     // resolved twice a frame for no reason.
     //
     // `checker` draws the transparency chequer instead of a flat colour, which
@@ -75,36 +92,41 @@ public:
     void drawSample(ImDrawList* draw, ImVec2 at, float scale,
                     ImU32 background, bool checker) const;
 
+    // The same, for any frame and with a tint -- the onion skin draws the
+    // frames either side of this one through it. Takes the texture as it is:
+    // a frame with nothing cached draws nothing rather than compiling.
+    void drawFrameTinted(ImDrawList* draw, const FrameCache::Entry& entry,
+                         ImVec2 at, float scale, ImU32 tint) const;
+
     // The size of the sprite as last compiled, so a caller can lay out a
     // preview before drawing it.
     uint32_t compiledWidth() const { return textureWidth_; }
     uint32_t compiledHeight() const { return textureHeight_; }
 
-    // Milliseconds the last real compile took, for the status bar. An editor
-    // should show this: it is the number that decides whether the canvas needs
-    // to move to a background thread.
-    double lastCompileMs() const { return lastCompileMs_; }
+    // Milliseconds the last real compile took, and how many happened this UI
+    // frame. Both are on the status bar, because "compiles this frame" is the
+    // number that says whether the cache is doing its job: 0 at rest, 1 while
+    // drawing, and never the number of frames on screen.
+    double lastCompileMs() const { return frames_.lastCompileMs(); }
+    int    compilesThisFrame() const { return frames_.compilesThisFrame(); }
 
 private:
-    bool recompile(Document& doc, ls::SpriteId sprite);
-
     SDL_Renderer* renderer_ = nullptr;
+    FrameCache    frames_;
+
+    // The active frame, as of the last draw. Held so drawSample and the
+    // eyedropper can read it without asking for anything.
     SDL_Texture*  texture_  = nullptr;
     uint32_t      textureWidth_  = 0;
     uint32_t      textureHeight_ = 0;
-
-    // The last compile, kept so the eyedropper and anything else that wants to
-    // read a pixel does not have to ask for another one.
-    ls::RasterBuffer raster_;
+    const ls::RasterBuffer* raster_ = nullptr;
     mutable ls::Color sampled_;
 
-    bool   dirty_ = true;
     bool   grid_  = true;
     bool   fitPending_ = false;
     float  zoom_  = 8.f;
     float  panX_  = 0.f;
     float  panY_  = 0.f;
-    double lastCompileMs_ = 0.0;
 };
 
 } // namespace fast
