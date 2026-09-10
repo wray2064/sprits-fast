@@ -393,6 +393,51 @@ A frame name is whatever somebody typed, so it is escaped properly. A manifest a
 quotation mark can break is one no consumer can trust, and there is a test that
 throws quotes, backslashes and newlines at it.
 
+## Outlines
+
+An outline is an operation resolved during the compile, not a filter that adds
+pixels. Move the artwork and the line moves; in a conventional editor it stays
+where the artwork used to be.
+
+**What it traces is a real choice, not a preference.** A character built from a
+body layer and an arm layer wants one line round the *figure*; a highlight or a
+held object wants a line round *that part*. Where two layers touch, a per-layer
+outline draws a seam straight through the character and a figure outline does
+not.
+
+The engine had the field for this -- `GenerateSilhouetteOutlineOp::targetSprite`
+-- and never read it. A silhouette outline always traced the raster its own
+layer had built. So the field is now real: `compileSprite` notices when any layer
+holds a sprite-scoped outline and, only then, compiles the layers once with those
+outlines suppressed to build a silhouette, then compiles again with it in hand.
+
+Three things that had to be right:
+
+- **The outline must not trace itself.** Hence the suppressed first pass; without
+  it the second pass would find the first pass's ink and grow a line around the
+  line.
+- **A layer holding one is never cached alone.** What it draws depends on every
+  other layer, and the layer cache key knows only about this one -- a hit would
+  hand back an outline of a figure that has since changed shape somewhere else.
+- **A layer compiled on its own still draws something.** With no silhouette
+  supplied it falls back to tracing its own layer, because an application asking
+  for one layer has not asked for a hole.
+
+It costs a second compile of every layer, paid only by sprites that ask for one.
+
+### The colour
+
+Either a value or a palette slot. A slot is the better answer when there is one:
+the outline then joins a palette swap instead of being the one thing left behind
+by it, and it resolves from the drawing rather than being painted over it. The
+"use a palette slot" button starts from the slot the layer's own fill uses, so
+the line and the fill move together unless told otherwise.
+
+`OutlineSide` is the engine's `{ Inside, Outside, Center }`, and the panel's
+labels are written in that order deliberately -- putting them in a nicer-reading
+order silently means the wrong thing, which is exactly what happened the first
+time this was written.
+
 ## The toolkit
 
 **Dear ImGui on SDL3**, drawing through `SDL_Renderer` rather than a hand-rolled

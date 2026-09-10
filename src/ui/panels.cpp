@@ -441,11 +441,12 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
     ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     theme::sectionHeader("OUTLINE");
 
-    bool outlined = hasOutline(editor.doc, *layer);
-    if (ImGui::Checkbox("Outline this layer", &outlined)) {
+    const bool wasOutlined = hasOutline(editor.doc, *layer);
+    bool outlined = wasOutlined;
+    if (ImGui::Checkbox("Outline", &outlined)) {
         editor.doc.beginAction(outlined ? "Add outline" : "Remove outline");
         if (outlined) {
-            addOutline(editor.doc, *layer, ls::Color{20, 22, 28, 255}, 1);
+            setOutline(editor.doc, *layer, OutlineSettings{});
         } else {
             removeOutline(editor.doc, *layer);
         }
@@ -453,30 +454,99 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
         canvas.invalidate();
     }
     ImGui::SameLine();
-    theme::hint("Generated during the compile from whatever the layer draws, "
-                "so it follows the artwork instead of being stamped where the "
-                "artwork used to be. Move the shape and the outline moves.");
+    theme::hint("Generated during the compile from whatever is drawn, so it "
+                "follows the artwork instead of being stamped where the artwork "
+                "used to be. Move the shape and the outline moves.");
 
     if (!outlined) {
         return;
     }
 
-    int thickness = outlineThickness(editor.doc, *layer);
-    ImGui::SetNextItemWidth(-1.f);
-    if (ImGui::SliderInt("##thickness", &thickness, 1, 8, "thickness  %d")) {
-        setOutlineThickness(editor.doc, *layer, thickness);
-        canvas.invalidate();
+    OutlineSettings settings = outlineOf(editor.doc, *layer);
+    const OutlineSettings before = settings;
+
+    // What it goes round. These are two different pictures rather than a
+    // preference, so they are named for what they trace rather than offered as
+    // a checkbox that says "whole sprite".
+    const float half = (ImGui::GetContentRegionAvail().x -
+                        theme::metrics().itemSpacing) * 0.5f;
+
+    const char* scopes[] = { "This layer", "Whole sprite" };
+    int scope = static_cast<int>(settings.scope);
+    ImGui::SetNextItemWidth(half);
+    if (ImGui::Combo("##scope", &scope, scopes, 2)) {
+        settings.scope = static_cast<OutlineScope>(scope);
     }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("This layer: a line round what this layer draws, which\n"
+                          "is what one part of a character wants.\n"
+                          "Whole sprite: one line round the figure however many\n"
+                          "layers it is built from, with no seam where they meet.");
+    }
+
+    // The order is the engine's, not one chosen here: Inside, Outside, Center.
+    // Writing the labels in a different order would silently mean the wrong
+    // thing, which is exactly what happened the first time.
+    const char* sides[] = { "Inside", "Outside", "Centred" };
+    int side = static_cast<int>(settings.side);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(half);
+    if (ImGui::Combo("##side", &side, sides, 3)) {
+        settings.side = static_cast<ls::OutlineSide>(side);
+    }
+
+    ImGui::SetNextItemWidth(-1.f);
+    ImGui::SliderInt("##thickness", &settings.thickness, 1, kMaxOutlineThickness,
+                     "thickness  %d");
     bracketDrag(editor, editor.editingShape, "Outline thickness");
 
-    const ls::Color current = outlineColor(editor.doc, *layer);
+    // The colour, as a value or as a palette slot. A slot is the better answer
+    // when there is one: the outline then joins a palette swap instead of being
+    // the one thing left behind by it.
     float rgba[4];
-    fromColor(current, rgba);
+    fromColor(settings.colour, rgba);
     if (ImGui::ColorEdit4("colour", rgba, ImGuiColorEditFlags_NoInputs)) {
-        setOutlineColor(editor.doc, *layer, toColor(rgba));
-        canvas.invalidate();
+        settings.colour = toColor(rgba);
+        settings.role = ls::kColorRoleNone;      // a picked colour is a value
     }
     bracketDrag(editor, editor.editingShape, "Outline colour");
+
+    ImGui::SameLine();
+    const bool usingRole = settings.role != ls::kColorRoleNone;
+    if (usingRole) {
+        const std::string label = "slot " + std::to_string(settings.role);
+        ImGui::TextColored(theme::palette().accent, "%s", label.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("detach")) {
+            settings.role = ls::kColorRoleNone;
+        }
+    } else if (ImGui::SmallButton("use a palette slot")) {
+        // The slot the layer already paints through, so the outline and the
+        // fill move together under a palette swap unless told otherwise.
+        const ls::ColorRole fillRole = layerRole(editor.doc, *layer);
+        settings.role = fillRole != ls::kColorRoleNone ? fillRole : 0;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Take the colour from a palette slot, so changing what "
+                          "the slot means recolours every outline using it -- "
+                          "from the drawing rather than over it.");
+    }
+
+    // Field by field rather than memcmp: the struct has padding, and comparing
+    // padding is comparing whatever happened to be on the stack.
+    const bool changed =
+        settings.scope != before.scope ||
+        settings.thickness != before.thickness ||
+        settings.side != before.side ||
+        settings.role != before.role ||
+        settings.colour.r != before.colour.r ||
+        settings.colour.g != before.colour.g ||
+        settings.colour.b != before.colour.b ||
+        settings.colour.a != before.colour.a;
+    if (changed) {
+        setOutline(editor.doc, *layer, settings);
+        canvas.invalidate();
+    }
 }
 
 // ----------------------------------------------------------------- layers --

@@ -80,13 +80,46 @@ bool shapeOfLayer(Document& doc, const PaintLayer& layer, ShapeLayer* out);
 // shape moves afterwards the outline stays where it was. Here it is an operation
 // resolved during the compile, so it tracks whatever the layer currently draws.
 
+// What the outline traces.
+//
+// These are genuinely different pictures, not a preference. A character built
+// from a body layer and an arm layer wants one line around the *figure*; a
+// highlight or a held object wants a line around *that part*. Where the two
+// layers meet, a per-layer outline draws a seam and a figure outline does not.
+enum class OutlineScope : uint8_t {
+    Layer,      // this layer alone -- the default, and what one part wants
+    Sprite,     // everything the sprite draws, however many layers that is
+};
+
+// The maximum a line may be. Beyond a few pixels an outline stops reading as a
+// line and starts eating the sprite, and on a 16-pixel canvas four is already
+// most of it.
+constexpr int kMaxOutlineThickness = 8;
+
+struct OutlineSettings {
+    OutlineScope   scope     = OutlineScope::Layer;
+    int            thickness = 1;
+    ls::OutlineSide side     = ls::OutlineSide::Outside;
+
+    // The colour, as a value or as a palette slot. A slot is the better answer
+    // when there is one: changing what the slot means recolours every outline
+    // using it on the next compile, from the drawing rather than over it, which
+    // is the same promise the fills make.
+    ls::Color     colour { 20, 22, 28, 255 };
+    ls::ColorRole role = ls::kColorRoleNone;
+};
+
 bool hasOutline(Document& doc, const PaintLayer& layer);
-bool addOutline(Document& doc, const PaintLayer& layer, ls::Color colour,
-                int thickness);
+
+// Adds an outline, or replaces the settings of the one already there -- so the
+// interface can drive every control through one call rather than four, and a
+// drag through forty thicknesses still leaves one operation.
+bool setOutline(Document& doc, const PaintLayer& layer, const OutlineSettings& settings);
+
 bool removeOutline(Document& doc, const PaintLayer& layer);
-bool setOutlineColor(Document& doc, const PaintLayer& layer, ls::Color colour);
-bool setOutlineThickness(Document& doc, const PaintLayer& layer, int thickness);
-ls::Color outlineColor(Document& doc, const PaintLayer& layer);
-int outlineThickness(Document& doc, const PaintLayer& layer);
+
+// What the layer's outline is currently set to. Defaults when it has none, so a
+// panel can show the controls it would create.
+OutlineSettings outlineOf(Document& doc, const PaintLayer& layer);
 
 } // namespace fast

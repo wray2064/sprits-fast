@@ -25,9 +25,9 @@ background.
 per frame, named cycles with their own loop mode, playback, and an onion skin.
 
 **What makes it different** — shapes that stay editable after they are drawn,
-outlines that follow the artwork, non-destructive transforms, dithered fills with
-pattern anchoring, and a palette whose entries recolour every layer that uses
-them.
+outlines that follow the artwork and can trace a whole figure across layers,
+non-destructive transforms, dithered fills with pattern anchoring, and a palette
+whose entries recolour every layer that uses them.
 
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
 saves, a prompt before anything discards unsaved work, PNG export at whole-number
@@ -193,6 +193,21 @@ and all three are in the Shape panel.
 
 A layer drawn freehand has no shape to edit, and the panel says so rather than
 offering controls that would do nothing. The outline works on it regardless.
+
+### Outlines that know what they are going round
+
+Tick **Outline** in the Shape panel. It is generated during the compile from
+whatever is drawn, so it follows the artwork instead of being stamped where the
+artwork used to be.
+
+The control that matters is what it traces. **This layer** draws a line round
+what that layer draws, which is what one part of a character wants. **Whole
+sprite** draws one line round the figure however many layers it is built from --
+with no seam where two of them meet, and it follows whichever part moves.
+
+Thickness, inside or outside, and a colour that can be a value or a palette slot.
+A slot is the better answer when there is one: the outline then joins a palette
+swap instead of being the one thing left behind by it.
 
 ### Dithering, and the pattern that stays put
 

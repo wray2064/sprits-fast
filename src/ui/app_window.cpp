@@ -665,20 +665,26 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::End();
 
     const float rightX = left + viewport->WorkSize.x - m.sidebarWidth;
+    // The right column. Shape carries the outline controls, which are the most
+    // numerous of the three, so it takes the larger share of what is left after
+    // the layer stack.
+    const float layersShare = 0.36f;
+    const float shapeShare  = 0.36f;
     ImGui::SetNextWindowPos({rightX, top});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.42f});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * layersShare});
     ImGui::Begin("Layers", nullptr, kPanel);
     drawLayerPanel(editor, canvas);
     ImGui::End();
 
-    ImGui::SetNextWindowPos({rightX, top + bodyHeight * 0.42f});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.29f});
+    ImGui::SetNextWindowPos({rightX, top + bodyHeight * layersShare});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * shapeShare});
     ImGui::Begin("Shape", nullptr, kPanel);
     drawShapePanel(editor, canvas);
     ImGui::End();
 
-    ImGui::SetNextWindowPos({rightX, top + bodyHeight * 0.71f});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * 0.29f});
+    ImGui::SetNextWindowPos({rightX, top + bodyHeight * (layersShare + shapeShare)});
+    ImGui::SetNextWindowSize({m.sidebarWidth,
+                              bodyHeight * (1.f - layersShare - shapeShare)});
     ImGui::Begin("Transform", nullptr, kPanel);
     drawTransformPanel(editor, canvas);
     ImGui::End();
@@ -839,6 +845,38 @@ void drawDemoContent(Editor& editor) {
     editor.preview.color[1] = 0.55f;
     editor.preview.color[2] = 0.78f;
     editor.preview.scale = 2;
+
+    // A second layer, and one line round both of them.
+    //
+    // This is the outline worth showing, because it is the one a conventional
+    // editor cannot draw at all: the line belongs to the figure rather than to
+    // a layer, so there is no seam where the two parts meet, and it follows
+    // whichever part moves.
+    // A copy, not the pointer: pushing onto editor.layers below can reallocate
+    // the vector `layer` points into, and everything after that would be
+    // writing through a dangling pointer.
+    const PaintLayer first = *layer;
+    layer = nullptr;
+
+    PaintLayer second;
+    if (createPaintLayer(editor.doc, editor.sprite, "Layer 2",
+                         ls::Color{120, 200, 255, 255}, &second)) {
+        editor.doc.beginAction("Demo second part");
+        paintPixels(editor.doc, second, linePixels({18, 10}, {26, 10}));
+        paintPixels(editor.doc, second, linePixels({18, 11}, {26, 11}));
+        paintPixels(editor.doc, second, linePixels({18, 12}, {26, 12}));
+        editor.doc.endAction();
+        editor.layers.push_back(second);
+
+        // On the first layer rather than the second, to make the point: the
+        // line belongs to the figure, not to the layer it happens to live on.
+        OutlineSettings figure;
+        figure.scope = OutlineScope::Sprite;
+        figure.colour = ls::Color{12, 14, 20, 255};
+        editor.doc.beginAction("Demo outline");
+        setOutline(editor.doc, first, figure);
+        editor.doc.endAction();
+    }
 
     // Six frames of the same drawing at different angles.
     //

@@ -267,20 +267,56 @@ bool hasOutline(Document& doc, const PaintLayer& layer) {
     return outlineIndex(doc, layer) >= 0;
 }
 
-bool addOutline(Document& doc, const PaintLayer& layer, ls::Color colour,
-                int thickness) {
-    if (!layer.valid() || hasOutline(doc, layer)) {
+bool setOutline(Document& doc, const PaintLayer& layer, const OutlineSettings& settings) {
+    if (!layer.valid()) {
         return false;
     }
-    // A silhouette outline rather than a region outline: it follows whatever the
-    // layer has drawn by the time it resolves, so it works on a shape and on
-    // freehand pixels alike, and keeps following as either changes. A region
-    // outline would be pinned to one region and could not do the second.
+    ls::LSContext& engine = doc.engine();
+
+    // Naming the sprite is what makes the engine trace the whole figure rather
+    // than this layer. The layer knows which sprite it is in, so the caller
+    // does not have to carry it about.
+    ls::SpriteId sprite;
+    if (settings.scope == OutlineScope::Sprite) {
+        auto info = engine.getLayerInfo(layer.layer);
+        if (info.fail() || !info.value.sprite.valid()) {
+            return false;
+        }
+        sprite = info.value.sprite;
+    }
+
+    const float thickness = static_cast<float>(
+        std::min(std::max(settings.thickness, 1), kMaxOutlineThickness));
+
+    const ls::OperationId existing = outlineOperation(doc, layer);
+    if (existing.valid()) {
+        // Driven rather than rebuilt: the operation stays the same one, so a
+        // slider drag leaves one entry in the layer and one in the history.
+        bool ok = true;
+        ok = engine.setOperationParameter(existing, "targetSprite",
+                 ls::ParameterValue{ static_cast<uint64_t>(sprite.value) }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "thickness",
+                 ls::ParameterValue{ thickness }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "side",
+                 ls::ParameterValue{ static_cast<int64_t>(settings.side) }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "fallbackColor",
+                 ls::ParameterValue{ settings.colour }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "paletteRole",
+                 ls::ParameterValue{ static_cast<int64_t>(settings.role) }).ok() && ok;
+        return ok;
+    }
+
+    // A silhouette outline rather than a region outline: it follows whatever has
+    // been drawn by the time it resolves, so it works on a shape and on freehand
+    // pixels alike and keeps following as either changes. A region outline would
+    // be pinned to one region and could not do the second.
     ls::GenerateSilhouetteOutlineOp outline;
-    outline.thickness = static_cast<float>(std::max(1, thickness));
-    outline.side = ls::OutlineSide::Outside;
-    outline.fallbackColor = colour;
-    return doc.engine().addOperation(layer.layer, outline).ok();
+    outline.targetSprite = sprite;
+    outline.thickness = thickness;
+    outline.side = settings.side;
+    outline.fallbackColor = settings.colour;
+    outline.paletteRole = settings.role;
+    return engine.addOperation(layer.layer, outline).ok();
 }
 
 bool removeOutline(Document& doc, const PaintLayer& layer) {
@@ -291,51 +327,45 @@ bool removeOutline(Document& doc, const PaintLayer& layer) {
     return doc.engine().removeOperation(layer.layer, op).ok();
 }
 
-bool setOutlineColor(Document& doc, const PaintLayer& layer, ls::Color colour) {
+OutlineSettings outlineOf(Document& doc, const PaintLayer& layer) {
+    OutlineSettings settings;
     const ls::OperationId op = outlineOperation(doc, layer);
     if (!op.valid()) {
-        return false;
+        return settings;
     }
-    return doc.engine()
-        .setOperationParameter(op, "fallbackColor", ls::ParameterValue{colour}).ok();
-}
+    ls::LSContext& engine = doc.engine();
 
-bool setOutlineThickness(Document& doc, const PaintLayer& layer, int thickness) {
-    const ls::OperationId op = outlineOperation(doc, layer);
-    if (!op.valid()) {
-        return false;
-    }
-    return doc.engine()
-        .setOperationParameter(op, "thickness",
-            ls::ParameterValue{static_cast<float>(std::max(1, thickness))}).ok();
-}
-
-ls::Color outlineColor(Document& doc, const PaintLayer& layer) {
-    const ls::OperationId op = outlineOperation(doc, layer);
-    if (!op.valid()) {
-        return ls::Color{0, 0, 0, 0};
-    }
-    auto value = doc.engine().getOperationParameter(op, "fallbackColor");
-    if (value.ok()) {
-        if (const ls::Color* found = std::get_if<ls::Color>(&value.value)) {
-            return *found;
+    auto sprite = engine.getOperationParameter(op, "targetSprite");
+    if (sprite.ok()) {
+        if (const uint64_t* handle = std::get_if<uint64_t>(&sprite.value)) {
+            settings.scope = *handle != 0 ? OutlineScope::Sprite : OutlineScope::Layer;
         }
     }
-    return ls::Color{0, 0, 0, 0};
-}
-
-int outlineThickness(Document& doc, const PaintLayer& layer) {
-    const ls::OperationId op = outlineOperation(doc, layer);
-    if (!op.valid()) {
-        return 0;
-    }
-    auto value = doc.engine().getOperationParameter(op, "thickness");
-    if (value.ok()) {
-        if (const float* found = std::get_if<float>(&value.value)) {
-            return static_cast<int>(*found + 0.5f);
+    auto thickness = engine.getOperationParameter(op, "thickness");
+    if (thickness.ok()) {
+        if (const float* found = std::get_if<float>(&thickness.value)) {
+            settings.thickness = static_cast<int>(*found + 0.5f);
         }
     }
-    return 1;
+    auto side = engine.getOperationParameter(op, "side");
+    if (side.ok()) {
+        if (const int64_t* found = std::get_if<int64_t>(&side.value)) {
+            settings.side = static_cast<ls::OutlineSide>(*found);
+        }
+    }
+    auto colour = engine.getOperationParameter(op, "fallbackColor");
+    if (colour.ok()) {
+        if (const ls::Color* found = std::get_if<ls::Color>(&colour.value)) {
+            settings.colour = *found;
+        }
+    }
+    auto role = engine.getOperationParameter(op, "paletteRole");
+    if (role.ok()) {
+        if (const int64_t* found = std::get_if<int64_t>(&role.value)) {
+            settings.role = static_cast<ls::ColorRole>(*found);
+        }
+    }
+    return settings;
 }
 
 } // namespace fast

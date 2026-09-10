@@ -11,6 +11,8 @@
 // In every other pixel editor a shape becomes pixels on mouse release, so every
 // test below would be impossible there rather than merely failing.
 
+#include "app/file_io.h"
+#include "app/palette.h"
 #include "app/shape.h"
 
 #include <cstdio>
@@ -185,7 +187,9 @@ void testAnOutlineFollowsTheShape() {
     const int bare = canvas.opaque();
     CHECK(!fast::hasOutline(canvas.doc, shape.paint));
 
-    REQUIRE(fast::addOutline(canvas.doc, shape.paint, Color{20, 20, 30, 255}, 1));
+    fast::OutlineSettings outline;
+    outline.colour = Color{20, 20, 30, 255};
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, outline));
     CHECK(fast::hasOutline(canvas.doc, shape.paint));
     const int outlined = canvas.opaque();
     CHECK(outlined > bare);
@@ -200,13 +204,25 @@ void testAnOutlineFollowsTheShape() {
     CHECK(canvas.at(20, 20).r == 220);      // the shape moved
     CHECK(canvas.at(15, 20).r == 20);       // and so did its outline
 
-    CHECK(fast::outlineThickness(canvas.doc, shape.paint) == 1);
-    REQUIRE(fast::setOutlineThickness(canvas.doc, shape.paint, 2));
-    CHECK(fast::outlineThickness(canvas.doc, shape.paint) == 2);
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).thickness == 1);
+    outline.thickness = 2;
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, outline));
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).thickness == 2);
     CHECK(canvas.opaque() > outlined);
 
-    REQUIRE(fast::setOutlineColor(canvas.doc, shape.paint, Color{200, 40, 40, 255}));
-    CHECK(fast::outlineColor(canvas.doc, shape.paint).r == 200);
+    // Setting it again drives the operation that is already there rather than
+    // adding a second one, which is what keeps a slider drag to one entry.
+    auto operations = canvas.doc.engine().getLayerOperations(shape.paint.layer);
+    REQUIRE(operations.ok());
+    int outlineOps = 0;
+    for (const OperationInfo& op : operations.value) {
+        if (op.type == "GenerateSilhouetteOutlineOp") { ++outlineOps; }
+    }
+    CHECK(outlineOps == 1);
+
+    outline.colour = Color{200, 40, 40, 255};
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, outline));
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).colour.r == 200);
 
     REQUIRE(fast::removeOutline(canvas.doc, shape.paint));
     CHECK(!fast::hasOutline(canvas.doc, shape.paint));
@@ -222,7 +238,9 @@ void testAShapeSurvivesAReload() {
     REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
                                    fast::ShapeKind::Rectangle, box(6, 6, 18, 18),
                                    Color{220, 120, 60, 255}, &shape));
-    REQUIRE(fast::addOutline(canvas.doc, shape.paint, Color{20, 20, 30, 255}, 1));
+    fast::OutlineSettings outline;
+    outline.colour = Color{20, 20, 30, 255};
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, outline));
     const std::vector<uint8_t> before = canvas.pixels();
 
     std::string error;
@@ -273,7 +291,9 @@ void testFreehandLayersAreNotShapes() {
     CHECK(!fast::shapeOfLayer(canvas.doc, drawn, &none));
 
     // But an outline works on anything the layer draws, shape or not.
-    REQUIRE(fast::addOutline(canvas.doc, drawn, Color{20, 20, 30, 255}, 1));
+    fast::OutlineSettings freehandLine;
+    freehandLine.colour = Color{20, 20, 30, 255};
+    REQUIRE(fast::setOutline(canvas.doc, drawn, freehandLine));
     CHECK(fast::hasOutline(canvas.doc, drawn));
     CHECK(canvas.opaque() > 11);
 }
@@ -296,6 +316,157 @@ void testShapesAreUndoable() {
     CHECK(canvas.opaque() == 64);
 }
 
+
+// An outline round the whole figure, not round one layer of it.
+//
+// Two layers that touch: a per-layer outline draws a seam where they meet, and
+// a sprite-wide one does not. That difference is the whole feature, so it is
+// stated as a difference rather than as two pictures that happen to look right.
+void testAnOutlineCanTraceTheWholeSprite() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+
+    // The arm first, so the body's layer sits above it. That ordering is what
+    // makes the difference visible: a line belonging to the body draws *over*
+    // the arm, where a line belonging to the figure has no reason to be at all.
+    fast::ShapeLayer arm;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
+                                   fast::ShapeKind::Rectangle, box(14, 10, 22, 16),
+                                   Color{90, 140, 220, 255}, &arm));
+    fast::ShapeLayer body;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
+                                   fast::ShapeKind::Rectangle, box(6, 6, 14, 20),
+                                   Color{220, 120, 60, 255}, &body));
+
+    // A line round the body alone. The body's silhouette ends at x = 14, so
+    // that column is inked even though the figure carries on into the arm --
+    // a seam straight through the middle of the character.
+    fast::OutlineSettings perLayer;
+    perLayer.scope = fast::OutlineScope::Layer;
+    perLayer.colour = Color{20, 20, 30, 255};
+    REQUIRE(fast::setOutline(canvas.doc, body.paint, perLayer));
+
+    CHECK(canvas.at(5, 12).r == 20);        // outside the body on the left
+    CHECK(canvas.at(14, 12).r == 20);       // the seam, over the arm
+    CHECK(canvas.at(22, 12).a == 0);        // and nothing round the arm
+
+    // The same outline, told to trace the figure.
+    fast::OutlineSettings figure = perLayer;
+    figure.scope = fast::OutlineScope::Sprite;
+    REQUIRE(fast::setOutline(canvas.doc, body.paint, figure));
+
+    CHECK(fast::outlineOf(canvas.doc, body.paint).scope == fast::OutlineScope::Sprite);
+    CHECK(canvas.at(5, 12).r == 20);        // still round the outside
+    CHECK(canvas.at(14, 12).b == 220);      // the seam is gone: that is arm now
+    CHECK(canvas.at(22, 12).r == 20);       // and the line went round the arm
+
+    // And it follows every part rather than the one it sits on: move the arm
+    // and the figure's line moves with it.
+    REQUIRE(fast::updateShape(canvas.doc, arm, box(14, 10, 26, 16)));
+    CHECK(canvas.at(22, 12).b == 220);      // artwork where the line used to be
+    CHECK(canvas.at(26, 12).r == 20);       // and the line further out
+}
+
+// The colour can come from a palette slot, so an outline joins a palette swap
+// instead of being the one thing left behind by it.
+void testAnOutlineCanFollowAPaletteSlot() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+
+    fast::ShapeLayer shape;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
+                                   fast::ShapeKind::Rectangle, box(8, 8, 18, 18),
+                                   Color{220, 120, 60, 255}, &shape));
+    REQUIRE(fast::ensurePalette(canvas.doc, canvas.sprite));
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 4, Color{200, 30, 40, 255}));
+
+    fast::OutlineSettings settings;
+    settings.role = 4;
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, settings));
+    CHECK(canvas.at(7, 12).r == 200);
+
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 4, Color{30, 200, 120, 255}));
+    CHECK(canvas.at(7, 12).g == 200);
+
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).role == 4);
+}
+
+// A thickness a person cannot type is one the interface cannot produce, but a
+// file can. It is clamped rather than trusted.
+void testOutlineThicknessIsBounded() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+
+    fast::ShapeLayer shape;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
+                                   fast::ShapeKind::Rectangle, box(10, 10, 16, 16),
+                                   Color{220, 120, 60, 255}, &shape));
+
+    fast::OutlineSettings settings;
+    settings.thickness = 9999;
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, settings));
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).thickness == fast::kMaxOutlineThickness);
+
+    settings.thickness = 0;
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, settings));
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).thickness == 1);
+}
+
+
+// The one that would silently rot. targetSprite is an id, and every id is
+// minted fresh by the reader -- so unless serialization remaps it, a reloaded
+// file has an outline pointing at a sprite that no longer exists, and it
+// quietly goes back to tracing one layer.
+void testTheOutlineScopeSurvivesAReload() {
+    const std::string path = "outline_scope_test.lsprite";
+    std::vector<uint8_t> before;
+    {
+        Canvas canvas;
+        REQUIRE(canvas.build());
+        fast::ShapeLayer arm;
+        REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
+                                       fast::ShapeKind::Rectangle, box(14, 10, 22, 16),
+                                       Color{90, 140, 220, 255}, &arm));
+        fast::ShapeLayer body;
+        REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite,
+                                       fast::ShapeKind::Rectangle, box(6, 6, 14, 20),
+                                       Color{220, 120, 60, 255}, &body));
+
+        fast::OutlineSettings figure;
+        figure.scope = fast::OutlineScope::Sprite;
+        figure.thickness = 2;
+        figure.colour = Color{20, 20, 30, 255};
+        REQUIRE(fast::setOutline(canvas.doc, body.paint, figure));
+        before = canvas.pixels();
+
+        std::string error;
+        REQUIRE(canvas.doc.save(path, &error));
+    }
+
+    fast::Document reopened;
+    std::string error;
+    REQUIRE(reopened.open(path, &error));
+
+    SpriteId sprite;
+    std::vector<fast::PaintLayer> layers;
+    REQUIRE(fast::adoptPaintLayers(reopened, &sprite, &layers));
+    REQUIRE(layers.size() == 2);
+
+    // The layer holding it is the body, which was created second.
+    const fast::PaintLayer& body = layers.back();
+    const fast::OutlineSettings restored = fast::outlineOf(reopened, body);
+    CHECK(restored.scope == fast::OutlineScope::Sprite);
+    CHECK(restored.thickness == 2);
+
+    // And it still draws the same picture, which is the check that would catch
+    // a remap that pointed at some other sprite rather than at none.
+    auto compiled = reopened.engine().compileSprite(sprite, profile());
+    REQUIRE(compiled.ok());
+    CHECK(compiled.value.raster.pixels == before);
+
+    fast::deleteFile(path);
+}
+
 } // namespace
 
 int main() {
@@ -303,6 +474,10 @@ int main() {
     testEllipsesAndLines();
     testDrivingAShapeAddsNothing();
     testAnOutlineFollowsTheShape();
+    testAnOutlineCanTraceTheWholeSprite();
+    testAnOutlineCanFollowAPaletteSlot();
+    testOutlineThicknessIsBounded();
+    testTheOutlineScopeSurvivesAReload();
     testAShapeSurvivesAReload();
     testFreehandLayersAreNotShapes();
     testShapesAreUndoable();
