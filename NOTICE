@@ -8,7 +8,7 @@ licences they carry. None of them impose obligations on a fork of Fast, which
 was a condition of choosing them.
 
   LiveSprite engine   Business Source License 1.1, converting to Apache-2.0
-                      https://github.com/<owner>/livesprite
+                      https://github.com/wray2064/livesprite-engine
                       Fast is Apache-2.0; the engine it requires is not. That is
                       stated in the README rather than left to be discovered.
 
