@@ -29,13 +29,30 @@ jobs:
         with:
           path: fast
 
-      # Replace with the engine's repository once it has one.
+      # The engine lives in its own repository, so CI has to fetch it. Set the
+      # repository variable LIVESPRITE_REPO to "owner/name"; if the engine is
+      # private, also set the secret LIVESPRITE_TOKEN to a personal access token
+      # with read access to it, because the default GITHUB_TOKEN is scoped to
+      # this repository alone and cannot see a sibling.
       - name: Check out the engine
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.LIVESPRITE_REPO || github.repository }}
+          repository: ${{ vars.LIVESPRITE_REPO }}
+          ref: ${{ vars.LIVESPRITE_REF || 'main' }}
+          token: ${{ secrets.LIVESPRITE_TOKEN || github.token }}
           path: engine
-        continue-on-error: true
+
+      # Said plainly rather than left to fail thirty lines later inside CMake
+      # complaining about a missing header.
+      - name: Check the engine is there
+        shell: bash
+        run: |
+          if [ ! -f engine/CMakeLists.txt ]; then
+            echo "The engine was not checked out."
+            echo "Set the repository variable LIVESPRITE_REPO to owner/name,"
+            echo "and if it is private, the secret LIVESPRITE_TOKEN as well."
+            exit 1
+          fi
 
       - name: Configure
         working-directory: fast
@@ -63,19 +80,23 @@ jobs:
       - name: Check out the engine
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.LIVESPRITE_REPO || github.repository }}
+          repository: ${{ vars.LIVESPRITE_REPO }}
+          ref: ${{ vars.LIVESPRITE_REF || 'main' }}
+          token: ${{ secrets.LIVESPRITE_TOKEN || github.token }}
           path: engine
-        continue-on-error: true
 
       - name: Install SDL build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev libxext-dev libxrandr-dev             libxcursor-dev libxi-dev libxfixes-dev libwayland-dev             libxkbcommon-dev libegl1-mesa-dev
+          sudo apt-get install -y \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxfixes-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev
 
       - name: Build
         working-directory: fast
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release                 -DLIVESPRITE_DIR=../engine -DFAST_BUILD_GUI=ON
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+                -DLIVESPRITE_DIR=../engine -DFAST_BUILD_GUI=ON
           cmake --build build
 
       # No display on a CI runner, so SDL's dummy driver stands in. This proves
