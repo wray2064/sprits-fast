@@ -71,6 +71,7 @@ add_library(fast_core STATIC
     src/app/paint.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
+    src/app/sheet.cpp
     src/app/transform.cpp
     src/app/ui_state.cpp
 )
@@ -181,6 +182,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_animation_tests tests/animation_tests.cpp)
     target_link_libraries(fast_animation_tests PRIVATE fast_core)
     add_test(NAME fast_animation COMMAND fast_animation_tests)
+
+    add_executable(fast_sheet_tests tests/sheet_tests.cpp)
+    target_link_libraries(fast_sheet_tests PRIVATE fast_core)
+    add_test(NAME fast_sheet COMMAND fast_sheet_tests)
 
     add_executable(fast_dither_tests tests/dither_tests.cpp)
     target_link_libraries(fast_dither_tests PRIVATE fast_core)

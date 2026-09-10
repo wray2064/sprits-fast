@@ -87,5 +87,7 @@ jobs:
         run: |
           # Enough frames for the strip to settle, then a check that a
           # settled editor compiles nothing at all.
-          ./build/sprits_fast --frames 30 --demo-stroke --expect-idle
+          # It also writes a sheet, so the compile-every-frame-and-compose path
+          # is walked by something other than its own unit tests.
+          ./build/sprits_fast --frames 30 --demo-stroke --expect-idle --sheet "$RUNNER_TEMP/ci-sheet.png"
           ./build/sprits_fast --self-test

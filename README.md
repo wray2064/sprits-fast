@@ -31,7 +31,8 @@ them.
 
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
 saves, a prompt before anything discards unsaved work, PNG export at whole-number
-scales, and files that open from the command line.
+scales, sprite sheets with a description beside them, and files that open from
+the command line.
 
 ```bash
 build-gui/sprits_fast hero.lsprite
@@ -151,6 +152,27 @@ what order.
 The strip stays connected to it -- a frame carries one dot per time the cycle
 plays it, and a frame no step names is dimmed rather than flagged, because an
 in-between kept for later is an ordinary thing to have.
+
+### Sheets
+
+**File → Export sheet** lays the frames into one image: a grid, a row or a
+column, at any whole-number scale, from the selected cycle or from every frame.
+
+The promise is that **a cell is byte-for-byte what exporting that frame alone
+would have produced**, and it is not automatic. The engine can pin a pattern to
+where a frame sits inside something larger, so compiling a frame for cell (2, 1)
+rather than at the origin really does change its pixels. Every cell is therefore
+compiled at the origin, and the other behaviour -- one dither running
+continuously across the whole sheet -- is a tickbox rather than an accident. No
+other editor can offer that choice at all, because in every other editor the
+dither was baked into pixels long before the sheet existed.
+
+A sheet of a cycle repeats a cell where the cycle repeats a frame, so it plays
+correctly by stepping through its cells in order.
+
+Beside the image goes a small `.json` naming every cell's position and hold, the
+frame names and the cycles, so a consumer has more than a picture. The format is
+versioned from its first line and is not stable yet.
 
 ### Shapes that stay shapes
 

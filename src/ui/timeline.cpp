@@ -634,4 +634,135 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     drawStepRow(editor);
 }
 
+
+// ---------------------------------------------------------------- the sheet --
+
+void drawSheetPanel(Editor& editor, SDL_Window* window) {
+    if (!editor.sheetPanelOpen) {
+        return;
+    }
+    const theme::Palette& c = theme::palette();
+    SheetSettings& settings = editor.sheet;
+
+    ImGui::OpenPopup("Export sheet");
+    ImGui::SetNextWindowSize(ImVec2(430.f, 0.f), ImGuiCond_Appearing);
+    if (!ImGui::BeginPopupModal("Export sheet", &editor.sheetPanelOpen,
+                                ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+
+    // What goes in it. A cycle is the useful default when there is one: a sheet
+    // of "walk" is a thing somebody ships, where a sheet of every frame in the
+    // document usually is not.
+    const bool haveCycle = editor.timeline.activeCycle >= 0 &&
+                           editor.timeline.activeCycle <
+                               static_cast<int>(editor.cycles.size());
+    if (!haveCycle) {
+        editor.sheetFromCycle = false;
+    }
+
+    theme::sectionHeader("WHAT GOES IN");
+    ImGui::BeginDisabled(!haveCycle);
+    if (ImGui::RadioButton("The selected cycle", editor.sheetFromCycle)) {
+        editor.sheetFromCycle = true;
+    }
+    ImGui::EndDisabled();
+    if (haveCycle) {
+        ImGui::SameLine();
+        const Cycle& cycle = editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)];
+        ImGui::TextColored(c.textDim, "(%s, %d steps)",
+                           cycle.name.empty() ? "unnamed" : cycle.name.c_str(),
+                           static_cast<int>(cycle.frames.size()));
+    }
+    if (ImGui::RadioButton("Every frame, in order", !editor.sheetFromCycle)) {
+        editor.sheetFromCycle = false;
+    }
+
+    // The cells, and their order, are decided here so the summary below can be
+    // honest rather than approximate.
+    const std::vector<int> steps = sheetSteps(editor);
+
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
+    theme::sectionHeader("ARRANGEMENT");
+
+    const char* layouts[] = { "Grid", "One row", "One column" };
+    int layout = static_cast<int>(settings.layout);
+    ImGui::SetNextItemWidth(140.f);
+    if (ImGui::Combo("##layout", &layout, layouts, 3)) {
+        settings.layout = static_cast<SheetLayout>(layout);
+    }
+    if (settings.layout == SheetLayout::Grid) {
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120.f);
+        // Zero means choose, which is what most people want and what the label
+        // has to say, or the field looks broken.
+        ImGui::DragInt("##columns", &settings.columns, 0.2f, 0, 64,
+                       settings.columns > 0 ? "%d columns" : "auto columns");
+    }
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.f);
+    int scale = static_cast<int>(settings.scale);
+    if (ImGui::DragInt("##scale", &scale, 0.1f, 1,
+                       static_cast<int>(ExportSettings::kMaxScale), "%dx")) {
+        settings.scale = static_cast<uint32_t>(scale);
+    }
+
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
+    theme::sectionHeader("BESIDE THE IMAGE");
+    ImGui::Checkbox("Write a description of the sheet", &settings.writeManifest);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("A small .json beside the PNG: where every cell is, how "
+                          "long it is held,\nand what the cycles are. Without it a "
+                          "consumer has only the picture.");
+    }
+
+    ImGui::Checkbox("One pattern across the whole sheet", &settings.patternAcrossSheet);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Off: every cell is exactly what exporting that frame "
+                          "alone would give.\nOn: dithers and screens run "
+                          "continuously across the sheet, so a cell\nno longer "
+                          "matches what the editor showed. Nothing else can do "
+                          "this;\nask for it deliberately.");
+    }
+
+    // What it will actually come out as. Shown before committing, because the
+    // difference between a 3 MB sheet and a refused one is two of these numbers.
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    ImGui::Separator();
+
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    SheetPlan plan;
+    std::string why;
+    const bool workable = size.ok() &&
+        planSheet(static_cast<int>(steps.size()),
+                  static_cast<uint32_t>(size.value.x),
+                  static_cast<uint32_t>(size.value.y), settings, &plan, &why);
+
+    if (workable) {
+        ImGui::TextColored(c.textBright, "%d x %d pixels", plan.width, plan.height);
+        ImGui::SameLine();
+        ImGui::TextColored(c.textDim, "-- %d cells of %d x %d, %d across",
+                           plan.cells, plan.cellWidth, plan.cellHeight, plan.columns);
+    } else {
+        ImGui::TextColored(c.danger, "%s", why.empty() ? "nothing to write" : why.c_str());
+    }
+
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
+    ImGui::BeginDisabled(!workable);
+    if (ImGui::Button("Choose a file...", ImVec2(150.f, 0.f))) {
+        showSheetDialog(editor.files, window, editor.doc);
+        editor.sheetPanelOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        editor.sheetPanelOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
+}
+
 } // namespace fast

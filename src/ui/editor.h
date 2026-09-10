@@ -14,6 +14,7 @@
 #include "app/paint.h"
 #include "app/palette.h"
 #include "app/shape.h"
+#include "app/sheet.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
@@ -94,6 +95,13 @@ struct Editor {
     int   renaming = -1;              // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
     int   exportScale = 1;
+
+    // The sheet export, and whether its window is up. Kept on the editor rather
+    // than in the panel so the choices survive the dialog being opened and
+    // closed -- a person setting up a sheet usually writes several.
+    bool          sheetPanelOpen = false;
+    bool          sheetFromCycle = true;    // the selected cycle, or every frame
+    SheetSettings sheet;
     ls::Vec2i lastPixel { -1, -1 };
     ls::Vec2i hovered { -1, -1 };
 
@@ -190,5 +198,11 @@ void selectCycle(Editor& editor, int index);
 // The cycle currently driving playback: the selected one, or every frame in
 // order when none is selected.
 Cycle activeCycle(const Editor& editor);
+
+// Which frames a sheet would contain, in cell order: the selected cycle's steps,
+// or every frame. A cycle that plays a frame twice therefore produces two cells,
+// which is the useful behaviour -- the sheet plays by stepping through its cells
+// in order, which is all a consumer wants to do.
+std::vector<int> sheetSteps(const Editor& editor);
 
 } // namespace fast

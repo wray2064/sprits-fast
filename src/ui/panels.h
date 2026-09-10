@@ -10,6 +10,8 @@
 
 #include "ui/editor.h"
 
+#include <SDL3/SDL.h>
+
 namespace fast {
 
 // The vertical strip of tools down the left edge.
@@ -53,6 +55,11 @@ float timelinePanelHeight(const Editor& editor);
 // is current and before the canvas image itself.
 void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
                    ImVec2 origin, float zoom);
+
+// The sheet export window: what goes in it, how it is arranged, and what it
+// will come out as. A modal, because the numbers only mean anything together
+// and a person wants to see the result size before committing.
+void drawSheetPanel(Editor& editor, SDL_Window* window);
 
 // The bar along the bottom: where the cursor is, how big the canvas is, what
 // the last compile cost.

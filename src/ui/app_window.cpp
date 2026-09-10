@@ -14,6 +14,7 @@
 #include "app/export_png.h"
 #include "app/file_io.h"
 #include "app/shape.h"
+#include "app/sheet.h"
 #include "app/transform.h"
 #include "app/ui_state.h"
 #include "ui/editor.h"
@@ -233,6 +234,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::EndMenu();
         }
+        if (ImGui::MenuItem("Export sheet...", nullptr, false,
+                            !editor.frames.empty())) {
+            editor.sheetPanelOpen = true;
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
             requestAction(editor, canvas, window, PendingAction::Quit);
@@ -372,6 +377,20 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
                        std::to_string(editor.exportScale) + "x");
         } else {
             editor.say("Export failed: " + error);
+        }
+        return;
+    }
+
+    if (kind == DialogResult::Kind::ExportSheet) {
+        const std::vector<int> steps = sheetSteps(editor);
+        std::string error;
+        if (exportSheetToPng(editor.doc, editor.frames, steps, editor.cycles,
+                             withExtension(path, ".png"), editor.sheet, &error)) {
+            editor.say("Wrote " + fileName(path) + ": " +
+                       std::to_string(steps.size()) + " cells at " +
+                       std::to_string(editor.sheet.scale) + "x");
+        } else {
+            editor.say("Sheet failed: " + error);
         }
         return;
     }
@@ -724,6 +743,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::End();
     ImGui::PopStyleColor();
 
+    drawSheetPanel(editor, window);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -740,6 +760,8 @@ struct Options {
     std::string screenshot;
     bool        demoStroke = false;
     bool        expectIdle = false;
+    std::string sheetPath;
+    bool        showSheetPanel = false;
     bool        selfTest = false;
     std::string openPath;
 };
@@ -754,6 +776,15 @@ Options parseOptions(int argc, char** argv) {
             options.screenshot = argv[++i];
         } else if (arg == "--demo-stroke") {
             options.demoStroke = true;
+        } else if (arg == "--sheet" && i + 1 < argc) {
+            // Writes a sheet of the demo and exits with the rest of the run.
+            // The interesting path is compiling every frame and composing them,
+            // and it is worth CI walking it rather than only the unit tests.
+            options.sheetPath = argv[++i];
+        } else if (arg == "--show-sheet-panel") {
+            // Opens the export window so a headless capture can show it. Only
+            // useful with --frames and --shot.
+            options.showSheetPanel = true;
         } else if (arg == "--expect-idle") {
             // Fails the run if the last frame compiled anything. Nothing is
             // changing by then, so a compile means something asked for a
@@ -1065,6 +1096,46 @@ int runSelfTest() {
     check(editor.cycles.empty(), "it is gone");
     check(activeCycle(editor).frames.size() == 2, "every frame plays again");
 
+    // ------------------------------------------------------------- sheets --
+    //
+    // What the window contributes to a sheet is deciding which cells go in it,
+    // which is the half fast_core cannot know.
+
+    check(addCycle(editor.doc, "walk", 2) == 0, "a cycle to export");
+    resyncFrames(editor);
+    selectCycle(editor, 0);
+    check(addCycleStep(editor.doc, 0, 1, 0, 2) == 2, "that plays a frame twice");
+    resyncFrames(editor);
+
+    editor.sheetFromCycle = true;
+    check(sheetSteps(editor) == std::vector<int>({ 0, 1, 0 }),
+          "a sheet of the cycle is its steps, repeats and all");
+
+    editor.sheetFromCycle = false;
+    check(sheetSteps(editor) == std::vector<int>({ 0, 1 }),
+          "a sheet of every frame is every frame once");
+
+    // And the whole way out, through the same call the dialog makes.
+    {
+        const std::string sheetPath = "ui_selftest_sheet.png";
+        editor.sheetFromCycle = true;
+        editor.sheet.scale = 2;
+        editor.sheet.layout = SheetLayout::Row;
+        std::string sheetError;
+        check(exportSheetToPng(editor.doc, editor.frames, sheetSteps(editor),
+                               editor.cycles, sheetPath, editor.sheet, &sheetError),
+              "write a sheet");
+        check(fileExists(sheetPath), "the sheet is there");
+        check(fileExists("ui_selftest_sheet.json"), "and its description beside it");
+        deleteFile(sheetPath);
+        deleteFile("ui_selftest_sheet.json");
+        editor.sheet = SheetSettings{};
+    }
+
+    check(deleteCycle(editor.doc, 0, 2), "tidy the cycle away");
+    resyncFrames(editor);
+    selectCycle(editor, -1);
+
     while (editor.frames.size() > 1) {
         check(deleteFrame(editor.doc, static_cast<int>(editor.frames.size()) - 1),
               "back to one frame");
@@ -1199,6 +1270,21 @@ int main(int argc, char** argv) {
     if (options.demoStroke) {
         drawDemoContent(editor);
         canvas.invalidate();
+    }
+    editor.sheetPanelOpen = options.showSheetPanel;
+    if (!options.sheetPath.empty()) {
+        std::string sheetError;
+        SheetSettings settings;
+        settings.scale = 2;
+        if (exportSheetToPng(editor.doc, editor.frames, sheetSteps(editor),
+                             editor.cycles, options.sheetPath, settings,
+                             &sheetError)) {
+            std::printf("sheet: wrote %s, %d cells\n", options.sheetPath.c_str(),
+                        static_cast<int>(sheetSteps(editor).size()));
+        } else {
+            std::printf("sheet: %s\n", sheetError.c_str());
+            return 1;
+        }
     }
 
     bool running = true;

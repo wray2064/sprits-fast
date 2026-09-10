@@ -29,7 +29,7 @@ class Document;
 // What a file dialog came back with. Written from SDL's callback, which may be
 // on another thread; read by the main loop.
 struct DialogResult {
-    enum class Kind { None, Open, SaveAs, ExportPng };
+    enum class Kind { None, Open, SaveAs, ExportPng, ExportSheet };
 
     SDL_Mutex*  mutex = nullptr;
     Kind        kind = Kind::None;
@@ -68,6 +68,7 @@ struct FileState {
 void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showExportDialog(FileState& state, SDL_Window* window, const Document& doc);
+void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc);
 
 // The window title: the file, whether it has unsaved changes, and the program.
 std::string windowTitle(const Document& doc);

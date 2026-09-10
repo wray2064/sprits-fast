@@ -89,6 +89,31 @@ void showExportDialog(FileState& state, SDL_Window* window, const Document& doc)
                            start.empty() ? nullptr : start.c_str());
 }
 
+void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportSheet, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    static const SDL_DialogFileFilter sheetFilters[] = {
+        { "PNG image", "png" },
+        { "All files", "*" },
+    };
+
+    // Named "-sheet" so writing one does not quietly overwrite a single-frame
+    // export made a minute earlier under the obvious name.
+    const std::string suggestion = doc.path().empty()
+                                 ? std::string()
+                                 : withExtension(fileStem(doc.path()) + "-sheet", ".png");
+    const std::string location = doc.path().empty() ? std::string()
+                                                    : directoryOf(doc.path());
+    const std::string start = location.empty() ? suggestion
+                            : location + "/" + suggestion;
+
+    SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, sheetFilters,
+                           static_cast<int>(SDL_arraysize(sheetFilters)),
+                           start.empty() ? nullptr : start.c_str());
+}
+
 std::string windowTitle(const Document& doc) {
     std::string name = doc.path().empty() ? std::string("untitled")
                                           : fileName(doc.path());

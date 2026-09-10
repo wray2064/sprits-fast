@@ -115,6 +115,19 @@ void selectCycle(Editor& editor, int index) {
     }
 }
 
+std::vector<int> sheetSteps(const Editor& editor) {
+    if (editor.sheetFromCycle) {
+        const Cycle cycle = activeCycle(editor);
+        return cycle.frames;
+    }
+    std::vector<int> every;
+    every.reserve(editor.frames.size());
+    for (int i = 0; i < static_cast<int>(editor.frames.size()); ++i) {
+        every.push_back(i);
+    }
+    return every;
+}
+
 int frameToShow(const Editor& editor, uint64_t nowMs) {
     if (!editor.timeline.playing || editor.frames.empty()) {
         return editor.timeline.activeFrame;

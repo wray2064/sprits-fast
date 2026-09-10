@@ -346,8 +346,52 @@ does: `setCycles` drops a cycle with no steps, so removing the last one would
 silently delete the cycle -- and deleting a cycle is a different thing, which a
 person asks for differently.
 
-**Still missing:** sprite sheets -- several frames laid into one canvas for
-export, a separate concern using `CompileProfile::exportOrigin`.
+### Sheets
+
+The promise a sheet is built around: **a cell is byte-for-byte what exporting
+that frame alone would have produced.**
+
+That is not automatic, and the reason is the interesting part. The engine lets a
+pattern be anchored in *export space*, meaning its lattice is pinned to wherever
+the output frame sits inside something larger. So compiling a frame for cell
+(2, 1) rather than at the origin genuinely changes its pixels -- by design. The
+engine's `frame_tests` states it: one pixel of export origin moves a dither, a
+whole tile of it puts the dither back, and a pattern in Canvas space ignores it
+entirely.
+
+So every cell is compiled at the origin, exactly as a single-frame export is, and
+then composited. The other behaviour is offered as a choice rather than happening
+by accident: **one pattern across the whole sheet** sets each cell's export origin
+to its position, so a screen runs continuously across the image. Nothing else in
+the program can do that, and nothing should do it without being asked. Its test
+uses a 14-pixel canvas against a 4-pixel tile on purpose -- at 16 the cells land
+on whole tiles and the lattice lines up anyway, so a test at 16 would pass
+whether or not the export origin was ever passed through.
+
+`planSheet` is separate from compiling anything, so the arithmetic that decides
+whether an image is 3 MB or 3 GB is testable on its own, and an absurd sheet is
+refused with a sentence rather than attempted and failing on the allocation. The
+bounds are the same canvas policy -- 16384 a side, 4096x4096 of area.
+
+A sheet exported from a cycle **repeats a cell when the cycle repeats a frame**.
+That is the useful behaviour: the sheet plays by stepping through its cells in
+order, which is all a consumer wants to do.
+
+### The manifest
+
+A sheet without a description of where its cells are is half a deliverable, so a
+small `.json` is written beside the image under the same name -- `hero.png` and
+`hero.json`, not `hero.png.json`. It lists every cell's position and hold, the
+frame names, and the cycles.
+
+**The format is young and versioned from its first line** (`sprits-sheet/1`), so
+a consumer that reads it can tell which shape it has. It is not a stable
+interface yet, and eventual game-engine bridges are the reason to be careful with
+it rather than the reason to freeze it now.
+
+A frame name is whatever somebody typed, so it is escaped properly. A manifest a
+quotation mark can break is one no consumer can trust, and there is a test that
+throws quotes, backslashes and newlines at it.
 
 ## The toolkit
 
