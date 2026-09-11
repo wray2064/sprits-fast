@@ -200,13 +200,19 @@ void testBadInputIsRefused() {
 
     // A large export is allowed even past the canvas policy, and that is
     // deliberate. The policy bounds what is affordable to *edit* interactively;
-    // an export is an explicit one-shot request, so asking for a 2048 sprite at
-    // 4x is a reasonable thing to want and it produces a real 8192 image.
+    // an export is an explicit one-shot request, so a sprite at the edge of the
+    // policy scaled up is a reasonable thing to want.
+    //
+    // The smallest export that proves it: 2049 at 2x is 4098 x 4098, which is
+    // 16,793,604 pixels against a policy of 16,777,216 -- past it by one row
+    // and one column. That is the property, and it is a 67 MB raster. This
+    // used to be 2048 at 4x, a 268 MB raster plus the encoder's buffers, which
+    // proved the same thing and was killed for its memory on a macOS runner.
     Canvas big;
-    REQUIRE(big.build(2048));
-    fast::ExportSettings four;
-    four.scale = 4;
-    CHECK(fast::exportSpriteToPng(big.doc, big.sprite, "export_big.png", four, &error));
+    REQUIRE(big.build(2049));
+    fast::ExportSettings two;
+    two.scale = 2;
+    CHECK(fast::exportSpriteToPng(big.doc, big.sprite, "export_big.png", two, &error));
     CHECK(fast::fileExists("export_big.png"));
     fast::deleteFile("export_big.png");
 
@@ -214,7 +220,7 @@ void testBadInputIsRefused() {
     // policy: a scale that cannot be represented fails cleanly rather than
     // truncating or crashing.
     fast::ExportSettings absurd;
-    absurd.scale = 64;              // 131072 x 131072
+    absurd.scale = 64;              // 131136 x 131136
     CHECK(!fast::exportSpriteToPng(big.doc, big.sprite, "no.png", absurd, &error));
     CHECK(!error.empty());
 

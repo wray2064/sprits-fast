@@ -85,9 +85,12 @@ jobs:
       - name: Install SDL build dependencies
         run: |
           sudo apt-get update
+          # SDL3 refuses to configure without the X11 extension packages it
+          # was told to use, rather than quietly building without them.
           sudo apt-get install -y \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxfixes-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev
+            libxfixes-dev libxss-dev libxtst-dev libwayland-dev \
+            libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev
 
       - name: Build
         working-directory: fast
