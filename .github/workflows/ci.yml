@@ -1,8 +1,7 @@
 name: ci
 
-# Fast is built against the engine from source. Until the engine has a git
-# remote, CI needs it checked out alongside; LIVESPRITE_DIR points the build at
-# wherever that lands.
+# Fast is built against the engine from source, checked out beside it from its
+# own repository; LIVESPRITE_DIR points the build at where that lands.
 
 on:
   push:
@@ -29,17 +28,17 @@ jobs:
         with:
           path: fast
 
-      # The engine lives in its own repository, so CI has to fetch it. Set the
-      # repository variable LIVESPRITE_REPO to "owner/name"; if the engine is
-      # private, also set the secret LIVESPRITE_TOKEN to a personal access token
-      # with read access to it, because the default GITHUB_TOKEN is scoped to
-      # this repository alone and cannot see a sibling.
+      # The engine lives in its own public repository, so the default token can
+      # read it. LIVESPRITE_REPO is a repository variable so a fork can point at
+      # its own engine; LIVESPRITE_REF pins a branch or tag if one is wanted.
+      # If the engine ever goes private again, add `token:` here with a PAT
+      # that can read it -- the default GITHUB_TOKEN cannot see a private
+      # sibling.
       - name: Check out the engine
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.LIVESPRITE_REPO }}
           ref: ${{ vars.LIVESPRITE_REF || 'main' }}
-          token: ${{ secrets.LIVESPRITE_TOKEN || github.token }}
           path: engine
 
       # Said plainly rather than left to fail thirty lines later inside CMake
@@ -49,8 +48,7 @@ jobs:
         run: |
           if [ ! -f engine/CMakeLists.txt ]; then
             echo "The engine was not checked out."
-            echo "Set the repository variable LIVESPRITE_REPO to owner/name,"
-            echo "and if it is private, the secret LIVESPRITE_TOKEN as well."
+            echo "Set the repository variable LIVESPRITE_REPO to owner/name."
             exit 1
           fi
 
@@ -82,7 +80,6 @@ jobs:
         with:
           repository: ${{ vars.LIVESPRITE_REPO }}
           ref: ${{ vars.LIVESPRITE_REF || 'main' }}
-          token: ${{ secrets.LIVESPRITE_TOKEN || github.token }}
           path: engine
 
       - name: Install SDL build dependencies
