@@ -94,6 +94,12 @@ struct Editor {
 
     int   renaming = -1;              // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
+
+    // A palette slot mid-rename, and one waiting for delete to be confirmed
+    // because something paints through it.
+    ls::ColorRole renamingSlot = ls::kColorRoleNone;
+    ls::ColorRole confirmRemoveSlot = ls::kColorRoleNone;
+    char  slotNameBuffer[64] = {};
     int   exportScale = 1;
 
     // The sheet export, and whether its window is up. Kept on the editor rather
@@ -107,6 +113,10 @@ struct Editor {
 
     BucketSettings   bucket;
     DitherSettings   dither;
+    // Which end of a dithered layer's ramp a palette click assigns to. A
+    // dithered layer has two colours where a solid one has one, so clicking a
+    // slot has to know which it is for.
+    int              rampEnd = 0;         // 0 dark, 1 light
     PreviewSettings  preview;
     TimelineSettings timeline;
 

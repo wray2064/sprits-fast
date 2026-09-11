@@ -7,6 +7,7 @@
 // engine rather than any other: changing an entry recolours every layer using
 // it, from the drawing, without touching a pixel of it.
 
+#include "app/dither.h"
 #include "app/palette.h"
 #include "app/transform.h"
 
@@ -248,6 +249,74 @@ void testALayerWithoutARoleStillPaints() {
     CHECK(canvas.at(5, 4).r == 170);
 }
 
+
+// The gap that was there: a dithered layer sat outside the palette entirely,
+// because its ramp held literal colours. Now each end of the ramp can follow a
+// slot, and a palette change reaches the dither like everything else.
+void testADitheredLayerFollowsThePalette() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+
+    fast::PaintLayer layer = canvas.addLayer("shade", Color{10, 10, 10, 255}, 4);
+    // A solid block, so the dither has room to show both of its colours.
+    for (int32_t row = 5; row < 12; ++row) {
+        fast::paintPixels(canvas.doc, layer, fast::linePixels({2, row}, {13, row}));
+    }
+
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 3, Color{30, 40, 90, 255}));
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 4, Color{250, 200, 120, 255}));
+
+    fast::DitherSettings dither;
+    dither.pattern = ls::DitherPatternKind::Bayer4;
+    dither.modulation = ls::DitherModulation::Constant;
+    dither.density = 0.5f;
+    dither.fromRole = 3;
+    dither.toRole = 4;
+    dither.from = Color{30, 40, 90, 255};
+    dither.to = Color{250, 200, 120, 255};
+    REQUIRE(fast::setLayerDithered(canvas.doc, layer, dither));
+
+    // It reads back as roles, not as whatever colour they resolved to.
+    fast::DitherSettings read;
+    REQUIRE(fast::readDitherSettings(canvas.doc, layer, &read));
+    CHECK(read.fromRole == 3);
+    CHECK(read.toRole == 4);
+
+    const std::vector<uint8_t> day = canvas.pixels();
+    REQUIRE(!day.empty());
+
+    // Change both slots. Nothing touches the layer.
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 3, Color{60, 20, 20, 255}));
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 4, Color{200, 90, 90, 255}));
+    const std::vector<uint8_t> night = canvas.pixels();
+
+    CHECK(day != night);
+    // And the new colours are what is there, with the old ones gone.
+    bool sawNewDark = false, sawNewLight = false, sawOld = false;
+    for (int32_t y = 5; y < 12; ++y) {
+        for (int32_t x = 2; x < 14; ++x) {
+            const Color c = canvas.at(x, y);
+            if (c.r == 60 && c.g == 20)   { sawNewDark = true; }
+            if (c.r == 200 && c.g == 90)  { sawNewLight = true; }
+            if (c.r == 30 || c.r == 250)  { sawOld = true; }
+        }
+    }
+    CHECK(sawNewDark && sawNewLight);
+    CHECK(!sawOld);
+
+    // Detaching one end makes it a value again: it stops following.
+    read.toRole = ls::kColorRoleNone;
+    REQUIRE(fast::applyDitherSettings(canvas.doc, layer, read));
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 4, Color{1, 2, 3, 255}));
+    bool sawDetached = false;
+    for (int32_t y = 5; y < 12; ++y) {
+        for (int32_t x = 2; x < 14; ++x) {
+            if (canvas.at(x, y).r == 1) { sawDetached = true; }
+        }
+    }
+    CHECK(!sawDetached);
+}
+
 } // namespace
 
 int main() {
@@ -258,6 +327,7 @@ int main() {
     testAddingAnEntry();
     testThePaletteSurvivesAReload();
     testALayerWithoutARoleStillPaints();
+    testADitheredLayerFollowsThePalette();
 
     if (failures == 0) {
         std::printf("fast_palette: all checks passed\n");

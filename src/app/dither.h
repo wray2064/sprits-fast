@@ -41,8 +41,16 @@ struct DitherSettings {
 
     // The two ends of the ramp. Two stops is the classic case; the engine takes
     // more, which produces a banded gradient rather than a two-tone one.
-    ls::Color from { 40, 40, 60, 255 };
-    ls::Color to   { 230, 220, 190, 255 };
+    //
+    // Each end is a role first and a colour second, like every fill. An end
+    // that names a palette slot follows the palette -- a swap recolours the
+    // dither with everything else, from the drawing rather than over it. An end
+    // with no role is the literal colour, and the colour is also what a role
+    // falls back to if its slot is removed.
+    ls::Color     from { 40, 40, 60, 255 };
+    ls::Color     to   { 230, 220, 190, 255 };
+    ls::ColorRole fromRole = ls::kColorRoleNone;
+    ls::ColorRole toRole   = ls::kColorRoleNone;
 
     // What drives the value the pattern is compared against.
     ls::DitherModulation modulation = ls::DitherModulation::Linear;

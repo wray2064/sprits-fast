@@ -4,6 +4,7 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 
+#include "app/palette_io.h"
 #include "app/shape.h"
 #include "app/transform.h"
 
@@ -166,18 +167,46 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
     ImGui::PopStyleColor();
 
     theme::sectionHeader("RAMP");
-    float from[4], to[4];
-    fromColor(settings.from, from);
-    fromColor(settings.to, to);
-    if (ImGui::ColorEdit4("dark", from, ImGuiColorEditFlags_NoInputs)) {
-        settings.from = toColor(from);
-        changed = true;
-    }
-    bracketDrag(editor, editor.draggingDither, "Ramp colour");
-    if (ImGui::ColorEdit4("light", to, ImGuiColorEditFlags_NoInputs)) {
-        settings.to = toColor(to);
-        changed = true;
-    }
+
+    // One row per end: a selector for which end the palette assigns to, the
+    // colour, and the slot it follows if any.
+    const auto rampEnd = [&](int index, const char* label, ls::Color& colour,
+                             ls::ColorRole& role) {
+        ImGui::PushID(label);
+        if (ImGui::RadioButton("##end", editor.rampEnd == index)) {
+            editor.rampEnd = index;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Clicks in the palette set this end");
+        }
+        ImGui::SameLine();
+        float rgba[4];
+        fromColor(colour, rgba);
+        if (ImGui::ColorEdit4(label, rgba, ImGuiColorEditFlags_NoInputs)) {
+            colour = toColor(rgba);
+            role = ls::kColorRoleNone;         // a picked colour is a value
+            changed = true;
+        }
+        bracketDrag(editor, editor.draggingDither, "Ramp colour");
+        if (role != ls::kColorRoleNone) {
+            ImGui::SameLine();
+            const std::string slot = "slot " + std::to_string(role);
+            ImGui::TextColored(theme::palette().accent, "%s", slot.c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton("detach")) {
+                role = ls::kColorRoleNone;
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    };
+    rampEnd(0, "dark",  settings.from, settings.fromRole);
+    ImGui::SameLine();
+    theme::hint("Each end is a colour or a palette slot. Select an end, then "
+                "click a slot in the palette to point it there -- the dither "
+                "then recolours with a palette change like everything else. "
+                "Pick a colour to make it a value again.");
+    rampEnd(1, "light", settings.to,   settings.toRole);
 
     if (changed) {
         applyDitherSettings(editor.doc, layer, settings);
@@ -277,7 +306,7 @@ void drawToolPanel(Editor& editor, CanvasView& canvas) {
 
 // ---------------------------------------------------------------- palette --
 
-void drawPalettePanel(Editor& editor, CanvasView& canvas) {
+void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     PaintLayer* layer = editor.active();
     const std::vector<PaletteEntry> entries = paletteEntries(editor.doc);
 
@@ -287,16 +316,22 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
     }
 
     const bool dithered = layer != nullptr && layerIsDithered(editor.doc, *layer);
+    DitherSettings ditherNow;
     if (dithered) {
+        readDitherSettings(editor.doc, *layer, &ditherNow);
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("This layer is dithered, so its colours come from its "
-                           "ramp rather than a palette slot.");
+        ImGui::TextWrapped("This layer is dithered. Clicking a slot sets its %s "
+                           "end; choose the end in the Tool panel.",
+                           editor.rampEnd == 0 ? "dark" : "light");
         ImGui::PopStyleColor();
         ImGui::Dummy(ImVec2(0.f, 4.f));
     }
 
-    const ls::ColorRole current = layer != nullptr ? layerRole(editor.doc, *layer)
-                                                   : ls::kColorRoleNone;
+    // Which slot is "current" -- ringed -- is the layer's role for a solid
+    // layer, and the selected ramp end's role for a dithered one.
+    const ls::ColorRole current = layer == nullptr ? ls::kColorRoleNone
+        : dithered ? (editor.rampEnd == 0 ? ditherNow.fromRole : ditherNow.toRole)
+                   : layerRole(editor.doc, *layer);
 
     const float swatchSize = 22.f;
     const float spacing = 5.f;
@@ -317,7 +352,26 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
         }
         // The ring needs room, or selection clips against the neighbour.
         if (theme::swatch(id.c_str(), colour, entry.role == current, swatchSize)) {
-            if (layer != nullptr && !dithered) {
+            if (layer != nullptr && dithered) {
+                // Point the selected end of the ramp at this slot. The colour
+                // is kept as the fallback, so removing the slot later reverts
+                // rather than breaks.
+                DitherSettings settings = ditherNow;
+                if (editor.rampEnd == 0) {
+                    settings.fromRole = entry.role;
+                    settings.from = entry.color;
+                } else {
+                    settings.toRole = entry.role;
+                    settings.to = entry.color;
+                }
+                editor.doc.beginAction("Ramp end from palette");
+                applyDitherSettings(editor.doc, *layer, settings);
+                editor.doc.endAction();
+                editor.dither = settings;
+                canvas.invalidate();
+                editor.say(std::string(editor.rampEnd == 0 ? "Dark" : "Light") +
+                           " end follows slot " + std::to_string(entry.role));
+            } else if (layer != nullptr) {
                 editor.doc.beginAction("Use palette colour");
                 setLayerRole(editor.doc, *layer, entry.role);
                 editor.doc.endAction();
@@ -328,9 +382,16 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
             }
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Slot %u  -  #%02X%02X%02X\nClick to use it. "
-                              "Double-click to edit it.",
-                              entry.role, entry.color.r, entry.color.g, entry.color.b);
+            if (entry.label.empty()) {
+                ImGui::SetTooltip("Slot %u  -  #%02X%02X%02X\nClick to use it. "
+                                  "Double-click to edit it.",
+                                  entry.role, entry.color.r, entry.color.g, entry.color.b);
+            } else {
+                ImGui::SetTooltip("%s  (slot %u)  -  #%02X%02X%02X\nClick to use it. "
+                                  "Double-click to edit it.",
+                                  entry.label.c_str(), entry.role,
+                                  entry.color.r, entry.color.g, entry.color.b);
+            }
         }
         // Double-click opens the editor for the entry itself, which changes it
         // for every layer using it.
@@ -338,11 +399,29 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
             ImGui::OpenPopup(("edit" + id).c_str());
         }
         if (ImGui::BeginPopup(("edit" + id).c_str())) {
+            // The name. Typed into a buffer and written on Enter or when the
+            // field loses focus, so every keystroke is not an undo step.
+            if (editor.renamingSlot != entry.role) {
+                editor.renamingSlot = entry.role;
+                std::snprintf(editor.slotNameBuffer, sizeof(editor.slotNameBuffer),
+                              "%s", entry.label.c_str());
+            }
+            ImGui::TextDisabled("slot %u", entry.role);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(150.f);
+            const bool entered = ImGui::InputTextWithHint(
+                "##name", "name", editor.slotNameBuffer, sizeof(editor.slotNameBuffer),
+                ImGuiInputTextFlags_EnterReturnsTrue);
+            if (entered || ImGui::IsItemDeactivatedAfterEdit()) {
+                if (entry.label != editor.slotNameBuffer) {
+                    editor.doc.beginAction("Name palette slot");
+                    setPaletteLabel(editor.doc, entry.role, editor.slotNameBuffer);
+                    editor.doc.endAction();
+                }
+            }
+
             float rgba[4];
             fromColor(entry.color, rgba);
-            ImGui::TextUnformatted("Palette slot");
-            ImGui::SameLine();
-            ImGui::TextDisabled("%u", entry.role);
             if (ImGui::ColorPicker4("##edit", rgba,
                                     ImGuiColorEditFlags_NoSidePreview |
                                     ImGuiColorEditFlags_DisplayHex)) {
@@ -351,7 +430,47 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
                 editor.say("Every layer using this slot recoloured");
             }
             bracketDrag(editor, editor.draggingPalette, "Palette colour");
+
+            ImGui::Separator();
+            const bool inUse = paletteRoleInUse(editor.doc, entry.role);
+            if (editor.confirmRemoveSlot == entry.role) {
+                // Something paints through it. Say what happens, and ask.
+                ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
+                ImGui::TextWrapped("Layers use this slot. They will keep the "
+                                   "colour they show now and stop following "
+                                   "the palette.");
+                ImGui::PopStyleColor();
+                if (ImGui::Button("Remove anyway")) {
+                    editor.doc.beginAction("Remove palette slot");
+                    removePaletteEntry(editor.doc, entry.role);
+                    editor.doc.endAction();
+                    editor.confirmRemoveSlot = ls::kColorRoleNone;
+                    canvas.invalidate();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Keep it")) {
+                    editor.confirmRemoveSlot = ls::kColorRoleNone;
+                }
+            } else if (ImGui::Button("Remove slot")) {
+                if (inUse) {
+                    editor.confirmRemoveSlot = entry.role;
+                } else {
+                    editor.doc.beginAction("Remove palette slot");
+                    removePaletteEntry(editor.doc, entry.role);
+                    editor.doc.endAction();
+                    canvas.invalidate();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            if (ImGui::IsItemHovered() && inUse && editor.confirmRemoveSlot != entry.role) {
+                ImGui::SetTooltip("Something paints through this slot; you will "
+                                  "be asked first.");
+            }
             ImGui::EndPopup();
+        } else if (editor.renamingSlot == entry.role) {
+            editor.renamingSlot = ls::kColorRoleNone;      // the popup closed
+            editor.confirmRemoveSlot = ls::kColorRoleNone;
         }
 
         column = (column + 1) % perRow;
@@ -370,6 +489,26 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas) {
         if (added != ls::kColorRoleNone) {
             editor.say("Added as slot " + std::to_string(added));
         }
+    }
+
+    // In and out, in the formats other programs use. Loading replaces the
+    // palette, which is what loading a palette means everywhere else -- and
+    // it recolours a sprite drawn through roles, which is the point of them.
+    const float half = (ImGui::GetContentRegionAvail().x - theme::metrics().itemSpacing) * 0.5f;
+    if (ImGui::Button("Load...", ImVec2(half, 0.f))) {
+        showImportPaletteDialog(editor.files, window, editor.doc);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(".gpl from GIMP or Aseprite, or .hex from Lospec.\n"
+                          "Replaces the palette; layers drawn through slots "
+                          "recolour.");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Save...", ImVec2(half, 0.f))) {
+        showExportPaletteDialog(editor.files, window, editor.doc);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(".gpl keeps the slot names; .hex is just the colours.");
     }
 
     if (current != ls::kColorRoleNone) {

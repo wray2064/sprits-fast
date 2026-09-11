@@ -98,9 +98,30 @@ std::vector<PaletteEntry> paletteEntries(Document& doc) {
     }
     out.reserve(entries.value.size());
     for (const ls::PaletteColorEntry& entry : entries.value) {
-        out.push_back({ entry.role, entry.color });
+        out.push_back({ entry.role, entry.color, entry.label });
     }
     return out;
+}
+
+bool removePaletteEntry(Document& doc, ls::ColorRole role) {
+    const ls::PaletteId palette = paletteOf(doc);
+    if (!palette.valid()) {
+        return false;
+    }
+    return doc.engine().removePaletteColor(palette, role).ok();
+}
+
+bool paletteRoleInUse(Document& doc, ls::ColorRole role) {
+    auto used = doc.engine().usesPaletteRole(doc.id(), role);
+    return used.ok() && used.value;
+}
+
+bool setPaletteLabel(Document& doc, ls::ColorRole role, const std::string& label) {
+    const ls::PaletteId palette = paletteOf(doc);
+    if (!palette.valid()) {
+        return false;
+    }
+    return doc.engine().setPaletteLabel(palette, role, label).ok();
 }
 
 bool setPaletteEntry(Document& doc, ls::ColorRole role, ls::Color color) {

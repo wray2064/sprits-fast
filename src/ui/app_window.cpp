@@ -13,6 +13,7 @@
 #include "app/animation.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/palette_io.h"
 #include "app/shape.h"
 #include "app/sheet.h"
 #include "app/transform.h"
@@ -381,6 +382,42 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         return;
     }
 
+    if (kind == DialogResult::Kind::ImportPalette) {
+        int dropped = 0;
+        std::string error;
+        if (importPaletteFile(editor.doc, editor.sprite, path, &dropped, &error)) {
+            resyncLayers(editor);
+            syncColorFromLayer(editor);
+            canvas.invalidate();
+            std::string said = "Loaded palette " + fileName(path);
+            if (dropped > 0) {
+                // Say it rather than let someone discover a layer changed.
+                said += " -- " + std::to_string(dropped) +
+                        (dropped == 1 ? " slot in use was not in the file; its layers "
+                                        "keep their colour"
+                                      : " slots in use were not in the file; their "
+                                        "layers keep their colour");
+            }
+            editor.say(said);
+        } else {
+            editor.say("Could not load palette: " + error);
+        }
+        return;
+    }
+
+    if (kind == DialogResult::Kind::ExportPalette) {
+        std::string error;
+        // Default to .gpl, which carries names; .hex if that is what was typed.
+        const std::string target = hasExtension(path, ".hex") ? path
+                                                              : withExtension(path, ".gpl");
+        if (exportPaletteFile(editor.doc, target, &error)) {
+            editor.say("Wrote palette " + fileName(target));
+        } else {
+            editor.say("Could not write palette: " + error);
+        }
+        return;
+    }
+
     if (kind == DialogResult::Kind::ExportSheet) {
         const std::vector<int> steps = sheetSteps(editor);
         std::string error;
@@ -661,7 +698,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawToolPanel(editor, canvas);
     ImGui::Dummy(ImVec2(0.f, m.sectionGap));
     ImGui::SeparatorText("Palette");
-    drawPalettePanel(editor, canvas);
+    drawPalettePanel(editor, canvas, window);
     ImGui::End();
 
     const float rightX = left + viewport->WorkSize.x - m.sidebarWidth;
@@ -831,6 +868,15 @@ void drawDemoContent(Editor& editor) {
     dither.gradientStart = {6.f, 6.f};
     dither.gradientEnd = {26.f, 26.f};
     dither.anchor = ls::PatternAnchor::Local;
+    // The two ends follow palette slots rather than holding literal colours,
+    // so the dither recolours with the palette like everything else. That is
+    // the promise the palette makes, and until ramps could name a role it was
+    // false for exactly the kind of layer pixel art is mostly made of.
+    ensurePalette(editor.doc, editor.sprite);
+    dither.fromRole = addPaletteEntry(editor.doc, editor.sprite, dither.from);
+    dither.toRole = addPaletteEntry(editor.doc, editor.sprite, dither.to);
+    setPaletteLabel(editor.doc, dither.fromRole, "shade");
+    setPaletteLabel(editor.doc, dither.toRole, "light");
     setLayerDithered(editor.doc, *layer, dither);
     editor.dither = dither;
 

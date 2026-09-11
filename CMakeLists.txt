@@ -66,6 +66,7 @@ add_library(fast_core STATIC
     src/app/dither.cpp
     src/app/document.cpp
     src/app/palette.cpp
+    src/app/palette_io.cpp
     src/app/export_png.cpp
     src/app/file_io.cpp
     src/app/paint.cpp
@@ -182,6 +183,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_animation_tests tests/animation_tests.cpp)
     target_link_libraries(fast_animation_tests PRIVATE fast_core)
     add_test(NAME fast_animation COMMAND fast_animation_tests)
+
+    add_executable(fast_palette_io_tests tests/palette_io_tests.cpp)
+    target_link_libraries(fast_palette_io_tests PRIVATE fast_core)
+    add_test(NAME fast_palette_io COMMAND fast_palette_io_tests)
 
     add_executable(fast_sheet_tests tests/sheet_tests.cpp)
     target_link_libraries(fast_sheet_tests PRIVATE fast_core)

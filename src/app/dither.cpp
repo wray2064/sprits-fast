@@ -68,6 +68,28 @@ bool layerIsDithered(Document& doc, const PaintLayer& layer) {
     return info.ok() && info.value.type == "FillDitherOp";
 }
 
+namespace {
+
+// The two-stop ramp a DitherSettings describes. In one place, so creating and
+// updating cannot disagree about which end carries which role.
+ls::RampDesc rampOf(const DitherSettings& settings) {
+    ls::RampDesc desc;
+    desc.name = "dither";
+    desc.interpolate = true;
+    ls::RampStop from;
+    from.position = 0.f;
+    from.color = settings.from;
+    from.role = settings.fromRole;
+    ls::RampStop to;
+    to.position = 1.f;
+    to.color = settings.to;
+    to.role = settings.toRole;
+    desc.stops = { from, to };
+    return desc;
+}
+
+} // namespace
+
 bool setLayerDithered(Document& doc, PaintLayer& layer, const DitherSettings& settings) {
     if (!layer.valid()) {
         return false;
@@ -82,9 +104,7 @@ bool setLayerDithered(Document& doc, PaintLayer& layer, const DitherSettings& se
     }
 
     // The ramp and the pattern are document resources, made once and pointed at.
-    auto ramp = doc.engine().createRamp(doc.id(), {"dither", {
-        {0.f, settings.from},
-        {1.f, settings.to}}, true});
+    auto ramp = doc.engine().createRamp(doc.id(), rampOf(settings));
     if (ramp.fail()) {
         return false;
     }
@@ -153,16 +173,22 @@ bool readDitherSettings(Document& doc, const PaintLayer& layer, DitherSettings* 
     settings.gradientStart = param<ls::Vec2f>(doc, layer.fill, "gradientStart", {0.f, 0.f});
     settings.gradientEnd = param<ls::Vec2f>(doc, layer.fill, "gradientEnd", {16.f, 16.f});
 
-    // The ramp colours are on the ramp, not the operation, so they are read from
-    // there. The pattern kind is likewise a property of the pattern resource.
+    // The ramp's ends are on the ramp, not the operation, so they are read from
+    // there -- as stops, not by sampling, because a sample is a resolved colour
+    // and cannot say which role produced it.
     const auto rampId = param<uint64_t>(doc, layer.fill, "ramp", 0);
     if (rampId != 0) {
         ls::RampId ramp;
         ramp.value = rampId;
-        auto from = doc.engine().sampleRamp(ramp, 0.f);
-        auto to = doc.engine().sampleRamp(ramp, 1.f);
-        if (from.ok()) { settings.from = from.value; }
-        if (to.ok())   { settings.to = to.value; }
+        auto desc = doc.engine().getRamp(ramp);
+        if (desc.ok() && desc.value.stops.size() >= 2) {
+            const ls::RampStop& first = desc.value.stops.front();
+            const ls::RampStop& last  = desc.value.stops.back();
+            settings.from = first.color;
+            settings.fromRole = first.role;
+            settings.to = last.color;
+            settings.toRole = last.role;
+        }
     }
 
     *out = settings;
@@ -195,9 +221,7 @@ bool applyDitherSettings(Document& doc, const PaintLayer& layer,
     if (rampId != 0) {
         ls::RampId ramp;
         ramp.value = rampId;
-        ok = engine.updateRamp(ramp, {"dither", {
-            {0.f, settings.from},
-            {1.f, settings.to}}, true}).ok() && ok;
+        ok = engine.updateRamp(ramp, rampOf(settings)).ok() && ok;
     }
 
     // The pattern kind is not a parameter either: a different kind is a

@@ -114,6 +114,43 @@ void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc) 
                            start.empty() ? nullptr : start.c_str());
 }
 
+// The two palette formats a pixel artist meets. Offered on both dialogs so a
+// palette can come from GIMP or Aseprite and go back to either, and from
+// Lospec as a .hex.
+static const SDL_DialogFileFilter kPaletteFilters[] = {
+    { "GIMP / Aseprite palette", "gpl" },
+    { "Lospec hex palette",      "hex" },
+    { "All files",               "*" },
+};
+
+void showImportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportPalette, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    const std::string location = startingLocation(doc);
+    SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kPaletteFilters,
+                           static_cast<int>(SDL_arraysize(kPaletteFilters)),
+                           location.empty() ? nullptr : location.c_str(), false);
+}
+
+void showExportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportPalette, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    const std::string suggestion = doc.path().empty()
+                                 ? std::string("palette.gpl")
+                                 : withExtension(fileStem(doc.path()), ".gpl");
+    const std::string location = doc.path().empty() ? std::string()
+                                                    : directoryOf(doc.path());
+    const std::string start = location.empty() ? suggestion
+                            : location + "/" + suggestion;
+    SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, kPaletteFilters,
+                           static_cast<int>(SDL_arraysize(kPaletteFilters)),
+                           start.c_str());
+}
+
 std::string windowTitle(const Document& doc) {
     std::string name = doc.path().empty() ? std::string("untitled")
                                           : fileName(doc.path());

@@ -61,8 +61,22 @@ for a night version or a second team colour is one edit, not a reselect and
 repaint.
 
 Click a swatch to point the layer at it, double-click to change what the slot
-means. A layer can also carry its own colour, which is what files written before
+means, name it, or remove it -- with a warning first if anything paints through
+it. A layer can also carry its own colour, which is what files written before
 palettes existed do.
+
+**Dithers follow the palette too.** Each end of a dithered layer's ramp can be a
+palette slot rather than a colour, so a palette swap recolours the shading with
+everything else. That was not true until the engine let a ramp stop name a role;
+before that, a dither -- which is most pixel art -- sat outside the palette and
+got left behind.
+
+**Load** and **Save** take `.gpl` (GIMP, and what Aseprite reads and writes --
+it keeps the slot names) and `.hex` (what Lospec serves). Loading replaces the
+palette, which is what loading a palette means everywhere else, and it recolours
+a sprite drawn through slots -- the point of them. Both are treated as untrusted
+input: a stray line is skipped rather than failing the file, and a value outside
+0..255 is refused rather than clamped.
 
 ### Getting work out
 

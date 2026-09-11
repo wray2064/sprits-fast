@@ -25,6 +25,7 @@
 #include "app/document.h"
 #include "app/paint.h"
 
+#include <string>
 #include <vector>
 
 namespace fast {
@@ -32,6 +33,7 @@ namespace fast {
 struct PaletteEntry {
     ls::ColorRole role = ls::kColorRoleNone;
     ls::Color     color;
+    std::string   label;      // "skin", "outline" -- empty means unnamed
 };
 
 // Makes sure the document has a palette and that `sprite` is bound to it,
@@ -46,6 +48,18 @@ bool setPaletteEntry(Document& doc, ls::ColorRole role, ls::Color color);
 
 // Appends a colour and hands back the role it was given.
 ls::ColorRole addPaletteEntry(Document& doc, ls::SpriteId sprite, ls::Color color);
+
+// Takes a slot out. Everything that painted through it falls back to its own
+// literal colour on the next compile -- so removing never breaks a picture,
+// but it can change one, which is what usedBy is for asking first.
+bool removePaletteEntry(Document& doc, ls::ColorRole role);
+
+// Whether anything in the document paints through this slot: a layer's fill,
+// an outline, a ramp end, a region. What to ask before removing it.
+bool paletteRoleInUse(Document& doc, ls::ColorRole role);
+
+// Names a slot. Empty clears the name.
+bool setPaletteLabel(Document& doc, ls::ColorRole role, const std::string& label);
 
 // Which role a layer paints through, or kColorRoleNone when it carries its own
 // colour.

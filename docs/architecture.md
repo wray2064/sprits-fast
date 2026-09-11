@@ -393,6 +393,53 @@ A frame name is whatever somebody typed, so it is escaped properly. A manifest a
 quotation mark can break is one no consumer can trust, and there is a test that
 throws quotes, backslashes and newlines at it.
 
+## The palette, and the one place it did not reach
+
+Colours are roles. A fill, a stroke, an outline names a `ColorRole`, and the
+palette turns it into a colour at compile time -- so changing a slot recolours
+everything using it from the drawing, not over it. That has been the model from
+the start, and it is what makes a palette swap one edit rather than a repaint.
+
+It did not reach ramps. A `RampStop` held a literal colour, so every dithered
+layer -- and dithering is most pixel art -- was outside the palette, and a swap
+left it behind. The engine's answer was `remapRamp`, which looks at a literal
+colour, guesses which role it was by exact-then-nearest match, and overwrites:
+the incumbents' "replace colour" dressed up, and exactly what the model exists
+to avoid.
+
+A stop can now name a role, with its colour as the literal and the fallback --
+the same rule every fill follows. The ramp is resolved through the palette once
+per mark, where the palette is in scope, so a literal-stop ramp compiles to the
+bytes it always did; the golden hashes are unchanged. In Fast, each end of a
+dithered layer's ramp is a colour or a slot, and clicking a slot in the palette
+panel assigns it to whichever end is selected.
+
+### What a palette panel needs that the engine did not have
+
+Building the panel found four gaps: no way to remove a slot, no way to name one
+after creation (labels were stored and serialized but had no setter), no way to
+ask what uses a role (so removing one could warn rather than silently revert),
+and no way to read a ramp back at all -- Fast had been *sampling* it at 0 and 1,
+which cannot see a role. All four exist now and reach the C ABI.
+
+Removing a slot never breaks a picture: everything naming it falls back to its
+literal. It can change one, which is why the panel asks first when something
+paints through it.
+
+### Files
+
+`.gpl` and `.hex`, in `app/palette_io`. Loading **replaces** the palette,
+because that is what loading a palette means in every other tool and because it
+is the useful thing: a sprite drawn through sixteen roles, given a different
+sixteen colours, recolours. Roles the file does not provide are removed and
+their layers fall back; the count is reported so the status bar can say so.
+
+Both parsers treat the file as untrusted. A line that is not a colour is skipped
+rather than failing the file -- one stray line should not cost a person the
+other thirty-one -- but a channel outside 0..255 is a rejected line, not a
+clamped one, because a colour somebody did not mean is worse than one that is
+missing. The entry count is bounded at 256.
+
 ## Outlines
 
 An outline is an operation resolved during the compile, not a filter that adds
