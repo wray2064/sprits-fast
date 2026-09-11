@@ -1,6 +1,6 @@
 # Sprit's'fast
 
-A lightweight sprite editor built on the [LiveSprite engine](../sprit%20s%20pract).
+A lightweight sprite editor built on the [LiveSprite engine](https://github.com/wray2064/livesprite-engine).
 
 Sprites are stored as mathematical operations rather than as pixels. A fill is a
 standing rule about how a region gets its colour; a rotation is a parameter.
