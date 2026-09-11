@@ -17,6 +17,7 @@
 #include "ui/theme.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>

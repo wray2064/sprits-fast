@@ -3,6 +3,7 @@
 
 #include "app/paint.h"
 
+#include <cmath>
 #include <cstdlib>
 
 namespace fast {
