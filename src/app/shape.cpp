@@ -371,7 +371,8 @@ OutlineSettings outlineOf(Document& doc, const PaintLayer& layer) {
     // a slot the palette has. The literal stays on the operation as the
     // fallback, but a panel showing it would disagree with the canvas after
     // every palette change.
-    resolvePaletteRole(doc, settings.role, &settings.colour);
+    resolvePaletteRole(doc, paletteOfLayer(doc, layer.layer), settings.role,
+                       &settings.colour);
     return settings;
 }
 

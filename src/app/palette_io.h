@@ -60,6 +60,8 @@ bool applyPaletteFile(Document& doc, ls::SpriteId sprite, const PaletteFile& fil
 // write. Paths are UTF-8 and go through app/file_io like everything else.
 bool importPaletteFile(Document& doc, ls::SpriteId sprite, const std::string& path,
                        int* dropped, std::string* error);
-bool exportPaletteFile(Document& doc, const std::string& path, std::string* error);
+// Writes the palette `sprite` uses -- the one the panel is showing.
+bool exportPaletteFile(Document& doc, ls::SpriteId sprite, const std::string& path,
+                       std::string* error);
 
 } // namespace fast

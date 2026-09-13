@@ -807,6 +807,107 @@ void testRemovingASlotChangesNoPixelAndPuttingItBackReattaches() {
     CHECK(paletteEntries(f.doc).size() >= 4);
 }
 
+// --- 7. two palettes, a swap, and a frame of its own -------------------------------
+
+// The feature the engine exists for, held together with everything else: a
+// second palette, a document swap that recolours every frame in one step, a
+// frame bound to a palette of its own that sits the swap out, and all of it
+// through the sheet, a round trip and undo.
+void testASwapRecoloursTheAnimationAndABoundFrameSitsItOut() {
+    Figure f;
+    REQUIRE(buildFigure(f));
+    const std::vector<uint64_t> day = hashEveryFrame(f.doc);
+    const ls::PaletteId dayId = documentPalette(f.doc);
+    REQUIRE(dayId.valid());
+
+    f.doc.beginAction("Night palette");
+    const ls::PaletteId nightId = addPalette(f.doc, "night", dayId);
+    REQUIRE(nightId.valid());
+    const ls::Color nightBody { 30, 40, 120, 255 };
+    REQUIRE(setPaletteEntry(f.doc, nightId, kBody, nightBody));
+    f.doc.endAction();
+    CHECK(hashEveryFrame(f.doc) == day);            // making one changes nothing
+
+    // Frame 2 -- "reach" -- is the flash frame: white body, whatever the day.
+    f.doc.beginAction("Flash palette");
+    const ls::PaletteId flashId = addPalette(f.doc, "flash", dayId);
+    REQUIRE(flashId.valid());
+    REQUIRE(setPaletteEntry(f.doc, flashId, kBody, ls::Color{ 255, 255, 255, 255 }));
+    REQUIRE(bindFrame(f.doc, f.frames[2].sprite, flashId));
+    f.doc.endAction();
+    {
+        const ls::RasterBuffer reach = compileFrame(f.doc, f.frames[2].sprite);
+        CHECK(countColour(reach, ls::Color{ 255, 255, 255, 255 }) > 0);
+        CHECK(countColour(reach, kBodyColour) == 0);
+        CHECK(countColour(compileFrame(f.doc, f.frames[1].sprite), kBodyColour) > 0);
+    }
+
+    // The swap.
+    f.doc.beginAction("Swap");
+    REQUIRE(usePalette(f.doc, nightId));
+    f.doc.endAction();
+    const std::vector<uint64_t> night = hashEveryFrame(f.doc);
+    for (size_t i = 0; i < f.frames.size(); ++i) {
+        const ls::RasterBuffer px = compileFrame(f.doc, f.frames[i].sprite);
+        if (i == 2) {
+            CHECK(countColour(px, ls::Color{ 255, 255, 255, 255 }) > 0);   // sat it out
+        } else {
+            CHECK(countColour(px, nightBody) > 0);
+            CHECK(countColour(px, kBodyColour) == 0);
+            CHECK(night[i] != day[i]);
+        }
+    }
+
+    // The sheet is the frames, per-frame palettes included.
+    const std::vector<Cycle> cycles = readCycles(f.doc, 4);
+    REQUIRE(cycles.size() == 1);
+    CHECK(sheetAgreesWithFrames(f.doc, cycles[0].frames, SheetSettings{}));
+
+    // The panels: each frame's palette is what it draws with.
+    CHECK(paletteFor(f.doc, f.frames[0].sprite) == nightId);
+    CHECK(paletteFor(f.doc, f.frames[2].sprite) == flashId);
+    CHECK(same(effectiveLayerColor(f.doc, f.frames[0].sprite, f.body), nightBody));
+    DitherSettings shown;
+    REQUIRE(readDitherSettings(f.doc, f.highlight, &shown));
+    CHECK(same(shown.to, kLightColour));            // night copied day's light
+
+    // A round trip keeps every palette, name and binding.
+    {
+        const std::string path = "fast_system_swap.lsprite";
+        std::string error;
+        REQUIRE(f.doc.save(path, &error));
+        Document again;
+        REQUIRE(again.open(path, &error));
+        deleteFile(path);
+        const std::vector<PaletteInfo> palettes = listPalettes(again);
+        REQUIRE(palettes.size() == 3);
+        CHECK(palettes[1].name == "night" && palettes[2].name == "flash");
+        CHECK(documentPalette(again) == palettes[1].id);
+        const std::vector<Frame> frames = readFrames(again);
+        REQUIRE(frames.size() == 4);
+        CHECK(frameBinding(again, frames[2].sprite) == palettes[2].id);
+        CHECK(!frameBinding(again, frames[0].sprite).valid());
+        CHECK(hashEveryFrame(again) == night);
+        // And ensurePalette on open leaves those bindings exactly alone.
+        REQUIRE(ensurePalette(again, frames[0].sprite));
+        REQUIRE(ensurePalette(again, frames[2].sprite));
+        CHECK(frameBinding(again, frames[2].sprite) == palettes[2].id);
+        CHECK(hashEveryFrame(again) == night);
+    }
+
+    // Undo the swap: day again, flash frame still flashing.
+    REQUIRE(f.doc.undo());
+    CHECK(documentPalette(f.doc) == dayId);
+    CHECK(countColour(compileFrame(f.doc, f.frames[0].sprite), kBodyColour) > 0);
+    CHECK(countColour(compileFrame(f.doc, f.frames[2].sprite), ls::Color{ 255, 255, 255, 255 }) > 0);
+    // Undo the flash binding and palette, and the night palette: back to day.
+    REQUIRE(f.doc.undo() && f.doc.undo());
+    CHECK(hashEveryFrame(f.doc) == day);
+    CHECK(listPalettes(f.doc).size() == 1);
+    REQUIRE(f.doc.redo() && f.doc.redo() && f.doc.redo());
+    CHECK(hashEveryFrame(f.doc) == night);
+}
+
 } // namespace
 
 int main() {
@@ -817,6 +918,7 @@ int main() {
     testARoundTripLosesNothing();
     testUndoIsExactAcrossEveryFeature();
     testRemovingASlotChangesNoPixelAndPuttingItBackReattaches();
+    testASwapRecoloursTheAnimationAndABoundFrameSitsItOut();
 
     if (failures == 0) {
         std::printf("system_tests: all checks passed\n");

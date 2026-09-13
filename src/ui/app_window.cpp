@@ -410,7 +410,7 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         // Default to .gpl, which carries names; .hex if that is what was typed.
         const std::string target = hasExtension(path, ".hex") ? path
                                                               : withExtension(path, ".gpl");
-        if (exportPaletteFile(editor.doc, target, &error)) {
+        if (exportPaletteFile(editor.doc, editor.activeSprite(), target, &error)) {
             editor.say("Wrote palette " + fileName(target));
         } else {
             editor.say("Could not write palette: " + error);

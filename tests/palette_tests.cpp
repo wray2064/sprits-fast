@@ -7,6 +7,7 @@
 // engine rather than any other: changing an entry recolours every layer using
 // it, from the drawing, without touching a pixel of it.
 
+#include "app/animation.h"
 #include "app/dither.h"
 #include "app/palette.h"
 #include "app/transform.h"
@@ -319,8 +320,153 @@ void testADitheredLayerFollowsThePalette() {
 
 } // namespace
 
+// --- several palettes -------------------------------------------------------
+
+// The swap: a second palette, and switching the document to it recolours
+// every frame that has no palette of its own -- in one step, from the
+// drawing. This is the feature the engine exists for.
+void testSwitchingTheDocumentPaletteRecoloursEveryFrame() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    fast::PaintLayer layer = canvas.addLayer("body", Color{1, 1, 1, 255}, 5);
+    REQUIRE(fast::setLayerRole(canvas.doc, layer, 3));
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 3, Color{200, 40, 40, 255}));
+    REQUIRE(fast::duplicateFrame(canvas.doc, 0) == 1);
+    const std::vector<fast::Frame> frames = fast::readFrames(canvas.doc);
+    REQUIRE(frames.size() == 2);
+
+    const PaletteId day = fast::documentPalette(canvas.doc);
+    REQUIRE(day.valid());
+    CHECK(fast::listPalettes(canvas.doc).size() == 1);
+
+    // A copy to edit, so night starts as day and differs by one slot.
+    const PaletteId night = fast::addPalette(canvas.doc, "night", day);
+    REQUIRE(night.valid());
+    CHECK(fast::listPalettes(canvas.doc).size() == 2);
+    CHECK(fast::listPalettes(canvas.doc)[1].name == "night");
+    CHECK(fast::paletteEntries(canvas.doc, night).size() ==
+          fast::paletteEntries(canvas.doc, day).size());
+    REQUIRE(fast::setPaletteEntry(canvas.doc, night, 3, Color{40, 40, 200, 255}));
+
+    // Nothing changed yet: the document still uses day.
+    CHECK(canvas.at(5, 5).r == 200);
+    CHECK(fast::documentPalette(canvas.doc) == day);
+
+    REQUIRE(fast::usePalette(canvas.doc, night));
+    CHECK(fast::documentPalette(canvas.doc) == night);
+    for (const fast::Frame& frame : frames) {
+        canvas.sprite = frame.sprite;
+        CHECK(canvas.at(5, 5).b == 200);
+        CHECK(fast::paletteFor(canvas.doc, frame.sprite) == night);
+        CHECK(!fast::frameBinding(canvas.doc, frame.sprite).valid());
+    }
+
+    // The quick swap steps through the list and wraps.
+    CHECK(fast::nextPalette(canvas.doc, night) == day);
+    CHECK(fast::nextPalette(canvas.doc, day) == night);
+
+    // Renaming reaches the list.
+    REQUIRE(fast::renamePalette(canvas.doc, night, "dusk"));
+    CHECK(fast::listPalettes(canvas.doc)[1].name == "dusk");
+}
+
+// A frame with a palette of its own ignores the swap; releasing it makes it
+// follow again. This is a flash frame, and it is colour cycling.
+void testAFrameMayKeepAPaletteOfItsOwn() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    fast::PaintLayer layer = canvas.addLayer("body", Color{1, 1, 1, 255}, 5);
+    REQUIRE(fast::setLayerRole(canvas.doc, layer, 3));
+    REQUIRE(fast::setPaletteEntry(canvas.doc, 3, Color{200, 40, 40, 255}));
+    REQUIRE(fast::duplicateFrame(canvas.doc, 0) == 1);
+    const std::vector<fast::Frame> frames = fast::readFrames(canvas.doc);
+
+    const PaletteId day = fast::documentPalette(canvas.doc);
+    const PaletteId flash = fast::addPalette(canvas.doc, "flash", day);
+    REQUIRE(flash.valid());
+    REQUIRE(fast::setPaletteEntry(canvas.doc, flash, 3, Color{255, 255, 255, 255}));
+
+    REQUIRE(fast::bindFrame(canvas.doc, frames[1].sprite, flash));
+    CHECK(fast::frameBinding(canvas.doc, frames[1].sprite) == flash);
+    CHECK(fast::paletteFor(canvas.doc, frames[1].sprite) == flash);
+    canvas.sprite = frames[0].sprite;
+    CHECK(canvas.at(5, 5).r == 200);
+    canvas.sprite = frames[1].sprite;
+    CHECK(canvas.at(5, 5).r == 255 && canvas.at(5, 5).g == 255);
+
+    // Editing "the palette this frame uses" edits flash, not day.
+    REQUIRE(fast::setPaletteEntry(canvas.doc, fast::paletteFor(canvas.doc, frames[1].sprite),
+                                  3, Color{0, 255, 0, 255}));
+    CHECK(canvas.at(5, 5).g == 255 && canvas.at(5, 5).r == 0);
+    canvas.sprite = frames[0].sprite;
+    CHECK(canvas.at(5, 5).r == 200);
+
+    // A document swap leaves the bound frame alone.
+    const PaletteId night = fast::addPalette(canvas.doc, "night", day);
+    REQUIRE(fast::setPaletteEntry(canvas.doc, night, 3, Color{40, 40, 200, 255}));
+    REQUIRE(fast::usePalette(canvas.doc, night));
+    CHECK(canvas.at(5, 5).b == 200);
+    canvas.sprite = frames[1].sprite;
+    CHECK(canvas.at(5, 5).g == 255);
+
+    // Released, it follows the document -- which is night now.
+    REQUIRE(fast::bindFrame(canvas.doc, frames[1].sprite, PaletteId{}));
+    CHECK(!fast::frameBinding(canvas.doc, frames[1].sprite).valid());
+    CHECK(canvas.at(5, 5).b == 200);
+}
+
+// Deleting: never the last; the document moves off a deleted one; a frame
+// bound to a deleted one follows the document.
+void testDeletingAPalette() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    const PaletteId day = fast::documentPalette(canvas.doc);
+    CHECK(!fast::deletePalette(canvas.doc, day));           // the last one stays
+
+    const PaletteId night = fast::addPalette(canvas.doc, "night", PaletteId{});
+    REQUIRE(night.valid());
+    CHECK(fast::paletteEntries(canvas.doc, night).size() == 16);   // the starter set
+    REQUIRE(fast::bindFrame(canvas.doc, canvas.sprite, night));
+    REQUIRE(fast::usePalette(canvas.doc, night));
+
+    REQUIRE(fast::deletePalette(canvas.doc, night));
+    CHECK(fast::listPalettes(canvas.doc).size() == 1);
+    CHECK(fast::documentPalette(canvas.doc) == day);
+    CHECK(!fast::frameBinding(canvas.doc, canvas.sprite).valid());
+    CHECK(fast::paletteFor(canvas.doc, canvas.sprite) == day);
+    CHECK(!fast::deletePalette(canvas.doc, day));
+}
+
+// Files written before this bound the first frame to the palette by name and
+// never bound the document. Opened now, the frame has to follow a swap like
+// every other, so ensurePalette moves the binding to where it belongs.
+void testAnOlderFileFollowsASwap() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    const PaletteId day = fast::documentPalette(canvas.doc);
+    fast::PaintLayer layer = canvas.addLayer("body", Color{1, 1, 1, 255}, 5);
+    REQUIRE(fast::setLayerRole(canvas.doc, layer, 3));
+
+    // The old shape: the sprite bound by name, the document not at all.
+    REQUIRE(canvas.doc.engine().bindSpritePalette(canvas.sprite, day).ok());
+    CHECK(fast::frameBinding(canvas.doc, canvas.sprite) == day);
+
+    REQUIRE(fast::ensurePalette(canvas.doc, canvas.sprite));
+    CHECK(!fast::frameBinding(canvas.doc, canvas.sprite).valid());
+    CHECK(fast::documentPalette(canvas.doc) == day);
+
+    const PaletteId night = fast::addPalette(canvas.doc, "night", day);
+    REQUIRE(fast::setPaletteEntry(canvas.doc, night, 3, Color{40, 40, 200, 255}));
+    REQUIRE(fast::usePalette(canvas.doc, night));
+    CHECK(canvas.at(5, 5).b == 200);
+}
+
 int main() {
     testADocumentGetsAStarterPalette();
+    testSwitchingTheDocumentPaletteRecoloursEveryFrame();
+    testAFrameMayKeepAPaletteOfItsOwn();
+    testDeletingAPalette();
+    testAnOlderFileFollowsASwap();
     testChangingAnEntryRecoloursEveryLayerUsingIt();
     testRecolouringCostsNothing();
     testDetachingKeepsWhatIsOnScreen();

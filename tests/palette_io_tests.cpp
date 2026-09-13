@@ -247,13 +247,13 @@ void testExportWritesTheFormatTheExtensionAsks() {
     REQUIRE(canvas.build());
     std::string error;
 
-    REQUIRE(exportPaletteFile(canvas.doc, "palette_io_test.gpl", &error));
+    REQUIRE(exportPaletteFile(canvas.doc, canvas.doc.sprite(), "palette_io_test.gpl", &error));
     std::vector<uint8_t> bytes;
     REQUIRE(readFile("palette_io_test.gpl", bytes, &error));
     CHECK(std::string(bytes.begin(), bytes.end()).rfind("GIMP Palette", 0) == 0);
     deleteFile("palette_io_test.gpl");
 
-    REQUIRE(exportPaletteFile(canvas.doc, "palette_io_test.hex", &error));
+    REQUIRE(exportPaletteFile(canvas.doc, canvas.doc.sprite(), "palette_io_test.hex", &error));
     REQUIRE(readFile("palette_io_test.hex", bytes, &error));
     const std::string hex(bytes.begin(), bytes.end());
     CHECK(hex.find("GIMP") == std::string::npos);

@@ -223,8 +223,9 @@ bool readDitherSettings(Document& doc, const PaintLayer& layer, DitherSettings* 
             settings.fromRole = first.role;
             settings.to = last.color;
             settings.toRole = last.role;
-            resolvePaletteRole(doc, settings.fromRole, &settings.from);
-            resolvePaletteRole(doc, settings.toRole, &settings.to);
+            const ls::PaletteId palette = paletteOfLayer(doc, layer.layer);
+            resolvePaletteRole(doc, palette, settings.fromRole, &settings.from);
+            resolvePaletteRole(doc, palette, settings.toRole, &settings.to);
         }
     }
 

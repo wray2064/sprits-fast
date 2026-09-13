@@ -239,7 +239,8 @@ bool applyPaletteFile(Document& doc, ls::SpriteId sprite, const PaletteFile& fil
     if (file.entries.empty() || !ensurePalette(doc, sprite)) {
         return false;
     }
-    const std::vector<PaletteEntry> before = paletteEntries(doc);
+    const ls::PaletteId palette = paletteFor(doc, sprite);
+    const std::vector<PaletteEntry> before = paletteEntries(doc, palette);
 
     doc.beginAction("Load palette");
 
@@ -251,15 +252,18 @@ bool applyPaletteFile(Document& doc, ls::SpriteId sprite, const PaletteFile& fil
             if (paletteRoleInUse(doc, old.role)) {
                 ++lost;
             }
-            removePaletteEntry(doc, old.role);
+            removePaletteEntry(doc, palette, old.role);
         }
     }
     for (const PaletteEntry& entry : file.entries) {
-        if (!setPaletteEntry(doc, entry.role, entry.color)) {
+        if (!setPaletteEntry(doc, palette, entry.role, entry.color)) {
             doc.abandonAction();
             return false;
         }
-        setPaletteLabel(doc, entry.role, entry.label);
+        setPaletteLabel(doc, palette, entry.role, entry.label);
+    }
+    if (!file.name.empty()) {
+        renamePalette(doc, palette, file.name);
     }
 
     doc.endAction();
@@ -286,8 +290,9 @@ bool importPaletteFile(Document& doc, ls::SpriteId sprite, const std::string& pa
     return true;
 }
 
-bool exportPaletteFile(Document& doc, const std::string& path, std::string* error) {
-    const std::vector<PaletteEntry> entries = paletteEntries(doc);
+bool exportPaletteFile(Document& doc, ls::SpriteId sprite, const std::string& path,
+                       std::string* error) {
+    const std::vector<PaletteEntry> entries = paletteEntries(doc, paletteFor(doc, sprite));
     if (entries.empty()) {
         if (error != nullptr) { *error = "the document has no palette"; }
         return false;
