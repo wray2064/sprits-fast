@@ -944,49 +944,239 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
 // ----------------------------------------------------------------- layers --
 
 void drawLayerPanel(Editor& editor, CanvasView& canvas) {
-    if (ImGui::Button("Add", ImVec2(60.f, 0.f))) {
+    const ls::SpriteId sprite = editor.activeSprite();
+    const std::vector<ls::LayerId> order = layerOrder(editor.doc, sprite);
+
+    // --- the buttons ---------------------------------------------------------
+    if (ImGui::Button("Add", ImVec2(52.f, 0.f))) {
         PaintLayer layer;
-        const std::string name = "Layer " + std::to_string(editor.layers.size() + 1);
-        if (createPaintLayer(editor.doc, editor.sprite, name,
-                             toColor(editor.color), &layer)) {
-            editor.layers.push_back(layer);
-            editor.activeLayer = static_cast<int>(editor.layers.size()) - 1;
+        const std::string name = "Layer " + std::to_string(order.size() + 1);
+        if (createPaintLayer(editor.doc, sprite, name, toColor(editor.color), &layer)) {
+            // Right above the active layer, in its group, like every editor.
+            if (PaintLayer* active = editor.active()) {
+                const int at = indexOfLayer(editor.doc, sprite, active->layer);
+                moveLayer(editor.doc, layer.layer, at + 1);
+            }
+            selectLayer(editor, layer.layer);
             canvas.invalidate();
         }
     }
     ImGui::SameLine();
-
-    const bool canDelete = editor.layers.size() > 1;
+    if (ImGui::Button("Dup", ImVec2(46.f, 0.f))) {
+        duplicateActiveLayer(editor, canvas);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Duplicate the active layer  (Ctrl+J)");
+    }
+    ImGui::SameLine();
+    const bool canDelete = order.size() > 1;
     ImGui::BeginDisabled(!canDelete);
-    if (ImGui::Button("Delete", ImVec2(70.f, 0.f))) {
-        if (PaintLayer* layer = editor.active()) {
-            editor.doc.beginAction("Delete layer");
-            editor.doc.engine().deleteLayer(layer->layer);
-            editor.doc.endAction();
-            resyncLayers(editor);
-            canvas.invalidate();
-            editor.say("Layer deleted");
-        }
+    if (ImGui::Button("Delete", ImVec2(56.f, 0.f))) {
+        deleteSelectedLayers(editor, canvas);
     }
     ImGui::EndDisabled();
     if (!canDelete && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("A sprite needs at least one layer.");
     }
+    ImGui::SameLine();
+    if (ImGui::Button("^", ImVec2(22.f, 0.f))) { raiseActiveLayer(editor, canvas); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Move up  (Ctrl+])"); }
+    ImGui::SameLine();
+    if (ImGui::Button("v", ImVec2(22.f, 0.f))) { lowerActiveLayer(editor, canvas); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Move down  (Ctrl+[)"); }
 
+    // --- the properties strip -------------------------------------------------
+    //
+    // Blend and opacity of whatever is selected: the active layer, or the
+    // group whose row was clicked. A group's opacity is not its layers'
+    // opacities -- the group composites as one and then blends -- which is
+    // why the row exists rather than the group being a folder.
+    ImGui::Dummy(ImVec2(0.f, 2.f));
+    {
+        const bool onGroup = editor.activeGroup.valid();
+        LayerProps layerProps;
+        GroupProps groupProps;
+        bool have = onGroup ? readGroupProps(editor.doc, editor.activeGroup, &groupProps)
+                            : (editor.active() != nullptr &&
+                               readLayerProps(editor.doc, editor.active()->layer, &layerProps));
+        if (have) {
+            int blend = static_cast<int>(onGroup ? groupProps.blend : layerProps.blend);
+            float opacity = onGroup ? groupProps.opacity : layerProps.opacity;
+            ImGui::SetNextItemWidth(104.f);
+            if (ImGui::Combo("##blend", &blend, blendModeNames().data(),
+                             static_cast<int>(blendModeNames().size()))) {
+                editor.doc.beginAction("Blend mode");
+                if (onGroup) {
+                    setGroupBlend(editor.doc, editor.activeGroup, static_cast<ls::BlendMode>(blend));
+                } else {
+                    setLayerBlend(editor.doc, editor.active()->layer, static_cast<ls::BlendMode>(blend));
+                }
+                editor.doc.endAction();
+                canvas.invalidate();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(onGroup ? "How the group, composited as one, lands on what is below"
+                                          : "How this layer lands on what is below it");
+            }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-1.f);
+            if (ImGui::SliderFloat("##opacity", &opacity, 0.f, 1.f, "opacity %.2f")) {
+                if (onGroup) {
+                    setGroupOpacity(editor.doc, editor.activeGroup, opacity);
+                } else {
+                    setLayerOpacity(editor.doc, editor.active()->layer, opacity);
+                }
+                canvas.invalidate();
+            }
+            bracketDrag(editor, editor.draggingLayer, onGroup ? "Group opacity" : "Layer opacity");
+            if (!onGroup) {
+                bool clipped = layerProps.clipBase.valid();
+                if (ImGui::Checkbox("clip to below", &clipped)) {
+                    toggleActiveLayerClip(editor, canvas);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Draw only where the layer below draws: a "
+                                      "highlight that stays inside the body. A move "
+                                      "clears it, because \"below\" changed.");
+                }
+                ImGui::SameLine();
+                bool locked = layerProps.locked;
+                if (ImGui::Checkbox("lock", &locked)) {
+                    toggleActiveLayerLock(editor);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Tools leave a locked layer alone.");
+                }
+            }
+        }
+    }
     ImGui::Dummy(ImVec2(0.f, 4.f));
 
-    // Topmost first, which is how a layer stack reads everywhere else.
-    for (int i = static_cast<int>(editor.layers.size()) - 1; i >= 0; --i) {
-        const size_t index = static_cast<size_t>(i);
-        ImGui::PushID(i);
+    // --- the stack --------------------------------------------------------------
+    //
+    // Topmost first, which is how a layer stack reads everywhere else. Groups
+    // are runs in the engine's order, so a group row is drawn when its first
+    // member (from the top) is met, and its members indent under it.
+    const auto isCollapsed = [&](ls::GroupId group) {
+        return std::find(editor.collapsedGroups.begin(), editor.collapsedGroups.end(),
+                         group.value) != editor.collapsedGroups.end();
+    };
+    const auto listIndexOf = [&](ls::LayerId id) {
+        for (size_t i = 0; i < editor.layers.size(); ++i) {
+            if (editor.layers[i].layer == id) { return static_cast<int>(i); }
+        }
+        return -1;
+    };
+    // A drop target: the row's position in the engine's order.
+    const auto acceptDrop = [&](int toIndex) {
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("layer")) {
+                const ls::LayerId moving{ *static_cast<const uint64_t*>(payload->Data) };
+                if (moveLayer(editor.doc, moving, toIndex)) {
+                    selectLayer(editor, moving);
+                    canvas.invalidate();
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+    };
 
-        auto info = editor.doc.engine().getLayerInfo(editor.layers[index].layer);
-        const std::string name = info.ok() ? info.value.name : "?";
+    ls::GroupId openGroup;
+    bool openCollapsed = false;
+    for (int i = static_cast<int>(order.size()) - 1; i >= 0; --i) {
+        const ls::LayerId id = order[static_cast<size_t>(i)];
+        LayerProps props;
+        if (!readLayerProps(editor.doc, id, &props)) {
+            continue;
+        }
+        ImGui::PushID(static_cast<int>(id.value));
 
-        bool visible = info.ok() ? info.value.visible : true;
+        // A group row, the first time a member is met from the top.
+        if (props.group != openGroup) {
+            openGroup = props.group;
+            openCollapsed = false;
+            if (openGroup.valid()) {
+                GroupProps group;
+                readGroupProps(editor.doc, openGroup, &group);
+                openCollapsed = isCollapsed(openGroup);
+                ImGui::PushID("group");
+                if (ImGui::ArrowButton("##fold", openCollapsed ? ImGuiDir_Right : ImGuiDir_Down)) {
+                    if (openCollapsed) {
+                        editor.collapsedGroups.erase(
+                            std::remove(editor.collapsedGroups.begin(), editor.collapsedGroups.end(),
+                                        openGroup.value), editor.collapsedGroups.end());
+                    } else {
+                        editor.collapsedGroups.push_back(openGroup.value);
+                    }
+                    openCollapsed = !openCollapsed;
+                }
+                ImGui::SameLine();
+                bool visible = group.visible;
+                if (ImGui::Checkbox("##gvisible", &visible)) {
+                    editor.doc.beginAction(visible ? "Show group" : "Hide group");
+                    setGroupVisible(editor.doc, openGroup, visible);
+                    editor.doc.endAction();
+                    canvas.invalidate();
+                }
+                ImGui::SameLine();
+                if (editor.renamingGroup == openGroup) {
+                    ImGui::SetNextItemWidth(-1.f);
+                    if (ImGui::InputText("##grename", editor.groupNameBuffer,
+                                         sizeof(editor.groupNameBuffer),
+                                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        editor.doc.beginAction("Rename group");
+                        renameGroup(editor.doc, openGroup, editor.groupNameBuffer);
+                        editor.doc.endAction();
+                        editor.renamingGroup = ls::GroupId{};
+                    }
+                    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                        editor.renamingGroup = ls::GroupId{};
+                    }
+                } else {
+                    const std::string label = group.name + "  (" +
+                                              std::to_string(group.layers.size()) + ")";
+                    if (ImGui::Selectable(label.c_str(), editor.activeGroup == openGroup)) {
+                        editor.activeGroup = openGroup;
+                        editor.selectedLayers.clear();
+                        for (ls::LayerId member : group.layers) {
+                            editor.selectedLayers.push_back(member);
+                        }
+                    }
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                        editor.renamingGroup = openGroup;
+                        std::snprintf(editor.groupNameBuffer, sizeof(editor.groupNameBuffer),
+                                      "%s", group.name.c_str());
+                    }
+                    acceptDrop(i);          // dropping on the group row: top of the group
+                    if (ImGui::BeginPopupContextItem("gmenu")) {
+                        if (ImGui::MenuItem("Ungroup", "Ctrl+Shift+G")) {
+                            editor.activeGroup = openGroup;
+                            ungroupActiveLayer(editor, canvas);
+                        }
+                        if (ImGui::MenuItem("Rename")) {
+                            editor.renamingGroup = openGroup;
+                            std::snprintf(editor.groupNameBuffer, sizeof(editor.groupNameBuffer),
+                                          "%s", group.name.c_str());
+                        }
+                        ImGui::EndPopup();
+                    }
+                }
+                ImGui::PopID();
+            }
+        }
+        if (openGroup.valid() && openCollapsed) {
+            ImGui::PopID();
+            continue;
+        }
+
+        // The layer row.
+        if (openGroup.valid()) {
+            ImGui::Indent(18.f);
+        }
+        bool visible = props.visible;
         if (ImGui::Checkbox("##visible", &visible)) {
             editor.doc.beginAction(visible ? "Show layer" : "Hide layer");
-            editor.doc.engine().setLayerVisibility(editor.layers[index].layer, visible);
+            setLayerVisible(editor.doc, id, visible);
             editor.doc.endAction();
             canvas.invalidate();
         }
@@ -995,7 +1185,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         }
         ImGui::SameLine();
 
-        if (editor.renaming == i) {
+        const int listIndex = listIndexOf(id);
+        const bool drawable = listIndex >= 0;
+        if (editor.renaming == listIndex && drawable) {
             ImGui::SetNextItemWidth(-1.f);
             if (ImGui::IsWindowAppearing() || ImGui::IsItemDeactivated()) {
                 ImGui::SetKeyboardFocusHere();
@@ -1004,8 +1196,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                                  sizeof(editor.renameBuffer),
                                  ImGuiInputTextFlags_EnterReturnsTrue)) {
                 editor.doc.beginAction("Rename layer");
-                editor.doc.engine().setLayerName(editor.layers[index].layer,
-                                                 editor.renameBuffer);
+                renameLayer(editor.doc, id, editor.renameBuffer);
                 editor.doc.endAction();
                 editor.renaming = -1;
             }
@@ -1015,24 +1206,103 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         } else {
             // A swatch of what the layer resolves to, so the stack can be read
             // at a glance rather than by selecting each one.
-            const ls::Color shown =
-                effectiveLayerColor(editor.doc, editor.sprite, editor.layers[index]);
-            const ImU32 colour = IM_COL32(shown.r, shown.g, shown.b, shown.a);
-            theme::swatch(("layer" + std::to_string(i)).c_str(), colour, false, 14.f);
+            ImU32 colour = IM_COL32(90, 90, 90, 255);
+            if (drawable) {
+                const ls::Color shown = effectiveLayerColor(
+                    editor.doc, sprite, editor.layers[static_cast<size_t>(listIndex)]);
+                colour = IM_COL32(shown.r, shown.g, shown.b, shown.a);
+            }
+            theme::swatch("layer", colour, false, 14.f);
             ImGui::SameLine();
 
-            if (ImGui::Selectable(name.c_str(), editor.activeLayer == i)) {
-                editor.activeLayer = i;
-                syncColorFromLayer(editor);
+            std::string label = props.name;
+            if (props.locked) { label += "  [lock]"; }
+            if (props.clipBase.valid()) { label += "  [clip]"; }
+            if (props.blend != ls::BlendMode::Normal || props.opacity < 1.f) {
+                char detail[48];
+                std::snprintf(detail, sizeof(detail), "  %s %d%%",
+                              props.blend != ls::BlendMode::Normal
+                                  ? blendModeNames()[static_cast<int>(props.blend)] : "",
+                              static_cast<int>(props.opacity * 100.f + 0.5f));
+                label += detail;
             }
-            if (ImGui::IsItemHovered() &&
+            if (!drawable) { label += "  (not editable here)"; }
+
+            const bool selected = drawable && !editor.activeGroup.valid() && layerSelected(editor, id);
+            ImGui::BeginDisabled(!drawable);
+            if (ImGui::Selectable(label.c_str(), selected)) {
+                selectLayer(editor, id, ImGui::GetIO().KeyCtrl);
+            }
+            ImGui::EndDisabled();
+            if (drawable && ImGui::IsItemHovered() &&
                 ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                editor.renaming = i;
+                editor.renaming = listIndex;
                 std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
-                              "%s", name.c_str());
+                              "%s", props.name.c_str());
+            }
+            if (drawable && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+                const uint64_t handle = id.value;
+                ImGui::SetDragDropPayload("layer", &handle, sizeof(handle));
+                ImGui::TextUnformatted(props.name.c_str());
+                ImGui::EndDragDropSource();
+            }
+            acceptDrop(i);
+
+            if (drawable && ImGui::BeginPopupContextItem("menu")) {
+                if (!layerSelected(editor, id) || editor.activeGroup.valid()) {
+                    selectLayer(editor, id);
+                }
+                if (ImGui::MenuItem("Duplicate", "Ctrl+J")) { duplicateActiveLayer(editor, canvas); }
+                if (ImGui::MenuItem("Copy", "Ctrl+C")) { copyActiveLayer(editor); }
+                if (ImGui::MenuItem("Paste above", "Ctrl+V", false, editor.clipboard.valid())) {
+                    pasteLayerHere(editor, canvas);
+                }
+                if (ImGui::MenuItem("Delete", nullptr, false, order.size() > 1)) {
+                    deleteSelectedLayers(editor, canvas);
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Move up", "Ctrl+]", false, i + 1 < static_cast<int>(order.size()))) {
+                    raiseActiveLayer(editor, canvas);
+                }
+                if (ImGui::MenuItem("Move down", "Ctrl+[", false, i > 0)) {
+                    lowerActiveLayer(editor, canvas);
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem(editor.selectedLayers.size() > 1 ? "Group selected" : "Group",
+                                    "Ctrl+G")) {
+                    groupSelectedLayers(editor, canvas);
+                }
+                if (ImGui::MenuItem("Ungroup", "Ctrl+Shift+G", false, props.group.valid())) {
+                    ungroupActiveLayer(editor, canvas);
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Clip to layer below", nullptr, props.clipBase.valid(), i > 0)) {
+                    toggleActiveLayerClip(editor, canvas);
+                }
+                if (ImGui::MenuItem("Lock", nullptr, props.locked)) {
+                    toggleActiveLayerLock(editor);
+                }
+                if (ImGui::MenuItem("Rename")) {
+                    editor.renaming = listIndex;
+                    std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
+                                  "%s", props.name.c_str());
+                }
+                ImGui::EndPopup();
             }
         }
+        if (openGroup.valid()) {
+            ImGui::Unindent(18.f);
+        }
         ImGui::PopID();
+    }
+
+    // Space under the stack is the bottom: dropping there sends a layer down.
+    ImGui::Dummy(ImVec2(-1.f, 12.f));
+    acceptDrop(0);
+    if (order.size() > 1) {
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        ImGui::TextWrapped("Drag to reorder; right-click for the rest.");
+        ImGui::PopStyleColor();
     }
 }
 

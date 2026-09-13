@@ -156,6 +156,25 @@ sprits_fast --demo-stroke
    frame recolours accordingly, and `Ctrl+Z` brings the palette and the
    binding back.
 
+### 4c. The stack
+
+1. On the demo, `Ctrl+J` on *Layer 1*. *Expect:* *Layer 1 copy* above it,
+   selected, inside the *figure* group. Draw on it: the original is untouched.
+2. Set the copy to *Multiply*, opacity 0.5. *Expect:* the canvas darkens
+   where it overlaps; the row says *Multiply 50%*; `Ctrl+Z` twice undoes each.
+3. Drag the copy above *Layer 2*, then below the group. *Expect:* it leaves
+   the group when it leaves the run, and the fold count drops.
+4. Select the group row. *Expect:* the strip edits the group; opacity 0.5 on
+   the group is not the same picture as 0.5 on each layer.
+5. `Ctrl+C` on a layer, step to frame 4, `Ctrl+V`. *Expect:* the layer
+   appears there, above the active one, and editing it leaves frame 1 alone.
+6. Tick *clip to below* on *Layer 2*. *Expect:* it draws only inside
+   *Layer 1*. Move it: the clip clears.
+7. Tick *lock*, then draw. *Expect:* nothing changes; the status line says
+   why.
+8. Ctrl+click two layers, `Ctrl+G`, then `Ctrl+Shift+G`. *Expect:* grouped
+   next to each other, then back where they were.
+
 ### 5. Replacing the document mid-everything
 
 1. Start renaming a layer (double-click its name). Start renaming a frame.

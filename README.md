@@ -52,6 +52,26 @@ the work happens there, and it builds in seconds.
 `build/fast_smoke` drives a document end to end and prints what it sees at each
 step, with no window at all.
 
+### The stack
+
+The layer panel has what every editor's has. **Blend modes** -- the engine's
+eleven, from Multiply to Difference -- and **opacity**, on a layer or on a
+whole group. **Order**: drag a row, or `Ctrl+]` and `Ctrl+[`. **Duplicate**
+(`Ctrl+J`) makes a copy that is its own from the first stroke, and **Copy** and
+**Paste** (`Ctrl+C`, `Ctrl+V`) carry a layer into any frame -- the paste is a
+copy too, so the frames stay independent. **Groups** (`Ctrl+click` to select
+several, `Ctrl+G`): a group composites its layers into one picture and then
+blends that, which is not the same as blending each layer, and is what a
+group is for; `Ctrl+Shift+G` dissolves one in place. **Clip to below** draws a
+layer only where the layer under it draws -- a highlight that stays inside
+the body. **Lock** keeps the tools off a layer. Right-click a row for all of
+it; every operation is one undo step.
+
+Nothing here rasterises. A layer at Multiply is still the drawing it was, and
+switching it back costs nothing. There is no *merge down* for the same reason:
+two layers merged is two drawings pretending to be one, and the engine would
+rather keep both. Group them instead.
+
 ### The palette
 
 Every document has one. Colours are **roles** rather than values: a layer paints

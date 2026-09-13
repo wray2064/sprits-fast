@@ -11,6 +11,7 @@
 #include "app/animation.h"
 #include "app/bucket.h"
 #include "app/dither.h"
+#include "app/layers.h"
 #include "app/paint.h"
 #include "app/palette.h"
 #include "app/shape.h"
@@ -91,9 +92,23 @@ struct Editor {
     bool  draggingDither = false;
     bool  draggingPalette = false;
     bool  editingShape = false;      // a slider in the shape panel
+    bool  draggingLayer = false;     // the opacity slider in the layer panel
 
     int   renaming = -1;              // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
+
+    // The stack. Selection is a set, because grouping wants several; the
+    // active layer is the one tools draw on and is always in the set. A group
+    // row can be selected instead, and then the properties strip edits the
+    // group. The clipboard is a handle: copy remembers, paste clones -- undo
+    // restores ids exactly, so a copied layer that was undone away and back
+    // still pastes.
+    std::vector<ls::LayerId> selectedLayers;
+    ls::GroupId              activeGroup;
+    ls::GroupId              renamingGroup;
+    char                     groupNameBuffer[64] = {};
+    std::vector<uint64_t>    collapsedGroups;
+    ls::LayerId              clipboard;
 
     // A palette slot mid-rename, and one waiting for delete to be confirmed
     // because something paints through it.
@@ -160,7 +175,7 @@ struct Editor {
     // that has not been committed yet.
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
-               draggingPalette || editingShape || draggingShape;
+               draggingPalette || editingShape || draggingShape || draggingLayer;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls
@@ -213,6 +228,30 @@ int addEmptyFrame(Editor& editor, int index);
 // frame to them. Called after anything that can change what frames exist --
 // adding, deleting, reordering, undo, redo, opening a file.
 void resyncFrames(Editor& editor);
+
+// --- the stack, as the panel and the shortcuts both drive it ------------------
+//
+// Each keeps the active layer pointing at the same layer afterwards, re-adopts
+// the list, and says what happened. None touches ImGui, so the self-test can
+// drive them.
+
+// Points the editor at a layer by handle, after anything that rebuilt the list.
+void selectLayer(Editor& editor, ls::LayerId layer, bool extend = false);
+bool layerSelected(const Editor& editor, ls::LayerId layer);
+
+void duplicateActiveLayer(Editor& editor, CanvasView& canvas);
+void copyActiveLayer(Editor& editor);
+void pasteLayerHere(Editor& editor, CanvasView& canvas);
+void deleteSelectedLayers(Editor& editor, CanvasView& canvas);
+void raiseActiveLayer(Editor& editor, CanvasView& canvas);
+void lowerActiveLayer(Editor& editor, CanvasView& canvas);
+void groupSelectedLayers(Editor& editor, CanvasView& canvas);
+void ungroupActiveLayer(Editor& editor, CanvasView& canvas);
+void toggleActiveLayerClip(Editor& editor, CanvasView& canvas);
+void toggleActiveLayerLock(Editor& editor);
+
+// True when the active layer is locked: tools ask before drawing, and say so.
+bool activeLayerLocked(Editor& editor);
 
 // The swap, as one call: binds the document to `palette`, says so, and drops
 // every cached frame, because every frame without a palette of its own just

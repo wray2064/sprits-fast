@@ -448,6 +448,16 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     if (layer == nullptr) {
         return;
     }
+    // A locked layer: the picker still reads, nothing writes. Said once per
+    // press rather than per frame, or the status line would flicker.
+    if (editor.tool != Tool::Picker && activeLayerLocked(editor) &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Left) && overCanvas) {
+        editor.say("This layer is locked -- unlock it in the Layers panel");
+        return;
+    }
+    if (editor.tool != Tool::Picker && activeLayerLocked(editor)) {
+        return;
+    }
 
     if (editor.tool == Tool::Picker) {
         if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -653,6 +663,17 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
         requestAction(editor, canvas, window, PendingAction::OpenDialog);
     }
+    // The stack, from the keyboard.
+    if (ImGui::IsKeyPressed(ImGuiKey_J, false)) { duplicateActiveLayer(editor, canvas); }
+    if (ImGui::IsKeyPressed(ImGuiKey_C, false)) { copyActiveLayer(editor); }
+    if (ImGui::IsKeyPressed(ImGuiKey_V, false)) { pasteLayerHere(editor, canvas); }
+    if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
+        if (io.KeyShift) { ungroupActiveLayer(editor, canvas); }
+        else             { groupSelectedLayers(editor, canvas); }
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, false)) { raiseActiveLayer(editor, canvas); }
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, false))  { lowerActiveLayer(editor, canvas); }
+
     // The swap, from the keyboard: the next palette, wrapping. One key for
     // the thing the engine exists for.
     if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
@@ -976,6 +997,17 @@ void drawDemoContent(Editor& editor) {
         selectCycle(editor, 0);
     }
 
+    // The stack has something to show: the highlight at Screen, and a group
+    // of the two layers so the panel has a fold to draw.
+    {
+        const std::vector<ls::LayerId> order = layerOrder(editor.doc, editor.sprite);
+        if (order.size() >= 2) {
+            setLayerBlend(editor.doc, order.back(), ls::BlendMode::Screen);
+            setLayerOpacity(editor.doc, order.back(), 0.8f);
+            groupLayers(editor.doc, { order[0], order[1] }, "figure");
+        }
+    }
+
     // A second palette, the same as the first with the dither's two slots
     // turned to night, and a flash frame bound to a third. The quick row has
     // something to swap between, and the strip shows one frame sitting it out.
@@ -1286,6 +1318,92 @@ int runSelfTest() {
         }
     }
 
+    // The stack, driven the way the panel and the shortcuts drive it. Each
+    // step leaves the active layer pointing at a layer that exists and the
+    // selection inside the list.
+    {
+        CanvasView view(nullptr);
+        const size_t base = editor.layers.size();
+        const ls::LayerId first = editor.active()->layer;
+        const int firstAt = indexOfLayer(editor.doc, editor.sprite, first);
+        duplicateActiveLayer(editor, view);
+        check(editor.layers.size() == base + 1, "a duplicate");
+        const ls::LayerId copy = editor.active()->layer;
+        check(copy != first, "and it is the active one");
+        check(editor.selectedLayers == std::vector<ls::LayerId>({ copy }),
+              "the selection is the copy");
+        check(indexOfLayer(editor.doc, editor.sprite, copy) == firstAt + 1,
+              "right above the original");
+
+        lowerActiveLayer(editor, view);
+        check(indexOfLayer(editor.doc, editor.sprite, copy) == firstAt, "lowered");
+        check(editor.active()->layer == copy, "still active after the move");
+        raiseActiveLayer(editor, view);
+        check(indexOfLayer(editor.doc, editor.sprite, copy) == firstAt + 1, "raised");
+
+        // Copy it, paste it into a new frame.
+        copyActiveLayer(editor);
+        check(editor.clipboard == copy, "copied");
+        check(addEmptyFrame(editor, 0) == 1, "a frame to paste into");
+        resyncFrames(editor);
+        selectFrame(editor, 1);
+        pasteLayerHere(editor, view);
+        check(editor.layers.size() == 2, "pasted beside the empty frame's own layer");
+        check(editor.activeSprite() == editor.frames[1].sprite, "in the second frame");
+        check(editor.doc.engine().getLayerInfo(editor.active()->layer).value.sprite ==
+              editor.frames[1].sprite, "and the pasted layer belongs to it");
+        selectFrame(editor, 0);
+
+        // Group both, then ungroup; the active layer survives each.
+        selectLayer(editor, first);
+        selectLayer(editor, copy, true);
+        check(editor.selectedLayers.size() == 2, "two selected");
+        groupSelectedLayers(editor, view);
+        check(groupOf(editor.doc, first).valid() && groupOf(editor.doc, first) == groupOf(editor.doc, copy),
+              "grouped together");
+        check(editor.active() != nullptr && editor.active()->layer == copy, "active kept");
+        check(editor.selectedLayers.size() == 2, "selection kept");
+        ungroupActiveLayer(editor, view);
+        check(!groupOf(editor.doc, copy).valid(), "ungrouped");
+        check(editor.active()->layer == copy, "active kept through ungroup");
+
+        // Clip, lock, and the pencil's respect for the lock.
+        toggleActiveLayerClip(editor, view);
+        {
+            LayerProps props;
+            readLayerProps(editor.doc, copy, &props);
+            check(props.clipBase == first, "clipped to the layer below");
+        }
+        toggleActiveLayerClip(editor, view);
+        toggleActiveLayerLock(editor);
+        check(activeLayerLocked(editor), "locked");
+        toggleActiveLayerLock(editor);
+        check(!activeLayerLocked(editor), "unlocked");
+
+        // Delete the copy; land on what is left. Undo brings it back selected
+        // by handle, not by a stale index.
+        deleteSelectedLayers(editor, view);
+        check(editor.layers.size() == base, "deleted");
+        check(editor.active()->layer == first, "landed on the original");
+        check(editor.doc.undo(), "undo the delete");
+        resyncLayers(editor);
+        check(editor.layers.size() == base + 1, "back");
+        check(editor.activeLayer < static_cast<int>(editor.layers.size()), "index in range");
+        check(!editor.selectedLayers.empty(), "something selected");
+        for (ls::LayerId id : editor.selectedLayers) {
+            bool found = false;
+            for (const PaintLayer& layer : editor.layers) { found = found || layer.layer == id; }
+            check(found, "every selected layer exists");
+        }
+
+        // Back to one layer and one frame for what follows.
+        selectLayer(editor, copy);
+        deleteSelectedLayers(editor, view);
+        check(deleteFrame(editor.doc, 1), "drop the paste frame");
+        resyncLayers(editor);
+        editor.clipboard = ls::LayerId{};
+    }
+
     // Replacing the document forgets every interaction that was about the old
     // one. Each of these is an index that would otherwise be pressed into a
     // document it was never about.
@@ -1298,6 +1416,8 @@ int runSelfTest() {
     editor.renamingPalette = documentPalette(editor.doc);
     check(newDocument(editor, 16), "new document mid-everything");
     check(!editor.renamingPalette.valid(), "no palette rename in flight");
+    check(!editor.activeGroup.valid() && !editor.clipboard.valid(), "no group or clipboard");
+    check(editor.selectedLayers.size() == 1, "the new document's one layer is selected");
     check(listPalettes(editor.doc).size() == 1, "a new document has one palette");
     check(editor.renaming == -1, "no layer rename in flight");
     check(editor.timeline.renamingFrame == -1, "no frame rename in flight");
