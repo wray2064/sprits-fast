@@ -49,3 +49,8 @@ ctest --test-dir build --output-on-failure
 ```
 
 Warnings are errors. New behaviour in `fast_core` comes with a test.
+
+A feature that touches another one -- most do -- also gets a line in
+`tests/system_tests.cpp`, which holds one realistic document to a few promises
+through everything at once. What that file checks, and the script for what
+only a person at the window can judge, is in [docs/testing.md](docs/testing.md).
