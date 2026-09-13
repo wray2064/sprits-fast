@@ -19,6 +19,72 @@ void FrameCache::clear() {
         }
     }
     entries_.clear();
+    for (auto& [id, layer] : layers_) {
+        if (layer.entry.texture != nullptr) {
+            SDL_DestroyTexture(layer.entry.texture);
+        }
+    }
+    layers_.clear();
+    generations_.clear();
+}
+
+void FrameCache::retainOnlyLayers(const std::vector<ls::LayerId>& live) {
+    for (auto it = layers_.begin(); it != layers_.end(); ) {
+        const bool keep = std::any_of(live.begin(), live.end(),
+            [&](ls::LayerId layer) { return layer.value == it->first; });
+        if (keep) {
+            ++it;
+            continue;
+        }
+        if (it->second.entry.texture != nullptr) {
+            SDL_DestroyTexture(it->second.entry.texture);
+        }
+        it = layers_.erase(it);
+    }
+}
+
+const FrameCache::Entry* FrameCache::entryForLayer(Document& doc, ls::SpriteId sprite,
+                                                   ls::LayerId layer) {
+    if (!layer.valid() || !sprite.valid()) {
+        return nullptr;
+    }
+    LayerEntry& held = layers_[layer.value];
+    const uint64_t generation = generations_[sprite.value];
+
+    bool needsCompile = held.entry.texture == nullptr;
+    if (held.followsSprite) {
+        needsCompile = needsCompile || held.spriteGeneration != generation;
+    } else {
+        auto dirty = doc.engine().isDirty(layer.value);
+        needsCompile = needsCompile || !dirty.ok() || dirty.value;
+    }
+    if (!needsCompile) {
+        return &held.entry;
+    }
+
+    auto size = doc.engine().getCanvasSize(doc.id());
+    if (size.fail() || size.value.x <= 0 || size.value.y <= 0) {
+        return nullptr;
+    }
+    const uint32_t width  = static_cast<uint32_t>(size.value.x);
+    const uint32_t height = static_cast<uint32_t>(size.value.y);
+    ls::CompileProfile profile;
+    profile.type = ls::CompileProfileType::Preview;
+    profile.outputWidth = width;
+    profile.outputHeight = height;
+    profile.palette = ls::PalettePolicy::Unconstrained;
+
+    auto compiled = doc.engine().compileLayer(layer, profile);
+    ++compilesThisFrame_;
+    if (compiled.fail()) {
+        return held.entry.texture != nullptr ? &held.entry : nullptr;
+    }
+    // Still dirty after its own compile: the engine will not cache this one
+    // alone, so from here the frame's compiles are what to follow.
+    auto still = doc.engine().isDirty(layer.value);
+    held.followsSprite = still.ok() && still.value;
+    held.spriteGeneration = generation;
+    return upload(held.entry, std::move(compiled.value.raster), width, height);
 }
 
 void FrameCache::retainOnly(const std::vector<ls::SpriteId>& live) {
@@ -89,7 +155,13 @@ FrameCache::Entry* FrameCache::compile(Document& doc, ls::SpriteId sprite, Entry
         // show its last good picture rather than a hole.
         return into.texture != nullptr ? &into : nullptr;
     }
-    into.raster = std::move(compiled.value.raster);
+    ++generations_[sprite.value];
+    return upload(into, std::move(compiled.value.raster), width, height);
+}
+
+FrameCache::Entry* FrameCache::upload(Entry& into, ls::RasterBuffer raster,
+                                      uint32_t width, uint32_t height) {
+    into.raster = std::move(raster);
 
     if (into.texture == nullptr || into.width != width || into.height != height) {
         if (into.texture != nullptr) {

@@ -67,6 +67,10 @@ layer only where the layer under it draws -- a highlight that stays inside
 the body. **Lock** keeps the tools off a layer. Right-click a row for all of
 it; every operation is one undo step.
 
+Each row carries a thumbnail of what that layer alone draws, compiled on its
+own and cached until it changes -- the engine tracks dirtiness per layer, so
+editing one leaves the others' thumbnails alone. Hidden layers show faint.
+
 Nothing here rasterises. A layer at Multiply is still the drawing it was, and
 switching it back costs nothing. There is no *merge down* for the same reason:
 two layers merged is two drawings pretending to be one, and the engine would

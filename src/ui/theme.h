@@ -99,7 +99,7 @@ void sectionHeader(const char* label);
 // the interface without a second atlas -- it is also the only way to have them
 // pick up the accent colour when selected.
 
-enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line };
+enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line, Eye, EyeShut };
 
 // Draws `icon` inside a square of `size` at `at`, in `colour`.
 void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour);
@@ -108,6 +108,11 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour);
 // shortcut. Returns true when clicked.
 bool toolButton(Icon icon, const char* name, const char* shortcutHint,
                 bool selected, const char* description = nullptr);
+
+// A visibility toggle: an open eye when `visible`, a shut one otherwise, dim.
+// Small, because in a stack it is the thumbnail that identifies a row and
+// the eye only has to be findable. Returns true when clicked.
+bool eyeToggle(const char* id, bool visible, float size = 16.f);
 
 // A colour swatch. `selected` draws the ring that marks the active colour.
 bool swatch(const char* id, ImU32 colour, bool selected, float size = 20.f);

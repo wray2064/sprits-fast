@@ -66,6 +66,19 @@ public:
     // does not compile every frame the moment it is opened.
     const Entry* cachedEntry(ls::SpriteId sprite) const;
 
+    // One layer on its own, for the layer panel's thumbnails. Invalidated the
+    // same way: the engine clears a layer's dirty bit when its compile is
+    // cached, so a layer that did not change is not recompiled when its
+    // neighbour is. A layer the engine never caches alone -- one holding an
+    // outline that traces the whole sprite -- never goes clean, and for that
+    // one the frame's own recompile is the trigger instead, so it costs one
+    // extra compile per edit rather than one per UI frame.
+    const Entry* entryForLayer(Document& doc, ls::SpriteId sprite, ls::LayerId layer);
+
+    // Drops layer thumbnails for layers not in `live`, the way retainOnly
+    // drops frames. The panel calls it with the frame it is showing.
+    void retainOnlyLayers(const std::vector<ls::LayerId>& live);
+
     // Call once at the top of each UI frame.
     void beginFrame() { compilesThisFrame_ = 0; }
     int  compilesThisFrame() const { return compilesThisFrame_; }
@@ -83,9 +96,18 @@ public:
 
 private:
     Entry* compile(Document& doc, ls::SpriteId sprite, Entry& into);
+    Entry* upload(Entry& into, ls::RasterBuffer raster, uint32_t width, uint32_t height);
+
+    struct LayerEntry {
+        Entry    entry;
+        bool     followsSprite = false;   // never goes clean; track the frame instead
+        uint64_t spriteGeneration = 0;    // the frame's compile count it was made at
+    };
 
     SDL_Renderer* renderer_ = nullptr;
     std::map<uint64_t, Entry> entries_;
+    std::map<uint64_t, LayerEntry> layers_;
+    std::map<uint64_t, uint64_t> generations_;   // per sprite: how many times compiled
     int    compilesThisFrame_ = 0;
     double lastCompileMs_ = 0.0;
 };

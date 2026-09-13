@@ -305,6 +305,31 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Eye:
+        case Icon::EyeShut: {
+            // Two arcs for the lid and a pupil; shut is the lower lid alone.
+            const float weight = std::max(1.5f, size * 0.08f);
+            const ImVec2 centre = s(0.5f, 0.5f);
+            const float rx = size * 0.36f;
+            const float ry = size * 0.24f;
+            draw->PathClear();
+            for (int i = 0; i <= 12; ++i) {
+                const float t = 3.14159265f + 3.14159265f * static_cast<float>(i) / 12.f;
+                draw->PathLineTo(ImVec2(centre.x + rx * std::cos(t), centre.y - ry * std::sin(t)));
+            }
+            draw->PathStroke(colour, 0, weight);
+            if (icon == Icon::Eye) {
+                draw->PathClear();
+                for (int i = 0; i <= 12; ++i) {
+                    const float t = 3.14159265f * static_cast<float>(i) / 12.f;
+                    draw->PathLineTo(ImVec2(centre.x + rx * std::cos(t), centre.y - ry * std::sin(t)));
+                }
+                draw->PathStroke(colour, 0, weight);
+                draw->AddCircleFilled(centre, size * 0.11f, colour, 12);
+            }
+            break;
+        }
+
         case Icon::Line: {
             const float weight = std::max(1.8f, size * 0.09f);
             draw->AddLine(s(0.18f, 0.82f), s(0.82f, 0.18f), colour, weight);
@@ -394,6 +419,17 @@ bool toolButton(Icon icon, const char* name, const char* shortcutHint,
         ImGui::EndTooltip();
     }
     return pressed;
+}
+
+bool eyeToggle(const char* id, bool visible, float size) {
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const bool clicked = ImGui::InvisibleButton(id, ImVec2(size, size));
+    const bool hovered = ImGui::IsItemHovered();
+    const Palette& c = palette();
+    const ImU32 colour = ImGui::GetColorU32(visible ? (hovered ? c.text : c.textDim)
+                                                    : (hovered ? c.textDim : c.border));
+    drawIcon(ImGui::GetWindowDrawList(), visible ? Icon::Eye : Icon::EyeShut, at, size, colour);
+    return clicked;
 }
 
 bool swatch(const char* id, ImU32 colour, bool selected, float size) {

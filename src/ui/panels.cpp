@@ -943,9 +943,47 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
 
 // ----------------------------------------------------------------- layers --
 
+namespace {
+
+// A layer's picture at thumbnail size over the chequer, the frame's shape
+// kept: a wide canvas gives a wide thumbnail, not a squashed one. Hidden
+// layers draw faint so the eye can find them without the checkbox.
+void drawLayerThumbnail(Editor& editor, CanvasView& canvas, ls::SpriteId sprite,
+                        ls::LayerId layer, bool visible) {
+    constexpr float kBox = 22.f;
+    const FrameCache::Entry* entry = canvas.frames().entryForLayer(editor.doc, sprite, layer);
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const theme::Palette& c = theme::palette();
+    draw->AddRectFilled(at, ImVec2(at.x + kBox, at.y + kBox), ImGui::GetColorU32(c.checkerDark), 2.f);
+    for (int y = 0; y < 4; ++y) {
+        for (int x = (y % 2); x < 4; x += 2) {
+            const float cell = kBox / 4.f;
+            draw->AddRectFilled(ImVec2(at.x + x * cell, at.y + y * cell),
+                                ImVec2(at.x + (x + 1) * cell, at.y + (y + 1) * cell),
+                                ImGui::GetColorU32(c.checkerLight));
+        }
+    }
+    if (entry != nullptr && entry->width > 0 && entry->height > 0) {
+        const float scale = std::min(kBox / static_cast<float>(entry->width),
+                                     kBox / static_cast<float>(entry->height));
+        const float w = static_cast<float>(entry->width) * scale;
+        const float h = static_cast<float>(entry->height) * scale;
+        const ImVec2 origin(at.x + (kBox - w) * 0.5f, at.y + (kBox - h) * 0.5f);
+        canvas.drawFrameTinted(draw, *entry, origin, scale,
+                               visible ? IM_COL32_WHITE : IM_COL32(255, 255, 255, 90));
+    }
+    ImGui::Dummy(ImVec2(kBox, kBox));
+}
+
+} // namespace
+
 void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     const ls::SpriteId sprite = editor.activeSprite();
     const std::vector<ls::LayerId> order = layerOrder(editor.doc, sprite);
+    // Thumbnails for the frame being shown; the others' are dropped, since a
+    // frame change is the one time many textures would otherwise pile up.
+    canvas.frames().retainOnlyLayers(order);
 
     // --- the buttons ---------------------------------------------------------
     if (ImGui::Button("Add", ImVec2(52.f, 0.f))) {
@@ -1111,10 +1149,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                     openCollapsed = !openCollapsed;
                 }
                 ImGui::SameLine();
-                bool visible = group.visible;
-                if (ImGui::Checkbox("##gvisible", &visible)) {
-                    editor.doc.beginAction(visible ? "Show group" : "Hide group");
-                    setGroupVisible(editor.doc, openGroup, visible);
+                if (theme::eyeToggle("##gvisible", group.visible, 18.f)) {
+                    editor.doc.beginAction(group.visible ? "Hide group" : "Show group");
+                    setGroupVisible(editor.doc, openGroup, !group.visible);
                     editor.doc.endAction();
                     canvas.invalidate();
                 }
@@ -1173,10 +1210,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         if (openGroup.valid()) {
             ImGui::Indent(18.f);
         }
-        bool visible = props.visible;
-        if (ImGui::Checkbox("##visible", &visible)) {
-            editor.doc.beginAction(visible ? "Show layer" : "Hide layer");
-            setLayerVisible(editor.doc, id, visible);
+        const bool visible = props.visible;
+        if (theme::eyeToggle("##visible", visible, 18.f)) {
+            editor.doc.beginAction(visible ? "Hide layer" : "Show layer");
+            setLayerVisible(editor.doc, id, !visible);
             editor.doc.endAction();
             canvas.invalidate();
         }
@@ -1204,15 +1241,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 editor.renaming = -1;
             }
         } else {
-            // A swatch of what the layer resolves to, so the stack can be read
-            // at a glance rather than by selecting each one.
-            ImU32 colour = IM_COL32(90, 90, 90, 255);
-            if (drawable) {
-                const ls::Color shown = effectiveLayerColor(
-                    editor.doc, sprite, editor.layers[static_cast<size_t>(listIndex)]);
-                colour = IM_COL32(shown.r, shown.g, shown.b, shown.a);
-            }
-            theme::swatch("layer", colour, false, 14.f);
+            // What the layer draws, small, so the stack can be read at a
+            // glance rather than by hiding each one. Compiled on its own and
+            // cached until it changes.
+            drawLayerThumbnail(editor, canvas, sprite, id, props.visible);
             ImGui::SameLine();
 
             std::string label = props.name;
@@ -1230,7 +1262,8 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
 
             const bool selected = drawable && !editor.activeGroup.valid() && layerSelected(editor, id);
             ImGui::BeginDisabled(!drawable);
-            if (ImGui::Selectable(label.c_str(), selected)) {
+            // As tall as the thumbnail, so the highlight covers the row.
+            if (ImGui::Selectable(label.c_str(), selected, 0, ImVec2(0.f, 22.f))) {
                 selectLayer(editor, id, ImGui::GetIO().KeyCtrl);
             }
             ImGui::EndDisabled();
