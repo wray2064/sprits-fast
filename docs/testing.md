@@ -63,6 +63,12 @@ program -- which is the argument for having them.
   everything -- but no swatch was ringed and nothing said why. The palette
   panel now says which slot is missing and offers to put it back at the
   colour currently shown, which changes no pixel.
+- **A palette change left every frame but the first stale.** The engine
+  dirtied only sprites bound to the palette by name; a duplicated frame and a
+  frame added later resolve through the document's binding and were never
+  told. Fixed in the engine (`markPaletteDirty`), with a test on both sides:
+  the engine's says which sprites go dirty, the system test says every frame
+  does after each palette write the panel makes.
 - **The canvas was blurred.** Dear ImGui's SDL_Renderer backend (from 1.92.8)
   re-applies its own sampler to every texture it binds, linear by default, so
   the texture's nearest mode was ignored. The canvas now brackets its artwork

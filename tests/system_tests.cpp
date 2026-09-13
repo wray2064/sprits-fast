@@ -368,6 +368,28 @@ void testAPaletteChangeReachesEveryFrame() {
     REQUIRE(cycles.size() == 1);
     CHECK(sheetAgreesWithFrames(f.doc, cycles[0].frames, settings));
 
+    // The description beside the sheet says what the cycle does, not just
+    // which cells there are: a consumer that reads "pingpong" plays it right.
+    {
+        SheetPlan plan;
+        std::string error;
+        REQUIRE(planSheet(static_cast<int>(cycles[0].frames.size()), kCanvas, kCanvas,
+                          settings, &plan, &error));
+        const std::string json = sheetManifest(plan, f.frames, cycles[0].frames,
+                                               cycles, "hero.png", settings.scale);
+        CHECK(json.find("\"loop\": \"pingpong\"") != std::string::npos);
+        CHECK(json.find("\"name\": \"walk\"") != std::string::npos);
+        CHECK(json.find("\"name\": \"stand\"") != std::string::npos);
+        CHECK(json.find("\"durationMs\": 250") != std::string::npos);
+        // Four cells for four steps, the repeated frame twice.
+        size_t cells = 0;
+        for (size_t at = json.find("\"frame\":"); at != std::string::npos;
+             at = json.find("\"frame\":", at + 1)) {
+            ++cells;
+        }
+        CHECK(cells == 4);
+    }
+
     // The controls read the same story back: roles, not colours.
     DitherSettings shown;
     REQUIRE(readDitherSettings(f.doc, f.highlight, &shown));
@@ -376,6 +398,53 @@ void testAPaletteChangeReachesEveryFrame() {
     CHECK(same(effectiveLayerColor(f.doc, f.frames[0].sprite, f.body), newBody));
     CHECK(same(effectiveLayerColor(f.doc, f.frames[3].sprite, f.lateBody), newBody));
     CHECK(outlineOf(f.doc, f.body).role == kOutline);
+}
+
+// --- 1b. the engine says so, too ---------------------------------------------------
+
+// The window compiles a frame only when the engine says it is dirty. Every
+// frame draws through the palette, so a palette write has to dirty every
+// frame -- including one made after the palette, which resolves through the
+// document's binding rather than its own, and one made by duplication.
+void testAPaletteWriteDirtiesEveryFrame() {
+    Figure f;
+    REQUIRE(buildFigure(f));
+
+    // Clean them all, the way the cache does.
+    for (const Frame& frame : f.frames) {
+        compileFrame(f.doc, frame.sprite);
+        auto dirty = f.doc.engine().isDirty(frame.sprite.value);
+        CHECK(dirty.ok() && !dirty.value);
+    }
+
+    f.doc.beginAction("Swap");
+    REQUIRE(setPaletteEntry(f.doc, kBody, ls::Color{ 5, 6, 7, 255 }));
+    f.doc.endAction();
+    for (size_t i = 0; i < f.frames.size(); ++i) {
+        auto dirty = f.doc.engine().isDirty(f.frames[i].sprite.value);
+        CHECK(dirty.ok() && dirty.value);
+    }
+
+    // The same for the other palette writes the panel makes.
+    for (const Frame& frame : f.frames) { compileFrame(f.doc, frame.sprite); }
+    f.doc.beginAction("Remove");
+    REQUIRE(removePaletteEntry(f.doc, kLight));
+    f.doc.endAction();
+    for (const Frame& frame : f.frames) {
+        auto dirty = f.doc.engine().isDirty(frame.sprite.value);
+        CHECK(dirty.ok() && dirty.value);
+    }
+
+    for (const Frame& frame : f.frames) { compileFrame(f.doc, frame.sprite); }
+    PaletteFile file;
+    std::string error;
+    REQUIRE(parsePalette("010101\n020202\n030303\n040404\n", &file, &error));
+    int dropped = 0;
+    REQUIRE(applyPaletteFile(f.doc, f.frames[0].sprite, file, &dropped));
+    for (const Frame& frame : f.frames) {
+        auto dirty = f.doc.engine().isDirty(frame.sprite.value);
+        CHECK(dirty.ok() && dirty.value);
+    }
 }
 
 // --- 2. a loaded palette, and the way back ---------------------------------------
@@ -580,11 +649,30 @@ void testUndoIsExactAcrossEveryFeature() {
 
     // A recording: the pixels of every frame after each action, so each undo
     // has a definite answer to be held to.
-    std::vector<std::vector<uint64_t>> record;
-    record.push_back(hashEveryFrame(f.doc));
+    // Pixels and the cycle's step list: a step move changes no pixel, so the
+    // hashes alone would not notice an undo that skipped it.
+    struct Moment {
+        std::vector<uint64_t> pixels;
+        std::vector<int>      walk;
+    };
+    const auto now = [&]() {
+        Moment m;
+        m.pixels = hashEveryFrame(f.doc);
+        const std::vector<Cycle> cycles =
+            readCycles(f.doc, static_cast<int>(readFrames(f.doc).size()));
+        if (!cycles.empty()) {
+            m.walk = cycles[0].frames;
+        }
+        return m;
+    };
+    const auto equal = [](const Moment& a, const Moment& b) {
+        return a.pixels == b.pixels && a.walk == b.walk;
+    };
+    std::vector<Moment> record;
+    record.push_back(now());
     const auto act = [&](bool ok) {
         CHECK(ok);
-        record.push_back(hashEveryFrame(f.doc));
+        record.push_back(now());
     };
 
     // A mixed sequence, each step one history entry.
@@ -601,6 +689,14 @@ void testUndoIsExactAcrossEveryFeature() {
     f.doc.endAction();
 
     act(moveFrame(f.doc, 4, 0));
+
+    // The step row: walk is [1, 2, 3, 2] after the move above. Reverse the
+    // middle, drop a step, add one.
+    act(moveCycleStep(f.doc, 0, 1, 2, 5));                   // [1, 3, 2, 2]
+    CHECK(record.back().walk == std::vector<int>({ 1, 3, 2, 2 }));
+    act(removeCycleStep(f.doc, 0, 3, 5));                    // [1, 3, 2]
+    act(addCycleStep(f.doc, 0, 0, 0, 5) == 1);               // [1, 0, 3, 2]
+    CHECK(record.back().walk == std::vector<int>({ 1, 0, 3, 2 }));
 
     {
         PaletteFile file;
@@ -619,6 +715,7 @@ void testUndoIsExactAcrossEveryFeature() {
     f.doc.endAction();
 
     act(deleteFrame(f.doc, 2));                                // 4 frames
+    CHECK(record.back().walk == std::vector<int>({ 1, 0, 2 }));  // 3 gone, 2 up
 
     f.doc.beginAction("Remove slot");
     act(removePaletteEntry(f.doc, 0));
@@ -632,17 +729,17 @@ void testUndoIsExactAcrossEveryFeature() {
 
     // Every step back reproduces its recording; then every step forward.
     for (size_t i = record.size() - 1; i > 0; --i) {
-        CHECK(hashEveryFrame(f.doc) == record[i]);
+        CHECK(equal(now(), record[i]));
         REQUIRE(f.doc.undo());
     }
-    CHECK(hashEveryFrame(f.doc) == record[0]);
+    CHECK(equal(now(), record[0]));
     CHECK(readFrames(f.doc).size() == 4);
     CHECK(readCycles(f.doc, 4).size() == 1);
     CHECK(paletteEntries(f.doc).size() >= 4);
 
     for (size_t i = 1; i < record.size(); ++i) {
         REQUIRE(f.doc.redo());
-        CHECK(hashEveryFrame(f.doc) == record[i]);
+        CHECK(equal(now(), record[i]));
     }
     CHECK(!f.doc.canRedo());
     CHECK(readCycles(f.doc, 4).size() == 2);
@@ -714,6 +811,7 @@ void testRemovingASlotChangesNoPixelAndPuttingItBackReattaches() {
 
 int main() {
     testAPaletteChangeReachesEveryFrame();
+    testAPaletteWriteDirtiesEveryFrame();
     testALoadedPaletteAppliesEverywhereAndUndoesExactly();
     testFrameSurgeryKeepsTheCycleAndTheSheetHonest();
     testARoundTripLosesNothing();
