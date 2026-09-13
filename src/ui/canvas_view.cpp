@@ -11,6 +11,25 @@
 #include <cmath>
 
 namespace fast {
+
+namespace {
+
+// Sprite pixels are drawn with nearest sampling, and everything else is not.
+//
+// Setting the texture's own scale mode is not enough: from 1.92.8 the
+// SDL_Renderer backend owns the sampler and re-applies its current choice to
+// every texture it binds, linear unless told otherwise, so a canvas at 18x
+// came out as a smear. The backend's own callbacks are the way to tell it,
+// bracketing exactly the commands that carry artwork.
+void beginPixels(ImDrawList* draw) {
+    draw->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
+}
+
+void endPixels(ImDrawList* draw) {
+    draw->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
+}
+
+} // namespace
 namespace {
 
 // The checkerboard square, in screen pixels. Fixed rather than scaled with the
@@ -65,7 +84,9 @@ void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
         draw->AddRectFilled(at, corner, background);
     }
 
+    beginPixels(draw);
     draw->AddImage(reinterpret_cast<ImTextureID>(texture_), at, corner);
+    endPixels(draw);
 }
 
 bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
@@ -176,7 +197,9 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
         underlay(draw, origin, zoom_);
     }
 
+    beginPixels(draw);
     draw->AddImage(reinterpret_cast<ImTextureID>(texture_), origin, corner);
+    endPixels(draw);
 
     // The pixel grid, once the zoom is large enough for it to help rather than
     // turn the artwork into a mesh.
@@ -231,8 +254,10 @@ void CanvasView::drawFrameTinted(ImDrawList* draw, const FrameCache::Entry& entr
     }
     const ImVec2 corner(at.x + static_cast<float>(entry.width) * scale,
                         at.y + static_cast<float>(entry.height) * scale);
+    beginPixels(draw);
     draw->AddImage(reinterpret_cast<ImTextureID>(entry.texture), at, corner,
                    ImVec2(0.f, 0.f), ImVec2(1.f, 1.f), tint);
+    endPixels(draw);
 }
 
 } // namespace fast

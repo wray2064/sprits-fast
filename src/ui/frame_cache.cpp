@@ -104,7 +104,11 @@ FrameCache::Entry* FrameCache::compile(Document& doc, ls::SpriteId sprite, Entry
         if (into.texture == nullptr) {
             return nullptr;
         }
-        // Pixel art, so never interpolate when magnifying.
+        // Pixel art, so never interpolate when magnifying. On its own this is
+        // not honoured: the Dear ImGui backend sets the sampler per draw, so
+        // the canvas brackets its image commands with the backend's nearest
+        // callback too. This still matters for anything that renders the
+        // texture without going through ImGui.
         SDL_SetTextureScaleMode(into.texture, SDL_SCALEMODE_NEAREST);
         SDL_SetTextureBlendMode(into.texture, SDL_BLENDMODE_BLEND);
         into.width = width;
