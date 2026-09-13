@@ -3,6 +3,8 @@
 
 #include "app/paint.h"
 
+#include "app/element.h"
+
 #include <cmath>
 #include <cstdlib>
 
@@ -85,11 +87,14 @@ bool setPaintColor(Document& doc, const PaintLayer& target, ls::Color color) {
     if (!target.valid()) {
         return false;
     }
-    // One parameter on one operation. The drawing is not touched, which is the
-    // point: recolouring is not a repaint.
-    return doc.engine()
+    // One parameter per element, none of the drawing touched, which is the
+    // point: recolouring is not a repaint. Every element, so a layer with a
+    // rectangle and a few pixels is still one colour.
+    const bool own = doc.engine()
         .setOperationParameter(target.fill, "fallbackColor", ls::ParameterValue{color})
         .ok();
+    setElementsColor(doc, target.layer, color);
+    return own;
 }
 
 ls::Color paintColor(Document& doc, const PaintLayer& target) {
@@ -139,24 +144,30 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
             continue;
         }
 
-        // The first fill that names a region is the one a pencil writes into.
-        // Both kinds Fast makes are recognised: a solid colour and a dither are
-        // different *rules for colouring* the same drawing, so a layer switched
-        // to dithered must still be drawable after a reload.
+        // The freehand element is the one a pencil writes into: the first
+        // fill over a region that no geometry made. Both kinds Fast makes are
+        // recognised: a solid colour and a dither are different *rules for
+        // colouring* the same drawing, so a layer switched to dithered must
+        // still be drawable after a reload. A layer of shapes alone adopts
+        // with its first shape as fill and region, which is what the dither
+        // and outline helpers act on; the pencil asks ensurePaintElement
+        // before it draws, and gets a freehand element of its own rather than
+        // drawing into a rectangle and turning it into pixels.
         //
-        // A layer built by another tool -- a gradient along an axis, a stroke
-        // following a path -- has no such operation and is left alone rather
-        // than guessed at.
+        // A layer built by another tool -- a gradient along an axis -- has no
+        // such operation and is left alone rather than guessed at.
+        PaintLayer shapeOnly;
+        bool adopted = false;
         for (const ls::OperationInfo& op : operations.value) {
             // A stroked line has no region -- it names a polyline and encloses
             // no area. It is still a layer the panel must list, or it would go
             // on drawing while vanishing from the interface.
             if (op.type == "StrokePolylineOp") {
-                PaintLayer found;
-                found.layer = layer;
-                found.fill = op.id;
-                outLayers->push_back(found);
-                break;
+                if (!shapeOnly.valid()) {
+                    shapeOnly.layer = layer;
+                    shapeOnly.fill = op.id;
+                }
+                continue;
             }
 
             if (op.type != "FillSolidOp" && op.type != "FillDitherOp") {
@@ -175,8 +186,19 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
             found.layer = layer;
             found.fill = op.id;
             found.region.value = *handle;
+            auto source = engine.getRegionSourceGeometry(found.region);
+            if (source.ok() && source.value.valid()) {
+                if (!shapeOnly.valid()) {
+                    shapeOnly = found;
+                }
+                continue;
+            }
             outLayers->push_back(found);
+            adopted = true;
             break;
+        }
+        if (!adopted && shapeOnly.valid()) {
+            outLayers->push_back(shapeOnly);
         }
     }
     return true;

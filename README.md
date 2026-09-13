@@ -60,9 +60,11 @@ whole group. **Order**: drag a row, or `Ctrl+]` and `Ctrl+[`. **Duplicate**
 (`Ctrl+J`) makes a copy that is its own from the first stroke, and **Copy** and
 **Paste** (`Ctrl+C`, `Ctrl+V`) carry a layer into any frame -- the paste is a
 copy too, so the frames stay independent. **Groups** (`Ctrl+click` to select
-several, `Ctrl+G`): a group composites its layers into one picture and then
-blends that, which is not the same as blending each layer, and is what a
-group is for; `Ctrl+Shift+G` dissolves one in place. **Clip to below** draws a
+several, `Ctrl+G`; drop a layer on a group's row to put it in; `Ctrl`+drop on
+a layer to group the two; *Add to group* and *Remove from group* in the menu):
+a group composites its layers into one picture and then blends that, which is
+not the same as blending each layer, and is what a group is for;
+`Ctrl+Shift+G` dissolves one in place. **Clip to below** draws a
 layer only where the layer under it draws -- a highlight that stays inside
 the body. **Lock** keeps the tools off a layer. Right-click a row for all of
 it; every operation is one undo step.
@@ -75,6 +77,18 @@ Nothing here rasterises. A layer at Multiply is still the drawing it was, and
 switching it back costs nothing. There is no *merge down* for the same reason:
 two layers merged is two drawings pretending to be one, and the engine would
 rather keep both. Group them instead.
+
+### Elements: several marks on one layer
+
+A rectangle, a line and a few pixels drawn with three tools land on **one
+layer**, each still its own thing. The shape tools add to the active layer;
+the pencil writes into the layer's own pixels, and a layer that started as a
+shape gets pixels of its own the first time the pencil touches it rather than
+having its rectangle turned into pixels. The Shape panel lists a layer's
+elements, edits the selected shape, and removes one without touching the rest.
+One colour for the layer reaches every element. *Each shape on its own layer*
+in the tool panel brings back the old behaviour for anyone who wants every
+shape listed in the stack.
 
 ### The palette
 

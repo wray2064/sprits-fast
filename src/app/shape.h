@@ -60,6 +60,13 @@ bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
 // Changes a shape that already exists. This is the point of the whole file: it
 // drives the geometry rather than redrawing anything, so the fill, the outline
 // and anything else built on that region all follow.
+// Adds a shape to a layer that already exists, as one more of its elements,
+// in the given colour and role. What createShapeLayer does after making the
+// layer; see element.h for the list this joins.
+bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
+                const ShapeParams& params, ls::Color colour, ls::ColorRole role,
+                ShapeLayer* out);
+
 bool updateShape(Document& doc, const ShapeLayer& shape, const ShapeParams& params);
 
 // Reads a shape's current parameters back, so the interface shows the shape's

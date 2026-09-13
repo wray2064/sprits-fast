@@ -100,9 +100,10 @@ const char* shapeKindName(ShapeKind kind) {
     return "Shape";
 }
 
-bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
-                      const ShapeParams& params, ls::Color colour, ShapeLayer* out) {
-    if (out == nullptr) {
+bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
+                const ShapeParams& params, ls::Color colour, ls::ColorRole role,
+                ShapeLayer* out) {
+    if (out == nullptr || !layer.valid()) {
         return false;
     }
     ls::LSContext& engine = doc.engine();
@@ -136,12 +137,6 @@ bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
         return false;
     }
 
-    auto layer = engine.createLayer(sprite, {shapeKindName(kind)});
-    if (layer.fail()) {
-        doc.abandonAction();
-        return false;
-    }
-
     // A line is stroked rather than filled: it encloses no area, so a fill would
     // resolve to nothing. Everything else fills the region its geometry makes.
     if (kind == ShapeKind::Line) {
@@ -149,14 +144,15 @@ bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
         stroke.polyline = geometry.value;
         stroke.width = params.thickness;
         stroke.fallbackColor = colour;
+        stroke.paletteRole = role;
         stroke.snap = ls::SnapPolicy::HalfGrid;   // keeps a 1px line on one row
 
-        auto op = engine.addOperation(layer.value, stroke);
+        auto op = engine.addOperation(layer, stroke);
         if (op.fail()) {
             doc.abandonAction();
             return false;
         }
-        out->paint.layer = layer.value;
+        out->paint.layer = layer;
         out->paint.fill = op.value;
         out->paint.region = ls::RegionId{};    // a stroke names no region
     } else {
@@ -168,13 +164,14 @@ bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
         ls::FillSolidOp fill;
         fill.targetRegion = region.value;
         fill.fallbackColor = colour;
+        fill.paletteRole = role;
 
-        auto op = engine.addOperation(layer.value, fill);
+        auto op = engine.addOperation(layer, fill);
         if (op.fail()) {
             doc.abandonAction();
             return false;
         }
-        out->paint.layer = layer.value;
+        out->paint.layer = layer;
         out->paint.region = region.value;
         out->paint.fill = op.value;
     }
@@ -183,6 +180,22 @@ bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
 
     out->geometry = geometry.value;
     out->kind = kind;
+    return true;
+}
+
+bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
+                      const ShapeParams& params, ls::Color colour, ShapeLayer* out) {
+    if (out == nullptr) {
+        return false;
+    }
+    doc.beginAction(std::string("Draw ") + shapeKindName(kind));
+    auto layer = doc.engine().createLayer(sprite, {shapeKindName(kind)});
+    if (layer.fail() ||
+        !addShapeTo(doc, layer.value, kind, params, colour, ls::kColorRoleNone, out)) {
+        doc.abandonAction();
+        return false;
+    }
+    doc.endAction();
     return true;
 }
 

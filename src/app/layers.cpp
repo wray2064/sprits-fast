@@ -343,6 +343,77 @@ bool ungroup(Document& doc, ls::GroupId group) {
     return true;
 }
 
+bool addToGroup(Document& doc, ls::LayerId layer, ls::GroupId group) {
+    GroupProps props;
+    if (!readGroupProps(doc, group, &props) || props.layers.empty()) {
+        return false;
+    }
+    const ls::SpriteId sprite = spriteOf(doc, layer);
+    if (sprite != spriteOf(doc, props.layers.front())) {
+        return false;
+    }
+    if (groupOf(doc, layer) == group) {
+        return true;
+    }
+    doc.beginAction("Add to group");
+    // To the top of the run. Indices shift when the layer leaves its old
+    // place, so the target is found after the erase.
+    std::vector<ls::LayerId> order = layerOrder(doc, sprite);
+    order.erase(std::remove(order.begin(), order.end(), layer), order.end());
+    const ls::LayerId top = props.layers.back();
+    size_t at = 0;
+    for (size_t i = 0; i < order.size(); ++i) {
+        if (order[i] == top) { at = i + 1; }
+    }
+    order.insert(order.begin() + static_cast<ptrdiff_t>(at), layer);
+    if (doc.engine().setLayerOrder(sprite, order).fail()) {
+        doc.abandonAction();
+        return false;
+    }
+    const ls::GroupId was = groupOf(doc, layer);
+    doc.engine().setLayerParent(layer, group);
+    dropIfEmpty(doc, was);
+    auto info = doc.engine().getLayerInfo(layer);
+    if (info.ok() && info.value.hasClip) {
+        doc.engine().clearLayerClip(layer);
+    }
+    doc.endAction();
+    return true;
+}
+
+bool removeFromGroup(Document& doc, ls::LayerId layer) {
+    const ls::GroupId group = groupOf(doc, layer);
+    if (!group.valid()) {
+        return false;
+    }
+    GroupProps props;
+    if (!readGroupProps(doc, group, &props) || props.layers.empty()) {
+        return false;
+    }
+    const ls::SpriteId sprite = spriteOf(doc, layer);
+    doc.beginAction("Remove from group");
+    // Just above the run, so it keeps drawing over what it drew over.
+    std::vector<ls::LayerId> order = layerOrder(doc, sprite);
+    order.erase(std::remove(order.begin(), order.end(), layer), order.end());
+    size_t at = order.size();
+    for (size_t i = 0; i < order.size(); ++i) {
+        if (groupOf(doc, order[i]) == group) { at = i + 1; }
+    }
+    order.insert(order.begin() + static_cast<ptrdiff_t>(at), layer);
+    if (doc.engine().setLayerOrder(sprite, order).fail()) {
+        doc.abandonAction();
+        return false;
+    }
+    doc.engine().setLayerParent(layer, ls::GroupId{});
+    dropIfEmpty(doc, group);
+    auto info = doc.engine().getLayerInfo(layer);
+    if (info.ok() && info.value.hasClip) {
+        doc.engine().clearLayerClip(layer);
+    }
+    doc.endAction();
+    return true;
+}
+
 bool setGroupOpacity(Document& doc, ls::GroupId group, float opacity) {
     return doc.engine().setGroupOpacity(group, std::clamp(opacity, 0.f, 1.f)).ok();
 }

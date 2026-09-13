@@ -230,6 +230,9 @@ void selectLayer(Editor& editor, ls::LayerId layer, bool extend) {
         tidySelection(editor);
         return;
     }
+    if (editor.activeLayer != at) {
+        editor.activeElement = ls::OperationId{};   // a different layer, its own elements
+    }
     editor.activeLayer = at;
     editor.activeGroup = ls::GroupId{};
     if (!extend) {
@@ -466,6 +469,7 @@ void swapPalette(Editor& editor, CanvasView& canvas, ls::PaletteId palette) {
 void forgetInteraction(Editor& editor) {
     editor.renaming = -1;
     editor.renamingGroup = ls::GroupId{};
+    editor.activeElement = ls::OperationId{};
     editor.activeGroup = ls::GroupId{};
     editor.selectedLayers.clear();
     editor.collapsedGroups.clear();

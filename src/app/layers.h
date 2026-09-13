@@ -101,6 +101,14 @@ ls::GroupId groupLayers(Document& doc, const std::vector<ls::LayerId>& layers,
 // Dissolves a group: its layers stay where they are, on their own.
 bool ungroup(Document& doc, ls::GroupId group);
 
+// Puts a layer into an existing group, at the top of its run. Leaves the
+// group it was in, which goes if that empties it.
+bool addToGroup(Document& doc, ls::LayerId layer, ls::GroupId group);
+
+// Takes a layer out of its group, placing it just above the group's run so
+// it keeps drawing over the same things. False when it was in none.
+bool removeFromGroup(Document& doc, ls::LayerId layer);
+
 bool setGroupOpacity(Document& doc, ls::GroupId group, float opacity);
 bool setGroupBlend(Document& doc, ls::GroupId group, ls::BlendMode blend);
 bool setGroupVisible(Document& doc, ls::GroupId group, bool visible);

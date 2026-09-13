@@ -3,6 +3,7 @@
 
 #include "app/palette.h"
 #include "app/dither.h"
+#include "app/element.h"
 
 namespace fast {
 namespace {
@@ -292,10 +293,12 @@ bool setLayerRole(Document& doc, const PaintLayer& layer, ls::ColorRole role) {
     if (!layer.valid()) {
         return false;
     }
-    return doc.engine()
+    const bool own = doc.engine()
         .setOperationParameter(layer.fill, "paletteRole",
                                ls::ParameterValue{static_cast<int64_t>(role)})
         .ok();
+    setElementsRole(doc, layer.layer, role);      // every element, one colour
+    return own;
 }
 
 bool resolvePaletteRole(Document& doc, ls::ColorRole role, ls::Color* out) {

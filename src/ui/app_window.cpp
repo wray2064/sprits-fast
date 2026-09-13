@@ -489,14 +489,29 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             params.from = here;
             params.to = { here.x + 1.f, here.y + 1.f };
             params.cornerRadius = editor.shapeCorner;
-            if (createShapeLayer(editor.doc, editor.sprite, kind, params,
-                                 toColor(editor.color), &editor.pendingShape)) {
+            // Onto the active layer as one more element, unless asked for a
+            // layer per shape. Either way the panel then shows the thing
+            // under the cursor.
+            const bool ontoLayer = !editor.shapesOnOwnLayer && !activeLayerLocked(editor);
+            bool made = false;
+            if (ontoLayer) {
+                made = addShapeElement(editor.doc, layer->layer, kind, params,
+                                       &editor.pendingShape);
+            } else if (activeLayerLocked(editor) && !editor.shapesOnOwnLayer) {
+                editor.say("This layer is locked -- unlock it, or draw shapes on their own layer");
+            } else {
+                made = createShapeLayer(editor.doc, editor.sprite, kind, params,
+                                        toColor(editor.color), &editor.pendingShape);
+            }
+            if (made) {
                 editor.draggingShape = true;
                 editor.shapeAnchor = here;
-                resyncLayers(editor);
-                // Select the shape that was just made, so the panel is showing
-                // the thing under the cursor.
-                editor.activeLayer = static_cast<int>(editor.layers.size()) - 1;
+                if (ontoLayer) {
+                    editor.activeElement = editor.pendingShape.paint.fill;
+                } else {
+                    selectLayer(editor, editor.pendingShape.paint.layer);
+                    editor.activeElement = editor.pendingShape.paint.fill;
+                }
                 canvas.invalidate();
             }
         }
@@ -547,9 +562,16 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
 
     // A whole drag is one history entry, so the bracket opens on press and
-    // closes on release rather than per sample.
+    // closes on release rather than per sample. The pencil writes into the
+    // layer's freehand element, which a layer made of shapes gets here, the
+    // first time -- rather than into a rectangle, which would stop being one.
     if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         editor.doc.beginAction(editor.tool == Tool::Pencil ? "Pencil" : "Eraser");
+        if (!ensurePaintElement(editor.doc, *layer)) {
+            editor.doc.abandonAction();
+            editor.say("Nothing to draw on here");
+            return;
+        }
         editor.stroking = true;
         editor.lastPixel = pixel;
     }
@@ -905,6 +927,20 @@ void drawDemoContent(Editor& editor) {
     setPaletteLabel(editor.doc, dither.toRole, "light");
     setLayerDithered(editor.doc, *layer, dither);
     editor.dither = dither;
+
+    // Two shapes on the figure's own layer, so the Shape panel has an element
+    // list to show and the belt is one layer, not three.
+    {
+        ShapeParams belt;
+        belt.from = { 10.f, 22.f };
+        belt.to = { 22.f, 24.f };
+        ShapeLayer made;
+        addShapeElement(editor.doc, layer->layer, ShapeKind::Rectangle, belt, &made);
+        ShapeParams strap;
+        strap.from = { 12.f, 20.f };
+        strap.to = { 20.f, 26.f };
+        addShapeElement(editor.doc, layer->layer, ShapeKind::Line, strap, &made);
+    }
 
     editor.doc.beginAction("Demo rotate");
     addRotate(editor.doc, layer->layer, 24.f, {16.f, 16.f});

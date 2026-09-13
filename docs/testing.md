@@ -175,6 +175,21 @@ sprits_fast --demo-stroke
 8. Ctrl+click two layers, `Ctrl+G`, then `Ctrl+Shift+G`. *Expect:* grouped
    next to each other, then back where they were.
 
+### 4d. Elements and drag-to-group
+
+1. Select *Layer 1*. Rectangle tool: drag one out. *Expect:* no new layer; the
+   Shape panel lists *Pixels*, *Rectangle*, *Rectangle*, *Line* and edits the
+   new one; the layer thumbnail shows all of it.
+2. Pencil on the same layer. *Expect:* pixels join the *Pixels* element; the
+   rectangles stay rectangles (widen one in the panel).
+3. *x* beside the new rectangle. *Expect:* it goes; the rest stay; `Ctrl+Z`
+   brings it back.
+4. Tick *Each shape on its own layer*, drag an ellipse. *Expect:* a new layer
+   *Ellipse*, selected.
+5. Drag that layer onto the *figure* group row. *Expect:* it is in the group,
+   at its top. Right-click → *Remove from group*. *Expect:* out, just above.
+6. Drag it onto *Layer 2* with Ctrl held. *Expect:* a new group of the two.
+
 ### 5. Replacing the document mid-everything
 
 1. Start renaming a layer (double-click its name). Start renaming a frame.

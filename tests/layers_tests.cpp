@@ -261,6 +261,35 @@ void testAGroupIsARunCompositedAsOne() {
     CHECK(copy.valid() && groupOf(s.doc, copy) == second);
 }
 
+// Explicitly in and out, by name rather than by where a drag landed.
+void testAddingToAndLeavingAGroup() {
+    Stack s;
+    REQUIRE(s.build());
+    const ls::GroupId group = groupLayers(s.doc, { s.top.layer }, "one");
+    REQUIRE(group.valid());
+    CHECK(namesOf(s.doc, s.sprite) == std::vector<std::string>({ "bottom", "middle", "top" }));
+
+    // bottom joins: it moves to the top of the group's run.
+    CHECK(addToGroup(s.doc, s.bottom.layer, group));
+    CHECK(groupOf(s.doc, s.bottom.layer) == group);
+    CHECK(namesOf(s.doc, s.sprite) == std::vector<std::string>({ "middle", "top", "bottom" }));
+    CHECK(addToGroup(s.doc, s.bottom.layer, group));      // already there: no change
+    CHECK(namesOf(s.doc, s.sprite) == std::vector<std::string>({ "middle", "top", "bottom" }));
+
+    // top leaves: just above the run, so still over middle and under bottom.
+    CHECK(removeFromGroup(s.doc, s.top.layer));
+    CHECK(!groupOf(s.doc, s.top.layer).valid());
+    CHECK(namesOf(s.doc, s.sprite) == std::vector<std::string>({ "middle", "bottom", "top" }));
+    CHECK(!removeFromGroup(s.doc, s.top.layer));           // not in one
+
+    // The last member leaving takes the group with it.
+    CHECK(removeFromGroup(s.doc, s.bottom.layer));
+    CHECK(groupOrder(s.doc, s.sprite).empty());
+    CHECK(s.doc.undo());
+    CHECK(groupOrder(s.doc, s.sprite).size() == 1);
+    CHECK(groupOf(s.doc, s.bottom.layer).valid());
+}
+
 // --- clipping -------------------------------------------------------------------
 
 void testAClipDrawsOnlyWhereTheLayerBelowDoes() {
@@ -375,6 +404,7 @@ int main() {
     testADuplicateIsItsOwnAndSitsAbove();
     testPasteLandsInAnotherFrame();
     testAGroupIsARunCompositedAsOne();
+    testAddingToAndLeavingAGroup();
     testAClipDrawsOnlyWhereTheLayerBelowDoes();
     testALockIsKeptAndSurvivesASave();
     testTheStackSurvivesASave();

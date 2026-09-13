@@ -11,6 +11,7 @@
 #include "app/animation.h"
 #include "app/bucket.h"
 #include "app/dither.h"
+#include "app/element.h"
 #include "app/layers.h"
 #include "app/paint.h"
 #include "app/palette.h"
@@ -148,6 +149,18 @@ struct Editor {
     // document's sprite order is.
     std::vector<Frame> frames;
     std::vector<Cycle> cycles;
+
+    // The element of the active layer the shape panel edits, by the operation
+    // that draws it. Null means the layer's freehand pixels, or whichever
+    // element is first. Set when a shape is drawn, so the panel shows the
+    // thing just made.
+    ls::OperationId activeElement;
+
+    // Where a shape tool puts what it draws: on the active layer, as one more
+    // of its elements -- so a belt made of a rectangle, a line and a few
+    // pixels is one layer -- or on a layer of its own, the old way, for
+    // someone who wants every shape listed in the stack.
+    bool shapesOnOwnLayer = false;
 
     // A shape being dragged out. It exists from the press: the shape is created
     // immediately and then driven as the mouse moves, so what is on the canvas

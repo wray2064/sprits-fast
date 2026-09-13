@@ -235,6 +235,18 @@ void drawToolPanel(Editor& editor, CanvasView& canvas) {
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 
+    if (editor.tool == Tool::Rectangle || editor.tool == Tool::Ellipse ||
+        editor.tool == Tool::Line) {
+        theme::sectionHeader("SHAPES");
+        ImGui::Checkbox("Each shape on its own layer", &editor.shapesOnOwnLayer);
+        ImGui::SameLine();
+        theme::hint("Off: a shape joins the active layer as one of its "
+                    "elements, beside the pixels and the other shapes, and "
+                    "stays editable in the Shape panel. On: every shape is a "
+                    "layer of its own, listed in the stack.");
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
     if (layer == nullptr) {
         ImGui::TextDisabled("No layer selected.");
         return;
@@ -781,8 +793,56 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
         return;
     }
 
+    // The elements of the layer, one row each. The selected one is what the
+    // controls below edit; the pixels element has no controls, and says so.
+    const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
+    const Element* selected = nullptr;
+    for (const Element& element : elements) {
+        if (element.fill == editor.activeElement) { selected = &element; }
+    }
+    if (selected == nullptr && !elements.empty()) {
+        selected = &elements.front();
+        editor.activeElement = selected->fill;
+    }
+    if (elements.size() > 1) {
+        theme::sectionHeader("ELEMENTS");
+        for (size_t i = 0; i < elements.size(); ++i) {
+            const Element& element = elements[i];
+            ImGui::PushID(static_cast<int>(element.fill.value));
+            const std::string label = std::string(elementKindName(element.kind)) +
+                                      "##" + std::to_string(i);
+            if (ImGui::Selectable(label.c_str(), &element == selected,
+                                  0, ImVec2(ImGui::GetContentRegionAvail().x - 26.f, 0.f))) {
+                editor.activeElement = element.fill;
+                selected = &element;
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("x")) {
+                if (removeElement(editor.doc, layer->layer, element)) {
+                    editor.activeElement = ls::OperationId{};
+                    resyncLayers(editor);
+                    canvas.invalidate();
+                    editor.say("Element removed; the rest of the layer is untouched");
+                    ImGui::PopID();
+                    return;
+                }
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Remove this element. The others stay.");
+            }
+            ImGui::PopID();
+        }
+        ImGui::SameLine();
+        theme::hint("A layer holds several marks: its pixels, and any shapes "
+                    "drawn onto it. Each shape stays a shape.");
+        ImGui::Dummy(ImVec2(0.f, 4.f));
+    }
+
     ShapeLayer shape;
-    const bool isShape = shapeOfLayer(editor.doc, *layer, &shape);
+    const bool isShape = selected != nullptr && selected->isShape();
+    if (isShape) {
+        shape = shapeOfElement(layer->layer, *selected);
+    }
 
     if (isShape) {
         ShapeParams params;
@@ -824,9 +884,11 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
         }
     } else {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("This layer was drawn by hand, so there is no shape "
-                           "to edit. Draw with a shape tool to get one that "
-                           "stays adjustable.");
+        ImGui::TextWrapped(elements.size() > 1
+            ? "These are the layer's pixels; there is nothing to adjust. Select "
+              "a shape above to edit it."
+            : "This layer was drawn by hand, so there is no shape to edit. Draw "
+              "with a shape tool to add one that stays adjustable.");
         ImGui::PopStyleColor();
     }
 
@@ -1184,7 +1246,19 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                         std::snprintf(editor.groupNameBuffer, sizeof(editor.groupNameBuffer),
                                       "%s", group.name.c_str());
                     }
-                    acceptDrop(i);          // dropping on the group row: top of the group
+                    // Dropping on the group row puts the layer in the group,
+                    // at the top of it -- the obvious way in.
+                    if (ImGui::BeginDragDropTarget()) {
+                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("layer")) {
+                            const ls::LayerId moving{ *static_cast<const uint64_t*>(payload->Data) };
+                            if (addToGroup(editor.doc, moving, openGroup)) {
+                                selectLayer(editor, moving);
+                                canvas.invalidate();
+                                editor.say("Added to " + group.name);
+                            }
+                        }
+                        ImGui::EndDragDropTarget();
+                    }
                     if (ImGui::BeginPopupContextItem("gmenu")) {
                         if (ImGui::MenuItem("Ungroup", "Ctrl+Shift+G")) {
                             editor.activeGroup = openGroup;
@@ -1277,9 +1351,31 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 const uint64_t handle = id.value;
                 ImGui::SetDragDropPayload("layer", &handle, sizeof(handle));
                 ImGui::TextUnformatted(props.name.c_str());
+                ImGui::TextDisabled("Drop on a row to move there. On a group's row to join it.\n"
+                                    "Hold Ctrl to make a group of the two.");
                 ImGui::EndDragDropSource();
             }
-            acceptDrop(i);
+            // A drop with Ctrl held groups the two; without, it is a move,
+            // and a move into a group's run joins the group.
+            if (ImGui::GetIO().KeyCtrl && ImGui::BeginDragDropTarget()) {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("layer")) {
+                    const ls::LayerId moving{ *static_cast<const uint64_t*>(payload->Data) };
+                    if (moving != id) {
+                        const ls::GroupId made = groupLayers(
+                            editor.doc, { id, moving },
+                            "Group " + std::to_string(groupOrder(editor.doc, sprite).size() + 1));
+                        if (made.valid()) {
+                            selectLayer(editor, moving);
+                            editor.selectedLayers.push_back(id);
+                            canvas.invalidate();
+                            editor.say("Grouped the two");
+                        }
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            } else {
+                acceptDrop(i);
+            }
 
             if (drawable && ImGui::BeginPopupContextItem("menu")) {
                 if (!layerSelected(editor, id) || editor.activeGroup.valid()) {
@@ -1304,6 +1400,35 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 if (ImGui::MenuItem(editor.selectedLayers.size() > 1 ? "Group selected" : "Group",
                                     "Ctrl+G")) {
                     groupSelectedLayers(editor, canvas);
+                }
+                {
+                    const std::vector<ls::GroupId> groups = groupOrder(editor.doc, sprite);
+                    bool anyOther = false;
+                    for (ls::GroupId g : groups) { anyOther = anyOther || g != props.group; }
+                    if (ImGui::BeginMenu("Add to group", anyOther)) {
+                        for (ls::GroupId g : groups) {
+                            if (g == props.group) { continue; }
+                            GroupProps target;
+                            if (!readGroupProps(editor.doc, g, &target)) { continue; }
+                            ImGui::PushID(static_cast<int>(g.value));
+                            if (ImGui::MenuItem(target.name.c_str())) {
+                                if (addToGroup(editor.doc, id, g)) {
+                                    selectLayer(editor, id);
+                                    canvas.invalidate();
+                                    editor.say("Added to " + target.name);
+                                }
+                            }
+                            ImGui::PopID();
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+                if (ImGui::MenuItem("Remove from group", nullptr, false, props.group.valid())) {
+                    if (removeFromGroup(editor.doc, id)) {
+                        selectLayer(editor, id);
+                        canvas.invalidate();
+                        editor.say("Out of the group, still where it was");
+                    }
                 }
                 if (ImGui::MenuItem("Ungroup", "Ctrl+Shift+G", false, props.group.valid())) {
                     ungroupActiveLayer(editor, canvas);
@@ -1334,7 +1459,8 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     acceptDrop(0);
     if (order.size() > 1) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("Drag to reorder; right-click for the rest.");
+        ImGui::TextWrapped("Drag to reorder, or onto a group to join it; "
+                           "Ctrl+drop groups two. Right-click for the rest.");
         ImGui::PopStyleColor();
     }
 }
