@@ -179,7 +179,8 @@ void drawCycleControls(Editor& editor) {
     ImGui::SameLine();
     ImGui::SetNextItemWidth(112.f);
     if (timeline.activeCycle >= 0) {
-        const Cycle& cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
+        // A copy: choosing a mode re-reads the cycle list under a reference.
+        const Cycle cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
         if (ImGui::BeginCombo("##loop", loopName(cycle.loop))) {
             for (LoopMode mode : { LoopMode::Loop, LoopMode::Once, LoopMode::PingPong }) {
                 if (ImGui::Selectable(loopName(mode), mode == cycle.loop)) {
@@ -236,7 +237,11 @@ void drawStepRow(Editor& editor) {
         return;
     }
     const int frameCount = static_cast<int>(editor.frames.size());
-    const Cycle& cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
+    // A copy, not a reference: clicking a step selects a frame, which re-reads
+    // the cycle list, and the next step would then be read through a list
+    // that no longer exists. That was a crash on Play after enough edits to
+    // make the vector move.
+    const Cycle cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
     const int steps = static_cast<int>(cycle.frames.size());
 
     if (timeline.selectedStep >= steps) {
@@ -273,7 +278,7 @@ void drawStepRow(Editor& editor) {
         if (ImGui::InvisibleButton("step", ImVec2(kStepSize, kStepSize))) {
             timeline.playing = false;
             timeline.selectedStep = i;
-            selectFrame(editor, frame);
+            selectFrame(editor, frame);     // safe to go on: `cycle` is a copy
         }
         const bool hovered = ImGui::IsItemHovered();
 
@@ -298,6 +303,9 @@ void drawStepRow(Editor& editor) {
                 if (moveCycleStep(editor.doc, timeline.activeCycle, from, i, frameCount)) {
                     resyncFrames(editor);
                     timeline.selectedStep = i;
+                    ImGui::EndDragDropTarget();
+                    ImGui::PopID();
+                    break;
                 }
             }
             ImGui::EndDragDropTarget();
@@ -518,7 +526,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     int compiled = 0;
 
     for (int i = 0; i < static_cast<int>(editor.frames.size()); ++i) {
-        const Frame& frame = editor.frames[static_cast<size_t>(i)];
+        const Frame frame = editor.frames[static_cast<size_t>(i)];   // a copy; see drawStepRow
         ImGui::PushID(i);
         if (i != 0) {
             ImGui::SameLine();
@@ -530,7 +538,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
 
         if (ImGui::InvisibleButton("cell", ImVec2(kThumbSize, kThumbSize + 16.f))) {
             timeline.playing = false;
-            selectFrame(editor, i);
+            selectFrame(editor, i);         // safe to go on: `frame` is a copy
         }
         const bool hovered = ImGui::IsItemHovered();
 
@@ -548,6 +556,9 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
                 if (moveFrame(editor.doc, from, i)) {
                     resyncFrames(editor);
                     selectFrame(editor, i);
+                    ImGui::EndDragDropTarget();
+                    ImGui::PopID();
+                    break;
                 }
             }
             ImGui::EndDragDropTarget();

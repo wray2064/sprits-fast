@@ -853,6 +853,7 @@ struct Options {
     bool        expectIdle = false;
     std::string sheetPath;
     bool        showSheetPanel = false;
+    bool        play = false;            // start playback, for a headless run
     bool        selfTest = false;
     std::string openPath;
 };
@@ -872,6 +873,8 @@ Options parseOptions(int argc, char** argv) {
             // The interesting path is compiling every frame and composing them,
             // and it is worth CI walking it rather than only the unit tests.
             options.sheetPath = argv[++i];
+        } else if (arg == "--play") {
+            options.play = true;
         } else if (arg == "--show-sheet-panel") {
             // Opens the export window so a headless capture can show it. Only
             // useful with --frames and --shot.
@@ -1703,6 +1706,10 @@ int main(int argc, char** argv) {
         canvas.invalidate();
     }
     editor.sheetPanelOpen = options.showSheetPanel;
+    if (options.play) {
+        editor.timeline.playing = true;
+        editor.timeline.startedAtMs = SDL_GetTicks();
+    }
     if (!options.sheetPath.empty()) {
         std::string sheetError;
         SheetSettings settings;
