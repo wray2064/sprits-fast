@@ -71,9 +71,19 @@ everything else. That was not true until the engine let a ramp stop name a role;
 before that, a dither -- which is most pixel art -- sat outside the palette and
 got left behind.
 
+**Several palettes, and the swap.** A document holds as many palettes as it
+needs; the row at the top of the panel says which one every frame uses, and
+`<>` (or `Ctrl+P`) steps to the next. That is the swap: the whole animation
+recolours in one step, from the drawing. Under *Palettes* -- closed until you
+need it -- each palette can be renamed, copied and deleted, and a frame can be
+given a palette of its own. A frame with its own sits the swap out, which is a
+flash frame; one palette per frame with the timeline is colour cycling, for
+nothing. The slots shown are always the palette the current frame draws with,
+so what you edit is what you see.
+
 **Load** and **Save** take `.gpl` (GIMP, and what Aseprite reads and writes --
 it keeps the slot names) and `.hex` (what Lospec serves). Loading replaces the
-palette, which is what loading a palette means everywhere else, and it recolours
+palette the frame uses, which is what loading a palette means everywhere else, and it recolours
 a sprite drawn through slots -- the point of them. Both are treated as untrusted
 input: a stray line is skipped rather than failing the file, and a value outside
 0..255 is refused rather than clamped.

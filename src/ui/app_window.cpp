@@ -653,6 +653,11 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
         requestAction(editor, canvas, window, PendingAction::OpenDialog);
     }
+    // The swap, from the keyboard: the next palette, wrapping. One key for
+    // the thing the engine exists for.
+    if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
+        swapPalette(editor, canvas, nextPalette(editor.doc, documentPalette(editor.doc)));
+    }
     if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
         requestAction(editor, canvas, window, PendingAction::Quit);
     }
@@ -971,6 +976,26 @@ void drawDemoContent(Editor& editor) {
         selectCycle(editor, 0);
     }
 
+    // A second palette, the same as the first with the dither's two slots
+    // turned to night, and a flash frame bound to a third. The quick row has
+    // something to swap between, and the strip shows one frame sitting it out.
+    {
+        const ls::PaletteId day = documentPalette(editor.doc);
+        renamePalette(editor.doc, day, "day");
+        const ls::PaletteId night = addPalette(editor.doc, "night", day);
+        if (night.valid()) {
+            setPaletteEntry(editor.doc, night, dither.fromRole, ls::Color{20, 22, 48, 255});
+            setPaletteEntry(editor.doc, night, dither.toRole, ls::Color{120, 130, 210, 255});
+        }
+        const ls::PaletteId flash = addPalette(editor.doc, "flash", day);
+        const std::vector<Frame> frames = readFrames(editor.doc);
+        if (flash.valid() && frames.size() > 3) {
+            setPaletteEntry(editor.doc, flash, dither.fromRole, ls::Color{255, 255, 255, 255});
+            setPaletteEntry(editor.doc, flash, dither.toRole, ls::Color{255, 255, 255, 255});
+            bindFrame(editor.doc, frames[3].sprite, flash);
+        }
+    }
+
     selectFrame(editor, 0);
     editor.timeline.visible = true;
     editor.timeline.onion = true;
@@ -1230,6 +1255,37 @@ int runSelfTest() {
         }
     }
 
+    // The swap, through the window's own call: every frame recolours, a frame
+    // with a palette of its own does not, and undo is one step.
+    {
+        CanvasView view(nullptr);
+        const ls::PaletteId day = documentPalette(editor.doc);
+        const ls::PaletteId night = addPalette(editor.doc, "night", day);
+        check(night.valid(), "a second palette");
+        PaintLayer* layer = editor.active();
+        if (layer != nullptr && night.valid()) {
+            editor.doc.beginAction("Use slot 0");
+            setLayerRole(editor.doc, *layer, 0);
+            editor.doc.endAction();
+            setPaletteEntry(editor.doc, night, 0, ls::Color{7, 8, 9, 255});
+            swapPalette(editor, view, night);
+            check(documentPalette(editor.doc) == night, "the document swapped");
+            const ls::Color shown = toColor(editor.color);
+            check(shown.r == 7 && shown.g == 8 && shown.b == 9,
+                  "the colour control follows the swap");
+            check(editor.doc.undo(), "one undo");
+            resyncLayers(editor);
+            syncColorFromLayer(editor);
+            check(documentPalette(editor.doc) == day, "back to the first palette");
+            swapPalette(editor, view, day);
+            check(!editor.doc.canUndo() || editor.doc.undoLabel() != "Swap palette",
+                  "swapping to the palette in use is not an action");
+            editor.doc.beginAction("Detach");
+            setLayerRole(editor.doc, *editor.active(), ls::kColorRoleNone);
+            editor.doc.endAction();
+        }
+    }
+
     // Replacing the document forgets every interaction that was about the old
     // one. Each of these is an index that would otherwise be pressed into a
     // document it was never about.
@@ -1239,7 +1295,10 @@ int runSelfTest() {
     editor.confirmRemoveSlot = 2;
     editor.timeline.selectedStep = 3;
     editor.timeline.playing = true;
+    editor.renamingPalette = documentPalette(editor.doc);
     check(newDocument(editor, 16), "new document mid-everything");
+    check(!editor.renamingPalette.valid(), "no palette rename in flight");
+    check(listPalettes(editor.doc).size() == 1, "a new document has one palette");
     check(editor.renaming == -1, "no layer rename in flight");
     check(editor.timeline.renamingFrame == -1, "no frame rename in flight");
     check(editor.renamingSlot == ls::kColorRoleNone, "no slot rename in flight");

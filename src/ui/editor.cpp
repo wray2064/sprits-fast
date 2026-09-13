@@ -173,8 +173,29 @@ void syncColorFromLayer(Editor& editor) {
     fromColor(colour, editor.color);
 }
 
+void swapPalette(Editor& editor, CanvasView& canvas, ls::PaletteId palette) {
+    if (!palette.valid() || palette == documentPalette(editor.doc)) {
+        return;
+    }
+    editor.doc.beginAction("Swap palette");
+    const bool ok = usePalette(editor.doc, palette);
+    if (!ok) {
+        editor.doc.abandonAction();
+        return;
+    }
+    editor.doc.endAction();
+    syncColorFromLayer(editor);
+    canvas.invalidate();
+    std::string name;
+    for (const PaletteInfo& info : listPalettes(editor.doc)) {
+        if (info.id == palette) { name = info.name; }
+    }
+    editor.say("Palette: " + name + " -- every frame recoloured");
+}
+
 void forgetInteraction(Editor& editor) {
     editor.renaming = -1;
+    editor.renamingPalette = ls::PaletteId{};
     editor.renamingSlot = ls::kColorRoleNone;
     editor.confirmRemoveSlot = ls::kColorRoleNone;
     editor.timeline.renamingFrame = -1;

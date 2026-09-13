@@ -140,6 +140,22 @@ sprits_fast --demo-stroke
    reappears ringed; editing it now recolours those layers on every frame.
 5. `Ctrl+Z` three times. *Expect:* back to before the removal.
 
+### 4b. The swap
+
+1. The demo has *day*, *night* and *flash*; frame 4 is bound to *flash*. Press
+   `Ctrl+P`. *Expect:* every frame on the strip and the canvas recolour to
+   night in one step -- except frame 4, which stays white -- and the row at
+   the top of the palette panel says *night*.
+2. `Ctrl+P` again. *Expect:* back to day; frame 4 still white.
+3. Open *Palettes*. Set *This frame* to *the document's* on frame 4.
+   *Expect:* it joins the others at once.
+4. *copy* on *day*, double-click the copy to rename it, edit one of its slots
+   while the document still uses day. *Expect:* nothing on the canvas changes
+   until you switch to it.
+5. *x* on the palette in use. *Expect:* the document moves to another, every
+   frame recolours accordingly, and `Ctrl+Z` brings the palette and the
+   binding back.
+
 ### 5. Replacing the document mid-everything
 
 1. Start renaming a layer (double-click its name). Start renaming a frame.

@@ -306,14 +306,226 @@ void drawToolPanel(Editor& editor, CanvasView& canvas) {
 
 // ---------------------------------------------------------------- palette --
 
+namespace {
+
+// The quick row: which palette the document uses, and one button to step to
+// the next. This is the whole interface for the common case -- a character
+// with a day and a night palette, or a few team colours -- and it is the
+// feature the engine exists for, so it sits at the top rather than behind a
+// header.
+void drawPaletteQuickRow(Editor& editor, CanvasView& canvas,
+                         const std::vector<PaletteInfo>& palettes,
+                         ls::PaletteId documents, ls::PaletteId shown) {
+    const char* currentName = "";
+    for (const PaletteInfo& info : palettes) {
+        if (info.id == documents) { currentName = info.name.c_str(); }
+    }
+    const float swapWidth = 30.f;
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - swapWidth -
+                            theme::metrics().itemSpacing);
+    if (ImGui::BeginCombo("##document-palette", currentName)) {
+        for (const PaletteInfo& info : palettes) {
+            ImGui::PushID(static_cast<int>(info.id.value));
+            const std::string label = info.name + "  (" + std::to_string(info.colours) + ")";
+            if (ImGui::Selectable(label.c_str(), info.id == documents)) {
+                swapPalette(editor, canvas, info.id);
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("The palette every frame uses. Switching it recolours "
+                          "the whole animation in one step, from the drawing.");
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(palettes.size() < 2);
+    if (ImGui::Button("<>", ImVec2(swapWidth, 0.f))) {
+        swapPalette(editor, canvas, nextPalette(editor.doc, documents));
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(palettes.size() < 2
+            ? "Swap to the next palette  (Ctrl+P)\nMake a second one below."
+            : "Swap to the next palette  (Ctrl+P)");
+    }
+
+    // A frame with a palette of its own shows that one and says so, because
+    // the swatches below are about to edit it rather than the document's.
+    if (shown != documents) {
+        std::string name;
+        for (const PaletteInfo& info : palettes) {
+            if (info.id == shown) { name = info.name; }
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().accent);
+        ImGui::TextWrapped("This frame uses %s, its own. The slots below are its.",
+                           name.c_str());
+        ImGui::PopStyleColor();
+    }
+}
+
+// The rest: the list, with rename, copy and delete, and the frame's own
+// binding. Behind a header because most sessions never need it.
+void drawPaletteList(Editor& editor, CanvasView& canvas,
+                     const std::vector<PaletteInfo>& palettes,
+                     ls::PaletteId documents) {
+    ImGui::SetNextItemOpen(editor.palettesOpen, ImGuiCond_Always);
+    const bool open = ImGui::CollapsingHeader("Palettes");
+    editor.palettesOpen = open;
+    if (!open) {
+        return;
+    }
+
+    for (const PaletteInfo& info : palettes) {
+        ImGui::PushID(static_cast<int>(info.id.value));
+        const bool isDocuments = info.id == documents;
+
+        // The name, or a field to change it.
+        if (editor.renamingPalette == info.id) {
+            ImGui::SetNextItemWidth(-1.f);
+            const bool entered = ImGui::InputText(
+                "##rename", editor.paletteNameBuffer, sizeof(editor.paletteNameBuffer),
+                ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+            if (entered || ImGui::IsItemDeactivatedAfterEdit()) {
+                if (info.name != editor.paletteNameBuffer &&
+                    editor.paletteNameBuffer[0] != '\0') {
+                    editor.doc.beginAction("Rename palette");
+                    renamePalette(editor.doc, info.id, editor.paletteNameBuffer);
+                    editor.doc.endAction();
+                }
+                editor.renamingPalette = ls::PaletteId{};
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                editor.renamingPalette = ls::PaletteId{};
+            }
+        } else {
+            if (ImGui::RadioButton("##use", isDocuments) && !isDocuments) {
+                swapPalette(editor, canvas, info.id);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Use this palette for every frame");
+            }
+            ImGui::SameLine();
+            ImGui::Selectable(info.name.c_str(), false,
+                              ImGuiSelectableFlags_AllowDoubleClick,
+                              ImVec2(ImGui::GetContentRegionAvail().x - 96.f, 0.f));
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                editor.renamingPalette = info.id;
+                std::snprintf(editor.paletteNameBuffer, sizeof(editor.paletteNameBuffer),
+                              "%s", info.name.c_str());
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%zu colour(s). Double-click to rename.", info.colours);
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("copy")) {
+                editor.doc.beginAction("Copy palette");
+                const ls::PaletteId made =
+                    addPalette(editor.doc, info.name + " copy", info.id);
+                editor.doc.endAction();
+                if (made.valid()) {
+                    editor.say("Copied " + info.name + "; switch to it to edit it");
+                }
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled(palettes.size() < 2);
+            if (ImGui::SmallButton("x")) {
+                editor.doc.beginAction("Delete palette");
+                if (deletePalette(editor.doc, info.id)) {
+                    editor.doc.endAction();
+                    syncColorFromLayer(editor);
+                    canvas.invalidate();
+                    editor.say("Deleted " + info.name +
+                               "; frames that used it follow the document's");
+                } else {
+                    editor.doc.abandonAction();
+                }
+            }
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(palettes.size() < 2
+                    ? "The last palette stays."
+                    : "Delete. Frames bound to it follow the document's palette.");
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (ImGui::Button("New palette", ImVec2(-1.f, 0.f))) {
+        editor.doc.beginAction("New palette");
+        const ls::PaletteId made = addPalette(editor.doc, "palette " +
+                                              std::to_string(palettes.size() + 1),
+                                              documents);
+        editor.doc.endAction();
+        if (made.valid()) {
+            editor.say("New palette, a copy of the current one");
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("A copy of the current palette, to change some slots "
+                          "of. Every layer keeps its slots, so the copy is a "
+                          "recolour waiting to happen.");
+    }
+
+    // The frame's own binding. Per frame, because that is what makes a flash
+    // frame, and a palette per frame with the timeline is colour cycling.
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+    const ls::SpriteId sprite = editor.activeSprite();
+    const ls::PaletteId own = frameBinding(editor.doc, sprite);
+    const char* ownName = "the document's";
+    for (const PaletteInfo& info : palettes) {
+        if (info.id == own) { ownName = info.name.c_str(); }
+    }
+    ImGui::TextUnformatted("This frame");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::BeginCombo("##frame-palette", ownName)) {
+        if (ImGui::Selectable("the document's", !own.valid())) {
+            if (own.valid()) {
+                editor.doc.beginAction("Frame follows the document's palette");
+                bindFrame(editor.doc, sprite, ls::PaletteId{});
+                editor.doc.endAction();
+                syncColorFromLayer(editor);
+                canvas.invalidate();
+            }
+        }
+        for (const PaletteInfo& info : palettes) {
+            ImGui::PushID(static_cast<int>(info.id.value));
+            if (ImGui::Selectable(info.name.c_str(), info.id == own) && info.id != own) {
+                editor.doc.beginAction("Frame palette");
+                bindFrame(editor.doc, sprite, info.id);
+                editor.doc.endAction();
+                syncColorFromLayer(editor);
+                canvas.invalidate();
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("A palette for this frame alone. It sits out the "
+                          "swap above -- a flash frame -- and one per frame "
+                          "is colour cycling.");
+    }
+}
+
+} // namespace
+
 void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     PaintLayer* layer = editor.active();
-    const std::vector<PaletteEntry> entries = paletteEntries(editor.doc);
+    const std::vector<PaletteInfo> palettes = listPalettes(editor.doc);
+    const ls::PaletteId documents = documentPalette(editor.doc);
+    // The palette this frame draws with is the one the swatches edit.
+    const ls::PaletteId shown = paletteFor(editor.doc, editor.activeSprite());
+    const std::vector<PaletteEntry> entries = paletteEntries(editor.doc, shown);
 
-    if (entries.empty()) {
+    if (palettes.empty() || !shown.valid()) {
         ImGui::TextDisabled("No palette.");
         return;
     }
+
+    drawPaletteQuickRow(editor, canvas, palettes, documents, shown);
+    ImGui::Dummy(ImVec2(0.f, 4.f));
 
     const bool dithered = layer != nullptr && layerIsDithered(editor.doc, *layer);
     DitherSettings ditherNow;
@@ -415,7 +627,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             if (entered || ImGui::IsItemDeactivatedAfterEdit()) {
                 if (entry.label != editor.slotNameBuffer) {
                     editor.doc.beginAction("Name palette slot");
-                    setPaletteLabel(editor.doc, entry.role, editor.slotNameBuffer);
+                    setPaletteLabel(editor.doc, shown, entry.role, editor.slotNameBuffer);
                     editor.doc.endAction();
                 }
             }
@@ -425,7 +637,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             if (ImGui::ColorPicker4("##edit", rgba,
                                     ImGuiColorEditFlags_NoSidePreview |
                                     ImGuiColorEditFlags_DisplayHex)) {
-                setPaletteEntry(editor.doc, entry.role, toColor(rgba));
+                setPaletteEntry(editor.doc, shown, entry.role, toColor(rgba));
                 canvas.invalidate();
                 editor.say("Every layer using this slot recoloured");
             }
@@ -442,7 +654,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 ImGui::PopStyleColor();
                 if (ImGui::Button("Remove anyway")) {
                     editor.doc.beginAction("Remove palette slot");
-                    removePaletteEntry(editor.doc, entry.role);
+                    removePaletteEntry(editor.doc, shown, entry.role);
                     editor.doc.endAction();
                     editor.confirmRemoveSlot = ls::kColorRoleNone;
                     canvas.invalidate();
@@ -457,7 +669,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                     editor.confirmRemoveSlot = entry.role;
                 } else {
                     editor.doc.beginAction("Remove palette slot");
-                    removePaletteEntry(editor.doc, entry.role);
+                    removePaletteEntry(editor.doc, shown, entry.role);
                     editor.doc.endAction();
                     canvas.invalidate();
                     ImGui::CloseCurrentPopup();
@@ -500,11 +712,11 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                                current);
             ImGui::PopStyleColor();
             if (ImGui::Button("Put the slot back", ImVec2(-1.f, 0.f))) {
-                const ls::Color shown = dithered
+                const ls::Color shownColour = dithered
                     ? (editor.rampEnd == 0 ? ditherNow.from : ditherNow.to)
                     : effectiveLayerColor(editor.doc, editor.sprite, *layer);
                 editor.doc.beginAction("Restore palette slot");
-                setPaletteEntry(editor.doc, current, shown);
+                setPaletteEntry(editor.doc, shown, current, shownColour);
                 editor.doc.endAction();
                 canvas.invalidate();
                 editor.say("Slot " + std::to_string(current) +
@@ -538,8 +750,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip(".gpl from GIMP or Aseprite, or .hex from Lospec.\n"
-                          "Replaces the palette; layers drawn through slots "
-                          "recolour.");
+                          "Replaces the palette this frame uses; layers drawn "
+                          "through slots recolour.");
     }
     ImGui::SameLine();
     if (ImGui::Button("Save...", ImVec2(half, 0.f))) {
@@ -555,6 +767,9 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                            "from the drawing rather than over it.");
         ImGui::PopStyleColor();
     }
+
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    drawPaletteList(editor, canvas, palettes, documents);
 }
 
 // ------------------------------------------------------------------ shape --

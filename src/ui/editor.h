@@ -100,6 +100,13 @@ struct Editor {
     ls::ColorRole renamingSlot = ls::kColorRoleNone;
     ls::ColorRole confirmRemoveSlot = ls::kColorRoleNone;
     char  slotNameBuffer[64] = {};
+
+    // The palette section of the panel: the quick row is always there, the
+    // list of palettes opens for the rarer things -- rename, copy, delete,
+    // and giving a frame a palette of its own.
+    bool          palettesOpen = false;
+    ls::PaletteId renamingPalette;
+    char          paletteNameBuffer[64] = {};
     int   exportScale = 1;
 
     // The sheet export, and whether its window is up. Kept on the editor rather
@@ -206,6 +213,11 @@ int addEmptyFrame(Editor& editor, int index);
 // frame to them. Called after anything that can change what frames exist --
 // adding, deleting, reordering, undo, redo, opening a file.
 void resyncFrames(Editor& editor);
+
+// The swap, as one call: binds the document to `palette`, says so, and drops
+// every cached frame, because every frame without a palette of its own just
+// changed. Used by the panel's quick row and by the shortcut.
+void swapPalette(Editor& editor, CanvasView& canvas, ls::PaletteId palette);
 
 // Points the editor at a frame: clamps the index, re-adopts that frame's
 // layers, and puts the colour control on the layer that is now active.
