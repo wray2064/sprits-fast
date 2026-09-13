@@ -1052,14 +1052,41 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         PaintLayer layer;
         const std::string name = "Layer " + std::to_string(order.size() + 1);
         if (createPaintLayer(editor.doc, sprite, name, toColor(editor.color), &layer)) {
-            // Right above the active layer, in its group, like every editor.
-            if (PaintLayer* active = editor.active()) {
-                const int at = indexOfLayer(editor.doc, sprite, active->layer);
-                moveLayer(editor.doc, layer.layer, at + 1);
+            editor.doc.beginAction("Add layer");
+            if (editor.activeGroup.valid()) {
+                // The group's row is selected: the new layer goes in it, on top.
+                addToGroup(editor.doc, layer.layer, editor.activeGroup);
+            } else if (PaintLayer* active = editor.active()) {
+                // Above the active layer, but outside its group. Above and
+                // inside is where a plain "add" used to land whenever the
+                // active layer was grouped, and there was then no way to make
+                // one that was not. Into the group is a drop or a menu away.
+                const ls::GroupId group = groupOf(editor.doc, active->layer);
+                int at = indexOfLayer(editor.doc, sprite, active->layer) + 1;
+                if (group.valid()) {
+                    const std::vector<ls::LayerId> now = layerOrder(editor.doc, sprite);
+                    for (size_t i = 0; i < now.size(); ++i) {
+                        if (groupOf(editor.doc, now[i]) == group) {
+                            at = static_cast<int>(i) + 1;
+                        }
+                    }
+                }
+                moveLayer(editor.doc, layer.layer, at);
+                if (groupOf(editor.doc, layer.layer).valid()) {
+                    removeFromGroup(editor.doc, layer.layer);
+                }
             }
+            editor.doc.endAction();
             selectLayer(editor, layer.layer);
             canvas.invalidate();
         }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(editor.activeGroup.valid()
+            ? "A new layer inside the selected group"
+            : "A new layer above the active one, outside its group.\n"
+              "Select a "
+              "group's row to add inside it.");
     }
     ImGui::SameLine();
     if (ImGui::Button("Dup", ImVec2(46.f, 0.f))) {
