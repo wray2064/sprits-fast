@@ -438,7 +438,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SameLine();
     if (ImGui::Button("+ Empty")) {
-        const int at = addFrame(editor.doc, timeline.activeFrame);
+        const int at = addEmptyFrame(editor, timeline.activeFrame);
         if (at >= 0) {
             resyncFrames(editor);
             selectFrame(editor, at);
@@ -451,8 +451,6 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             const int wanted = timeline.activeFrame - 1;
             resyncFrames(editor);
             selectFrame(editor, wanted < 0 ? 0 : wanted);
-            canvas.frames().retainOnly(
-                editor.doc.engine().getDocumentInfo(editor.doc.id()).value.sprites);
         }
     }
     ImGui::EndDisabled();

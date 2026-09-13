@@ -187,6 +187,21 @@ void syncColorFromLayer(Editor& editor);
 
 bool newDocument(Editor& editor, uint32_t size);
 
+// Forgets every interaction that was about the previous document: a layer or
+// frame mid-rename, a palette slot waiting for its removal to be confirmed, a
+// selected cycle step, playback. Called when the document is replaced -- New,
+// Open -- because each of these is an index or a handle into a document that
+// no longer exists, and an Enter pressed afterwards would land it on whatever
+// now sits at that index.
+void forgetInteraction(Editor& editor);
+
+// A blank frame after `index`, with one layer in the current colour so it can
+// be drawn on at once. A sprite with no layers is a frame the pencil does
+// nothing to, silently -- the document makes its first frame with a layer for
+// the same reason, and a frame the timeline adds gets the same courtesy. One
+// history entry for the pair. Returns the new frame's index, or -1.
+int addEmptyFrame(Editor& editor, int index);
+
 // Re-reads the frame and cycle lists from the document and clamps the active
 // frame to them. Called after anything that can change what frames exist --
 // adding, deleting, reordering, undo, redo, opening a file.

@@ -84,6 +84,12 @@ public:
     // is what empty looks like.
     void markUnmodified() { modified_ = false; }
 
+    // Forgets the history, so the current state is where undo stops. For the
+    // same reason as markUnmodified: setting a document up takes real actions,
+    // and the first layer arriving as an undo entry means Ctrl+Z in a new
+    // document removes the only thing there was to draw on.
+    void clearHistory() { undoStack_.clear(); redoStack_.clear(); }
+
     // ---------------------------------------------------------------- undo --
     //
     // Every change to the document is bracketed:

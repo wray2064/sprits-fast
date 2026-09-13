@@ -53,8 +53,7 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
         return;
     }
     editor.activeLayer = 0;
-    editor.timeline.activeFrame = 0;
-    editor.timeline.playing = false;
+    forgetInteraction(editor);
     // Every id in the new document is freshly minted, so nothing cached under
     // the old ones means anything.
     canvas.frames().clear();
@@ -148,6 +147,7 @@ void performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
     switch (action) {
         case PendingAction::NewDocument:
             newDocument(editor, editor.files.pendingNewSize);
+            canvas.frames().clear();          // the old document's textures
             // Fit rather than a fixed zoom: a 128 canvas at 8x does not fit the
             // window, and starting half off-screen is a poor first impression.
             canvas.requestFit();
@@ -1123,6 +1123,138 @@ int runSelfTest() {
     // with nothing to draw on.
     check(!deleteFrame(editor.doc, 0), "the last frame stays");
 
+    // -------------------------------------------------- the seams between --
+    //
+    // Each feature above holds on its own. These are the places where two of
+    // them meet in the window's bookkeeping, and each was a way to leave an
+    // index pointing at something that had gone.
+
+    // An empty frame is one the pencil can draw on at once.
+    check(addEmptyFrame(editor, 0) == 1, "add an empty frame");
+    resyncFrames(editor);
+    selectFrame(editor, 1);
+    check(editor.active() != nullptr, "an empty frame has a layer to draw on");
+    if (editor.active() != nullptr) {
+        check(paintPixels(editor.doc, *editor.active(), {{3, 3}}),
+              "and the pencil reaches it");
+        check(layerRole(editor.doc, *editor.active()) == ls::kColorRoleNone,
+              "it starts as a plain colour");
+    }
+    check(editor.doc.undo(), "one undo removes frame and layer together");
+    resyncLayers(editor);
+    check(editor.frames.size() == 1, "the empty frame is gone");
+    check(editor.doc.undo(), "and the next undo is the drawing, not the layer");
+    resyncLayers(editor);
+    check(editor.frames.size() == 1, "still one frame");
+    check(editor.doc.redo(), "redo the drawing");
+    resyncLayers(editor);
+
+    // Playback across an undo that removes the frames being played.
+    check(duplicateFrame(editor.doc, 0) == 1, "a frame to play");
+    check(duplicateFrame(editor.doc, 1) == 2, "and another");
+    resyncFrames(editor);
+    editor.timeline.playing = true;
+    editor.timeline.startedAtMs = 0;
+    check(frameToShow(editor, static_cast<uint64_t>(kDefaultFrameMs) * 2 + 5) == 2,
+          "playing the third frame");
+    check(editor.doc.undo() && editor.doc.undo(), "undo both frames under playback");
+    resyncLayers(editor);
+    {
+        const int shown = frameToShow(editor, static_cast<uint64_t>(kDefaultFrameMs) * 2 + 5);
+        check(shown >= 0 && shown < static_cast<int>(editor.frames.size()),
+              "playback lands on a frame that exists");
+        check(editor.activeSprite() == editor.frames.front().sprite,
+              "and the tools draw into one that exists");
+    }
+    editor.timeline.playing = false;
+
+    // Deleting the frame being edited moves the editor to a frame that exists.
+    check(duplicateFrame(editor.doc, 0) == 1, "a frame to delete");
+    resyncFrames(editor);
+    selectFrame(editor, 1);
+    check(deleteFrame(editor.doc, 1), "delete the active frame");
+    resyncLayers(editor);
+    check(editor.timeline.activeFrame == 0, "the selection moves");
+    check(editor.sprite == editor.frames.front().sprite, "the sprite handle follows");
+    check(editor.activeSprite() == editor.sprite, "and both agree");
+    check(editor.active() != nullptr, "with a layer to draw on");
+
+    // Stepping between frames keeps the layer position when it can. A frame
+    // with fewer layers clamps rather than pointing past the end.
+    {
+        PaintLayer second;
+        check(createPaintLayer(editor.doc, editor.sprite, "Layer 2",
+                               ls::Color{1, 2, 3, 255}, &second),
+              "a second layer on the first frame");
+    }
+    resyncLayers(editor);
+    check(editor.layers.size() == 2, "two layers on the first frame");
+    editor.activeLayer = 1;
+    check(addEmptyFrame(editor, 0) == 1, "an empty frame with one layer");
+    resyncFrames(editor);
+    selectFrame(editor, 1);
+    check(editor.activeLayer >= 0 &&
+          editor.activeLayer < static_cast<int>(editor.layers.size()),
+          "the layer index is in range on a frame with fewer layers");
+    check(editor.active() != nullptr, "and points at a layer");
+    check(deleteFrame(editor.doc, 1), "drop that frame");
+    resyncLayers(editor);
+
+    // Loading a palette recolours the layer the colour control is showing.
+    {
+        PaintLayer* layer = editor.active();
+        check(layer != nullptr, "a layer to colour");
+        if (layer != nullptr) {
+            editor.doc.beginAction("Use slot 0");
+            check(setLayerRole(editor.doc, *layer, 0), "draw through slot 0");
+            editor.doc.endAction();
+            PaletteFile file;
+            std::string parseError;
+            check(parsePalette("123456\n", &file, &parseError), "a one-colour file");
+            int dropped = 0;
+            check(applyPaletteFile(editor.doc, editor.sprite, file, &dropped),
+                  "load it");
+            resyncLayers(editor);
+            syncColorFromLayer(editor);
+            const ls::Color shown = toColor(editor.color);
+            check(shown.r == 0x12 && shown.g == 0x34 && shown.b == 0x56,
+                  "the colour control shows what the layer now draws");
+            check(editor.doc.undo(), "undo the load");
+            resyncLayers(editor);            // `layer` is stale from here on
+            syncColorFromLayer(editor);
+            editor.doc.beginAction("Detach");
+            check(editor.active() != nullptr &&
+                  setLayerRole(editor.doc, *editor.active(), ls::kColorRoleNone),
+                  "detach");
+            editor.doc.endAction();
+        }
+    }
+
+    // Replacing the document forgets every interaction that was about the old
+    // one. Each of these is an index that would otherwise be pressed into a
+    // document it was never about.
+    editor.renaming = 0;
+    editor.timeline.renamingFrame = 0;
+    editor.renamingSlot = 2;
+    editor.confirmRemoveSlot = 2;
+    editor.timeline.selectedStep = 3;
+    editor.timeline.playing = true;
+    check(newDocument(editor, 16), "new document mid-everything");
+    check(editor.renaming == -1, "no layer rename in flight");
+    check(editor.timeline.renamingFrame == -1, "no frame rename in flight");
+    check(editor.renamingSlot == ls::kColorRoleNone, "no slot rename in flight");
+    check(editor.confirmRemoveSlot == ls::kColorRoleNone, "no removal pending");
+    check(editor.timeline.selectedStep == 0, "no step selected");
+    check(!editor.timeline.playing, "not playing");
+    check(editor.timeline.activeCycle == -1, "no cycle selected");
+    check(editor.frames.size() == 1 && editor.layers.size() == 1, "one frame, one layer");
+    check(!editor.doc.canUndo(), "nothing to undo in a new document");
+
+    // Put the first frame's drawing back for the sections that follow.
+    editor.doc.beginAction("Pencil");
+    paintPixels(editor.doc, *editor.active(), linePixels({2, 2}, {2, 9}));
+    editor.doc.endAction();
+
     // ------------------------------------------------------------ cycles --
     //
     // The window's half of the cycle editor: that selecting one changes what
@@ -1407,6 +1539,16 @@ int main(int argc, char** argv) {
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
         canvas.frames().beginFrame();
+        // Frames come and go through several doors -- the strip's delete, an
+        // undo of a duplicate, a redo of a delete -- and each would have to
+        // remember to drop the texture. Checked here instead: more textures
+        // than frames means some belong to sprites that no longer exist.
+        if (canvas.frames().heldTextures() > editor.frames.size()) {
+            auto info = editor.doc.engine().getDocumentInfo(editor.doc.id());
+            if (info.ok()) {
+                canvas.frames().retainOnly(info.value.sprites);
+            }
+        }
 
         drawMenuBar(editor, canvas, window);
         handleShortcuts(editor, canvas, window);

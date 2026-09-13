@@ -74,6 +74,25 @@ void resyncLayers(Editor& editor) {
     }
 }
 
+int addEmptyFrame(Editor& editor, int index) {
+    editor.doc.beginAction("Empty frame");
+    const int at = addFrame(editor.doc, index);
+    if (at < 0) {
+        editor.doc.abandonAction();
+        return -1;
+    }
+    const std::vector<Frame> frames = readFrames(editor.doc);
+    PaintLayer layer;
+    if (at >= static_cast<int>(frames.size()) ||
+        !createPaintLayer(editor.doc, frames[static_cast<size_t>(at)].sprite,
+                          "Layer 1", toColor(editor.color), &layer)) {
+        editor.doc.abandonAction();
+        return -1;
+    }
+    editor.doc.endAction();
+    return at;
+}
+
 void selectFrame(Editor& editor, int index) {
     if (editor.frames.empty()) {
         return;
@@ -154,12 +173,27 @@ void syncColorFromLayer(Editor& editor) {
     fromColor(colour, editor.color);
 }
 
+void forgetInteraction(Editor& editor) {
+    editor.renaming = -1;
+    editor.renamingSlot = ls::kColorRoleNone;
+    editor.confirmRemoveSlot = ls::kColorRoleNone;
+    editor.timeline.renamingFrame = -1;
+    editor.timeline.selectedStep = 0;
+    editor.timeline.playing = false;
+    editor.timeline.activeCycle = -1;
+    editor.timeline.activeFrame = 0;
+    // A shape or stroke cannot be in progress here: every path that replaces
+    // the document stands aside while busy(). The tool itself is kept, as is
+    // the colour -- those are the person's, not the document's.
+}
+
 bool newDocument(Editor& editor, uint32_t size) {
     if (!editor.doc.create("untitled", size, size)) {
         return false;
     }
     editor.layers.clear();
     editor.activeLayer = 0;
+    forgetInteraction(editor);
     // The document already has its first sprite -- Document::create makes one,
     // because a document with no sprite has nothing to draw on. Making another
     // here would open every new file on frame two of two.
@@ -179,14 +213,14 @@ bool newDocument(Editor& editor, uint32_t size) {
         return false;
     }
     editor.layers.push_back(layer);
-    editor.timeline.activeFrame = 0;
-    editor.timeline.playing = false;
     resyncFrames(editor);
     editor.doc.setUiState({});
 
     // Setting up a document is not editing it. Without this a brand-new file is
-    // born dirty, and every File > New asks whether to save nothing.
+    // born dirty, and every File > New asks whether to save nothing -- and the
+    // first layer is an undo entry, so Ctrl+Z removes the only layer.
     editor.doc.markUnmodified();
+    editor.doc.clearHistory();
     editor.say("New " + std::to_string(size) + " x " + std::to_string(size) +
                " document");
     return true;

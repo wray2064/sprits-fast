@@ -479,6 +479,44 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
     }
 
+    // A layer naming a slot the palette no longer has. It still draws -- in
+    // the colour it showed when the slot went -- but no swatch is ringed, and
+    // without this line nothing says why, or offers the way back. Putting the
+    // slot back at that colour changes no pixel and re-attaches every layer
+    // that named it, on every frame.
+    if (current != ls::kColorRoleNone && layer != nullptr) {
+        bool present = false;
+        for (const PaletteEntry& entry : entries) {
+            present = present || entry.role == current;
+        }
+        if (!present) {
+            ImGui::Dummy(ImVec2(0.f, 4.f));
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+            ImGui::TextWrapped("%s names slot %u, which the palette no longer "
+                               "has, so it shows its own colour.",
+                               dithered ? (editor.rampEnd == 0 ? "The dark end"
+                                                               : "The light end")
+                                        : "This layer",
+                               current);
+            ImGui::PopStyleColor();
+            if (ImGui::Button("Put the slot back", ImVec2(-1.f, 0.f))) {
+                const ls::Color shown = dithered
+                    ? (editor.rampEnd == 0 ? ditherNow.from : ditherNow.to)
+                    : effectiveLayerColor(editor.doc, editor.sprite, *layer);
+                editor.doc.beginAction("Restore palette slot");
+                setPaletteEntry(editor.doc, current, shown);
+                editor.doc.endAction();
+                canvas.invalidate();
+                editor.say("Slot " + std::to_string(current) +
+                           " is back; everything that named it follows it again");
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("At the colour it shows now, so nothing changes "
+                                  "until you edit the slot.");
+            }
+        }
+    }
+
     ImGui::Dummy(ImVec2(0.f, 6.f));
 
     if (ImGui::Button("Add current colour", ImVec2(-1.f, 0.f))) {
