@@ -17,9 +17,9 @@ production suite.
 Early, but it is a real editor.
 
 **Drawing** — pencil, eraser, paint bucket, eyedropper, and rectangle, ellipse
-and line tools, all with keyboard shortcuts; layers with rename, delete,
-visibility and a colour swatch each; a corner preview at true size over any
-background.
+and line tools, all with keyboard shortcuts; a layer stack with blend modes,
+opacity, groups, clipping, locks, drag-to-reorder and copy-paste between
+frames; a corner preview at true size over any background.
 
 **Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
 per frame, named cycles with their own loop mode, playback, and an onion skin.
