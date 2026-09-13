@@ -169,6 +169,22 @@ bool setLayerRole(Document& doc, const PaintLayer& layer, ls::ColorRole role) {
         .ok();
 }
 
+bool resolvePaletteRole(Document& doc, ls::ColorRole role, ls::Color* out) {
+    if (out == nullptr || role == ls::kColorRoleNone) {
+        return false;
+    }
+    const ls::PaletteId palette = paletteOf(doc);
+    if (!palette.valid()) {
+        return false;
+    }
+    auto resolved = doc.engine().resolveSemanticColor(palette, role);
+    if (resolved.fail()) {
+        return false;
+    }
+    *out = resolved.value;
+    return true;
+}
+
 ls::Color effectiveLayerColor(Document& doc, ls::SpriteId sprite,
                               const PaintLayer& layer) {
     const ls::ColorRole role = layerRole(doc, layer);

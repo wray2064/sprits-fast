@@ -3,6 +3,8 @@
 
 #include "app/dither.h"
 
+#include "app/palette.h"
+
 namespace fast {
 namespace {
 
@@ -52,6 +54,34 @@ T param(Document& doc, ls::OperationId op, const char* name, T fallback) {
 
 int64_t enumParam(Document& doc, ls::OperationId op, const char* name, int64_t fallback) {
     return param<int64_t>(doc, op, name, fallback);
+}
+
+// Which built-in kind a layer's pattern is, read back from the resource itself.
+//
+// The engine keeps the kind's name on the tile it bakes, and nothing else: a
+// pattern is a threshold tile, and which recipe made it is not something the
+// compile needs. The interface does need it -- a combo that cannot say what is
+// there shows its default instead, and the first edit to any other control
+// writes that default back over the real one. That is what happened: every
+// density drag turned a checker into Bayer 4x4.
+bool patternKindOf(Document& doc, ls::OperationId fill, ls::DitherPatternKind* out) {
+    const auto id = param<uint64_t>(doc, fill, "pattern", 0);
+    if (id == 0) {
+        return false;
+    }
+    ls::PatternId pattern;
+    pattern.value = id;
+    auto desc = doc.engine().getPattern(pattern);
+    if (desc.fail()) {
+        return false;
+    }
+    for (ls::DitherPatternKind kind : doc.engine().ditherPatternKinds()) {
+        if (desc.value.name == doc.engine().ditherPatternName(kind)) {
+            *out = kind;
+            return true;
+        }
+    }
+    return false;                  // a tile from elsewhere; not one of ours
 }
 
 } // namespace
@@ -172,10 +202,15 @@ bool readDitherSettings(Document& doc, const PaintLayer& layer, DitherSettings* 
         enumParam(doc, layer.fill, "anchor", 0));
     settings.gradientStart = param<ls::Vec2f>(doc, layer.fill, "gradientStart", {0.f, 0.f});
     settings.gradientEnd = param<ls::Vec2f>(doc, layer.fill, "gradientEnd", {16.f, 16.f});
+    patternKindOf(doc, layer.fill, &settings.pattern);
 
     // The ramp's ends are on the ramp, not the operation, so they are read from
     // there -- as stops, not by sampling, because a sample is a resolved colour
-    // and cannot say which role produced it.
+    // and cannot say which role produced it. An end that names a slot reports
+    // the slot's colour, which is what the compile draws: a swatch showing the
+    // stop's literal would sit beside a canvas that disagrees with it after
+    // every palette change, and detaching the end would then snap the picture
+    // to a colour nobody had seen since the slot was assigned.
     const auto rampId = param<uint64_t>(doc, layer.fill, "ramp", 0);
     if (rampId != 0) {
         ls::RampId ramp;
@@ -188,6 +223,8 @@ bool readDitherSettings(Document& doc, const PaintLayer& layer, DitherSettings* 
             settings.fromRole = first.role;
             settings.to = last.color;
             settings.toRole = last.role;
+            resolvePaletteRole(doc, settings.fromRole, &settings.from);
+            resolvePaletteRole(doc, settings.toRole, &settings.to);
         }
     }
 
@@ -225,11 +262,18 @@ bool applyDitherSettings(Document& doc, const PaintLayer& layer,
     }
 
     // The pattern kind is not a parameter either: a different kind is a
-    // different resource, so it is made once and pointed at.
-    auto pattern = engine.createDitherPattern(doc.id(), settings.pattern);
-    if (pattern.ok()) {
-        ok = engine.setOperationParameter(layer.fill, "pattern",
-                 ls::ParameterValue{pattern.value.value}).ok() && ok;
+    // different resource, made once and pointed at. Only when it actually
+    // differs -- a resource made on every call would leave one behind per
+    // slider tick, and a density drag was leaving a couple of hundred of them
+    // in the file.
+    ls::DitherPatternKind current;
+    const bool known = patternKindOf(doc, layer.fill, &current);
+    if (!known || current != settings.pattern) {
+        auto pattern = engine.createDitherPattern(doc.id(), settings.pattern);
+        if (pattern.ok()) {
+            ok = engine.setOperationParameter(layer.fill, "pattern",
+                     ls::ParameterValue{pattern.value.value}).ok() && ok;
+        }
     }
     return ok;
 }

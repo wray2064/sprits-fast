@@ -283,6 +283,10 @@ void testSettingsRoundTripThroughTheLayer() {
 
     fast::DitherSettings read;
     REQUIRE(fast::readDitherSettings(canvas.doc, canvas.paint, &read));
+    // The pattern too. This was the one field the read-back left at its
+    // default, so the combo showed Bayer 4x4 for every layer and the next edit
+    // to any other control wrote Bayer 4x4 over whatever was really there.
+    CHECK(read.pattern == DitherPatternKind::CrossHatch);
     CHECK(read.modulation == DitherModulation::Radial);
     CHECK(read.anchor == PatternAnchor::Global);
     CHECK(read.density == 0.25f);
@@ -296,17 +300,36 @@ void testSettingsRoundTripThroughTheLayer() {
     CHECK(!fast::readDitherSettings(plain.doc, plain.paint, &none));
 }
 
-// Dragging a density slider must not build a new operation, or a new ramp, per
-// frame.
+// Dragging a density slider must not build a new operation, a new ramp, or a
+// new pattern per frame. The first two were always true; the pattern was being
+// remade on every call, and a hundred ticks of a slider left a hundred tiles
+// in the file.
 void testDrivingSettingsAddsNothing() {
     Canvas canvas;
     REQUIRE(canvas.build());
-    REQUIRE(fast::setLayerDithered(canvas.doc, canvas.paint, gradientSettings()));
+    fast::DitherSettings settings = gradientSettings();
+    settings.pattern = DitherPatternKind::Checker;
+    REQUIRE(fast::setLayerDithered(canvas.doc, canvas.paint, settings));
 
     const size_t operations =
         canvas.doc.engine().getLayerOperations(canvas.paint.layer).value.size();
 
-    fast::DitherSettings settings = gradientSettings();
+    // The document's size on disk is the only honest count of resources it
+    // holds, because the engine keeps patterns without listing them.
+    const auto sizeOnDisk = [&]() -> size_t {
+        std::string error;
+        const std::string path = "dither_drive_test.lsprite";
+        if (!canvas.doc.save(path, &error)) { return 0; }
+        std::FILE* file = std::fopen(path.c_str(), "rb");
+        if (file == nullptr) { return 0; }
+        std::fseek(file, 0, SEEK_END);
+        const long size = std::ftell(file);
+        std::fclose(file);
+        std::remove(path.c_str());
+        return size < 0 ? 0 : static_cast<size_t>(size);
+    };
+    const size_t before = sizeOnDisk();
+
     for (int i = 0; i < 100; ++i) {
         settings.density = static_cast<float>(i) / 100.f;
         settings.from = Color{static_cast<uint8_t>(i * 2), 40, 80, 255};
@@ -315,6 +338,16 @@ void testDrivingSettingsAddsNothing() {
 
     CHECK(canvas.doc.engine().getLayerOperations(canvas.paint.layer).value.size()
           == operations);
+    // The colour and density changed, so the file is not byte-identical; a
+    // hundred leaked tiles would be kilobytes, and this allows a few dozen
+    // bytes.
+    const size_t after = sizeOnDisk();
+    CHECK(before > 0 && after < before + 64);
+
+    // And the pattern that was set is the pattern that is there.
+    fast::DitherSettings read;
+    REQUIRE(fast::readDitherSettings(canvas.doc, canvas.paint, &read));
+    CHECK(read.pattern == DitherPatternKind::Checker);
 }
 
 // A dithered layer must still be drawable after a reload, which is why layer

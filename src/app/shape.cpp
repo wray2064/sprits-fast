@@ -3,6 +3,8 @@
 
 #include "app/shape.h"
 
+#include "app/palette.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -365,6 +367,11 @@ OutlineSettings outlineOf(Document& doc, const PaintLayer& layer) {
             settings.role = static_cast<ls::ColorRole>(*found);
         }
     }
+    // The colour reported is the one drawn: the slot's, when the outline names
+    // a slot the palette has. The literal stays on the operation as the
+    // fallback, but a panel showing it would disagree with the canvas after
+    // every palette change.
+    resolvePaletteRole(doc, settings.role, &settings.colour);
     return settings;
 }
 

@@ -204,6 +204,13 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_shape_tests PRIVATE fast_core)
     add_test(NAME fast_shape COMMAND fast_shape_tests)
 
+    # The features together. Every file above proves one thing on its own;
+    # this one builds a real document and holds it to a few promises through
+    # everything at once -- palette swaps, frame surgery, undo, round trips.
+    add_executable(fast_system_tests tests/system_tests.cpp)
+    target_link_libraries(fast_system_tests PRIVATE fast_core)
+    add_test(NAME fast_system COMMAND fast_system_tests)
+
     add_test(NAME fast_smoke COMMAND fast_smoke)
 
     # The interface, checked without anyone looking at it. SDL's dummy video

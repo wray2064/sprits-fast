@@ -71,6 +71,12 @@ bool setLayerRole(Document& doc, const PaintLayer& layer, ls::ColorRole role);
 
 // The colour a layer actually resolves to, whether that comes from a role or
 // from the layer itself. This is what the interface should show.
+// What a role means right now, if the palette defines it. False for a role
+// the palette does not have -- which is exactly when a layer naming it shows
+// its own literal instead -- so the caller can show the same thing the
+// compile does.
+bool resolvePaletteRole(Document& doc, ls::ColorRole role, ls::Color* out);
+
 ls::Color effectiveLayerColor(Document& doc, ls::SpriteId sprite,
                               const PaintLayer& layer);
 

@@ -388,7 +388,17 @@ void testAnOutlineCanFollowAPaletteSlot() {
     REQUIRE(fast::setPaletteEntry(canvas.doc, 4, Color{30, 200, 120, 255}));
     CHECK(canvas.at(7, 12).g == 200);
 
-    CHECK(fast::outlineOf(canvas.doc, shape.paint).role == 4);
+    // What the panel is told is what the canvas shows: the slot's colour, not
+    // the literal the operation fell back on before the slot was set. Detach
+    // from here and nothing visibly changes.
+    const fast::OutlineSettings shown = fast::outlineOf(canvas.doc, shape.paint);
+    CHECK(shown.role == 4);
+    CHECK(shown.colour.g == 200 && shown.colour.r == 30);
+    fast::OutlineSettings detached = shown;
+    detached.role = kColorRoleNone;
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, detached));
+    CHECK(canvas.at(7, 12).g == 200);
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).role == kColorRoleNone);
 }
 
 // A thickness a person cannot type is one the interface cannot produce, but a
