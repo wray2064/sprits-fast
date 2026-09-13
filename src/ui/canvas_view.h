@@ -55,6 +55,10 @@ public:
     bool draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
               const Underlay& underlay = nullptr);
 
+    // How many pixels across the hover outline is: the brush, so what a click
+    // would cover is what is outlined. 1 is the pixel under the pointer.
+    void setHoverSize(int size) { hoverSize_ = size < 1 ? 1 : size; }
+
     // Zoom is kept to whole numbers: a pixel-art canvas at 3.7x looks wrong,
     // and a pixel that is sometimes three and sometimes four screen pixels wide
     // is worse than one that is simply small.
@@ -113,6 +117,7 @@ public:
 private:
     SDL_Renderer* renderer_ = nullptr;
     FrameCache    frames_;
+    int           hoverSize_ = 1;
 
     // The active frame, as of the last draw. Held so drawSample and the
     // eyedropper can read it without asking for anything.

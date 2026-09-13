@@ -9,6 +9,7 @@
 // something here could be asked of the document instead, it should be.
 
 #include "app/animation.h"
+#include "app/brush.h"
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/element.h"
@@ -135,6 +136,21 @@ struct Editor {
     ls::Vec2i hovered { -1, -1 };
 
     BucketSettings   bucket;
+    BrushSettings    brush;
+    PixelPerfect     pixelPerfect;       // the stroke in progress, filtered
+
+    // A stylus, as SDL reports it beside the mouse events it also sends. The
+    // mouse path draws; this says how hard, and which end. The eraser end
+    // swaps the tool for as long as it touches, the way a real pencil does.
+    struct Pen {
+        bool  seen = false;              // one has been near the window
+        bool  down = false;
+        bool  eraser = false;
+        float pressure = 1.f;
+    } pen;
+    Tool toolBeforeEraserTip = Tool::Pencil;
+    bool eraserTipHeld = false;
+
     DitherSettings   dither;
     // Which end of a dithered layer's ramp a palette click assigns to. A
     // dithered layer has two colours where a solid one has one, so clicking a

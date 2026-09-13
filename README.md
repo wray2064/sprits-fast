@@ -78,6 +78,20 @@ switching it back costs nothing. There is no *merge down* for the same reason:
 two layers merged is two drawings pretending to be one, and the engine would
 rather keep both. Group them instead.
 
+### The brush, with a mouse or a pen
+
+The pencil has a **size** (1 to 32, `Shift+]` / `Shift+[`), **round** or
+square, and at one pixel the rule every pixel-art tool has: **pixel-perfect**,
+which drops the corner of every L in a stroke so a diagonal reads as a line
+rather than a staircase with doubled steps. The outline under the pointer is
+the brush, so what a click covers is never a guess.
+
+A pen tablet works as it is -- the stylus drives the pencil like a mouse.
+Bring one near and the panel offers **pressure sets size**: a light touch is
+one pixel, full pressure the size chosen. The pen's **eraser end erases** while
+it touches and hands the tool back after, the way a pencil does. Pressure and
+the eraser tip come from SDL's own pen events, read beside the mouse ones.
+
 ### Elements: several marks on one layer
 
 A rectangle, a line and a few pixels drawn with three tools land on **one

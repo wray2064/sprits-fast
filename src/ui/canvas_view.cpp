@@ -230,12 +230,15 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
         hovered->x = static_cast<int32_t>(std::floor(localX));
         hovered->y = static_cast<int32_t>(std::floor(localY));
 
-        // Outline the pixel under the pointer, so the tool's target is never a
-        // guess. Drawn in two passes -- dark then light -- so it stays visible
-        // over both a dark and a light sprite.
-        const ImVec2 top(origin.x + static_cast<float>(hovered->x) * zoom_,
-                         origin.y + static_cast<float>(hovered->y) * zoom_);
-        const ImVec2 bottom(top.x + zoom_, top.y + zoom_);
+        // Outline what the tool would cover, so its target is never a guess:
+        // the pixel under the pointer, or the brush around it, placed the way
+        // brushStamp places it. Drawn in two passes -- dark then light -- so
+        // it stays visible over both a dark and a light sprite.
+        const int before = (hoverSize_ - 1) / 2;
+        const ImVec2 top(origin.x + static_cast<float>(hovered->x - before) * zoom_,
+                         origin.y + static_cast<float>(hovered->y - before) * zoom_);
+        const ImVec2 bottom(top.x + zoom_ * static_cast<float>(hoverSize_),
+                            top.y + zoom_ * static_cast<float>(hoverSize_));
         draw->AddRect(ImVec2(top.x - 1.f, top.y - 1.f),
                       ImVec2(bottom.x + 1.f, bottom.y + 1.f),
                       IM_COL32(0, 0, 0, 140), 0.f, 0, 1.f);

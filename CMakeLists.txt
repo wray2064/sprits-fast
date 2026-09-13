@@ -69,6 +69,7 @@ add_library(fast_core STATIC
     src/app/palette_io.cpp
     src/app/layers.cpp
     src/app/element.cpp
+    src/app/brush.cpp
     src/app/export_png.cpp
     src/app/file_io.cpp
     src/app/paint.cpp
@@ -209,6 +210,10 @@ if (FAST_BUILD_TESTS)
     # The features together. Every file above proves one thing on its own;
     # this one builds a real document and holds it to a few promises through
     # everything at once -- palette swaps, frame surgery, undo, round trips.
+    add_executable(fast_brush_tests tests/brush_tests.cpp)
+    target_link_libraries(fast_brush_tests PRIVATE fast_core)
+    add_test(NAME fast_brush COMMAND fast_brush_tests)
+
     add_executable(fast_element_tests tests/element_tests.cpp)
     target_link_libraries(fast_element_tests PRIVATE fast_core)
     add_test(NAME fast_element COMMAND fast_element_tests)

@@ -190,6 +190,18 @@ sprits_fast --demo-stroke
    at its top. Right-click → *Remove from group*. *Expect:* out, just above.
 6. Drag it onto *Layer 2* with Ctrl held. *Expect:* a new group of the two.
 
+### 4e. The brush
+
+1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
+   a clean diagonal; no doubled corners; the last pixel lands on release.
+2. `Shift+]` to size 5, tick *Round*. *Expect:* the hover outline grows with
+   it; the stroke is a round-ended ribbon with no gaps at speed.
+3. Eraser at size 3. *Expect:* erases a 3-wide band.
+4. With a pen tablet: bring the pen near. *Expect:* *Pen pressure sets size*
+   appears. Tick it; press lightly then hard. *Expect:* thin then thick. Turn
+   the pen over. *Expect:* the eraser end erases and the tool comes back on
+   lift.
+
 ### 5. Replacing the document mid-everything
 
 1. Start renaming a layer (double-click its name). Start renaming a frame.

@@ -235,6 +235,41 @@ void drawToolPanel(Editor& editor, CanvasView& canvas) {
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 
+    if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser) {
+        theme::sectionHeader("BRUSH");
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderInt("##size", &editor.brush.size, 1, kMaxBrushSize, "size  %d");
+        ImGui::SameLine();
+        theme::hint("Shift+] and Shift+[ change it from the keyboard. Even "
+                    "sizes hang right and down from the pointer's pixel.");
+        ImGui::BeginDisabled(editor.brush.size < 3);
+        ImGui::Checkbox("Round", &editor.brush.round);
+        ImGui::EndDisabled();
+        if (editor.tool == Tool::Pencil) {
+            ImGui::SameLine();
+            ImGui::BeginDisabled(editor.brush.size != 1);
+            ImGui::Checkbox("Pixel-perfect", &editor.brush.pixelPerfect);
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            theme::hint("At one pixel: the corner of every L in the stroke is "
+                        "dropped, so a diagonal reads as a line rather than a "
+                        "staircase with doubled steps. The last pixel lands when "
+                        "the stroke ends.");
+        }
+        if (editor.pen.seen) {
+            ImGui::Checkbox("Pen pressure sets size", &editor.brush.pressureSize);
+            ImGui::SameLine();
+            theme::hint("Light touch, one pixel; full pressure, the size above. "
+                        "The pen's eraser end erases while it touches.");
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+            ImGui::TextWrapped("A pen tablet works as is; bring one near and "
+                               "pressure appears here.");
+            ImGui::PopStyleColor();
+        }
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
     if (editor.tool == Tool::Rectangle || editor.tool == Tool::Ellipse ||
         editor.tool == Tool::Line) {
         theme::sectionHeader("SHAPES");

@@ -574,23 +574,51 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         }
         editor.stroking = true;
         editor.lastPixel = pixel;
+        editor.pixelPerfect.reset();
     }
 
     if (editor.stroking && ImGui::IsMouseDown(ImGuiMouseButton_Left) && overCanvas) {
-        // Interpolate: the mouse reports once a frame, not once a pixel.
-        const std::vector<ls::Vec2i> run =
-            editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{pixel}
-                                   : linePixels(editor.lastPixel, pixel);
-        if (editor.tool == Tool::Pencil) {
-            paintPixels(editor.doc, *layer, run);
+        // Interpolate: the mouse reports once a frame, not once a pixel. The
+        // path is then laid down through the brush -- stamped at its size, or
+        // at one pixel through the pixel-perfect filter, which holds each
+        // point until the next says whether it was the corner of an L.
+        const int size = editor.pen.down ? pressuredSize(editor.brush, editor.pen.pressure)
+                                         : editor.brush.size;
+        const bool perfect = size == 1 && editor.brush.pixelPerfect &&
+                             editor.tool == Tool::Pencil;
+        std::vector<ls::Vec2i> run;
+        if (perfect) {
+            const std::vector<ls::Vec2i> path =
+                editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{pixel}
+                                       : linePixels(editor.lastPixel, pixel);
+            for (ls::Vec2i point : path) {
+                for (ls::Vec2i ready : editor.pixelPerfect.push(point)) {
+                    run.push_back(ready);
+                }
+            }
         } else {
-            erasePixels(editor.doc, *layer, run);
+            run = editor.lastPixel.x < 0
+                ? brushStamp(pixel, size, editor.brush.round)
+                : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
+        }
+        if (!run.empty()) {
+            if (editor.tool == Tool::Pencil) {
+                paintPixels(editor.doc, *layer, run);
+            } else {
+                erasePixels(editor.doc, *layer, run);
+            }
+            canvas.invalidate();
         }
         editor.lastPixel = pixel;
-        canvas.invalidate();
     }
 
     if (editor.stroking && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        // The filter's last point, held until now.
+        const std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
+        if (!rest.empty() && editor.tool == Tool::Pencil) {
+            paintPixels(editor.doc, *layer, rest);
+            canvas.invalidate();
+        }
         editor.doc.endAction();
         editor.stroking = false;
         editor.lastPixel = { -1, -1 };
@@ -620,6 +648,16 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::IsKeyPressed(ImGuiKey_L, false)) { editor.tool = Tool::Line; }
         if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
             editor.preview.visible = !editor.preview.visible;
+        }
+        // Brush size, on the brackets with Shift; Ctrl and the brackets move
+        // layers. Held, they repeat.
+        if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_RightBracket, true)) {
+            editor.brush.size = std::min(kMaxBrushSize, editor.brush.size + 1);
+            editor.say("Brush " + std::to_string(editor.brush.size));
+        }
+        if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
+            editor.brush.size = std::max(1, editor.brush.size - 1);
+            editor.say("Brush " + std::to_string(editor.brush.size));
         }
         if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
             editor.timeline.visible = !editor.timeline.visible;
@@ -791,6 +829,10 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // While playing, the canvas shows the frame the clock says rather than the
     // frame being edited. Selection does not move with it -- stopping is what
     // changes which frame the tools act on.
+    canvas.setHoverSize((editor.tool == Tool::Pencil || editor.tool == Tool::Eraser)
+                            ? (editor.pen.down ? pressuredSize(editor.brush, editor.pen.pressure)
+                                               : editor.brush.size)
+                            : 1);
     const int showing = frameToShow(editor, SDL_GetTicks());
     const ls::SpriteId onScreen =
         (showing >= 0 && showing < static_cast<int>(editor.frames.size()))
@@ -1741,6 +1783,33 @@ int main(int argc, char** argv) {
             if (event.type == SDL_EVENT_DROP_FILE && event.drop.data != nullptr) {
                 requestAction(editor, canvas, window, PendingAction::OpenPath,
                               event.drop.data);
+            }
+
+            // A stylus. SDL sends mouse events for it too, which is what
+            // draws; these carry what the mouse path cannot -- pressure, and
+            // which end is touching. The eraser end erases for as long as it
+            // is down, then hands the tool back.
+            if (event.type == SDL_EVENT_PEN_PROXIMITY_IN) {
+                editor.pen.seen = true;
+            }
+            if (event.type == SDL_EVENT_PEN_AXIS &&
+                event.paxis.axis == SDL_PEN_AXIS_PRESSURE) {
+                editor.pen.seen = true;
+                editor.pen.pressure = event.paxis.value;
+            }
+            if (event.type == SDL_EVENT_PEN_DOWN || event.type == SDL_EVENT_PEN_UP) {
+                editor.pen.seen = true;
+                editor.pen.down = event.ptouch.down;
+                editor.pen.eraser = event.ptouch.eraser;
+                if (event.ptouch.down && event.ptouch.eraser && !editor.eraserTipHeld &&
+                    (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser)) {
+                    editor.toolBeforeEraserTip = editor.tool;
+                    editor.tool = Tool::Eraser;
+                    editor.eraserTipHeld = true;
+                } else if (!event.ptouch.down && editor.eraserTipHeld) {
+                    editor.tool = editor.toolBeforeEraserTip;
+                    editor.eraserTipHeld = false;
+                }
             }
         }
 
