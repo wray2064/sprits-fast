@@ -27,6 +27,17 @@ constexpr const char* kFileExtension = ".lsprite";
 // annotating the same file cannot collide with them.
 constexpr const char* kUiStateEntry = "fast/ui-state.json";
 
+// Everything Fast keeps in the package lives under this prefix: the view
+// state, the thumbnail, the reference images. An entry outside it belongs to
+// another application and is written back untouched -- which is the whole
+// reason the engine owns the container and the applications own the entries.
+constexpr const char* kFastEntryPrefix = "fast/";
+
+// A picture of the first frame, kept in the package so a library or a recent
+// list can show what a file holds without opening it.
+constexpr const char* kThumbnailEntry = "fast/thumbnail.png";
+constexpr uint32_t    kThumbnailSize = 128;
+
 // How large a canvas Fast is willing to work with.
 //
 // This is Fast's decision, not the engine's. The engine refuses only what it
@@ -131,6 +142,19 @@ public:
     // test proves that.
     size_t foreignEntryCount() const { return foreignEntries_.size(); }
 
+    // Fast's own entries in the package, other than the view state: the
+    // thumbnail and the reference images. They are not engine state, so the
+    // engine's snapshot will not carry them -- the history entries here do,
+    // which is what makes an imported reference undo like anything else.
+    //
+    // setCompanion refuses a name outside kFastEntryPrefix rather than
+    // letting Fast overwrite another application's entry.
+    bool setCompanion(const std::string& name, const std::string& contentType,
+                      std::vector<uint8_t> data);
+    const std::vector<uint8_t>* companion(const std::string& name) const;
+    bool clearCompanion(const std::string& name);
+    std::vector<std::string> companionNames() const;
+
     // Fast's own UI state, stored in the package under kUiStateEntry. Opaque to
     // the engine; Fast decides what is in it.
     void setUiState(const std::string& json) { uiState_ = json; }
@@ -140,6 +164,11 @@ private:
     struct HistoryEntry {
         ls::DocumentSnapshot snapshot;
         std::string          label;
+        // Fast's own package entries, which the engine's snapshot knows
+        // nothing about. Without these, undoing an import would restore the
+        // artwork and leave the reference image behind -- and the list naming
+        // it would come back while the picture stayed, or the reverse.
+        std::vector<ls::PackageEntry> companions;
     };
 
     void releasePrevious(ls::DocumentId replacement);
@@ -155,6 +184,7 @@ private:
     // The action currently being recorded, if any.
     int                  actionDepth_ = 0;
     ls::DocumentSnapshot pending_;
+    std::vector<ls::PackageEntry> pendingCompanions_;
     std::string          pendingLabel_;
 
     std::vector<HistoryEntry> undoStack_;
@@ -162,6 +192,7 @@ private:
     size_t                    historyLimit_ = 200;
 
     std::vector<ls::PackageEntry> foreignEntries_;
+    std::vector<ls::PackageEntry> companions_;
     std::string                   uiState_;
 };
 

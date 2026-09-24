@@ -4,6 +4,47 @@ Vendored rather than fetched. These are files, not projects: pinning them in the
 tree means the build needs no network, the exact bytes are reviewable in a diff,
 and `fast_core` keeps building in seconds with no dependencies to resolve.
 
+## stb_image.h
+
+| | |
+|---|---|
+| Version | v2.30 |
+| Commit | `2c980bb59875b0d32144a71867fbdebb2f77cd20` |
+| SHA-256 | `594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3` |
+| Source | https://github.com/nothings/stb |
+| Licence | Public domain (Unlicense), or MIT at your option |
+
+Unmodified. The decoder, for reference images a person imports. Same commit as
+the writer beside it, so the pair moves together.
+
+### Why vendored rather than hand-written
+
+The writer above was worth arguing about because a hand-written encoder is a
+few hundred lines and the comparison was about file size. A *decoder* is not
+that argument. Reading PNG means inflate, which means a Huffman decoder walking
+attacker-controlled bit streams; reading JPEG is worse. This is the code an
+imported file gets to run, and a hand-written version would be a liability
+rather than an economy. stb's has been read by more people than anything this
+project will write.
+
+It is still untrusted input, so `app/image_io` bounds what reaches it and what
+comes back -- see the limits there.
+
+### How it is configured
+
+Compiled in `app/image_io.cpp` with:
+
+- `STBI_NO_STDIO` -- removes every entry point that takes a path. The writer's
+  path-taking functions mangle non-ASCII on Windows and the rule not to call
+  them is kept by convention; on the read side the same rule is kept by the
+  compiler, and bytes arrive through `app/file_io` like everything else.
+- `STBI_ONLY_PNG`, `_JPEG`, `_BMP`, `_GIF` -- the formats a reference is
+  plausibly in. Everything else (HDR, PIC, PNM, PSD, TGA) is left out rather
+  than carried as reachable code for a format nobody will import.
+- `STBI_MAX_DIMENSIONS` -- see `kMaxReferencePixels` in `app/image_io.h`.
+- `STBI_NO_FAILURE_STRINGS` is *not* set: the reason a file would not open is
+  worth showing the person who chose it.
+
 ## stb_image_write.h
 
 | | |

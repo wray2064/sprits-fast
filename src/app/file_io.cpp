@@ -10,10 +10,15 @@
 #  define WIN32_LEAN_AND_MEAN
 #  define NOMINMAX
 #  include <windows.h>
+#  include <shlobj.h>
 #else
+#  include <dirent.h>
 #  include <sys/stat.h>
 #  include <unistd.h>
 #endif
+
+#include <cctype>
+#include <cstdlib>
 
 namespace fast {
 namespace {
@@ -262,6 +267,166 @@ bool hasExtension(const std::string& utf8Path, const std::string& dottedExtensio
 
 std::string withExtension(const std::string& utf8Path, const std::string& dottedExtension) {
     return hasExtension(utf8Path, dottedExtension) ? utf8Path : utf8Path + dottedExtension;
+}
+
+bool directoryExists(const std::string& utf8Path) {
+    if (utf8Path.empty()) {
+        return false;
+    }
+#if defined(_WIN32)
+    const DWORD attributes = GetFileAttributesW(widen(utf8Path).c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+           (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
+    struct stat info {};
+    return stat(utf8Path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+#endif
+}
+
+std::string joinPath(const std::string& directory, const std::string& name) {
+    if (directory.empty()) {
+        return name;
+    }
+    const char last = directory.back();
+    if (last == '/' || last == '\\') {
+        return directory + name;
+    }
+#if defined(_WIN32)
+    return directory + '\\' + name;
+#else
+    return directory + '/' + name;
+#endif
+}
+
+std::string parentDirectory(const std::string& utf8Path) {
+    std::string path = utf8Path;
+    // A trailing separator is not a level of its own.
+    while (path.size() > 1 && (path.back() == '/' || path.back() == '\\')) {
+        path.pop_back();
+    }
+    const size_t cut = path.find_last_of("/\\");
+    if (cut == std::string::npos) {
+        return std::string();
+    }
+    // "C:\" and "/" are roots: keep the separator, or the result names a
+    // drive rather than its top.
+    if (cut == 0) {
+        return path.substr(0, 1);
+    }
+    if (cut == 2 && path.size() > 2 && path[1] == ':') {
+        return path.substr(0, 3);
+    }
+    return path.substr(0, cut);
+}
+
+std::vector<DirectoryEntry> listDirectory(const std::string& utf8Path) {
+    std::vector<DirectoryEntry> out;
+    if (utf8Path.empty()) {
+        return out;
+    }
+#if defined(_WIN32)
+    WIN32_FIND_DATAW found {};
+    const std::wstring pattern = widen(joinPath(utf8Path, "*"));
+    HANDLE handle = FindFirstFileW(pattern.c_str(), &found);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return out;
+    }
+    do {
+        const std::string name = narrow(found.cFileName);
+        if (name == "." || name == ".." || name.empty() || name[0] == '.') {
+            continue;
+        }
+        if ((found.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0) {
+            continue;
+        }
+        DirectoryEntry entry;
+        entry.name = name;
+        entry.path = joinPath(utf8Path, name);
+        entry.directory = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        if (!entry.directory) {
+            entry.bytes = (static_cast<uint64_t>(found.nFileSizeHigh) << 32) |
+                          found.nFileSizeLow;
+        }
+        // FILETIME counts 100ns ticks from 1601; the offset to 1970 is fixed.
+        const uint64_t ticks = (static_cast<uint64_t>(found.ftLastWriteTime.dwHighDateTime) << 32) |
+                               found.ftLastWriteTime.dwLowDateTime;
+        entry.modifiedSeconds = ticks > 116444736000000000ull
+            ? (ticks - 116444736000000000ull) / 10000000ull : 0;
+        out.push_back(std::move(entry));
+    } while (FindNextFileW(handle, &found) != 0);
+    FindClose(handle);
+#else
+    DIR* directory = opendir(utf8Path.c_str());
+    if (directory == nullptr) {
+        return out;
+    }
+    while (const struct dirent* item = readdir(directory)) {
+        const std::string name = item->d_name;
+        if (name == "." || name == ".." || name.empty() || name[0] == '.') {
+            continue;
+        }
+        DirectoryEntry entry;
+        entry.name = name;
+        entry.path = joinPath(utf8Path, name);
+        struct stat info {};
+        if (stat(entry.path.c_str(), &info) != 0) {
+            continue;                 // vanished, or not ours to look at
+        }
+        entry.directory = S_ISDIR(info.st_mode);
+        if (!entry.directory) {
+            if (!S_ISREG(info.st_mode)) {
+                continue;             // a socket or device is not a file to list
+            }
+            entry.bytes = static_cast<uint64_t>(info.st_size);
+        }
+        entry.modifiedSeconds = static_cast<uint64_t>(info.st_mtime);
+        out.push_back(std::move(entry));
+    }
+    closedir(directory);
+#endif
+
+    std::sort(out.begin(), out.end(), [](const DirectoryEntry& a, const DirectoryEntry& b) {
+        if (a.directory != b.directory) {
+            return a.directory;       // folders first
+        }
+        // Case-insensitive for ASCII, which is what a listing needs to read
+        // alphabetically; anything else falls back to byte order rather than
+        // pretending to know the user's collation.
+        const size_t shared = std::min(a.name.size(), b.name.size());
+        for (size_t i = 0; i < shared; ++i) {
+            const unsigned char left = static_cast<unsigned char>(a.name[i]);
+            const unsigned char right = static_cast<unsigned char>(b.name[i]);
+            const int lowerLeft = std::tolower(left);
+            const int lowerRight = std::tolower(right);
+            if (lowerLeft != lowerRight) {
+                return lowerLeft < lowerRight;
+            }
+        }
+        return a.name.size() < b.name.size();
+    });
+    return out;
+}
+
+std::string documentsDirectory() {
+#if defined(_WIN32)
+    PWSTR path = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &path)) &&
+        path != nullptr) {
+        const std::string out = narrow(path);
+        CoTaskMemFree(path);
+        return out;
+    }
+    return std::string();
+#else
+    if (const char* home = std::getenv("HOME")) {
+        const std::string documents = joinPath(home, "Documents");
+        if (directoryExists(documents)) {
+            return documents;
+        }
+        return home;
+    }
+    return std::string();
+#endif
 }
 
 } // namespace fast

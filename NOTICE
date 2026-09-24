@@ -18,6 +18,9 @@ was a condition of choosing them.
   Dear ImGui          MIT licence
                       https://github.com/ocornut/imgui
 
+  stb_image.h         Public domain (Unlicense), or MIT at your option
+                      https://github.com/nothings/stb
+
   stb_image_write.h   Public domain (Unlicense), or MIT at your option
                       https://github.com/nothings/stb
                       Vendored in third_party/ -- see the README there for the

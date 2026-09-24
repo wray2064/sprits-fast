@@ -35,6 +35,36 @@ bool writeFileAtomic(const std::string& utf8Path, const std::vector<uint8_t>& by
 
 bool fileExists(const std::string& utf8Path);
 bool deleteFile(const std::string& utf8Path);
+bool directoryExists(const std::string& utf8Path);
+
+// One entry of a directory listing.
+struct DirectoryEntry {
+    std::string path;            // the full UTF-8 path
+    std::string name;            // the last component
+    bool        directory = false;
+    uint64_t    bytes = 0;       // 0 for a directory
+    uint64_t    modifiedSeconds = 0;   // since the epoch, for sorting by age
+};
+
+// What is directly inside a directory, sorted: directories first, then files,
+// each by name, case-insensitively for ASCII. Never recurses -- a library
+// showing one folder is a library a person can reason about, and walking a
+// tree they pointed at by accident is how a file browser hangs.
+//
+// Hidden entries and anything the platform will not stat are skipped. A
+// directory that cannot be read is an empty list, not an error: a library
+// panel pointed at an unplugged drive should say "nothing here", not fail.
+std::vector<DirectoryEntry> listDirectory(const std::string& utf8Path);
+
+// The parent of a directory, or an empty string at the root. Accepts and
+// returns UTF-8 paths with either separator.
+std::string parentDirectory(const std::string& utf8Path);
+
+// `directory` and `name` joined with the platform's separator.
+std::string joinPath(const std::string& directory, const std::string& name);
+
+// A directory a person is likely to want a file library to start in.
+std::string documentsDirectory();
 
 // The directory this application may keep its own settings in, created if it is
 // not there. Empty if the platform will not say.

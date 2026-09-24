@@ -79,6 +79,7 @@ bool Document::create(const std::string& name, uint32_t width, uint32_t height) 
     undoStack_.clear();
     redoStack_.clear();
     foreignEntries_.clear();
+    companions_.clear();
     uiState_.clear();
     return true;
 }
@@ -122,9 +123,13 @@ bool Document::open(const std::string& path, std::string* error) {
     // Keep everything that is not ours, so saving does not destroy another
     // application's data. This is the whole reason the engine owns the container
     // and the apps own the entries.
+    companions_.clear();
+    const std::string prefix = kFastEntryPrefix;
     for (ls::PackageEntry& entry : entries) {
         if (entry.name == kUiStateEntry) {
             uiState_.assign(entry.data.begin(), entry.data.end());
+        } else if (entry.name.compare(0, prefix.size(), prefix) == 0) {
+            companions_.push_back(std::move(entry));
         } else {
             foreignEntries_.push_back(std::move(entry));
         }
@@ -134,8 +139,66 @@ bool Document::open(const std::string& path, std::string* error) {
     return true;
 }
 
+bool Document::setCompanion(const std::string& name, const std::string& contentType,
+                            std::vector<uint8_t> data) {
+    const std::string prefix = kFastEntryPrefix;
+    if (name.size() <= prefix.size() || name.compare(0, prefix.size(), prefix) != 0 ||
+        name == kUiStateEntry || name.size() > ls::kPackageMaxNameLength ||
+        data.size() > ls::kPackageMaxEntrySize) {
+        return false;
+    }
+    for (ls::PackageEntry& entry : companions_) {
+        if (entry.name == name) {
+            entry.contentType = contentType;
+            entry.data = std::move(data);
+            modified_ = true;
+            return true;
+        }
+    }
+    if (companions_.size() + foreignEntries_.size() + 2 >= ls::kPackageMaxEntries) {
+        return false;
+    }
+    ls::PackageEntry entry;
+    entry.name = name;
+    entry.contentType = contentType;
+    entry.data = std::move(data);
+    companions_.push_back(std::move(entry));
+    modified_ = true;
+    return true;
+}
+
+const std::vector<uint8_t>* Document::companion(const std::string& name) const {
+    for (const ls::PackageEntry& entry : companions_) {
+        if (entry.name == name) {
+            return &entry.data;
+        }
+    }
+    return nullptr;
+}
+
+bool Document::clearCompanion(const std::string& name) {
+    for (auto it = companions_.begin(); it != companions_.end(); ++it) {
+        if (it->name == name) {
+            companions_.erase(it);
+            modified_ = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<std::string> Document::companionNames() const {
+    std::vector<std::string> out;
+    out.reserve(companions_.size());
+    for (const ls::PackageEntry& entry : companions_) {
+        out.push_back(entry.name);
+    }
+    return out;
+}
+
 bool Document::save(const std::string& path, std::string* error) {
     std::vector<ls::PackageEntry> entries = foreignEntries_;
+    entries.insert(entries.end(), companions_.begin(), companions_.end());
 
     if (!uiState_.empty()) {
         ls::PackageEntry ui;
@@ -184,6 +247,7 @@ void Document::beginAction(const std::string& label) {
         return;
     }
     pending_ = std::move(captured.value);
+    pendingCompanions_ = companions_;
     pendingLabel_ = label;
 }
 
@@ -198,7 +262,9 @@ void Document::endAction() {
     HistoryEntry entry;
     entry.snapshot = std::move(pending_);
     entry.label = std::move(pendingLabel_);
+    entry.companions = std::move(pendingCompanions_);
     pending_ = ls::DocumentSnapshot{};
+    pendingCompanions_.clear();
     pendingLabel_.clear();
 
     pushHistory(std::move(entry));
@@ -212,8 +278,10 @@ void Document::abandonAction() {
     }
     if (pending_.valid()) {
         engine_->restoreDocumentState(id_, pending_);
+        companions_ = std::move(pendingCompanions_);
     }
     pending_ = ls::DocumentSnapshot{};
+    pendingCompanions_.clear();
     pendingLabel_.clear();
 }
 
@@ -241,7 +309,9 @@ bool Document::undo() {
     HistoryEntry forward;
     forward.snapshot = std::move(current.value);
     forward.label = entry.label;
+    forward.companions = std::move(companions_);
     redoStack_.push_back(std::move(forward));
+    companions_ = std::move(entry.companions);
 
     modified_ = true;
     return true;
@@ -268,7 +338,9 @@ bool Document::redo() {
     HistoryEntry back;
     back.snapshot = std::move(current.value);
     back.label = entry.label;
+    back.companions = std::move(companions_);
     undoStack_.push_back(std::move(back));
+    companions_ = std::move(entry.companions);
 
     modified_ = true;
     return true;
