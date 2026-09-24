@@ -78,6 +78,24 @@ switching it back costs nothing. There is no *merge down* for the same reason:
 two layers merged is two drawings pretending to be one, and the engine would
 rather keep both. Group them instead.
 
+### Autosave, and what survives a crash
+
+Every couple of minutes, while there are unsaved changes and nothing is
+mid-drag, a copy of the document goes into the settings folder. **It is never
+written over the file you are editing.** That version of this feature loses
+work rather than saving it: it destroys the last deliberate save, so "close
+without saving" stops meaning anything and a mistake made at 11:59 is on disk
+at 12:00 with no way back.
+
+The copy is deleted when the document is saved properly, and when the program
+closes normally. Which means **a copy still there at startup is proof the last
+session ended badly** -- nothing has to record a crash, and nothing has to be
+believed. Fast offers what it finds: *Open* loads it as an unsaved document,
+so you choose where it really goes; *Discard* throws it away; *Later* leaves
+it for next time. The copy carries the whole package, references included.
+
+*File > Autosave* turns it off, sets the interval, or writes one now.
+
 ### References, and two libraries
 
 **Import an image to draw from** -- a photograph, a sketch, a pose sheet --

@@ -37,6 +37,10 @@ bool fileExists(const std::string& utf8Path);
 bool deleteFile(const std::string& utf8Path);
 bool directoryExists(const std::string& utf8Path);
 
+// Creates one directory, not a path of them. True when it exists afterwards,
+// whether this call made it or it was already there.
+bool createDirectory(const std::string& utf8Path);
+
 // One entry of a directory listing.
 struct DirectoryEntry {
     std::string path;            // the full UTF-8 path

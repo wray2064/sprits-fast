@@ -226,6 +226,33 @@ sprits_fast --demo-stroke
    clicking one imports it. *Up* walks to the parent; *Reload* re-reads.
 9. Close and reopen the program. *Expect:* both folders are remembered.
 
+### 4g. Autosave and recovery
+
+Run with a short interval so this takes seconds rather than minutes:
+
+```bash
+sprits_fast --demo-stroke --autosave 15
+```
+
+1. Draw something. Wait twenty seconds. *Expect:* the status line says
+   *Recovery copy written*, and a file appears in the settings folder --
+   `%APPDATA%\SpritsFast\recovery` on Windows.
+2. **Kill the program** (Task Manager, or close the console). *Expect:* the
+   copy is still there.
+3. Start it again. *Expect:* an *Unfinished work* prompt naming the file, or
+   *untitled*. Press *Later*, quit normally, start again. *Expect:* it is
+   offered again -- "later" is not "discard".
+4. Start again and press *Open*. *Expect:* the drawing comes back, the title
+   bar shows unsaved changes, and *Save* asks where to put it rather than
+   writing into the settings folder.
+5. Draw, wait for a copy, then *Save* properly. *Expect:* the recovery file
+   disappears -- the work is where you put it and a stale copy would only
+   offer something older.
+6. Quit normally with unsaved work and choose *Don't save*. *Expect:* no
+   recovery file is left behind.
+7. Hold a slider or drag a stroke across an autosave moment. *Expect:* no
+   copy is taken mid-drag; it lands once you let go.
+
 ### 5. Replacing the document mid-everything
 
 1. Start renaming a layer (double-click its name). Start renaming a frame.
@@ -266,4 +293,5 @@ sprits_fast --frames 40 --demo-stroke --shot demo.bmp --expect-idle
 `--expect-idle` fails the run if anything was still compiling on the last
 frame, which is the cache invalidation check CI runs. `--play` starts the
 cycle playing and `--library` opens the library window, so a headless run
-draws both.
+draws both. `--autosave <seconds>` shortens the recovery interval, and every
+run prints whether autosave is armed.

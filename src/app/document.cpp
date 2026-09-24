@@ -196,6 +196,26 @@ std::vector<std::string> Document::companionNames() const {
     return out;
 }
 
+bool Document::saveCopy(const std::string& path, std::string* error) const {
+    std::vector<ls::PackageEntry> entries = foreignEntries_;
+    entries.insert(entries.end(), companions_.begin(), companions_.end());
+
+    if (!uiState_.empty()) {
+        ls::PackageEntry ui;
+        ui.name = kUiStateEntry;
+        ui.contentType = "application/json";
+        ui.data.assign(uiState_.begin(), uiState_.end());
+        entries.push_back(std::move(ui));
+    }
+
+    auto written = engine_->writePackage(id_, entries);
+    if (written.fail()) {
+        if (error) { *error = "could not build the package: " + engineError(written.error); }
+        return false;
+    }
+    return writeFileAtomic(path, written.value.bytes, error);
+}
+
 bool Document::save(const std::string& path, std::string* error) {
     std::vector<ls::PackageEntry> entries = foreignEntries_;
     entries.insert(entries.end(), companions_.begin(), companions_.end());

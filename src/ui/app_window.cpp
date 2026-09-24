@@ -134,6 +134,9 @@ bool saveTo(Editor& editor, const CanvasView& canvas, const std::string& path) {
     }
     editor.files.recent.add(target);
     editor.files.recent.save();
+    // The work is where the person put it, so the recovery copy would only
+    // ever offer something older than what they have.
+    editor.recovery.clear();
     editor.say("Saved " + fileName(target));
     return true;
 }
@@ -210,6 +213,36 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Autosave")) {
+            if (ImGui::MenuItem("On", nullptr, editor.autosaveOn,
+                                editor.recovery.active())) {
+                editor.autosaveOn = !editor.autosaveOn;
+                if (!editor.autosaveOn) {
+                    editor.recovery.clear();
+                }
+            }
+            if (!editor.recovery.active()) {
+                ImGui::TextDisabled("No settings folder to write to.");
+            }
+            ImGui::Separator();
+            for (uint32_t minutes : { 1u, 2u, 5u, 10u }) {
+                const std::string label = std::to_string(minutes) +
+                                          (minutes == 1 ? " minute" : " minutes");
+                if (ImGui::MenuItem(label.c_str(), nullptr,
+                                    editor.recovery.intervalSeconds() == minutes * 60u)) {
+                    editor.recovery.setIntervalSeconds(minutes * 60u);
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Write a copy now", nullptr, false,
+                                editor.autosaveOn && editor.doc.modified())) {
+                if (editor.recovery.writeNow(editor.doc, SDL_GetTicks() / 1000ull)) {
+                    editor.say("Recovery copy written");
+                }
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem("Library...", "Ctrl+L")) {
             editor.libraryOpen = true;
             editor.libraryStale = true;
@@ -300,6 +333,95 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
+}
+
+// What was found waiting from a session that did not end normally.
+//
+// The choice is deliberately not "recover or not". It is: open this, or throw
+// it away -- and throwing away is one click further, behind naming what is
+// being lost. Work that survived a crash has already been through enough.
+void drawRecoveryPrompt(Editor& editor, CanvasView& canvas) {
+    if (!editor.askingToRecover || editor.recovered.empty()) {
+        return;
+    }
+    if (!ImGui::IsPopupOpen("Unfinished work")) {
+        ImGui::OpenPopup("Unfinished work");
+    }
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
+                            ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("Unfinished work", nullptr,
+                                ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+
+    ImGui::TextWrapped("Sprit's'fast closed without saving last time. These "
+                       "copies were kept:");
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+
+    for (size_t i = 0; i < editor.recovered.size(); ++i) {
+        const RecoveredWork& work = editor.recovered[i];
+        ImGui::PushID(static_cast<int>(i));
+        if (ImGui::Button("Open")) {
+            // Through openPath, so the view state and everything else in the
+            // package comes back. It opens as the *copy*, which is then
+            // marked as changed -- the person saves it where they want it,
+            // and the original on disk is untouched until they do.
+            openPath(editor, canvas, work.path);
+            // It is not that file: the recovery copy is about to be deleted,
+            // and Save must ask where it really goes rather than writing back
+            // into the settings folder.
+            editor.doc.forgetPath();
+            editor.doc.markModified();
+            if (!work.originalPath.empty()) {
+                editor.say("Recovered. Save it back over " +
+                           fileName(work.originalPath) + " when you are happy with it.");
+            } else {
+                editor.say("Recovered work that had never been saved.");
+            }
+            discardRecoveredWork(work);
+            editor.recovered.erase(editor.recovered.begin() +
+                                   static_cast<ptrdiff_t>(i));
+            editor.askingToRecover = !editor.recovered.empty();
+            if (!editor.askingToRecover) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::PopID();
+            ImGui::EndPopup();
+            return;
+        }
+        ImGui::SameLine();
+        ImGui::TextUnformatted(work.name.c_str());
+        if (!work.originalPath.empty() && ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", work.originalPath.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Discard")) {
+            discardRecoveredWork(work);
+            editor.recovered.erase(editor.recovered.begin() +
+                                   static_cast<ptrdiff_t>(i));
+            editor.askingToRecover = !editor.recovered.empty();
+            if (!editor.askingToRecover) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::PopID();
+            ImGui::EndPopup();
+            return;
+        }
+        ImGui::PopID();
+    }
+
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    if (ImGui::Button("Later")) {
+        // Kept, not deleted: closing the question is not the same as saying
+        // the work is worthless, and it will be offered again next time.
+        editor.askingToRecover = false;
+        ImGui::CloseCurrentPopup();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Leave them where they are. You will be asked again "
+                          "next time.");
+    }
+    ImGui::EndPopup();
 }
 
 // The question in front of anything that would discard unsaved work. Cancel has
@@ -999,6 +1121,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     drawSheetPanel(editor, window);
     drawLibraryPanel(editor, canvas, window);
+    drawRecoveryPrompt(editor, canvas);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -1019,6 +1142,7 @@ struct Options {
     bool        showSheetPanel = false;
     bool        play = false;            // start playback, for a headless run
     bool        library = false;         // open the library window
+    uint32_t    autosaveSeconds = 0;     // override the interval, for testing
     bool        selfTest = false;
     std::string openPath;
 };
@@ -1038,6 +1162,8 @@ Options parseOptions(int argc, char** argv) {
             // The interesting path is compiling every frame and composing them,
             // and it is worth CI walking it rather than only the unit tests.
             options.sheetPath = argv[++i];
+        } else if (arg == "--autosave" && i + 1 < argc) {
+            options.autosaveSeconds = static_cast<uint32_t>(std::atoi(argv[++i]));
         } else if (arg == "--library") {
             options.library = true;
         } else if (arg == "--play") {
@@ -1973,6 +2099,18 @@ int main(int argc, char** argv) {
     // caller remembering to.
     resyncReferences(editor, canvas);
     editor.sheetPanelOpen = options.showSheetPanel;
+    // The safety net, before anything can be drawn and lost. Autosave is
+    // simply off when there is nowhere to write, rather than writing
+    // somewhere the person would not think to look.
+    if (!editor.recovery.begin()) {
+        editor.autosaveOn = false;
+    }
+    if (options.autosaveSeconds > 0) {
+        editor.recovery.setIntervalSeconds(options.autosaveSeconds);
+    }
+    editor.recovered = findRecoveredWork();
+    editor.askingToRecover = !editor.recovered.empty();
+
     if (options.library) {
         editor.libraryOpen = true;
         editor.libraryStale = true;
@@ -2061,6 +2199,16 @@ int main(int argc, char** argv) {
             editor.lastTitle = title;
         }
 
+        // Autosave. Once a frame is far more often than it writes: the
+        // session decides, and it refuses while a drag is open so a copy is
+        // never taken of a half-committed stroke.
+        if (editor.autosaveOn) {
+            const uint64_t seconds = SDL_GetTicks() / 1000ull;
+            if (editor.recovery.tick(editor.doc, seconds, editor.busy())) {
+                editor.say("Recovery copy written");
+            }
+        }
+
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
@@ -2118,6 +2266,13 @@ int main(int argc, char** argv) {
                         canvas.frames().heldTextures(),
                         canvas.frames().compilesThisFrame(),
                         canvas.frames().lastCompileMs());
+            // Whether the safety net is actually armed. A person cannot see
+            // autosave working, and neither can CI, so it says so.
+            std::printf("autosave: %s, every %us, copy %s\n",
+                        editor.autosaveOn ? (editor.recovery.active() ? "on" : "no folder")
+                                          : "off",
+                        editor.recovery.intervalSeconds(),
+                        editor.recovery.haveCopy() ? "written" : "not yet due");
             if (options.expectIdle && canvas.frames().compilesThisFrame() != 0) {
                 std::printf("FAIL a settled editor compiled %d time(s); every "
                             "frame on screen should already have a texture\n",
@@ -2127,6 +2282,11 @@ int main(int argc, char** argv) {
             running = false;
         }
     }
+
+    // Closing normally is the proof that nothing was lost, so the copy goes.
+    // Anything that stops the program without reaching this line -- a crash,
+    // a kill, the power -- leaves it, which is exactly the signal wanted.
+    editor.recovery.clear();
 
     editor.files.dialog.destroy();
 

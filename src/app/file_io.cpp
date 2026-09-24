@@ -283,6 +283,18 @@ bool directoryExists(const std::string& utf8Path) {
 #endif
 }
 
+bool createDirectory(const std::string& utf8Path) {
+    if (utf8Path.empty()) {
+        return false;
+    }
+#if defined(_WIN32)
+    CreateDirectoryW(widen(utf8Path).c_str(), nullptr);
+#else
+    mkdir(utf8Path.c_str(), 0755);
+#endif
+    return directoryExists(utf8Path);
+}
+
 std::string joinPath(const std::string& directory, const std::string& name) {
     if (directory.empty()) {
         return name;

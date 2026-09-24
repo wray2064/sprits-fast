@@ -16,6 +16,7 @@
 #include "app/layers.h"
 #include "app/library.h"
 #include "app/paint.h"
+#include "app/recovery.h"
 #include "app/reference.h"
 #include "app/palette.h"
 #include "app/shape.h"
@@ -203,6 +204,14 @@ struct Editor {
     std::vector<LibraryDocument> libraryDocuments;
     std::vector<LibraryImage>    libraryImages;
     bool                     libraryStale = true;   // the folder needs re-reading
+
+    // The safety net. A copy of unsaved work, written to the settings folder
+    // every couple of minutes and deleted the moment the work is safe -- so a
+    // copy still there at startup is proof the last session ended badly.
+    RecoverySession recovery;
+    bool            autosaveOn = true;
+    std::vector<RecoveredWork> recovered;    // found at startup, waiting to be asked about
+    bool            askingToRecover = false;
 
     FileState   files;
     bool        quitRequested = false;

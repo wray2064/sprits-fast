@@ -74,6 +74,12 @@ public:
 
     bool saveInPlace(std::string* error);
 
+    // Writes the same package somewhere else without the document taking any
+    // notice: its path does not change and its unsaved changes stay unsaved.
+    // What autosave needs -- a copy that is not "the file" -- and what a
+    // "save a copy" command would want too.
+    bool saveCopy(const std::string& path, std::string* error) const;
+
     // ------------------------------------------------------------- access --
 
     ls::LSContext&   engine()      { return *engine_; }
@@ -94,6 +100,16 @@ public:
     // whether to save a document that has never been touched. This says: this
     // is what empty looks like.
     void markUnmodified() { modified_ = false; }
+
+    // The opposite, for a document that arrived already needing a home: a
+    // recovered copy is opened from the recovery folder, and must not look
+    // like a saved file sitting there -- the person still has to say where
+    // it goes.
+    void markModified() { modified_ = true; }
+
+    // Forgets where this document came from, so Save has to ask. Used when a
+    // document was opened from somewhere it must not be written back to.
+    void forgetPath() { path_.clear(); }
 
     // Forgets the history, so the current state is where undo stops. For the
     // same reason as markUnmodified: setting a document up takes real actions,
