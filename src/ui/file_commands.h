@@ -30,7 +30,8 @@ class Document;
 // on another thread; read by the main loop.
 struct DialogResult {
     enum class Kind { None, Open, SaveAs, ExportPng, ExportSheet,
-                      ImportPalette, ExportPalette };
+                      ImportPalette, ExportPalette,
+                      ImportReference, ProjectFolder, ReferenceFolder };
 
     SDL_Mutex*  mutex = nullptr;
     Kind        kind = Kind::None;
@@ -70,6 +71,17 @@ void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showExportDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc);
+// An image to draw from, and the two folders a library watches. The folder
+// dialogs ask for a directory rather than a file, which SDL has its own call
+// for -- picking "any file in the folder" and taking its parent is the trick
+// every program that lacks one resorts to, and it asks the person to think
+// about a file they do not care about.
+void showImportReferenceDialog(FileState& state, SDL_Window* window, const Document& doc);
+void showProjectFolderDialog(FileState& state, SDL_Window* window,
+                             const std::string& startingAt);
+void showReferenceFolderDialog(FileState& state, SDL_Window* window,
+                               const std::string& startingAt);
+
 void showImportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showExportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc);
 

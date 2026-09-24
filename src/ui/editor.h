@@ -14,7 +14,9 @@
 #include "app/dither.h"
 #include "app/element.h"
 #include "app/layers.h"
+#include "app/library.h"
 #include "app/paint.h"
+#include "app/reference.h"
 #include "app/palette.h"
 #include "app/shape.h"
 #include "app/sheet.h"
@@ -187,6 +189,21 @@ struct Editor {
     ls::Vec2f  shapeAnchor;
     float      shapeCorner = 0.f;
 
+    // The references this document holds, re-read whenever they can have
+    // changed, and which one the panel is editing.
+    std::vector<Reference> references;
+    std::string            activeReference;      // an id, or empty
+    bool                   draggingReference = false;
+    ls::Vec2f              referenceGrabbed { 0.f, 0.f };
+
+    // The two library folders, and whether the window is up.
+    LibraryFolders           libraryFolders;
+    bool                     libraryOpen = false;
+    bool                     libraryShowingReferences = false;
+    std::vector<LibraryDocument> libraryDocuments;
+    std::vector<LibraryImage>    libraryImages;
+    bool                     libraryStale = true;   // the folder needs re-reading
+
     FileState   files;
     bool        quitRequested = false;
     std::string lastTitle;
@@ -257,6 +274,22 @@ int addEmptyFrame(Editor& editor, int index);
 // frame to them. Called after anything that can change what frames exist --
 // adding, deleting, reordering, undo, redo, opening a file.
 void resyncFrames(Editor& editor);
+
+// Re-reads the document's references and drops textures for any that are
+// gone. Called after an import, a removal, undo, redo and opening a file.
+void resyncReferences(Editor& editor, CanvasView& canvas);
+
+// The reference the panel is editing, or null.
+Reference* activeReference(Editor& editor);
+
+// Re-reads whichever library folder the window is showing.
+void refreshLibrary(Editor& editor);
+
+// Does something that replaces or ends the document, asking about unsaved
+// work first. Defined in app_window.cpp, declared here because the library
+// panel opens files too and must go through the same question.
+void requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
+                   PendingAction action, const std::string& path = {});
 
 // --- the stack, as the panel and the shortcuts both drive it ------------------
 //

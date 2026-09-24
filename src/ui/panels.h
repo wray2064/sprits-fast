@@ -31,6 +31,16 @@ void drawShapePanel(Editor& editor, CanvasView& canvas);
 // The layer stack, topmost first.
 void drawLayerPanel(Editor& editor, CanvasView& canvas);
 
+// The pictures being drawn from: import, place, fade, and remove.
+void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
+
+// The two folders: the sprites beside this one, and the images to draw from.
+void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
+
+// References under and over the artwork, for CanvasView's underlay hooks.
+void drawReferences(Editor& editor, CanvasView& canvas, ImDrawList* draw,
+                    ImVec2 origin, float zoom, bool behind);
+
 // The transform list: a stack that can be edited, not a history of actions.
 void drawTransformPanel(Editor& editor, CanvasView& canvas);
 

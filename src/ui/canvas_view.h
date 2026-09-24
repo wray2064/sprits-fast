@@ -14,6 +14,7 @@
 
 #include "app/document.h"
 #include "ui/frame_cache.h"
+#include "ui/reference_cache.h"
 
 #include <imgui.h>
 
@@ -26,7 +27,8 @@ namespace fast {
 class CanvasView {
 public:
     explicit CanvasView(SDL_Renderer* renderer)
-        : renderer_(renderer), frames_(renderer) {}
+        : renderer_(renderer), frames_(renderer), references_(renderer),
+          libraryThumbs_(renderer) {}
 
     CanvasView(const CanvasView&) = delete;
     CanvasView& operator=(const CanvasView&) = delete;
@@ -40,6 +42,15 @@ public:
     // preview all draw from here rather than compiling anything of their own.
     FrameCache&       frames()       { return frames_; }
     const FrameCache& frames() const { return frames_; }
+    ReferenceCache&   referenceTextures() { return references_; }
+    ReferenceCache&   libraryThumbnails() { return libraryThumbs_; }
+
+    // Where a canvas pixel lands on screen, and the reverse, for anything
+    // drawing or picking in canvas coordinates outside this class -- the
+    // reference overlay, which has to place an image in canvas pixels.
+    ImVec2 pixelToScreen(ImVec2 origin, float x, float y) const {
+        return ImVec2(origin.x + x * zoom_, origin.y + y * zoom_);
+    }
 
     // Anything drawn beneath the artwork: the onion skin is the only user.
     //
@@ -52,8 +63,12 @@ public:
     // Draws the canvas into the current ImGui window, handling zoom and pan.
     // Returns true while the pointer is over the artwork, with the pixel it is
     // over in `hovered`.
+    // `underlay` draws between the chequer and the artwork, `overlay` between
+    // the artwork and the pixel grid. References use both: one sits under the
+    // drawing to trace from, one over it to compare against.
     bool draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
-              const Underlay& underlay = nullptr);
+              const Underlay& underlay = nullptr,
+              const Underlay& overlay = nullptr);
 
     // How many pixels across the hover outline is: the brush, so what a click
     // would cover is what is outlined. 1 is the pixel under the pointer.
@@ -116,7 +131,9 @@ public:
 
 private:
     SDL_Renderer* renderer_ = nullptr;
-    FrameCache    frames_;
+    FrameCache      frames_;
+    ReferenceCache  references_;
+    ReferenceCache  libraryThumbs_;
     int           hoverSize_ = 1;
 
     // The active frame, as of the last draw. Held so drawSample and the

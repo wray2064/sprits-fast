@@ -90,7 +90,7 @@ void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
 }
 
 bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
-                      const Underlay& underlay) {
+                      const Underlay& underlay, const Underlay& overlay) {
     // One lookup, and a compile only if the engine says this frame changed.
     const FrameCache::Entry* entry = frames_.entryFor(doc, sprite);
     if (entry == nullptr || entry->texture == nullptr) {
@@ -200,6 +200,10 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     beginPixels(draw);
     draw->AddImage(reinterpret_cast<ImTextureID>(texture_), origin, corner);
     endPixels(draw);
+
+    if (overlay) {
+        overlay(draw, origin, zoom_);
+    }
 
     // The pixel grid, once the zoom is large enough for it to help rather than
     // turn the artwork into a mesh.

@@ -125,6 +125,7 @@ if (FAST_BUILD_GUI)
         src/ui/canvas_view.cpp
         src/ui/editor.cpp
         src/ui/frame_cache.cpp
+        src/ui/reference_cache.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp

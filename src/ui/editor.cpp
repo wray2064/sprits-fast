@@ -466,10 +466,52 @@ void swapPalette(Editor& editor, CanvasView& canvas, ls::PaletteId palette) {
     editor.say("Palette: " + name + " -- every frame recoloured");
 }
 
+void resyncReferences(Editor& editor, CanvasView& canvas) {
+    editor.references = readReferences(editor.doc);
+    canvas.referenceTextures().retainOnly(editor.references);
+    // An id that no longer names anything stops being the selection rather
+    // than pointing at a reference that was undone away.
+    bool stillThere = false;
+    for (const Reference& reference : editor.references) {
+        stillThere = stillThere || reference.id == editor.activeReference;
+    }
+    if (!stillThere) {
+        editor.activeReference = editor.references.empty()
+            ? std::string() : editor.references.front().id;
+    }
+}
+
+Reference* activeReference(Editor& editor) {
+    for (Reference& reference : editor.references) {
+        if (reference.id == editor.activeReference) {
+            return &reference;
+        }
+    }
+    return nullptr;
+}
+
+void refreshLibrary(Editor& editor) {
+    editor.libraryDocuments.clear();
+    editor.libraryImages.clear();
+    if (editor.libraryShowingReferences) {
+        if (!editor.libraryFolders.references.empty()) {
+            editor.libraryImages = listImages(editor.libraryFolders.references);
+        }
+    } else {
+        if (!editor.libraryFolders.project.empty()) {
+            editor.libraryDocuments = listDocuments(editor.libraryFolders.project);
+        }
+    }
+    editor.libraryStale = false;
+}
+
 void forgetInteraction(Editor& editor) {
     editor.renaming = -1;
     editor.renamingGroup = ls::GroupId{};
     editor.activeElement = ls::OperationId{};
+    editor.activeReference.clear();
+    editor.references.clear();
+    editor.draggingReference = false;
     editor.activeGroup = ls::GroupId{};
     editor.selectedLayers.clear();
     editor.collapsedGroups.clear();

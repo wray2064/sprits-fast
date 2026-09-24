@@ -123,6 +123,47 @@ static const SDL_DialogFileFilter kPaletteFilters[] = {
     { "All files",               "*" },
 };
 
+namespace {
+
+const SDL_DialogFileFilter kImageFilters[] = {
+    { "Images", "png;jpg;jpeg;bmp;gif" },
+    { "All files", "*" },
+};
+
+} // namespace
+
+void showImportReferenceDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportReference,
+                     false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    const std::string location = startingLocation(doc);
+    SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kImageFilters,
+                           static_cast<int>(SDL_arraysize(kImageFilters)),
+                           location.empty() ? nullptr : location.c_str(), false);
+}
+
+void showProjectFolderDialog(FileState& state, SDL_Window* window,
+                             const std::string& startingAt) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ProjectFolder,
+                     false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+    SDL_ShowOpenFolderDialog(onChosen, &state.dialog, window,
+                             startingAt.empty() ? nullptr : startingAt.c_str(), false);
+}
+
+void showReferenceFolderDialog(FileState& state, SDL_Window* window,
+                               const std::string& startingAt) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ReferenceFolder,
+                     false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+    SDL_ShowOpenFolderDialog(onChosen, &state.dialog, window,
+                             startingAt.empty() ? nullptr : startingAt.c_str(), false);
+}
+
 void showImportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc) {
     SDL_LockMutex(state.dialog.mutex);
     state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportPalette, false, false, {} };

@@ -78,6 +78,34 @@ switching it back costs nothing. There is no *merge down* for the same reason:
 two layers merged is two drawings pretending to be one, and the engine would
 rather keep both. Group them instead.
 
+### References, and two libraries
+
+**Import an image to draw from** -- a photograph, a sketch, a pose sheet --
+and it sits over or under the canvas at whatever opacity you want. It changes
+no pixel: no layer holds it, no operation names it, and exporting does not
+know it exists. Place it by the numbers, press *Fit*, or hold **Alt** and drag
+it on the canvas.
+
+A reference **travels inside the document**. The alternative is a link to a
+file on disk, which is a smaller file and a broken promise: move the work to
+another machine, or tidy the folder the image came from, and the reference is
+gone exactly when a half-finished drawing still needs it. Capped at 8 MB each
+and 16 MB across the document, scaled down on import, and re-encoded as PNG,
+so a photograph cannot quietly outweigh the artwork.
+
+**The library** (`Ctrl+L`) is two folders. *Sprites* is the folder your work
+lives in, listed with a picture of each file -- one click opens it, asking
+about unsaved changes the way every other route does. *References* is a folder
+of images to draw from; one click brings one into the document. A project here
+is deliberately **just a folder**: no project file, nothing to corrupt, nothing
+to keep in step with the filesystem, and one you made in Explorer already
+works. Fast remembers only which folder, in its own settings, never in the
+artwork.
+
+The pictures come from a thumbnail written into each document on save, read
+back through the package without opening the document -- so a folder of thirty
+sprites is thirty entry reads rather than thirty full loads.
+
 ### The brush, with a mouse or a pen
 
 The pencil has a **size** (1 to 32, `Shift+]` / `Shift+[`), **round** or

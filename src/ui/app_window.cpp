@@ -13,6 +13,7 @@
 #include "app/animation.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/image_io.h"
 #include "app/palette_io.h"
 #include "app/shape.h"
 #include "app/sheet.h"
@@ -54,6 +55,7 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     }
     editor.activeLayer = 0;
     forgetInteraction(editor);
+    canvas.referenceTextures().clear();
     // Every id in the new document is freshly minted, so nothing cached under
     // the old ones means anything.
     canvas.frames().clear();
@@ -94,6 +96,7 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     }
 
     ensurePalette(editor.doc, editor.sprite);
+    resyncReferences(editor, canvas);
     syncColorFromLayer(editor);
     canvas.invalidate();
     editor.files.recent.add(path);
@@ -119,6 +122,9 @@ bool saveTo(Editor& editor, const CanvasView& canvas, const std::string& path) {
     view.activeFrame = editor.timeline.activeFrame;
     view.activeCycle = editor.timeline.activeCycle;
     editor.doc.setUiState(toJson(view));
+    // A picture of the first frame, so a library listing can show what this
+    // file holds without opening it. Not worth failing a save over.
+    updateThumbnail(editor.doc);
 
     std::string error;
     const std::string target = withExtension(path, kFileExtension);
@@ -167,10 +173,14 @@ void performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
     }
 }
 
+} // namespace
+
 // Anything that would discard the document goes through here. With nothing to
-// lose it happens at once; otherwise the question is asked and the action waits.
-void requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
-                   PendingAction action, const std::string& path = {}) {
+// lose it happens at once; otherwise the question is asked and the action
+// waits. Outside this file's anonymous namespace because the library panel
+// opens documents too, and must ask the same question.
+void fast::requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
+                         PendingAction action, const std::string& path) {
     if (!editor.doc.modified()) {
         performAction(editor, canvas, window, action, path);
         return;
@@ -179,6 +189,8 @@ void requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
     editor.files.pendingPath = path;
     editor.files.askingToSave = true;
 }
+
+namespace {
 
 // ------------------------------------------------------------------- menu --
 
@@ -198,6 +210,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::EndMenu();
         }
+        if (ImGui::MenuItem("Library...", "Ctrl+L")) {
+            editor.libraryOpen = true;
+            editor.libraryStale = true;
+        }
+        if (ImGui::MenuItem("Import reference...")) {
+            showImportReferenceDialog(editor.files, window, editor.doc);
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem("Open...", "Ctrl+O")) {
             requestAction(editor, canvas, window, PendingAction::OpenDialog);
         }
@@ -254,12 +274,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem(undo.c_str(), "Ctrl+Z", false, editor.doc.canUndo())) {
             editor.doc.undo();
             resyncLayers(editor);
+            resyncReferences(editor, canvas);
             syncColorFromLayer(editor);
             canvas.invalidate();
         }
         if (ImGui::MenuItem(redo.c_str(), "Ctrl+Shift+Z", false, editor.doc.canRedo())) {
             editor.doc.redo();
             resyncLayers(editor);
+            resyncReferences(editor, canvas);
             syncColorFromLayer(editor);
             canvas.invalidate();
         }
@@ -382,11 +404,42 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         return;
     }
 
+    if (kind == DialogResult::Kind::ImportReference) {
+        Reference made;
+        std::string error;
+        if (importReference(editor.doc, path, &made, &error)) {
+            resyncReferences(editor, canvas);
+            editor.activeReference = made.id;
+            canvas.invalidate();
+            editor.say("Imported " + made.name + " -- it travels with this file");
+        } else {
+            editor.say("Could not import " + fileName(path) + ": " + error);
+        }
+        return;
+    }
+
+    if (kind == DialogResult::Kind::ProjectFolder ||
+        kind == DialogResult::Kind::ReferenceFolder) {
+        if (kind == DialogResult::Kind::ProjectFolder) {
+            editor.libraryFolders.project = path;
+            editor.libraryShowingReferences = false;
+        } else {
+            editor.libraryFolders.references = path;
+            editor.libraryShowingReferences = true;
+        }
+        editor.libraryFolders.save();
+        editor.libraryStale = true;
+        canvas.libraryThumbnails().clear();
+        editor.say("Library folder: " + path);
+        return;
+    }
+
     if (kind == DialogResult::Kind::ImportPalette) {
         int dropped = 0;
         std::string error;
         if (importPaletteFile(editor.doc, editor.sprite, path, &dropped, &error)) {
             resyncLayers(editor);
+            resyncReferences(editor, canvas);
             syncColorFromLayer(editor);
             canvas.invalidate();
             std::string said = "Loaded palette " + fileName(path);
@@ -443,7 +496,54 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
 
 // ------------------------------------------------------------------ input --
 
+// Alt held turns a drag on the canvas into moving the selected reference
+// rather than drawing. Alt because it is the one modifier no tool uses, and
+// on the canvas because a reference is placed by eye against the artwork --
+// the number fields in the panel are for when it has to be exact.
+//
+// Returns true when it took the drag, so the tools stand aside.
+bool handleReferenceDrag(Editor& editor, CanvasView& canvas, bool overCanvas,
+                         ls::Vec2i pixel) {
+    const bool alt = ImGui::GetIO().KeyAlt;
+    if (!editor.draggingReference && (!alt || !overCanvas)) {
+        return false;
+    }
+    Reference* active = activeReference(editor);
+    if (active == nullptr || active->locked || !active->visible) {
+        if (alt && overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            editor.say(active == nullptr ? "No reference to move"
+                                         : "That reference is locked");
+        }
+        return false;
+    }
+
+    const ls::Vec2f here { static_cast<float>(pixel.x), static_cast<float>(pixel.y) };
+    if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        editor.draggingReference = true;
+        editor.referenceGrabbed = { here.x - active->x, here.y - active->y };
+        editor.doc.beginAction("Move reference");
+        return true;
+    }
+    if (editor.draggingReference && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        active->x = here.x - editor.referenceGrabbed.x;
+        active->y = here.y - editor.referenceGrabbed.y;
+        updateReference(editor.doc, *active);
+        canvas.invalidate();
+        return true;
+    }
+    if (editor.draggingReference && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        editor.draggingReference = false;
+        editor.doc.endAction();
+        editor.say("Reference moved");
+        return true;
+    }
+    return editor.draggingReference;
+}
+
 void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i pixel) {
+    if (handleReferenceDrag(editor, canvas, overCanvas, pixel)) {
+        return;
+    }
     PaintLayer* layer = editor.active();
     if (layer == nullptr) {
         return;
@@ -704,12 +804,14 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         const bool moved = io.KeyShift ? editor.doc.redo() : editor.doc.undo();
         if (moved) {
             resyncLayers(editor);
+            resyncReferences(editor, canvas);
             syncColorFromLayer(editor);
             canvas.invalidate();
         }
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Y, false) && editor.doc.redo()) {
         resyncLayers(editor);
+        resyncReferences(editor, canvas);
         syncColorFromLayer(editor);
         canvas.invalidate();
     }
@@ -722,6 +824,10 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
     if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
         requestAction(editor, canvas, window, PendingAction::OpenDialog);
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_L, false)) {
+        editor.libraryOpen = !editor.libraryOpen;
+        editor.libraryStale = editor.libraryStale || editor.libraryOpen;
     }
     // The stack, from the keyboard.
     if (ImGui::IsKeyPressed(ImGuiKey_J, false)) { duplicateActiveLayer(editor, canvas); }
@@ -791,8 +897,9 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // The right column. Shape carries the outline controls, which are the most
     // numerous of the three, so it takes the larger share of what is left after
     // the layer stack.
-    const float layersShare = 0.36f;
-    const float shapeShare  = 0.36f;
+    const float layersShare = 0.30f;
+    const float shapeShare  = 0.32f;
+    const float transformShare = 0.18f;
     ImGui::SetNextWindowPos({rightX, top});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * layersShare});
     ImGui::Begin("Layers", nullptr, kPanel);
@@ -806,10 +913,20 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::End();
 
     ImGui::SetNextWindowPos({rightX, top + bodyHeight * (layersShare + shapeShare)});
-    ImGui::SetNextWindowSize({m.sidebarWidth,
-                              bodyHeight * (1.f - layersShare - shapeShare)});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * transformShare});
     ImGui::Begin("Transform", nullptr, kPanel);
     drawTransformPanel(editor, canvas);
+    ImGui::End();
+
+    // References sit with the other things the document is made of rather
+    // than with the tools: an imported picture is content, even though it is
+    // content for the person rather than for the sprite.
+    ImGui::SetNextWindowPos({rightX,
+                             top + bodyHeight * (layersShare + shapeShare + transformShare)});
+    ImGui::SetNextWindowSize({m.sidebarWidth,
+                              bodyHeight * (1.f - layersShare - shapeShare - transformShare)});
+    ImGui::Begin("References", nullptr, kPanel);
+    drawReferencePanel(editor, canvas, window);
     ImGui::End();
 
     const float canvasX = left + toolbarWidth + m.sidebarWidth;
@@ -841,7 +958,11 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const bool overCanvas = canvas.draw(
         editor.doc, onScreen, &hovered,
         [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
+            drawReferences(editor, canvas, draw, origin, zoom, true);
             drawOnionSkin(editor, canvas, draw, origin, zoom);
+        },
+        [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
+            drawReferences(editor, canvas, draw, origin, zoom, false);
         });
     editor.hovered = hovered;
 
@@ -877,6 +998,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::PopStyleColor();
 
     drawSheetPanel(editor, window);
+    drawLibraryPanel(editor, canvas, window);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -896,6 +1018,7 @@ struct Options {
     std::string sheetPath;
     bool        showSheetPanel = false;
     bool        play = false;            // start playback, for a headless run
+    bool        library = false;         // open the library window
     bool        selfTest = false;
     std::string openPath;
 };
@@ -915,6 +1038,8 @@ Options parseOptions(int argc, char** argv) {
             // The interesting path is compiling every frame and composing them,
             // and it is worth CI walking it rather than only the unit tests.
             options.sheetPath = argv[++i];
+        } else if (arg == "--library") {
+            options.library = true;
         } else if (arg == "--play") {
             options.play = true;
         } else if (arg == "--show-sheet-panel") {
@@ -1086,6 +1211,33 @@ void drawDemoContent(Editor& editor) {
             setLayerBlend(editor.doc, order.back(), ls::BlendMode::Screen);
             setLayerOpacity(editor.doc, order.back(), 0.8f);
             groupLayers(editor.doc, { order[0], order[1] }, "figure");
+        }
+    }
+
+    // A reference to draw from. Generated rather than read from disk so the
+    // demo needs no files beside it, but it goes in through exactly the call
+    // an imported photograph does.
+    {
+        ls::RasterBuffer picture = ls::makeRaster(24, 24);
+        for (uint32_t y = 0; y < picture.height; ++y) {
+            for (uint32_t x = 0; x < picture.width; ++x) {
+                uint8_t* pixel = picture.row(y) + static_cast<size_t>(x) * 4u;
+                const bool ring = (x + y) % 7 < 2;
+                pixel[0] = static_cast<uint8_t>(90 + x * 6);
+                pixel[1] = static_cast<uint8_t>(70 + y * 5);
+                pixel[2] = 160;
+                pixel[3] = ring ? 200 : 60;
+            }
+        }
+        std::vector<uint8_t> png;
+        std::string error;
+        Reference made;
+        if (encodeImageAsPng(picture, &png, &error) &&
+            addReference(editor.doc, "study.png", png, &made, &error)) {
+            made.opacity = 0.4f;
+            made.behind = true;
+            updateReference(editor.doc, made);
+            editor.activeReference = made.id;
         }
     }
 
@@ -1485,6 +1637,73 @@ int runSelfTest() {
         editor.clipboard = ls::LayerId{};
     }
 
+    // References: imported, placed, undone, and gone when the document is.
+    {
+        CanvasView view(nullptr);
+        ls::RasterBuffer picture = ls::makeRaster(10, 6);
+        for (uint32_t y = 0; y < picture.height; ++y) {
+            for (uint32_t x = 0; x < picture.width; ++x) {
+                uint8_t* pixel = picture.row(y) + static_cast<size_t>(x) * 4u;
+                pixel[0] = 200; pixel[3] = 255;
+            }
+        }
+        std::vector<uint8_t> png;
+        std::string pngError;
+        check(encodeImageAsPng(picture, &png, &pngError), "encode a reference");
+
+        Reference made;
+        std::string error;
+        check(addReference(editor.doc, "study.png", png, &made, &error),
+              "import a reference");
+        resyncReferences(editor, view);
+        check(editor.references.size() == 1, "the panel sees it");
+        check(editor.activeReference == made.id, "and it is selected");
+
+        // Placed by the panel's own call, and read back.
+        Reference* active = activeReference(editor);
+        check(active != nullptr, "the selected reference resolves");
+        if (active != nullptr) {
+            Reference moved = *active;
+            moved.x = 2.f;
+            moved.opacity = 0.3f;
+            editor.doc.beginAction("Place reference");
+            check(updateReference(editor.doc, moved), "move it");
+            editor.doc.endAction();
+            resyncReferences(editor, view);
+            check(activeReference(editor) != nullptr &&
+                  activeReference(editor)->x == 2.f, "the move stuck");
+        }
+
+        // It changes no pixel of the artwork: the canvas draws it, the
+        // compile does not know it exists.
+        const ls::SpriteId sprite = editor.activeSprite();
+        auto before = editor.doc.engine().compileSprite(sprite, ls::CompileProfile{});
+        check(before.ok(), "the sprite still compiles with a reference in the file");
+
+        check(editor.doc.undo(), "undo the move");
+        resyncReferences(editor, view);
+        check(editor.references.size() == 1, "still one reference");
+        check(editor.doc.undo(), "undo the import");
+        resyncReferences(editor, view);
+        check(editor.references.empty(), "the reference went with it");
+        check(editor.activeReference.empty(), "and nothing is selected");
+        check(editor.doc.redo(), "redo the import");
+        resyncReferences(editor, view);
+        check(editor.references.size() == 1, "it came back");
+
+        // A file that is not an image is refused, and stores nothing.
+        Reference bad;
+        error.clear();
+        check(!addReference(editor.doc, "notes.txt", { 'n', 'o' }, &bad, &error),
+              "a non-image is refused");
+        check(!error.empty(), "and says why");
+        check(editor.references.size() == 1, "nothing was stored");
+
+        check(removeReference(editor.doc, editor.references[0]), "remove it");
+        resyncReferences(editor, view);
+        check(editor.references.empty(), "gone");
+    }
+
     // Replacing the document forgets every interaction that was about the old
     // one. Each of these is an index that would otherwise be pressed into a
     // document it was never about.
@@ -1498,6 +1717,8 @@ int runSelfTest() {
     check(newDocument(editor, 16), "new document mid-everything");
     check(!editor.renamingPalette.valid(), "no palette rename in flight");
     check(!editor.activeGroup.valid() && !editor.clipboard.valid(), "no group or clipboard");
+    check(editor.references.empty() && editor.activeReference.empty(),
+          "the new document has no references");
     check(editor.selectedLayers.size() == 1, "the new document's one layer is selected");
     check(listPalettes(editor.doc).size() == 1, "a new document has one palette");
     check(editor.renaming == -1, "no layer rename in flight");
@@ -1747,7 +1968,21 @@ int main(int argc, char** argv) {
         drawDemoContent(editor);
         canvas.invalidate();
     }
+    // Whatever built the document -- new, opened, or the demo -- the panel
+    // and the canvas read the references from it here rather than each
+    // caller remembering to.
+    resyncReferences(editor, canvas);
     editor.sheetPanelOpen = options.showSheetPanel;
+    if (options.library) {
+        editor.libraryOpen = true;
+        editor.libraryStale = true;
+    }
+    editor.libraryFolders.load();
+    // Nothing chosen yet: the folder this document is in is the obvious
+    // project, and costs the person no decision.
+    if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
+        editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
     if (options.play) {
         editor.timeline.playing = true;
         editor.timeline.startedAtMs = SDL_GetTicks();

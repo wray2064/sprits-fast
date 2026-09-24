@@ -202,6 +202,30 @@ sprits_fast --demo-stroke
    the pen over. *Expect:* the eraser end erases and the tool comes back on
    lift.
 
+### 4f. References and the libraries
+
+1. The demo starts with a reference called *study* behind the artwork at 0.4.
+   *Expect:* it shows through the chequer; the sprite is unaffected.
+2. Drag the *opacity* slider. *Expect:* one `Ctrl+Z` undoes the whole drag.
+   Tick *behind* off. *Expect:* it draws over the artwork, and that is its own
+   single undo step.
+3. Hold **Alt** and drag on the canvas. *Expect:* the reference moves, one
+   undo step for the drag. Tick *lock*, try again. *Expect:* it does not move
+   and the status line says why.
+4. *Import image...* and pick a photograph. *Expect:* it lands centred and
+   fitted. Pick something that is not an image. *Expect:* a refusal naming the
+   reason, and nothing added.
+5. Save, close, reopen. *Expect:* both references come back with their
+   placement, opacity and order.
+6. `Ctrl+Z` back past the import. *Expect:* the reference goes, image and all
+   -- not just its entry in the list.
+7. `Ctrl+L`. On *Sprites*, choose the folder your work is in. *Expect:* a tile
+   per sprite with its picture; the open one is ringed; clicking another opens
+   it and asks about unsaved changes first.
+8. On *References*, choose a folder of images. *Expect:* a tile per image;
+   clicking one imports it. *Up* walks to the parent; *Reload* re-reads.
+9. Close and reopen the program. *Expect:* both folders are remembered.
+
 ### 5. Replacing the document mid-everything
 
 1. Start renaming a layer (double-click its name). Start renaming a frame.
@@ -240,4 +264,6 @@ sprits_fast --frames 40 --demo-stroke --shot demo.bmp --expect-idle
 ```
 
 `--expect-idle` fails the run if anything was still compiling on the last
-frame, which is the cache invalidation check CI runs.
+frame, which is the cache invalidation check CI runs. `--play` starts the
+cycle playing and `--library` opens the library window, so a headless run
+draws both.
