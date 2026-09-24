@@ -17,22 +17,33 @@ production suite.
 Early, but it is a real editor.
 
 **Drawing** — pencil, eraser, paint bucket, eyedropper, and rectangle, ellipse
-and line tools, all with keyboard shortcuts; a layer stack with blend modes,
-opacity, groups, clipping, locks, drag-to-reorder and copy-paste between
-frames; a corner preview at true size over any background.
+and line tools, all with keyboard shortcuts; a brush with a size, a round or
+square shape, and the pixel-perfect rule that keeps a diagonal a line; pen
+tablets, with pressure driving the size and the eraser end erasing.
+
+**Layers** — blend modes, opacity, groups that composite as one, clipping,
+locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row.
+One layer can hold several elements: its pixels plus any shapes drawn onto it.
 
 **Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
 per frame, named cycles with their own loop mode, playback, and an onion skin.
 
 **What makes it different** — shapes that stay editable after they are drawn,
 outlines that follow the artwork and can trace a whole figure across layers,
-non-destructive transforms, dithered fills with pattern anchoring, and a palette
-whose entries recolour every layer that uses them.
+non-destructive transforms, dithered fills with pattern anchoring, and palettes
+whose slots recolour every layer that uses them — several per document, with a
+one-key swap and a per-frame binding that gives colour cycling for nothing.
 
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
-saves, a prompt before anything discards unsaved work, PNG export at whole-number
-scales, sprite sheets with a description beside them, and files that open from
-the command line.
+saves, a prompt before anything discards unsaved work, autosave to a copy that
+is never the file you are editing, PNG export at whole-number scales, sprite
+sheets with a description beside them, and files that open from the command
+line.
+
+**Working from something** — import reference images that travel inside the
+document, placed over or under the canvas at any opacity; and a library of two
+folders, the sprites beside this one and the images you draw from, each a click
+away.
 
 ```bash
 build-gui/sprits_fast hero.lsprite
@@ -361,6 +372,15 @@ break into dashes at arbitrary angles — the solid body turns crisply, thin
 features do not. That is a property of resolving coverage without
 anti-aliasing, which is the right trade for pixel art, but it is worth seeing
 before you rely on it.
+
+## Where to start reading
+
+[docs/handoff.md](docs/handoff.md) is the orientation: what is built against
+the engine's specification, what every file is for, what is still open, and the
+traps that have already cost time. [docs/architecture.md](docs/architecture.md)
+is the reasoning behind the decisions, and [docs/testing.md](docs/testing.md)
+is how this is checked, including the parts only a person at the window can
+judge.
 
 ## Build
 

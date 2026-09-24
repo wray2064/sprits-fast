@@ -50,6 +50,10 @@ ctest --test-dir build --output-on-failure
 
 Warnings are errors. New behaviour in `fast_core` comes with a test.
 
+Starting cold? [docs/handoff.md](docs/handoff.md) says what each part is, what
+is built against the engine's specification, and the traps that have already
+cost time.
+
 A feature that touches another one -- most do -- also gets a line in
 `tests/system_tests.cpp`, which holds one realistic document to a few promises
 through everything at once. What that file checks, and the script for what
