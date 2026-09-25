@@ -961,6 +961,18 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 changed = true;
             }
 
+            theme::sectionHeader("LOOK");
+            int look = prefs.lightTheme ? 1 : 0;
+            const char* looks[] = { "Slate (dark)", "Paper (light)" };
+            ImGui::SetNextItemWidth(200.f);
+            if (ImGui::Combo("theme", &look, looks, 2)) {
+                prefs.lightTheme = look == 1;
+                theme::setLight(prefs.lightTheme);
+                canvasDefaultsFor(prefs.lightTheme, &prefs);
+                applyViewPreferences(prefs, canvas);
+                changed = true;
+            }
+
             theme::sectionHeader("THE CANVAS");
             bool view = false;
             view |= ImGui::Checkbox("Pixel grid", &prefs.pixelGrid);
@@ -2652,6 +2664,7 @@ struct Options {
     std::string tool;                  // --tool name: the tool in hand, for a capture
     bool        tiled = false;         // --tiled: tiled mode both ways and a tile grid
     bool        isometric = false;     // --isometric: an isometric tile grid
+    bool        light = false;         // --light: the light theme, for captures
     bool        symmetry = false;      // --symmetry: both axes on
     bool        play = false;            // start playback, for a headless run
     bool        library = false;         // open the library window
@@ -2713,6 +2726,8 @@ Options parseOptions(int argc, char** argv) {
             options.select = argv[++i];
         } else if (arg == "--tool" && i + 1 < argc) {
             options.tool = argv[++i];
+        } else if (arg == "--light") {
+            options.light = true;
         } else if (arg == "--isometric") {
             options.isometric = true;
         } else if (arg == "--tiled") {
@@ -3879,6 +3894,12 @@ int main(int argc, char** argv) {
                 { values[0] + values[2] - 1, values[1] + values[3] - 1 });
         }
     }
+    if (options.light) {
+        editor.prefs.lightTheme = true;
+        theme::setLight(true);
+        canvasDefaultsFor(true, &editor.prefs);
+        applyViewPreferences(editor.prefs, canvas);
+    }
     if (options.isometric) {
         canvas.tileGrid().visible = true;
         canvas.tileGrid().isometric = true;
@@ -3929,6 +3950,9 @@ int main(int argc, char** argv) {
     } else {
         editor.autosaveOn = editor.prefs.autosaveOn;
         editor.recovery.setIntervalSeconds(editor.prefs.autosaveSeconds);
+    }
+    if (editor.prefs.lightTheme) {
+        theme::setLight(true);
     }
     applyViewPreferences(editor.prefs, canvas);
     editor.doc.setHistoryLimit(editor.prefs.historyLimit);

@@ -33,7 +33,13 @@ struct Preferences {
     int      checkerSize = 8;
     uint32_t gridColour = 0xFFFFFF;
     int      gridOpacity = 16;
+    bool     lightTheme = false;
 };
+
+// The canvas colours that suit each theme, for when the theme changes and
+// the person had not chosen their own: a chequer and grid made for slate
+// vanish on paper.
+void canvasDefaultsFor(bool lightTheme, Preferences* preferences);
 
 std::string savePreferences(const Preferences& preferences);
 Preferences loadPreferences(const std::string& text);

@@ -57,8 +57,8 @@ whole canvas -- every frame at once, one undo step each.
 *Edit > Preferences* rebinds any of them by pressing the new keys, up to four
 per command, with a warning where two commands share one and a reset per
 command or for all. The menus show whatever keys you have. The same window
-sets what a new document is, how often autosave writes, the undo depth, and
-the canvas: the pixel grid's colour and opacity, and the chequer's colours
+sets what a new document is, how often autosave writes, the undo depth, the
+theme (slate, or paper for a bright room), and the canvas: the pixel grid's colour and opacity, and the chequer's colours
 and square size. Both are plain text files in the settings folder
 (`preferences.txt`, `keys.txt`), read as untrusted -- a hand-edited file can
 make Fast odd, never broken.

@@ -77,6 +77,7 @@ std::string savePreferences(const Preferences& p) {
     out += "view.checker-size = " + std::to_string(p.checkerSize) + "\n";
     out += "view.grid-colour = " + hexColour(p.gridColour) + "\n";
     out += "view.grid-opacity = " + std::to_string(p.gridOpacity) + "\n";
+    out += "view.theme = " + std::string(p.lightTheme ? "light" : "dark") + "\n";
     return out;
 }
 
@@ -124,6 +125,8 @@ Preferences loadPreferences(const std::string& text) {
             p.gridColour = colour(value, p.gridColour);
         } else if (name == "view.grid-opacity") {
             p.gridOpacity = static_cast<int>(number(value, 0, 255, 16));
+        } else if (name == "view.theme") {
+            p.lightTheme = value == "light";
         }
     }
     // A new canvas has to be one Fast works on, whatever the two sides say.
@@ -132,6 +135,38 @@ Preferences loadPreferences(const std::string& text) {
         p.newHeight = 32;
     }
     return p;
+}
+
+void canvasDefaultsFor(bool lightTheme, Preferences* p) {
+    if (p == nullptr) {
+        return;
+    }
+    const Preferences dark;
+    const uint32_t lightChequerLight = 0xEEF0F3;
+    const uint32_t lightChequerDark = 0xD6DAE0;
+    const uint32_t lightGrid = 0x000000;
+    const int lightGridOpacity = 28;
+    // Only colours still at the other theme's defaults move: a chosen colour
+    // is the person's, whatever the theme.
+    if (lightTheme) {
+        if (p->checkerLight == dark.checkerLight && p->checkerDark == dark.checkerDark) {
+            p->checkerLight = lightChequerLight;
+            p->checkerDark = lightChequerDark;
+        }
+        if (p->gridColour == dark.gridColour && p->gridOpacity == dark.gridOpacity) {
+            p->gridColour = lightGrid;
+            p->gridOpacity = lightGridOpacity;
+        }
+    } else {
+        if (p->checkerLight == lightChequerLight && p->checkerDark == lightChequerDark) {
+            p->checkerLight = dark.checkerLight;
+            p->checkerDark = dark.checkerDark;
+        }
+        if (p->gridColour == lightGrid && p->gridOpacity == lightGridOpacity) {
+            p->gridColour = dark.gridColour;
+            p->gridOpacity = dark.gridOpacity;
+        }
+    }
 }
 
 std::string preferencesPath() {

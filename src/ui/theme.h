@@ -58,6 +58,10 @@ struct Palette {
 
 const Palette& palette();
 
+// Slate (the default) or paper. Switching re-applies the ImGui style.
+bool isLight();
+void setLight(bool light);
+
 // Spacing, in pixels, so panels line up without magic numbers scattered about.
 struct Metrics {
     float rowHeight     = 24.f;

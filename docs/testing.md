@@ -341,6 +341,9 @@ sprits_fast --demo-stroke
    chequer at 16x zoom. *Expect:* the canvas follows at once; *Canvas
    defaults* puts it back.
 6. Set undo steps to 10, draw twelve strokes. *Expect:* only ten undo.
+7. Theme: *Paper (light)*. *Expect:* the whole interface turns light at
+   once, and the chequer and grid, if still at their defaults, turn light
+   with it; a chequer colour you chose stays. Restart. *Expect:* still light.
 
 ### 4q. The system clipboard
 

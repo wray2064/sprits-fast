@@ -154,7 +154,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Guides and rulers
 - [x] Isometric grid
 - [x] Reference layer from the clipboard
-- [ ] Light theme
+- [x] Light theme
 - [ ] Localisation hooks
 
 ## Tier 3 — beyond the incumbents
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Light theme (Preferences > Look): paper and a darker amber; switching re-applies the style live, and a chequer and grid still at the old theme's defaults follow to the new one's (canvasDefaultsFor), while chosen colours stay. Saved as view.theme; --light for captures.
 - Isometric tile grid: View > Tile grid > Isometric draws 2:1 diamonds (width across, height down, with the offset); --isometric for captures.
 - The corner preview is the navigator: when the view shows only part of the canvas, that part is outlined on it, and clicking or dragging on it centres the view there (CanvasView::visibleArea, centreOn). --zoom N for headless captures.
 - Paste image (References panel) and Edit > Paste as reference: an image copied anywhere becomes a reference, stored in the package like an imported one.

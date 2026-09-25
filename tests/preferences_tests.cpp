@@ -60,6 +60,21 @@ int main() {
     CHECK(colours.gridColour == 0xabcdef);
     CHECK(colours.checkerSize == 64 && colours.gridOpacity == 0);
 
+    // The theme is kept, and a canvas left at one theme's defaults follows
+    // the theme; one the person chose stays.
+    fast::Preferences themed;
+    themed.lightTheme = true;
+    CHECK(fast::loadPreferences(fast::savePreferences(themed)).lightTheme);
+    fast::canvasDefaultsFor(true, &themed);
+    CHECK(themed.checkerLight != fast::Preferences().checkerLight && themed.gridColour == 0);
+    fast::canvasDefaultsFor(false, &themed);
+    CHECK(themed.checkerLight == fast::Preferences().checkerLight &&
+          themed.gridColour == fast::Preferences().gridColour);
+    fast::Preferences chosen;
+    chosen.checkerLight = 0x123456;
+    fast::canvasDefaultsFor(true, &chosen);
+    CHECK(chosen.checkerLight == 0x123456);
+
     const fast::Preferences huge = fast::loadPreferences("new.width = 16384\nnew.height = 16384\n");
     CHECK(huge.newWidth == 32 && huge.newHeight == 32);
 
