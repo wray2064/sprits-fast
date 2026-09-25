@@ -373,6 +373,21 @@ The same idea one control over: select a colour's row in the Element panel and
 change it, and the drawing is not repainted. The colour lives on the fill rule
 rather than in the pixels.
 
+### From the command line
+
+The exports are there without a window, for a build script:
+
+```bash
+sprits_fast --export hero.aseprite --to hero.gif --scale 4 --cycle walk
+```
+
+The output's extension says what is written: `.png` is one frame (`--frame N`),
+or with `--sheet` a sprite sheet and its manifest, `--sequence` a file per step,
+`--animated` an animated PNG; `.gif` is the animation; `.lsprite` is the
+document itself, which is how an `.aseprite`, a PNG or a GIF is converted; and
+`.gpl`, `.hex`, `.pal` or `.act` is the palette. The input is anything Open
+takes. The exit code is 0 for success, and a failure says why.
+
 ### The corner preview
 
 Working at 26x, you lose all sense of what the sprite reads like at the size it

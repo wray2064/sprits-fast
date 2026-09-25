@@ -62,6 +62,7 @@ endif()
 
 add_library(fast_core STATIC
     src/app/animation.cpp
+    src/app/batch.cpp
     src/app/bucket.cpp
     src/app/canvas_ops.cpp
     src/app/dither.cpp
@@ -192,6 +193,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_aseprite_tests tests/aseprite_tests.cpp)
     target_link_libraries(fast_aseprite_tests PRIVATE fast_core)
     add_test(NAME fast_aseprite COMMAND fast_aseprite_tests)
+
+    add_executable(fast_batch_tests tests/batch_tests.cpp)
+    target_link_libraries(fast_batch_tests PRIVATE fast_core)
+    add_test(NAME fast_batch COMMAND fast_batch_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

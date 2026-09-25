@@ -10,6 +10,7 @@
 // This is still the only part of Fast that knows what toolkit is in use.
 // Everything it does goes through fast_core, which knows nothing about windows.
 
+#include "app/batch.h"
 #include "app/import_aseprite.h"
 #include "app/palette_tools.h"
 #include "app/import_image.h"
@@ -3187,6 +3188,24 @@ int runSelfTest() {
 } // namespace
 
 int main(int argc, char** argv) {
+    // --export makes this a batch run: open, write, exit, with no window --
+    // what a build script wants. See app/batch.h for the options.
+    {
+        const std::vector<std::string> args(argv + 1, argv + argc);
+        BatchJob job;
+        std::string error;
+        if (parseBatch(args, &job, &error)) {
+            std::string message;
+            const int code = runBatch(job, &message);
+            std::printf("%s\n", message.c_str());
+            return code;
+        }
+        if (!error.empty()) {
+            std::printf("%s\n", error.c_str());
+            return 2;
+        }
+    }
+
     const Options options = parseOptions(argc, argv);
     if (options.selfTest) {
         return runSelfTest();

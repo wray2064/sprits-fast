@@ -112,7 +112,7 @@ only output. A feature that bakes pixels to get done faster is not done.
       winning users over)**
 - [ ] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
       cycle
-- [ ] Command-line batch export (`sprits_fast --export`)
+- [x] Command-line batch export (`sprits_fast --export`)
 - [x] Save a copy (`Document::saveCopy` already exists)
 
 ### Palette
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — command-line batch export: --export in --to out.png/.gif/.lsprite/palette, with --scale, --cycle, --frame, --sheet, --sequence, --animated.
 - 2026-09-25 — New document window (size, background, preset), Save a copy, Paste as new layer.
 - 2026-09-25 — gradient tool: a drag lays a dithered gradient that stays a live FillDitherOp.
 - 2026-09-25 — spray, contour, hand and zoom tools; ink modes: lock alpha, replace colour, shading along palette slots.
