@@ -524,7 +524,7 @@ bool exportAnimation(Document& doc, const std::vector<Frame>& frames, const Cycl
         }
         const int digits = rasters.size() >= 100 ? 3 : 2;
         for (size_t i = 0; i < rasters.size(); ++i) {
-            char number[16];
+            char number[32];
             std::snprintf(number, sizeof(number), "-%0*zu", digits, i + 1);
             std::vector<uint8_t> bytes;
             ExportSettings once;
