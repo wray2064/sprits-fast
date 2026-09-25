@@ -17,6 +17,7 @@
 #include "app/export_anim.h"
 #include "app/floating.h"
 #include "app/ink.h"
+#include "app/grid_snap.h"
 #include "app/keymap.h"
 #include "app/preferences.h"
 #include "app/layers.h"
@@ -148,9 +149,15 @@ struct Editor {
     bool             draggingFloat = false;
     ls::Vec2i        floatGrab { 0, 0 };        // the pixel the drag started on
     ls::Vec2i        floatGrabOffset { 0, 0 };  // where the float was then
+    ls::Vec2i        floatGrabCorner { 0, 0 };  // its top-left corner then, for snapping
     bool             selecting = false;         // a marquee or lasso mid-drag
     SelectMode       selectMode = SelectMode::Replace;
     ls::Vec2i        selectAnchor { 0, 0 };
+    ls::Vec2f        selectAnchorExact { 0.f, 0.f };   // the same, between pixels
+    // Marquees, moves and shapes land on the tile grid. The grid itself is
+    // the canvas view's; the editor holds a copy each frame for the tools.
+    bool             snapToGrid = false;
+    Grid             snapGrid;
     std::vector<ls::Vec2i> lassoPoints;
     // A polygon lasso between clicks: its corners so far. Unlike a drag it is
     // not busy -- the button is up between corners -- but the keys that close

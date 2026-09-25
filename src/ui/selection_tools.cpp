@@ -4,6 +4,7 @@
 #include "ui/selection_tools.h"
 
 #include "app/clip_image.h"
+#include "app/grid_snap.h"
 #include "app/layers.h"
 #include "ui/os_clipboard.h"
 
@@ -393,7 +394,15 @@ bool pastePixelsAsLayer(Editor& editor) {
 
 namespace {
 
-ls::IntervalSet shapeFor(const Editor& editor, ls::Vec2i to) {
+ls::IntervalSet shapeFor(const Editor& editor, ls::Vec2i to, ls::Vec2f toExact) {
+    // Snapped, a marquee covers whole cells of the grid.
+    if (editor.snapToGrid &&
+        (editor.tool == Tool::Select || editor.tool == Tool::SelectEllipse)) {
+        const ls::Rect2i box = snappedBox(editor.selectAnchorExact, toExact, editor.snapGrid);
+        const ls::Vec2i last { box.max.x - 1, box.max.y - 1 };
+        return editor.tool == Tool::Select ? rectangleMask(box.min, last)
+                                           : ellipseMask(box.min, last);
+    }
     switch (editor.tool) {
         case Tool::Select:        return rectangleMask(editor.selectAnchor, to);
         case Tool::SelectEllipse: return ellipseMask(editor.selectAnchor, to);
@@ -455,7 +464,7 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
             editor.selectPreview.clear();
             return false;
         }
-        editor.selectPreview = shapeFor(editor, pointer);
+        editor.selectPreview = shapeFor(editor, pointer, canvas.pointerExact());
         if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             closePolygon(editor);
         } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -473,8 +482,12 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
     // A float being dragged goes on being dragged, whatever the tool.
     if (editor.draggingFloat) {
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            const ls::Vec2i offset { editor.floatGrabOffset.x + pointer.x - editor.floatGrab.x,
-                                     editor.floatGrabOffset.y + pointer.y - editor.floatGrab.y };
+            ls::Vec2i delta { pointer.x - editor.floatGrab.x, pointer.y - editor.floatGrab.y };
+            if (editor.snapToGrid) {
+                delta = snappedMove(editor.floatGrabCorner, delta, editor.snapGrid);
+            }
+            const ls::Vec2i offset { editor.floatGrabOffset.x + delta.x,
+                                     editor.floatGrabOffset.y + delta.y };
             if (offset.x != editor.floating.offset.x || offset.y != editor.floating.offset.y) {
                 moveFloating(editor.doc, editor.floating, offset);
                 if (!editor.selection.empty()) {
@@ -516,6 +529,7 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
             editor.draggingFloat = true;
             editor.floatGrab = pixel;
             editor.floatGrabOffset = editor.floating.offset;
+            editor.floatGrabCorner = ls::geom::bounds(floatingMask(editor.floating)).min;
             return true;
         }
 
@@ -537,13 +551,14 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
         if (editor.tool == Tool::PolygonLasso) {
             editor.drawingPolygon = true;
             editor.lassoPoints.assign(1, pixel);
-            editor.selectPreview = shapeFor(editor, pixel);
+            editor.selectPreview = shapeFor(editor, pixel, canvas.pointerExact());
             return true;
         }
         editor.selecting = true;
         editor.selectAnchor = pixel;
+        editor.selectAnchorExact = canvas.pointerExact();
         editor.lassoPoints.assign(1, pixel);
-        editor.selectPreview = shapeFor(editor, pixel);
+        editor.selectPreview = shapeFor(editor, pixel, canvas.pointerExact());
         return true;
     }
 
@@ -554,7 +569,7 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
                 editor.lassoPoints.push_back(pointer);
             }
         }
-        editor.selectPreview = shapeFor(editor, pointer);
+        editor.selectPreview = shapeFor(editor, pointer, canvas.pointerExact());
         return true;
     }
 
@@ -562,8 +577,8 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
         editor.selecting = false;
         const bool click = editor.lassoPoints.size() <= 1 &&
                            pointer.x == editor.selectAnchor.x &&
-                           pointer.y == editor.selectAnchor.y;
-        const ls::IntervalSet shape = shapeFor(editor, pointer);
+                           pointer.y == editor.selectAnchor.y && !editor.snapToGrid;
+        const ls::IntervalSet shape = shapeFor(editor, pointer, canvas.pointerExact());
         editor.selectPreview.clear();
         editor.lassoPoints.clear();
         if (click && editor.selectMode == SelectMode::Replace) {

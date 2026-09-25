@@ -18,6 +18,7 @@
 #include "app/animation.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/grid_snap.h"
 #include "app/image_io.h"
 #include "app/palette_io.h"
 #include "app/shape.h"
@@ -560,6 +561,17 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         bool grid = canvas.gridVisible();
         if (ImGui::MenuItem("Pixel grid", nullptr, &grid)) { canvas.setGridVisible(grid); }
+        if (ImGui::MenuItem("Snap to grid", keysLabel(editor.keys, "view.snap").c_str(),
+                            &editor.snapToGrid)) {
+            if (editor.snapToGrid) {
+                canvas.tileGrid().visible = true;
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Marquees cover whole tiles, shapes put their corners on "
+                              "tile lines, and a moved selection steps from tile to tile. "
+                              "The tile grid's size and offset are below.");
+        }
         if (ImGui::BeginMenu("Tile grid")) {
             TileGrid& tiles = canvas.tileGrid();
             ImGui::MenuItem("Show", nullptr, &tiles.visible);
@@ -1725,8 +1737,11 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         const ShapeKind kind = editor.tool == Tool::Rectangle ? ShapeKind::Rectangle
                              : editor.tool == Tool::Ellipse   ? ShapeKind::Ellipse
                                                               : ShapeKind::Line;
-        const ls::Vec2f here { static_cast<float>(pixel.x),
-                               static_cast<float>(pixel.y) };
+        ls::Vec2f here { static_cast<float>(pixel.x), static_cast<float>(pixel.y) };
+        if (editor.snapToGrid) {
+            const ls::Vec2i point = nearestGridPoint(canvas.pointerExact(), editor.snapGrid);
+            here = { static_cast<float>(point.x), static_cast<float>(point.y) };
+        }
 
         if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             ShapeParams params;
@@ -2268,6 +2283,14 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (fired("view.zoom-in")) { canvas.setZoom(canvas.zoom() + 1.f); }
     if (fired("view.zoom-out")) { canvas.setZoom(canvas.zoom() - 1.f); }
     if (fired("view.fit")) { canvas.requestFit(); }
+    if (fired("view.snap")) {
+        editor.snapToGrid = !editor.snapToGrid;
+        // Snapping to a grid nobody can see is a puzzle, so it shows.
+        if (editor.snapToGrid) {
+            canvas.tileGrid().visible = true;
+        }
+        editor.say(editor.snapToGrid ? "Snapping to the tile grid" : "Not snapping");
+    }
 }
 
 // ----------------------------------------------------------------- layout --
@@ -3919,6 +3942,10 @@ int main(int argc, char** argv) {
         }
         drawMenuBar(editor, canvas, window);
         handleShortcuts(editor, canvas, window);
+        {
+            const TileGrid& tiles = canvas.tileGrid();
+            editor.snapGrid = { tiles.width, tiles.height, tiles.offsetX, tiles.offsetY };
+        }
         drawWindow(editor, canvas, window);
 
         ImGui::Render();

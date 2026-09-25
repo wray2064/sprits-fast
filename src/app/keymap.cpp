@@ -159,6 +159,7 @@ const std::vector<CommandInfo>& commandList() {
         { "view.zoom-in", "Zoom in", "View", { key("]"), ctrl("=") }, true },
         { "view.zoom-out", "Zoom out", "View", { key("["), ctrl("-") }, true },
         { "view.fit", "Fit to window", "View", { ctrl("0") } },
+        { "view.snap", "Snap to grid", "View", { shift("S") } },
     };
     return list;
 }

@@ -368,6 +368,17 @@ sprits_fast --demo-stroke
 3. Save, reopen. *Expect:* tag and notes are still there. *none* clears the
    tag; emptying the notes removes the `*`.
 
+### 4s. Snap to grid
+
+1. *View > Snap to grid* (`Shift+S`). *Expect:* the tile grid shows.
+2. Rectangle marquee from near one tile corner to near another. *Expect:*
+   the selection covers whole tiles; a drag inside one tile selects it.
+3. Move the selection. *Expect:* its top-left corner jumps from grid point
+   to grid point.
+4. Rectangle tool. *Expect:* its corners land on tile lines.
+5. Set the tile grid to 10 x 6 with offset 3, 1 and repeat. *Expect:* the
+   same, on the new lines.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
