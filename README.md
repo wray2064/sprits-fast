@@ -17,13 +17,16 @@ production suite.
 Early, but it is a real editor.
 
 **Drawing** — pencil, eraser, paint bucket, eyedropper, and rectangle, ellipse
-and line tools, all with keyboard shortcuts; a brush with a size, a round or
-square shape, and the pixel-perfect rule that keeps a diagonal a line; pen
-tablets, with pressure driving the size and the eraser end erasing.
+and line tools, all with keyboard shortcuts; any number of colours on one
+layer, with a second colour on the right button and `X` to swap them; a brush
+with a size, a round or square shape, and the pixel-perfect rule that keeps a
+diagonal a line; pen tablets, with pressure driving the size and the eraser
+end erasing.
 
 **Layers** — blend modes, opacity, groups that composite as one, clipping,
 locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row.
-One layer can hold several elements: its pixels plus any shapes drawn onto it.
+One layer holds several elements: one per colour its pixels are painted in,
+plus any shapes drawn onto it.
 
 **Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
 per frame, named cycles with their own loop mode, playback, and an onion skin.
@@ -149,30 +152,49 @@ one pixel, full pressure the size chosen. The pen's **eraser end erases** while
 it touches and hands the tool back after, the way a pencil does. Pressure and
 the eraser tip come from SDL's own pen events, read beside the mouse ones.
 
-### Elements: several marks on one layer
+### Many colours on one layer, and every one of them a rule
 
-A rectangle, a line and a few pixels drawn with three tools land on **one
-layer**, each still its own thing. The shape tools add to the active layer;
-the pencil writes into the layer's own pixels, and a layer that started as a
-shape gets pixels of its own the first time the pencil touches it rather than
-having its rectangle turned into pixels. The Shape panel lists a layer's
-elements, edits the selected shape, and removes one without touching the rest.
-One colour for the layer reaches every element. *Each shape on its own layer*
-in the tool panel brings back the old behaviour for anyone who wants every
-shape listed in the stack.
+Pick a colour and paint; pick another and paint beside it, on the same layer,
+as in any pixel editor. The left button paints with the first colour, the
+right button with the second, and `X` swaps them. Painting over a pixel
+replaces its colour rather than stacking on it.
+
+What is different is what a colour *is*. Each one a layer is painted in is an
+element of its own -- the pixels in that colour, and the rule that colours
+them -- so nothing is ever flattened into a bitmap. A colour taken from the
+palette paints **through its slot**: edit the slot and every pixel painted with
+it recolours, on every frame, from the drawing rather than over it. That is
+Aseprite's indexed mode, except that the sprite never has to be converted to
+get it, and a colour with no slot sits beside the slotted ones without anyone
+having to choose. The eyedropper reads the slot back too, so a colour picked
+off the canvas keeps painting through the palette.
+
+The **Element** panel lists what a layer holds: one row per colour and one per
+shape, each with a chip. Select a colour's row and it can be recoloured -- a
+replace-colour that is a parameter, so it can be changed back -- pointed at the
+current colour with *= current*, or switched to a dithered fill without
+touching the drawing. A dithered row can be painted *into*, so the pencil lays
+down the dither rather than a flat colour.
+
+Shapes join the same list. A rectangle, a line and a few pixels drawn with
+three tools land on one layer, each still its own thing: the shape tools draw in
+the current colour, fresh paint lands over a shape rather than under it, and
+the pencil never draws into a rectangle and turns it into pixels. *Each shape
+on its own layer* in the tool panel brings back the old behaviour for anyone
+who wants every shape listed in the stack.
 
 ### The palette
 
-Every document has one. Colours are **roles** rather than values: a layer paints
-through a palette slot, and changing that slot recolours every layer using it on
-the next compile -- from the drawing, not over it. Swapping a character's palette
-for a night version or a second team colour is one edit, not a reselect and
-repaint.
+Every document has one. Colours are **roles** rather than values: a pixel
+painted through a palette slot names the slot, and changing that slot recolours
+everything using it on the next compile -- from the drawing, not over it.
+Swapping a character's palette for a night version or a second team colour is
+one edit, not a reselect and repaint.
 
-Click a swatch to point the layer at it, double-click to change what the slot
-means, name it, or remove it -- with a warning first if anything paints through
-it. A layer can also carry its own colour, which is what files written before
-palettes existed do.
+Click a swatch to paint with it, right-click to put it on the right button,
+double-click to change what the slot means, name it, or remove it -- with a
+warning first if anything paints through it. A colour can also be a value of
+its own, which is what files written before palettes existed hold.
 
 **Dithers follow the palette too.** Each end of a dithered layer's ramp can be a
 palette slot rather than a colour, so a palette swap recolours the shading with
@@ -222,8 +244,9 @@ were drawn, not against the last frame. Drag the slider through two hundred
 angles and there is still exactly one operation. Set it back to zero, or delete
 the entry, and the original returns exactly.
 
-The same idea one control over: change the colour in the picker and the drawing
-is not repainted. The colour lives on the fill rule rather than in the pixels.
+The same idea one control over: select a colour's row in the Element panel and
+change it, and the drawing is not repainted. The colour lives on the fill rule
+rather than in the pixels.
 
 ### The corner preview
 
@@ -244,8 +267,9 @@ Toggle it with **P**, or from the View menu.
 
 ### Frames, and a canvas that stays live
 
-Press **T** for the strip, **space** to play, **,** and **.** to step, **O** for
-onion skin.
+Press **T** for the strip, **Enter** to play, **,** and **.** to step, **O** for
+onion skin. Space is the hand: hold it and drag to pan, as the middle button
+does.
 
 A frame is a sprite, and the document's sprite order is the timeline -- so there
 is no second list to fall out of step with the first, and undo puts the frames

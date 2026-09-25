@@ -149,7 +149,7 @@ void selectFrame(Editor& editor, int index) {
     if (wasActive < static_cast<int>(editor.layers.size())) {
         editor.activeLayer = wasActive;
     }
-    syncColorFromLayer(editor);
+    refreshInks(editor);
 }
 
 Cycle activeCycle(const Editor& editor) {
@@ -201,16 +201,81 @@ int frameToShow(const Editor& editor, uint64_t nowMs) {
     return at < 0 ? editor.timeline.activeFrame : at;
 }
 
-void syncColorFromLayer(Editor& editor) {
+bool selectedPixels(Editor& editor, PaintLayer* out) {
     PaintLayer* layer = editor.active();
-    if (layer == nullptr) {
-        return;
+    if (layer == nullptr || out == nullptr) {
+        return false;
     }
-    const ls::Color colour = effectiveLayerColor(editor.doc, editor.sprite, *layer);
-    if (colour.a == 0) {
-        return;                 // nothing resolved; leave the control alone
+    const Element* first = nullptr;
+    const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
+    for (const Element& element : elements) {
+        if (element.kind != ElementKind::Paint) {
+            continue;
+        }
+        if (first == nullptr) {
+            first = &element;
+        }
+        if (element.fill == editor.activeElement) {
+            first = &element;
+            break;
+        }
     }
-    fromColor(colour, editor.color);
+    if (first == nullptr) {
+        return false;
+    }
+    out->layer = layer->layer;
+    out->fill = first->fill;
+    out->region = first->region;
+    return true;
+}
+
+Ink foregroundInk(const Editor& editor) {
+    Ink ink;
+    ink.colour = toColor(editor.color);
+    ink.role = editor.inkRole;
+    return ink;
+}
+
+Ink backgroundInk(const Editor& editor) {
+    Ink ink;
+    ink.colour = toColor(editor.backColor);
+    ink.role = editor.backRole;
+    return ink;
+}
+
+void setForegroundInk(Editor& editor, const Ink& ink) {
+    fromColor(ink.colour, editor.color);
+    editor.inkRole = ink.role;
+}
+
+void setBackgroundInk(Editor& editor, const Ink& ink) {
+    fromColor(ink.colour, editor.backColor);
+    editor.backRole = ink.role;
+}
+
+void swapInks(Editor& editor) {
+    const Ink front = foregroundInk(editor);
+    setForegroundInk(editor, backgroundInk(editor));
+    setBackgroundInk(editor, front);
+}
+
+void refreshInks(Editor& editor) {
+    // The palette this frame draws with, since that is the one a slot means
+    // here -- a frame with a palette of its own shows its own colours.
+    const ls::PaletteId palette = paletteFor(editor.doc, editor.activeSprite());
+    const auto refresh = [&](float rgba[4], ls::ColorRole& role) {
+        if (role == ls::kColorRoleNone) {
+            return;
+        }
+        ls::Color colour;
+        if (resolvePaletteRole(editor.doc, palette, role, &colour)) {
+            fromColor(colour, rgba);
+        } else {
+            role = ls::kColorRoleNone;
+        }
+    };
+    refresh(editor.color, editor.inkRole);
+    refresh(editor.backColor, editor.backRole);
 }
 
 
@@ -241,7 +306,7 @@ void selectLayer(Editor& editor, ls::LayerId layer, bool extend) {
     if (!layerSelected(editor, layer)) {
         editor.selectedLayers.push_back(layer);
     }
-    syncColorFromLayer(editor);
+    refreshInks(editor);
 }
 
 bool activeLayerLocked(Editor& editor) {
@@ -457,7 +522,7 @@ void swapPalette(Editor& editor, CanvasView& canvas, ls::PaletteId palette) {
         return;
     }
     editor.doc.endAction();
-    syncColorFromLayer(editor);
+    refreshInks(editor);
     canvas.invalidate();
     std::string name;
     for (const PaletteInfo& info : listPalettes(editor.doc)) {

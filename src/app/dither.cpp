@@ -169,7 +169,10 @@ bool setLayerSolid(Document& doc, PaintLayer& layer, ls::Color colour) {
         return false;
     }
     if (!layerIsDithered(doc, layer)) {
-        return setPaintColor(doc, layer, colour);
+        // This element only. A layer holds as many colours as it has been
+        // painted with, and the others are not this switch's business.
+        return doc.engine().setOperationParameter(layer.fill, "fallbackColor",
+                                                  ls::ParameterValue{colour}).ok();
     }
 
     const int32_t at = indexOfOperation(doc, layer.layer, layer.fill);

@@ -18,7 +18,7 @@ namespace fast {
 void drawToolbar(Editor& editor);
 
 // Tool options, the colour, and the palette. What the current tool will do.
-void drawToolPanel(Editor& editor, CanvasView& canvas);
+void drawToolPanel(Editor& editor);
 
 // The palette: the document's named colours, and which one the layer paints
 // through. Changing an entry recolours every layer using it.

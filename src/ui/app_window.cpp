@@ -97,7 +97,7 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
 
     ensurePalette(editor.doc, editor.sprite);
     resyncReferences(editor, canvas);
-    syncColorFromLayer(editor);
+    refreshInks(editor);
     canvas.invalidate();
     editor.files.recent.add(path);
     editor.files.recent.save();
@@ -308,14 +308,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.doc.undo();
             resyncLayers(editor);
             resyncReferences(editor, canvas);
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             canvas.invalidate();
         }
         if (ImGui::MenuItem(redo.c_str(), "Ctrl+Shift+Z", false, editor.doc.canRedo())) {
             editor.doc.redo();
             resyncLayers(editor);
             resyncReferences(editor, canvas);
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             canvas.invalidate();
         }
         ImGui::EndMenu();
@@ -562,7 +562,7 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         if (importPaletteFile(editor.doc, editor.sprite, path, &dropped, &error)) {
             resyncLayers(editor);
             resyncReferences(editor, canvas);
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             canvas.invalidate();
             std::string said = "Loaded palette " + fileName(path);
             if (dropped > 0) {
@@ -662,6 +662,56 @@ bool handleReferenceDrag(Editor& editor, CanvasView& canvas, bool overCanvas,
     return editor.draggingReference;
 }
 
+// What a pencil or a bucket paints into. Normally the ink -- the left
+// button's, or the right one's -- which finds or makes that colour's element
+// on the layer. But a dithered element picked in the element list is painted
+// into as itself, so pixels drawn there take the dither rather than a flat
+// colour: the one way to paint with a rule rather than a value.
+bool beginPaint(Editor& editor, const PaintLayer& layer, bool back, InkStroke* out) {
+    if (!back && editor.paintIntoElement && editor.activeElement.valid()) {
+        for (const Element& element : elementsOf(editor.doc, layer.layer)) {
+            if (element.fill != editor.activeElement || element.kind != ElementKind::Paint) {
+                continue;
+            }
+            Ink solid;
+            if (!inkOfElement(editor.doc, element.fill, &solid)) {
+                PaintLayer target;
+                target.layer = layer.layer;
+                target.fill = element.fill;
+                target.region = element.region;
+                return beginElementStroke(editor.doc, target, out);
+            }
+        }
+    }
+    return beginInkStroke(editor.doc, layer.layer,
+                          back ? backgroundInk(editor) : foregroundInk(editor), out);
+}
+
+// The ink under the cursor: the slot a pixel was painted through when the
+// drawing knows it, and otherwise the colour on screen -- matched to a slot
+// if one is exactly that colour, so picking a palette colour off a shape or
+// a dither still paints through the palette.
+bool pickInk(Editor& editor, CanvasView& canvas, ls::Vec2i pixel, Ink* out) {
+    if (inkAt(editor.doc, editor.sprite, pixel, out)) {
+        return true;
+    }
+    const ls::Color* seen = canvas.colorAt(pixel);
+    if (seen == nullptr || seen->a == 0) {
+        return false;
+    }
+    out->colour = *seen;
+    out->role = ls::kColorRoleNone;
+    for (const PaletteEntry& entry :
+         paletteEntries(editor.doc, paletteFor(editor.doc, editor.sprite))) {
+        if (entry.color.r == seen->r && entry.color.g == seen->g &&
+            entry.color.b == seen->b && entry.color.a == seen->a) {
+            out->role = entry.role;
+            break;
+        }
+    }
+    return true;
+}
+
 void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i pixel) {
     if (handleReferenceDrag(editor, canvas, overCanvas, pixel)) {
         return;
@@ -672,8 +722,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
     // A locked layer: the picker still reads, nothing writes. Said once per
     // press rather than per frame, or the status line would flicker.
-    if (editor.tool != Tool::Picker && activeLayerLocked(editor) &&
-        ImGui::IsMouseClicked(ImGuiMouseButton_Left) && overCanvas) {
+    if (editor.tool != Tool::Picker && activeLayerLocked(editor) && overCanvas &&
+        (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+         ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
         editor.say("This layer is locked -- unlock it in the Layers panel");
         return;
     }
@@ -682,15 +733,22 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
 
     if (editor.tool == Tool::Picker) {
-        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            if (const ls::Color* picked = canvas.colorAt(pixel)) {
-                fromColor(*picked, editor.color);
-                if (picked->a != 0) {
-                    setPaintColor(editor.doc, *layer, *picked);
-                }
-                editor.tool = editor.toolBeforePicker;
-                editor.say("Picked the colour under the cursor");
+        const bool left = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        const bool right = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+        if (overCanvas && (left || right)) {
+            Ink picked;
+            if (!pickInk(editor, canvas, pixel, &picked)) {
+                editor.say("Nothing to pick there");
+                return;
             }
+            if (left) { setForegroundInk(editor, picked); }
+            else      { setBackgroundInk(editor, picked); }
+            refreshInks(editor);
+            editor.tool = editor.toolBeforePicker;
+            editor.say(picked.usesSlot()
+                ? "Picked slot " + std::to_string(picked.role) +
+                  " -- painting with it follows the palette"
+                : std::string("Picked the colour under the cursor"));
         }
         return;
     }
@@ -716,14 +774,21 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             // under the cursor.
             const bool ontoLayer = !editor.shapesOnOwnLayer && !activeLayerLocked(editor);
             bool made = false;
+            const Ink ink = foregroundInk(editor);
             if (ontoLayer) {
-                made = addShapeElement(editor.doc, layer->layer, kind, params,
+                made = addShapeElement(editor.doc, layer->layer, kind, params, ink,
                                        &editor.pendingShape);
             } else if (activeLayerLocked(editor) && !editor.shapesOnOwnLayer) {
                 editor.say("This layer is locked -- unlock it, or draw shapes on their own layer");
             } else {
+                // One history entry for the layer and its slot.
+                editor.doc.beginAction(shapeKindName(kind));
                 made = createShapeLayer(editor.doc, editor.sprite, kind, params,
-                                        toColor(editor.color), &editor.pendingShape);
+                                        ink.colour, &editor.pendingShape);
+                if (made && ink.usesSlot()) {
+                    setLayerRole(editor.doc, editor.pendingShape.paint, ink.role);
+                }
+                editor.doc.endAction();
             }
             if (made) {
                 editor.draggingShape = true;
@@ -756,11 +821,21 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
 
     if (editor.tool == Tool::Bucket) {
-        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        const bool left = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        const bool right = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+        if (overCanvas && (left || right)) {
             editor.doc.beginAction("Fill");
-            const bool filled = bucketFill(editor.doc, editor.sprite, *layer,
-                                           pixel, editor.bucket);
-            editor.doc.endAction();
+            InkStroke stroke;
+            const bool filled = beginPaint(editor, *layer, right && !left, &stroke) &&
+                                bucketFill(editor.doc, editor.sprite, stroke, pixel,
+                                           editor.bucket);
+            if (filled) {
+                pruneEmptyInks(editor.doc, layer->layer, stroke.target.fill);
+                editor.doc.endAction();
+                resyncLayers(editor);
+            } else {
+                editor.doc.abandonAction();
+            }
             canvas.invalidate();
             editor.say(filled ? "Filled" : "Nothing to fill there");
         }
@@ -784,22 +859,32 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
 
     // A whole drag is one history entry, so the bracket opens on press and
-    // closes on release rather than per sample. The pencil writes into the
-    // layer's freehand element, which a layer made of shapes gets here, the
-    // first time -- rather than into a rectangle, which would stop being one.
-    if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    // closes on release rather than per sample. Which element gains the
+    // pixels, and which lose them, is settled here once: the ink's own
+    // element, made at the top of the layer the first time a colour is used.
+    const bool pressedLeft = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    const bool pressedRight = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+    if (overCanvas && !editor.stroking && (pressedLeft || pressedRight) &&
+        !ImGui::IsKeyDown(ImGuiKey_Space)) {
+        const bool back = pressedRight && !pressedLeft;
         editor.doc.beginAction(editor.tool == Tool::Pencil ? "Pencil" : "Eraser");
-        if (!ensurePaintElement(editor.doc, *layer)) {
+        const bool ready = editor.tool == Tool::Pencil
+            ? beginPaint(editor, *layer, back, &editor.inkStroke)
+            : beginEraseStroke(editor.doc, layer->layer, &editor.inkStroke);
+        if (!ready) {
             editor.doc.abandonAction();
             editor.say("Nothing to draw on here");
             return;
         }
         editor.stroking = true;
+        editor.strokeWithBack = back;
         editor.lastPixel = pixel;
         editor.pixelPerfect.reset();
     }
 
-    if (editor.stroking && ImGui::IsMouseDown(ImGuiMouseButton_Left) && overCanvas) {
+    const ImGuiMouseButton button = editor.strokeWithBack ? ImGuiMouseButton_Right
+                                                          : ImGuiMouseButton_Left;
+    if (editor.stroking && ImGui::IsMouseDown(button) && overCanvas) {
         // Interpolate: the mouse reports once a frame, not once a pixel. The
         // path is then laid down through the brush -- stamped at its size, or
         // at one pixel through the pixel-perfect filter, which holds each
@@ -824,26 +909,30 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
         }
         if (!run.empty()) {
-            if (editor.tool == Tool::Pencil) {
-                paintPixels(editor.doc, *layer, run);
-            } else {
-                erasePixels(editor.doc, *layer, run);
-            }
+            strokeInk(editor.doc, editor.inkStroke, run);
             canvas.invalidate();
         }
         editor.lastPixel = pixel;
     }
 
-    if (editor.stroking && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+    if (editor.stroking && ImGui::IsMouseReleased(button)) {
         // The filter's last point, held until now.
         const std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
         if (!rest.empty() && editor.tool == Tool::Pencil) {
-            paintPixels(editor.doc, *layer, rest);
+            strokeInk(editor.doc, editor.inkStroke, rest);
             canvas.invalidate();
         }
+        // A colour painted out entirely, or erased away, leaves the element
+        // list rather than lingering as an element that draws nothing.
+        const int pruned = pruneEmptyInks(editor.doc, editor.inkStroke.layer,
+                                          editor.inkStroke.target.fill);
         editor.doc.endAction();
         editor.stroking = false;
         editor.lastPixel = { -1, -1 };
+        if (pruned > 0 || !editor.inkStroke.erasing()) {
+            resyncLayers(editor);
+        }
+        editor.inkStroke = InkStroke{};
     }
 }
 
@@ -884,7 +973,10 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
             editor.timeline.visible = !editor.timeline.visible;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+        // Enter plays, as in Aseprite. Space is the hand: held, a drag pans
+        // the canvas, and it would be a poor hand that also started playback.
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
+            ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false)) {
             editor.timeline.playing = !editor.timeline.playing;
             editor.timeline.startedAtMs = SDL_GetTicks();
             editor.timeline.visible = true;
@@ -901,6 +993,10 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
             editor.timeline.onion = !editor.timeline.onion;
+        }
+        // The two colours trade places, the key every pixel editor uses.
+        if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
+            swapInks(editor);
         }
         if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
             canvas.setZoom(canvas.zoom() - 1.f);
@@ -927,14 +1023,14 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (moved) {
             resyncLayers(editor);
             resyncReferences(editor, canvas);
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             canvas.invalidate();
         }
     }
     if (ImGui::IsKeyPressed(ImGuiKey_Y, false) && editor.doc.redo()) {
         resyncLayers(editor);
         resyncReferences(editor, canvas);
-        syncColorFromLayer(editor);
+        refreshInks(editor);
         canvas.invalidate();
     }
     if (ImGui::IsKeyPressed(ImGuiKey_S, false)) {
@@ -1009,19 +1105,19 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::SetNextWindowPos({left + toolbarWidth, top});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight});
     ImGui::Begin("Tool", nullptr, kPanel);
-    drawToolPanel(editor, canvas);
+    drawToolPanel(editor);
     ImGui::Dummy(ImVec2(0.f, m.sectionGap));
     ImGui::SeparatorText("Palette");
     drawPalettePanel(editor, canvas, window);
     ImGui::End();
 
     const float rightX = left + viewport->WorkSize.x - m.sidebarWidth;
-    // The right column. Shape carries the outline controls, which are the most
-    // numerous of the three, so it takes the larger share of what is left after
-    // the layer stack.
-    const float layersShare = 0.30f;
-    const float shapeShare  = 0.32f;
-    const float transformShare = 0.18f;
+    // The right column. The element panel carries a layer's colours, its
+    // shapes, its dither and its outline -- the most numerous controls of the
+    // four -- so it takes the largest share of what is left after the stack.
+    const float layersShare = 0.28f;
+    const float shapeShare  = 0.40f;
+    const float transformShare = 0.14f;
     ImGui::SetNextWindowPos({rightX, top});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * layersShare});
     ImGui::Begin("Layers", nullptr, kPanel);
@@ -1030,7 +1126,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     ImGui::SetNextWindowPos({rightX, top + bodyHeight * layersShare});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * shapeShare});
-    ImGui::Begin("Shape", nullptr, kPanel);
+    ImGui::Begin("Element", nullptr, kPanel);
     drawShapePanel(editor, canvas);
     ImGui::End();
 
@@ -1269,6 +1365,15 @@ void drawDemoContent(Editor& editor) {
         paintPixels(editor.doc, second, linePixels({18, 10}, {26, 10}));
         paintPixels(editor.doc, second, linePixels({18, 11}, {26, 11}));
         paintPixels(editor.doc, second, linePixels({18, 12}, {26, 12}));
+        // And a second colour on the same layer, through a palette slot: a
+        // layer holds as many colours as it is painted with.
+        Ink light;
+        light.colour = dither.to;
+        light.role = dither.toRole;
+        InkStroke stroke;
+        if (beginInkStroke(editor.doc, second.layer, light, &stroke)) {
+            strokeInk(editor.doc, stroke, linePixels({19, 11}, {25, 11}));
+        }
         editor.doc.endAction();
         editor.layers.push_back(second);
 
@@ -1445,18 +1550,62 @@ int runSelfTest() {
     editor.doc.endAction();
     check(!editor.doc.canRedo(), "a new action drops the redo branch");
 
-    // The palette drives the layer, and the interface reads it back.
+    // The palette drives the layer, and an ink through the same slot reads
+    // it back: the colour control shows what the slot now means.
     const ls::ColorRole role = 8;
     check(setLayerRole(editor.doc, *editor.active(), role), "use a palette slot");
     check(setPaletteEntry(editor.doc, role, ls::Color{12, 200, 90, 255}), "set the slot");
-    syncColorFromLayer(editor);
+    editor.inkRole = role;
+    refreshInks(editor);
     check(toColor(editor.color).g == 200, "the control shows the palette colour");
+    editor.inkRole = ls::kColorRoleNone;
 
     check(setPaintColor(editor.doc, *editor.active(),
                         effectiveLayerColor(editor.doc, editor.sprite, *editor.active())),
           "keep what is on screen");
     check(setLayerRole(editor.doc, *editor.active(), ls::kColorRoleNone), "detach");
     check(layerRole(editor.doc, *editor.active()) == ls::kColorRoleNone, "detached");
+
+    // ------------------------------------------------------------- inks --
+    //
+    // Two colours on one layer through the window's own path: the left ink,
+    // then the right one, into the same layer, each its own element; X swaps
+    // them; and a dithered element is painted into only when asked.
+    {
+        PaintLayer* layer = editor.active();
+        check(layer != nullptr, "a layer for two inks");
+        if (layer != nullptr) {
+            const ls::LayerId target = layer->layer;
+            const size_t before = elementsOf(editor.doc, target).size();
+            setForegroundInk(editor, Ink{ ls::Color{ 250, 10, 10, 255 }, ls::kColorRoleNone });
+            setBackgroundInk(editor, Ink{ ls::Color{ 10, 10, 250, 255 }, ls::kColorRoleNone });
+
+            InkStroke stroke;
+            editor.doc.beginAction("Pencil");
+            check(beginPaint(editor, *layer, false, &stroke), "the left ink begins");
+            check(strokeInk(editor.doc, stroke, {{ 20, 20 }}), "and paints");
+            editor.doc.endAction();
+            editor.doc.beginAction("Pencil");
+            check(beginPaint(editor, *layer, true, &stroke), "the right ink begins");
+            check(strokeInk(editor.doc, stroke, {{ 21, 20 }}), "and paints");
+            editor.doc.endAction();
+            resyncLayers(editor);
+
+            check(elementsOf(editor.doc, target).size() == before + 2,
+                  "two colours, two elements, one layer");
+            check(elementsWithInk(editor.doc, target, foregroundInk(editor)).size() == 1,
+                  "the left colour has its element");
+            swapInks(editor);
+            check(toColor(editor.color).b == 250 && toColor(editor.backColor).r == 250,
+                  "X swaps the two");
+            swapInks(editor);
+
+            check(editor.doc.undo() && editor.doc.undo(), "two strokes, two undos");
+            resyncLayers(editor);
+            check(elementsOf(editor.doc, target).size() == before,
+                  "and both colours' elements go with them");
+        }
+    }
 
     // ------------------------------------------------------------ frames --
     //
@@ -1616,7 +1765,8 @@ int runSelfTest() {
     check(deleteFrame(editor.doc, 1), "drop that frame");
     resyncLayers(editor);
 
-    // Loading a palette recolours the layer the colour control is showing.
+    // Loading a palette recolours the layer, and the ink painting through the
+    // same slot with it.
     {
         PaintLayer* layer = editor.active();
         check(layer != nullptr, "a layer to colour");
@@ -1624,6 +1774,7 @@ int runSelfTest() {
             editor.doc.beginAction("Use slot 0");
             check(setLayerRole(editor.doc, *layer, 0), "draw through slot 0");
             editor.doc.endAction();
+            editor.inkRole = 0;
             PaletteFile file;
             std::string parseError;
             check(parsePalette("123456\n", &file, &parseError), "a one-colour file");
@@ -1631,18 +1782,19 @@ int runSelfTest() {
             check(applyPaletteFile(editor.doc, editor.sprite, file, &dropped),
                   "load it");
             resyncLayers(editor);
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             const ls::Color shown = toColor(editor.color);
             check(shown.r == 0x12 && shown.g == 0x34 && shown.b == 0x56,
                   "the colour control shows what the layer now draws");
             check(editor.doc.undo(), "undo the load");
             resyncLayers(editor);            // `layer` is stale from here on
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             editor.doc.beginAction("Detach");
             check(editor.active() != nullptr &&
                   setLayerRole(editor.doc, *editor.active(), ls::kColorRoleNone),
                   "detach");
             editor.doc.endAction();
+            editor.inkRole = ls::kColorRoleNone;
         }
     }
 
@@ -1658,6 +1810,7 @@ int runSelfTest() {
             editor.doc.beginAction("Use slot 0");
             setLayerRole(editor.doc, *layer, 0);
             editor.doc.endAction();
+            editor.inkRole = 0;
             setPaletteEntry(editor.doc, night, 0, ls::Color{7, 8, 9, 255});
             swapPalette(editor, view, night);
             check(documentPalette(editor.doc) == night, "the document swapped");
@@ -1666,7 +1819,7 @@ int runSelfTest() {
                   "the colour control follows the swap");
             check(editor.doc.undo(), "one undo");
             resyncLayers(editor);
-            syncColorFromLayer(editor);
+            refreshInks(editor);
             check(documentPalette(editor.doc) == day, "back to the first palette");
             swapPalette(editor, view, day);
             check(!editor.doc.canUndo() || editor.doc.undoLabel() != "Swap palette",
@@ -1674,6 +1827,7 @@ int runSelfTest() {
             editor.doc.beginAction("Detach");
             setLayerRole(editor.doc, *editor.active(), ls::kColorRoleNone);
             editor.doc.endAction();
+            editor.inkRole = ls::kColorRoleNone;
         }
     }
 
@@ -1990,6 +2144,9 @@ int runSelfTest() {
           "the title names the file");
 
     Editor reopened;
+    // An ink naming a slot the opened palette does not have is let go on
+    // open rather than kept pointing at nothing.
+    reopened.inkRole = 250;
     canvas.resetView();
     check(canvas.zoom() == 8.f, "the view is reset before loading");
 
@@ -2001,13 +2158,8 @@ int runSelfTest() {
     check(!paletteEntries(reopened.doc).empty(), "the palette came back");
 
     check(reopened.active() != nullptr, "there is an active layer");
-    if (reopened.active() != nullptr) {
-        const ls::Color onDisk =
-            effectiveLayerColor(reopened.doc, reopened.sprite, *reopened.active());
-        const ls::Color inControl = toColor(reopened.color);
-        check(onDisk.r == inControl.r && onDisk.g == inControl.g &&
-              onDisk.b == inControl.b, "the control matches the loaded layer");
-    }
+    check(reopened.inkRole == ls::kColorRoleNone,
+          "an ink naming a slot the file lacks is let go");
 
     // A hostile view has to be clamped rather than trusted.
     reopened.doc.setUiState("{\"zoom\":1e6,\"panX\":-9e9,\"activeLayer\":9999}");

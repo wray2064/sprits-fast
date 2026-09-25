@@ -109,9 +109,9 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
     return filled;
 }
 
-bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,
+bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
                 ls::Vec2i seed, const BucketSettings& settings) {
-    if (!target.drawable()) {
+    if (!stroke.layer.valid()) {
         return false;
     }
 
@@ -127,7 +127,7 @@ bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,
     inLayerSpace.reserve(area.size());
     for (ls::Vec2i pixel : area) {
         ls::Vec2f mapped;
-        if (!mapCanvasPointToLayer(doc, target.layer,
+        if (!mapCanvasPointToLayer(doc, stroke.layer,
                                    {static_cast<float>(pixel.x),
                                     static_cast<float>(pixel.y)}, &mapped)) {
             return false;
@@ -137,7 +137,16 @@ bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,
             static_cast<int32_t>(std::floor(mapped.y + 0.5f)) });
     }
 
-    return paintPixels(doc, target, inLayerSpace);
+    return strokeInk(doc, stroke, inLayerSpace);
+}
+
+bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,
+                ls::Vec2i seed, const BucketSettings& settings) {
+    InkStroke stroke;
+    if (!beginElementStroke(doc, target, &stroke)) {
+        return false;
+    }
+    return bucketFill(doc, sprite, stroke, seed, settings);
 }
 
 } // namespace fast

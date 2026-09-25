@@ -393,6 +393,41 @@ A frame name is whatever somebody typed, so it is escaped properly. A manifest a
 quotation mark can break is one no consumer can trust, and there is a test that
 throws quotes, backslashes and newlines at it.
 
+## Inks: many colours on one layer
+
+A layer's pixels were once one region with one fill, so a layer was one colour
+and a character in eight colours was eight layers. That was the first wall a
+person coming from any other pixel editor would hit, and the fix had to keep the
+one rule rather than bend it.
+
+A colour is an **ink**: a palette slot, or a literal where there is no slot. A
+layer holds one freehand element per ink it has been painted with -- a region
+and a solid fill -- and painting adds pixels to the ink's region *and takes the
+same pixels out of every other freehand element on the layer*. A pixel therefore
+belongs to exactly one colour, painting over replaces rather than stacks, and
+nothing is drawn twice. Each colour is still a standing rule about a shape, so a
+slot still recolours from the drawing.
+
+**Order is the subtle part.** Elements draw in list order and a layer can hold
+shapes too. Fresh paint must land on top -- a stroke across a rectangle has to
+show -- so an ink reuses its topmost element only when no shape sits above it,
+and otherwise gets a new element at the top. Two elements can then share a
+colour; they are disjoint, so that costs nothing.
+
+**The picker reads the drawing, not the picture.** `inkAt` finds the topmost
+visible freehand element covering the pixel and hands back its slot, so a colour
+picked off the canvas keeps painting through the palette. Where the drawing has
+no answer -- a shape, a dither -- it falls back to the compiled colour, matched
+to a slot when one is exactly that colour.
+
+**Emptied colours go.** A colour painted over entirely or erased away is
+removed at the end of the stroke, inside the same history entry, so the element
+list does not fill with ghosts. A dither is never removed that way: its settings
+are work even with nothing under them yet.
+
+`tests/ink_tests.cpp` holds all of this to account, including a stroke that
+creates an element undoing in one step and the colours surviving a file.
+
 ## The palette, and the one place it did not reach
 
 Colours are roles. A fill, a stroke, an outline names a `ColorRole`, and the

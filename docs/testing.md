@@ -92,8 +92,8 @@ sprits_fast --demo-stroke
 1. Press `T` if the timeline is hidden. Press *Play*. Watch the swing.
 2. Double-click the dark blue slot the dither uses (the highlighted one) and
    drag the picker to red. *Expect:* every frame on the strip and the playing
-   canvas recolour together, and the ramp's *dark* swatch in the Tool panel
-   shows red -- not the old blue.
+   canvas recolour together, and the ramp's *dark* swatch in the Element
+   panel (the *Dither* row of *Layer 1*) shows red -- not the old blue.
 3. Press `Ctrl+Z`. *Expect:* one undo puts it all back, strip included.
 4. *Load…* a `.gpl` with fewer colours than the palette (write one in a text
    editor: `GIMP Palette`, then `255 0 0 red` and `0 0 255 blue`). *Expect:*
@@ -119,7 +119,8 @@ sprits_fast --demo-stroke
 
 ### 3. The dither panel tells the truth
 
-1. Select a dithered layer. Change the pattern to *Checker*. Drag the
+1. Select *Layer 1*, then its *Dither* row in the Element panel. Change the
+   pattern to *Checker*. Drag the
    density slider back and forth. *Expect:* the pattern combo stays on
    *Checker* throughout. (It used to snap to Bayer 4x4 on the first drag.)
 2. Save, reopen the file. *Expect:* the combo still says *Checker*.
@@ -131,9 +132,9 @@ sprits_fast --demo-stroke
 1. Double-click a slot that layers use and press *Remove slot*. *Expect:* a
    warning naming the consequence, and *Remove anyway* / *Keep it*.
 2. *Remove anyway*. *Expect:* no pixel changes anywhere -- every layer keeps
-   the colour it showed. With one of those layers selected, the palette panel
-   says it names a slot the palette no longer has, and offers *Put the slot
-   back*.
+   the colour it showed. With the row of pixels that used it selected in the
+   Element panel, the panel says they name a slot the palette no longer has,
+   and offers *Put the slot back*.
 3. *Add current colour*. *Expect:* it lands in a new slot, not the hole;
    nothing recolours by accident.
 4. *Put the slot back*. *Expect:* nothing changes on the canvas; the slot
@@ -178,9 +179,11 @@ sprits_fast --demo-stroke
 ### 4d. Elements and drag-to-group
 
 1. Select *Layer 1*. Rectangle tool: drag one out. *Expect:* no new layer; the
-   Shape panel lists *Pixels*, *Rectangle*, *Rectangle*, *Line* and edits the
-   new one; the layer thumbnail shows all of it.
-2. Pencil on the same layer. *Expect:* pixels join the *Pixels* element; the
+   Element panel lists the new *Rectangle* at the top, in the current colour,
+   above the *Line*, *Rectangle* and *Dither* already there, and edits it; the
+   layer thumbnail shows all of it.
+2. Pencil on the same layer, across the new rectangle. *Expect:* the stroke
+   shows over the rectangle, as a *Pixels* row of its own at the top; the
    rectangles stay rectangles (widen one in the panel).
 3. *x* beside the new rectangle. *Expect:* it goes; the rest stay; `Ctrl+Z`
    brings it back.
@@ -189,6 +192,23 @@ sprits_fast --demo-stroke
 5. Drag that layer onto the *figure* group row. *Expect:* it is in the group,
    at its top. Right-click → *Remove from group*. *Expect:* out, just above.
 6. Drag it onto *Layer 2* with Ctrl held. *Expect:* a new group of the two.
+
+### 4h. Many colours on one layer
+
+1. New document. Click the palette's first slot and draw a line; click the
+   third and draw across it. *Expect:* one layer; where they cross, the second
+   colour; the Element panel lists two *Pixels* rows, each naming its slot.
+2. Right-click the fifth slot, then right-drag on the canvas. *Expect:* the
+   fifth slot's colour, on the same layer. Press `X`. *Expect:* the two
+   swatches in the Tool panel trade places.
+3. Double-click the first slot and drag its colour. *Expect:* the first line
+   recolours as you drag; the second does not.
+4. Eyedropper (`I`) on the second line. *Expect:* the Tool panel says *slot 3*,
+   and the palette rings it.
+5. Erase the whole of the first line. *Expect:* its row leaves the Element
+   panel. `Ctrl+Z`. *Expect:* the line and the row come back together.
+6. Select the second line's row, press *= current* with a different colour
+   chosen. *Expect:* the line changes colour and nothing else does.
 
 ### 4e. The brush
 

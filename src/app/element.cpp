@@ -119,6 +119,11 @@ bool addShapeElement(Document& doc, ls::LayerId layer, ShapeKind kind,
     return addShapeTo(doc, layer, kind, params, colour, role, out);
 }
 
+bool addShapeElement(Document& doc, ls::LayerId layer, ShapeKind kind,
+                     const ShapeParams& params, const Ink& ink, ShapeLayer* out) {
+    return addShapeTo(doc, layer, kind, params, ink.colour, ink.role, out);
+}
+
 bool ensurePaintElement(Document& doc, PaintLayer& layer) {
     if (!layer.layer.valid()) {
         return false;

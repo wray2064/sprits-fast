@@ -13,6 +13,7 @@
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/element.h"
+#include "app/ink.h"
 #include "app/layers.h"
 #include "app/library.h"
 #include "app/paint.h"
@@ -87,7 +88,27 @@ struct Editor {
 
     Tool  tool = Tool::Pencil;
     Tool  toolBeforePicker = Tool::Pencil;   // so the picker can hand control back
-    float color[4] = { 0.88f, 0.56f, 0.25f, 1.f };
+
+    // The two inks: what the left button paints with and what the right one
+    // does, as in every pixel editor. Each is a colour and, when it came from
+    // the palette, the slot -- so a pixel painted with it follows the slot.
+    // The colour is kept as floats because that is what the picker edits.
+    float         color[4]     = { 0.88f, 0.56f, 0.25f, 1.f };
+    ls::ColorRole inkRole      = ls::kColorRoleNone;
+    float         backColor[4] = { 0.10f, 0.10f, 0.12f, 1.f };
+    ls::ColorRole backRole     = ls::kColorRoleNone;
+
+    // The stroke in progress: which element gains the pixels and which lose
+    // them, resolved once on press. And which button pressed, since the right
+    // one paints the background ink.
+    InkStroke inkStroke;
+    bool      strokeWithBack = false;
+
+    // A dithered element picked in the element list can be painted into as
+    // itself, so the pencil lays down the dither rather than a flat colour.
+    // Off unless asked for: selecting an element to look at it should not
+    // change what the pencil does.
+    bool      paintIntoElement = false;
 
     // Interaction in progress. Each of these keeps a history bracket open, which
     // is why shortcuts stand aside while any of them is true.
@@ -258,9 +279,23 @@ void      fromColor(ls::Color colour, float rgba[4]);
 // and drawing on it would fail silently.
 void resyncLayers(Editor& editor);
 
-// Points the colour control at the active layer, so it shows what that layer is
-// rather than what was last typed.
-void syncColorFromLayer(Editor& editor);
+// The freehand element the element panel is editing, as a PaintLayer the
+// dither and colour helpers take: the selected element when it is pixels, and
+// otherwise the layer's first pixels. False when the layer has none.
+bool selectedPixels(Editor& editor, PaintLayer* out);
+
+// The inks as values the engine takes, and setting them from one.
+Ink  foregroundInk(const Editor& editor);
+Ink  backgroundInk(const Editor& editor);
+void setForegroundInk(Editor& editor, const Ink& ink);
+void setBackgroundInk(Editor& editor, const Ink& ink);
+void swapInks(Editor& editor);
+
+// Brings an ink that names a slot up to date with the slot: after a palette
+// edit, a swap, a frame with a palette of its own, or undo. An ink whose slot
+// has gone keeps its colour and stops naming it, rather than painting pixels
+// that point at nothing.
+void refreshInks(Editor& editor);
 
 bool newDocument(Editor& editor, uint32_t size);
 

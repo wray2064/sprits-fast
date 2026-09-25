@@ -18,6 +18,7 @@
 // layer lands where it was aimed.
 
 #include "app/document.h"
+#include "app/ink.h"
 #include "app/paint.h"
 
 #include <cstdint>
@@ -49,8 +50,13 @@ struct BucketSettings {
 std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i seed,
                                   const BucketSettings& settings);
 
-// Floods from `seed` and adds the result to `target`. Does not bracket an undo
-// action: the caller decides what one action is.
+// Floods from `seed` and lays the result down with a stroke's ink: into the
+// ink's element, and out of the layer's other colours, exactly as the pencil
+// does. Does not bracket an undo action: the caller decides what one action is.
+bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
+                ls::Vec2i seed, const BucketSettings& settings);
+
+// The same, into one particular element of the layer.
 bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,
                 ls::Vec2i seed, const BucketSettings& settings);
 

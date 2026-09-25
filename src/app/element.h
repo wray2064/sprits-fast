@@ -22,6 +22,7 @@
 // stroke and the panel edits one.
 
 #include "app/document.h"
+#include "app/ink.h"
 #include "app/paint.h"
 #include "app/shape.h"
 
@@ -54,6 +55,11 @@ ShapeLayer shapeOfElement(ls::LayerId layer, const Element& element);
 // keep driving it.
 bool addShapeElement(Document& doc, ls::LayerId layer, ShapeKind kind,
                      const ShapeParams& params, ShapeLayer* out);
+
+// The same, in a given ink -- what the shape tools draw with, now that a
+// layer holds as many colours as it has been painted with.
+bool addShapeElement(Document& doc, ls::LayerId layer, ShapeKind kind,
+                     const ShapeParams& params, const Ink& ink, ShapeLayer* out);
 
 // Points `layer` at its freehand element for the pencil, creating one -- in
 // the layer's colour and role -- if every element is a shape. A handle

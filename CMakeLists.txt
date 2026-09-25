@@ -71,6 +71,7 @@ add_library(fast_core STATIC
     src/app/element.cpp
     src/app/brush.cpp
     src/app/image_io.cpp
+    src/app/ink.cpp
     src/app/library.cpp
     src/app/reference.cpp
     src/app/recovery.cpp
@@ -155,6 +156,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_document_tests tests/document_tests.cpp)
     target_link_libraries(fast_document_tests PRIVATE fast_core)
     add_test(NAME fast_document COMMAND fast_document_tests)
+
+    add_executable(fast_ink_tests tests/ink_tests.cpp)
+    target_link_libraries(fast_ink_tests PRIVATE fast_core)
+    add_test(NAME fast_ink COMMAND fast_ink_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)
