@@ -379,6 +379,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             refreshInks(editor);
             canvas.invalidate();
         }
+        if (ImGui::MenuItem("History...", nullptr, editor.historyOpen)) {
+            editor.historyOpen = !editor.historyOpen;
+        }
         ImGui::Separator();
         const bool selected = !editor.selection.empty();
         if (ImGui::MenuItem("Cut", "Ctrl+X", false, selected)) { cutSelectionPixels(editor); }
@@ -663,6 +666,51 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
+}
+
+// The history as a list. Clicking a step goes to just after it -- undoing or
+// redoing as many steps as that takes -- and nothing is lost by looking: the
+// steps after the one chosen stay as redo until something new is done.
+void drawHistoryPanel(Editor& editor, CanvasView& canvas) {
+    if (!editor.historyOpen) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(260.f, 360.f), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("History", &editor.historyOpen)) {
+        const std::vector<std::string> done = editor.doc.undoLabels();
+        const std::vector<std::string> undone = editor.doc.redoLabels();
+        int target = -1;           // how many steps should be done afterwards
+        if (ImGui::Selectable("(as opened)", done.empty())) {
+            target = 0;
+        }
+        for (size_t i = 0; i < done.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            if (ImGui::Selectable(done[i].c_str(), i + 1 == done.size())) {
+                target = static_cast<int>(i) + 1;
+            }
+            ImGui::PopID();
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        for (size_t i = 0; i < undone.size(); ++i) {
+            ImGui::PushID(static_cast<int>(1000000 + i));
+            if (ImGui::Selectable(undone[i].c_str(), false)) {
+                target = static_cast<int>(done.size() + i) + 1;
+            }
+            ImGui::PopID();
+        }
+        ImGui::PopStyleColor();
+        if (target >= 0 && !editor.busy()) {
+            settleFloating(editor);
+            int now = static_cast<int>(editor.doc.undoLabels().size());
+            while (now > target && editor.doc.undo()) { --now; }
+            while (now < target && editor.doc.redo()) { ++now; }
+            resyncLayers(editor);
+            resyncReferences(editor, canvas);
+            refreshInks(editor);
+            canvas.invalidate();
+        }
+    }
+    ImGui::End();
 }
 
 // What was found waiting from a session that did not end normally.
@@ -1765,6 +1813,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawSheetPanel(editor, window);
     drawAnimationPanel(editor, window);
     drawCanvasSizePanel(editor, canvas);
+    drawHistoryPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);

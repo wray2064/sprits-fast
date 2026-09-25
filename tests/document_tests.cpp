@@ -308,7 +308,25 @@ void testSaveInPlaceNeedsAPath() {
 
 } // namespace
 
+// The history as a list: what undo would take back, oldest first, and what
+// redo would bring back, nearest first.
+void testHistoryReadsAsAList() {
+    fast::Document doc;
+    if (!doc.create("history", 8, 8)) { CHECK(false); return; }
+    doc.clearHistory();
+    for (const char* label : { "one", "two", "three" }) {
+        doc.beginAction(label);
+        doc.engine().createLayer(doc.sprite(), { label });
+        doc.endAction();
+    }
+    CHECK((doc.undoLabels() == std::vector<std::string>{ "one", "two", "three" }));
+    CHECK(doc.undo() && doc.undo());
+    CHECK((doc.undoLabels() == std::vector<std::string>{ "one" }));
+    CHECK((doc.redoLabels() == std::vector<std::string>{ "two", "three" }));
+}
+
 int main() {
+    testHistoryReadsAsAList();
     testNewDocumentIsClean();
     testUndoAndRedoRestoreThePicture();
     testHandlesSurviveUndo();

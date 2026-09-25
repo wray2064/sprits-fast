@@ -158,6 +158,11 @@ public:
     std::string undoLabel() const;
     std::string redoLabel() const;
 
+    // Every step, for a history panel: what undo would take back, oldest
+    // first, and what redo would bring back, nearest first.
+    std::vector<std::string> undoLabels() const;
+    std::vector<std::string> redoLabels() const;
+
     // How many entries the history may hold. Snapshots are in-memory state
     // copies rather than serialized bytes, so this can be generous.
     void setHistoryLimit(size_t limit);

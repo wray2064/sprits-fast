@@ -1712,13 +1712,32 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         }
         const bool visible = props.visible;
         if (theme::eyeToggle("##visible", visible, 18.f)) {
-            editor.doc.beginAction(visible ? "Hide layer" : "Show layer");
-            setLayerVisible(editor.doc, id, !visible);
-            editor.doc.endAction();
+            if (ImGui::GetIO().KeyAlt) {
+                // Alt: this layer alone -- or, when it already is, all of them
+                // again. The quickest way to see what one layer draws.
+                const std::vector<ls::LayerId> all = layerOrder(editor.doc, editor.sprite);
+                bool alone = visible;
+                for (ls::LayerId other : all) {
+                    LayerProps otherProps;
+                    if (other != id && readLayerProps(editor.doc, other, &otherProps) && otherProps.visible) {
+                        alone = false;
+                    }
+                }
+                editor.doc.beginAction(alone ? "Show every layer" : "Show one layer");
+                for (ls::LayerId other : all) {
+                    setLayerVisible(editor.doc, other, alone || other == id);
+                }
+                editor.doc.endAction();
+            } else {
+                editor.doc.beginAction(visible ? "Hide layer" : "Show layer");
+                setLayerVisible(editor.doc, id, !visible);
+                editor.doc.endAction();
+            }
             canvas.invalidate();
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s this layer", visible ? "Hide" : "Show");
+            ImGui::SetTooltip("%s this layer\nAlt+click: this layer alone, or all again",
+                              visible ? "Hide" : "Show");
         }
         ImGui::SameLine();
 

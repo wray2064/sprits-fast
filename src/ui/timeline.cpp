@@ -384,6 +384,40 @@ void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
     const int active = timeline.activeFrame;
     const int count = static_cast<int>(editor.frames.size());
 
+    // The sequence the neighbours come from: every frame, or what the
+    // selected cycle plays -- where the ghosts are the frames played either
+    // side of this one, which may not be its neighbours in the strip.
+    std::vector<int> sequence;
+    if (timeline.onionInCycle && timeline.activeCycle >= 0) {
+        sequence = activeCycle(editor).frames;
+    }
+    if (sequence.empty()) {
+        for (int i = 0; i < count; ++i) {
+            sequence.push_back(i);
+        }
+    }
+    int at = -1;
+    for (size_t i = 0; i < sequence.size(); ++i) {
+        if (sequence[i] == active) {
+            at = static_cast<int>(i);
+            break;
+        }
+    }
+    if (at < 0) {
+        return;
+    }
+    const int length = static_cast<int>(sequence.size());
+    const auto neighbour = [&](int offset) {
+        int position = at + offset;
+        if (timeline.onionWraps) {
+            position = ((position % length) + length) % length;
+        }
+        if (position < 0 || position >= length || position == at) {
+            return -1;
+        }
+        return sequence[static_cast<size_t>(position)];
+    };
+
     // Behind in one colour, ahead in another, so a person can tell which way
     // the motion goes without counting. Both are faint enough to stay under
     // the live artwork rather than competing with it.
@@ -399,14 +433,16 @@ void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
             return;
         }
         const int alpha = std::max(24, 96 / distance);
-        const ImU32 tint = ahead ? IM_COL32(120, 200, 255, alpha)
-                                 : IM_COL32(255, 140, 90, alpha);
+        const float* colour = ahead ? timeline.onionAhead : timeline.onionBehind;
+        const ImU32 tint = IM_COL32(static_cast<int>(colour[0] * 255.f),
+                                    static_cast<int>(colour[1] * 255.f),
+                                    static_cast<int>(colour[2] * 255.f), alpha);
         canvas.drawFrameTinted(draw, *entry, origin, zoom, tint);
     };
 
     // Furthest first, so the nearest neighbour ends up on top.
-    for (int i = timeline.onionBefore; i >= 1; --i) { ghost(active - i, false, i); }
-    for (int i = timeline.onionAfter;  i >= 1; --i) { ghost(active + i, true,  i); }
+    for (int i = timeline.onionBefore; i >= 1; --i) { ghost(neighbour(-i), false, i); }
+    for (int i = timeline.onionAfter;  i >= 1; --i) { ghost(neighbour(i), true,  i); }
 }
 
 void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
@@ -483,6 +519,26 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("The frames either side, faint, under this one.\n"
                           "Behind in warm, ahead in cool.");
+    }
+    ImGui::SameLine(0.f, 2.f);
+    if (ImGui::SmallButton("v##onion")) {
+        ImGui::OpenPopup("onion-settings");
+    }
+    if (ImGui::BeginPopup("onion-settings")) {
+        ImGui::SetNextItemWidth(120.f);
+        ImGui::SliderInt("behind", &timeline.onionBefore, 0, 4);
+        ImGui::SetNextItemWidth(120.f);
+        ImGui::SliderInt("ahead", &timeline.onionAfter, 0, 4);
+        ImGui::Checkbox("Neighbours in the cycle", &timeline.onionInCycle);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("The frames the selected cycle plays either side of "
+                              "this one, rather than its neighbours in the strip.");
+        }
+        ImGui::Checkbox("Wrap at the ends", &timeline.onionWraps);
+        ImGui::ColorEdit3("behind##tint", timeline.onionBehind, ImGuiColorEditFlags_NoInputs);
+        ImGui::SameLine();
+        ImGui::ColorEdit3("ahead##tint", timeline.onionAhead, ImGuiColorEditFlags_NoInputs);
+        ImGui::EndPopup();
     }
 
     ImGui::SameLine();

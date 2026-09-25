@@ -80,6 +80,13 @@ struct TimelineSettings {
     bool onion = false;
     int  onionBefore = 1;
     int  onionAfter  = 1;
+    // Which neighbours: the frame list's, or the selected cycle's steps --
+    // what plays either side of this frame, which is what an animator is
+    // matching. And whether the ends wrap, for a loop drawn as one.
+    bool onionInCycle = false;
+    bool onionWraps = false;
+    float onionBehind[4] = { 1.f, 0.55f, 0.35f, 1.f };
+    float onionAhead[4]  = { 0.47f, 0.78f, 1.f, 1.f };
 
     int  renamingFrame = -1;
     char renameBuffer[64] = {};
@@ -219,6 +226,9 @@ struct Editor {
     bool              animationPanelOpen = false;
     bool              animationFromCycle = true;
     AnimationSettings animation;
+
+    // Whether the history window is up.
+    bool historyOpen = false;
 
     // The sheet export, and whether its window is up. Kept on the editor rather
     // than in the panel so the choices survive the dialog being opened and

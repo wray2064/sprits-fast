@@ -385,6 +385,24 @@ std::string Document::redoLabel() const {
     return redoStack_.empty() ? std::string() : redoStack_.back().label;
 }
 
+std::vector<std::string> Document::undoLabels() const {
+    std::vector<std::string> out;
+    out.reserve(undoStack_.size());
+    for (const HistoryEntry& entry : undoStack_) {
+        out.push_back(entry.label);
+    }
+    return out;
+}
+
+std::vector<std::string> Document::redoLabels() const {
+    std::vector<std::string> out;
+    out.reserve(redoStack_.size());
+    for (size_t i = redoStack_.size(); i-- > 0;) {
+        out.push_back(redoStack_[i].label);
+    }
+    return out;
+}
+
 void Document::setHistoryLimit(size_t limit) {
     historyLimit_ = limit;
     trimHistory();

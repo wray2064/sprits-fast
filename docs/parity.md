@@ -90,7 +90,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Frames: add, duplicate, delete, reorder, per-frame duration
 - [x] Cycles (tags), with loop, once and ping-pong
 - [x] Playback, onion skin
-- [ ] Onion skin settings: range, tint, show only within the cycle
+- [x] Onion skin settings: range, tint, show only within the cycle
 - [ ] Reverse frames, and set the duration of a range of frames at once
 - [ ] Linked cels (the same layer content in several frames)
       **(better: a shared region, so editing one edits all)**
@@ -132,13 +132,13 @@ only output. A feature that bakes pixels to get done faster is not done.
       copy/paste
 - [ ] Merge down, done as grouping: the README's rule holds
 - [ ] Layer properties dialog (name, blend, opacity)
-- [ ] Show or hide all others (Alt+click the eye)
+- [x] Show or hide all others (Alt+click the eye)
 - [ ] A reference layer that exports nothing (a reference already covers
       most of this)
 
 ### Editing
 - [x] Undo and redo
-- [ ] Undo history panel
+- [x] Undo history panel
 - [ ] Customisable keyboard shortcuts
 - [ ] Preferences: checker colours, grid colour, default size, autosave
 - [ ] Several documents open at once (tabs)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — history panel, onion skin settings (range, cycle neighbours, wrap, tints), Alt+click solo.
 - 2026-09-25 — palette: drag to reorder and sort (engine palette order), ramps, adjust hue/sat/light, colours to slots, presets, .pal/.act/image; RGB/HSV/hex fields; palette gets its own panel.
 - 2026-09-25 — symmetry, tiled mode with wrapping strokes, tile grid, Shift+click lines, Shift-constrained shapes.
 - 2026-09-25 — Sprite menu: canvas size with anchor (keeps what falls off), crop, trim, enlarge/reduce, rotate and flip canvas; shapes stay shapes.
