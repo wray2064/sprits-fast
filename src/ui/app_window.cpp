@@ -25,6 +25,7 @@
 #include "app/transform.h"
 #include "app/ui_state.h"
 #include "ui/keys.h"
+#include "ui/os_clipboard.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
 #include "ui/panels.h"
@@ -423,24 +424,23 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         ImGui::Separator();
         const bool selected = !editor.selection.empty();
-        if (ImGui::MenuItem("Cut", "Ctrl+X", false, selected)) { cutSelectionPixels(editor); }
-        if (ImGui::MenuItem("Copy", "Ctrl+C")) {
-            if (!copySelectionPixels(editor)) {
-                copyActiveLayer(editor);
-                editor.clipHoldsPixels = false;
-            }
+        if (ImGui::MenuItem("Cut", keysLabel(editor.keys, "edit.cut").c_str(), false,
+                            selected)) {
+            cutSelectionPixels(editor);
         }
-        if (ImGui::MenuItem("Paste", "Ctrl+V")) {
-            if (!pastePixels(editor)) {
-                pasteLayerHere(editor, canvas);
-            }
+        if (ImGui::MenuItem("Copy", keysLabel(editor.keys, "edit.copy").c_str())) {
+            copyCommand(editor);
         }
-        if (ImGui::MenuItem("Paste as new layer", "Ctrl+Shift+V", false,
-                            editor.clipHoldsPixels)) {
-            pastePixelsAsLayer(editor);
+        if (ImGui::MenuItem("Paste", keysLabel(editor.keys, "edit.paste").c_str())) {
+            pasteCommand(editor, canvas, false);
+        }
+        if (ImGui::MenuItem("Paste as new layer", keysLabel(editor.keys, "edit.paste-layer").c_str(),
+                            false, pixelsToPaste(editor))) {
+            pasteCommand(editor, canvas, true);
         }
         if (ImGui::MenuItem("Delete", "Del", false, selected)) { deleteSelectionPixels(editor); }
-        if (ImGui::MenuItem("Brush from selection", "Ctrl+B", false, selected)) {
+        if (ImGui::MenuItem("Brush from selection", keysLabel(editor.keys, "edit.brush").c_str(),
+                            false, selected)) {
             brushFromSelection(editor);
         }
         ImGui::Separator();
@@ -2210,14 +2210,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         canvas.invalidate();
     }
     if (fired("edit.cut")) { cutSelectionPixels(editor); }
-    // Copy and paste mean the selected pixels while there is a selection, and
-    // the layer otherwise -- the clipboard remembers which it holds.
-    if (fired("edit.copy") && !copySelectionPixels(editor)) {
-        copyActiveLayer(editor);
-        editor.clipHoldsPixels = false;
-    }
-    if (fired("edit.paste") && !pastePixels(editor)) { pasteLayerHere(editor, canvas); }
-    if (fired("edit.paste-layer")) { pastePixelsAsLayer(editor); }
+    if (fired("edit.copy")) { copyCommand(editor); }
+    if (fired("edit.paste")) { pasteCommand(editor, canvas, false); }
+    if (fired("edit.paste-layer")) { pasteCommand(editor, canvas, true); }
     if (fired("edit.brush")) { brushFromSelection(editor); }
     if (fired("selection.flip-h")) { turnSelection(editor, FloatTurn::FlipHorizontal); }
     if (fired("selection.flip-v")) { turnSelection(editor, FloatTurn::FlipVertical); }
@@ -2501,6 +2496,11 @@ struct Options {
     bool        library = false;         // open the library window
     bool        preferences = false;     // open the preferences window
     bool        preferencesKeys = false; // ... on its Keys tab
+    // Copy (after --select) or paste through the real system clipboard at
+    // start: a headless check of the clipboard both ways. Overwrites the
+    // clipboard of whoever runs it, so only when asked by name.
+    bool        systemCopy = false;
+    bool        systemPaste = false;
     uint32_t    autosaveSeconds = 0;     // override the interval, for testing
     bool        selfTest = false;
     std::string openPath;
@@ -2527,6 +2527,10 @@ Options parseOptions(int argc, char** argv) {
             options.library = true;
         } else if (arg == "--preferences") {
             options.preferences = true;
+        } else if (arg == "--system-copy") {
+            options.systemCopy = true;
+        } else if (arg == "--system-paste") {
+            options.systemPaste = true;
         } else if (arg == "--preferences-keys") {
             options.preferences = true;
             options.preferencesKeys = true;
@@ -3741,6 +3745,8 @@ int main(int argc, char** argv) {
     if (!headless) {
         loadSettings(editor);
     }
+    editor.systemClipboard = !headless;
+    initSystemClipboard(window);
     editor.preferencesOpen = options.preferences;
     editor.preferencesShowKeys = options.preferencesKeys;
     if (!editor.recovery.begin()) {
@@ -3771,6 +3777,23 @@ int main(int argc, char** argv) {
         editor.timeline.playing = true;
         editor.timeline.startedAtMs = SDL_GetTicks();
     }
+    if (options.systemCopy || options.systemPaste) {
+        editor.systemClipboard = true;
+        // Paste first, so both together are a round trip: what came in goes
+        // back out through the selection the paste leaves.
+        if (options.systemPaste) {
+            pasteCommand(editor, canvas, false);
+            if (editor.floating.active()) {
+                settleFloating(editor);
+            }
+            resyncLayers(editor);
+            std::printf("clipboard: %s\n", editor.status.c_str());
+        }
+        if (options.systemCopy) {
+            copyCommand(editor);
+            std::printf("clipboard: %s\n", editor.status.c_str());
+        }
+    }
     if (!options.sheetPath.empty()) {
         std::string sheetError;
         SheetSettings settings;
@@ -3798,6 +3821,11 @@ int main(int argc, char** argv) {
                 // The close button asks the same question the menu does rather
                 // than throwing the work away.
                 requestAction(editor, canvas, window, PendingAction::Quit);
+            }
+            // Another program put something on the clipboard: the next paste
+            // looks there first. (Windows reads the clipboard's own counter.)
+            if (event.type == SDL_EVENT_CLIPBOARD_UPDATE) {
+                noteClipboardEvent(event.clipboard.owner);
             }
             if (event.type == SDL_EVENT_DROP_FILE && event.drop.data != nullptr) {
                 requestAction(editor, canvas, window, PendingAction::OpenPath,

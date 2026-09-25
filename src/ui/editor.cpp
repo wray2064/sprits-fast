@@ -2,7 +2,9 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "ui/editor.h"
+#include "ui/os_clipboard.h"
 
+#include "app/clip_image.h"
 #include "app/file_io.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
@@ -430,6 +432,13 @@ void copyActiveLayer(Editor& editor) {
         return;
     }
     editor.clipboard = layer->layer;
+    // Other programs get the layer's picture, the canvas's size.
+    if (editor.systemClipboard) {
+        ls::RasterBuffer image;
+        if (layerImage(editor.doc, layer->layer, &image)) {
+            putImageOnClipboard(image);
+        }
+    }
     LayerProps props;
     readLayerProps(editor.doc, layer->layer, &props);
     editor.say("Copied " + props.name + " -- paste into any frame");

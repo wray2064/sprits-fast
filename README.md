@@ -39,7 +39,11 @@ retypes it and the pixels are rebuilt from the words -- no erasing a typo.
 Shift to add, Alt to subtract and both to intersect; marching ants; select all,
 deselect, reselect, invert; move the selected pixels by dragging or with the
 arrows, flip and rotate them, cut, copy, paste and delete -- and the pencil,
-eraser and bucket keep inside the selection while there is one.
+eraser and bucket keep inside the selection while there is one. Copies go on
+the **system clipboard** too, as PNG and as a bitmap with alpha, so they paste
+into a browser, a chat or another editor; an image copied anywhere else pastes
+into Fast as a float, one element per colour, and a colour the palette has
+exactly comes in as that slot, so it recolours with the palette straight away.
 
 **The canvas** — canvas size with an anchor, crop to the selection, trim to
 what is drawn, enlarge or reduce by a whole number, and turn or flip the whole

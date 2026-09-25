@@ -53,7 +53,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Delete clears the selected pixels on the active layer
 - [x] Flip the selection horizontally and vertically, and rotate it 90/180
 - [x] Tools clip to the selection while one exists
-- [ ] Copy and paste images through the OS clipboard
+- [x] Copy and paste images through the OS clipboard
 
 ### Canvas and sprite
 - [x] Canvas size (with an anchor), crop to the selection, trim to content
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- System clipboard: copies also go out as PNG and a BITMAPV5 with alpha (Win32 directly on Windows, since SDL offers one image format and misreads V5 bitfield DIBs; SDL elsewhere). Another program's image pastes as a float, one piece per colour, exact palette colours as slots, over 256 colours reduced to the nearest slots. Windows' clipboard sequence number tells Fast's own copies from others, so a Fast-to-Fast paste keeps slots and dithers. Checked end to end via --system-paste/--system-copy against .NET's clipboard reader: PNG and DIB both pixel-exact.
 - Customisable shortcuts: every shortcut is a named command (app/keymap) with default chords; Preferences > Keys rebinds by pressing, flags shared chords, resets one or all; keys.txt holds only overrides; menus show the live keys. Preferences window: new-document defaults, autosave, undo depth, pixel-grid colour/opacity, chequer colours and size, saved atomically to preferences.txt. Headless runs ignore both files.
 - 2026-09-25 — custom brush from a selection (Ctrl+B), stamped colour by colour or in the current colour.
 - 2026-09-25 — polygon lasso; stroke stabiliser (lazy mouse).

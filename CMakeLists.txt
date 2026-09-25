@@ -89,6 +89,7 @@ add_library(fast_core STATIC
     src/app/paint.cpp
     src/app/pixel_font.cpp
     src/app/preferences.cpp
+    src/app/clip_image.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -142,6 +143,7 @@ if (FAST_BUILD_GUI)
         src/ui/reference_cache.cpp
         src/ui/selection_tools.cpp
         src/ui/keys.cpp
+        src/ui/os_clipboard.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp
@@ -214,6 +216,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_preferences_tests tests/preferences_tests.cpp)
     target_link_libraries(fast_preferences_tests PRIVATE fast_core)
     add_test(NAME fast_preferences COMMAND fast_preferences_tests)
+
+    add_executable(fast_clip_image_tests tests/clip_image_tests.cpp)
+    target_link_libraries(fast_clip_image_tests PRIVATE fast_core)
+    add_test(NAME fast_clip_image COMMAND fast_clip_image_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

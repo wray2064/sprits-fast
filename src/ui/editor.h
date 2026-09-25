@@ -168,6 +168,10 @@ struct Editor {
     bool                   customBrushOwnColours = true;
     std::vector<InkStroke> brushStrokes;
     bool             clipHoldsPixels = false;   // the last copy was pixels, not a layer
+    // Whether copies go onto the system clipboard too, and pastes look there
+    // for another program's image. Off for headless runs, which must not
+    // overwrite the clipboard of whoever runs them.
+    bool             systemClipboard = true;
     bool             canvasHovered = false;     // last frame's, for a click elsewhere
 
     // A dithered element picked in the element list can be painted into as
@@ -567,6 +571,20 @@ bool copySelectionPixels(Editor& editor);
 bool cutSelectionPixels(Editor& editor);
 bool deleteSelectionPixels(Editor& editor);
 bool pastePixels(Editor& editor);
+
+// When another program's image is the newest thing on the clipboard, makes it
+// the clip a paste will use, and says what it held in `note`. False when the
+// clip is Fast's own, or the clipboard holds no image.
+bool adoptSystemClipboard(Editor& editor, std::string* note);
+
+// Whether a paste has pixels to paste: Fast's own, or another program's image.
+bool pixelsToPaste(Editor& editor);
+
+// Copy: the selected pixels while there is a selection, the layer otherwise.
+// Paste: another program's image if that is the newest thing on the
+// clipboard, then Fast's own pixels, then a copied layer (not as a layer).
+void copyCommand(Editor& editor);
+void pasteCommand(Editor& editor, CanvasView& canvas, bool asLayer);
 // The selected pixels of the active layer become the pencil's brush.
 bool brushFromSelection(Editor& editor);
 // The same, onto a new layer of its own above the active one.

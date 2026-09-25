@@ -3,7 +3,9 @@
 
 #include "ui/selection_tools.h"
 
+#include "app/clip_image.h"
 #include "app/layers.h"
+#include "ui/os_clipboard.h"
 
 #include <SDL3/SDL.h>
 
@@ -178,9 +180,91 @@ bool copySelectionPixels(Editor& editor) {
     }
     editor.pixelClip = std::move(clip);
     editor.clipHoldsPixels = true;
+    // Other programs get the picture: what the layer draws under the mask.
+    if (editor.systemClipboard) {
+        ls::RasterBuffer canvas;
+        if (layerImage(editor.doc, layer->layer, &canvas)) {
+            putImageOnClipboard(imageOfMask(canvas, mask));
+        }
+    }
     editor.say("Copied " + std::to_string(ls::geom::pixelCount(editor.pixelClip.mask)) +
                " pixel(s)");
     return true;
+}
+
+bool adoptSystemClipboard(Editor& editor, std::string* note) {
+    if (!editor.systemClipboard || !clipboardChangedElsewhere() || !clipboardHasImage()) {
+        return false;
+    }
+    // Whatever happens, this clipboard has been dealt with: a picture that
+    // cannot be read should not stand in front of Fast's own clip for ever.
+    markClipboardSeen();
+    ls::RasterBuffer image;
+    std::string error;
+    if (!imageFromClipboard(&image, &error)) {
+        editor.say("The clipboard's image could not be read: " + error);
+        return false;
+    }
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    if (size.fail()) {
+        return false;
+    }
+    const ls::Vec2i at = pastePosition(image.width, image.height,
+                                       static_cast<uint32_t>(size.value.x),
+                                       static_cast<uint32_t>(size.value.y));
+    const std::vector<PaletteEntry> palette =
+        paletteEntries(editor.doc, paletteFor(editor.doc, editor.activeSprite()));
+    PixelClip clip;
+    ImageClipReport report;
+    if (!clipFromImage(image, at, palette, &clip, &report)) {
+        editor.say(palette.empty() ? "The clipboard's image has too many colours to paste "
+                                     "without a palette to reduce it to"
+                                   : "The clipboard's image is empty");
+        return false;
+    }
+    clip.from = editor.doc.id();
+    editor.pixelClip = std::move(clip);
+    editor.clipHoldsPixels = true;
+    if (note != nullptr) {
+        const std::string dimensions = std::to_string(image.width) + " x " +
+                                       std::to_string(image.height);
+        *note = report.reduced
+            ? "Pasted a " + dimensions + " image with more than " +
+                  std::to_string(kMaxClipColours) + " colours: each pixel took the nearest of "
+                  "the palette's, " + std::to_string(report.colours) + " in all"
+            : "Pasted a " + dimensions + " image: " + std::to_string(report.colours) +
+                  " colour(s), " + std::to_string(report.slots) +
+                  " of them palette slots -- Enter to drop it";
+    }
+    return true;
+}
+
+// Copy: the selected pixels while there is a selection, the layer otherwise
+// -- the clipboard remembers which it holds.
+void copyCommand(Editor& editor) {
+    if (!copySelectionPixels(editor)) {
+        copyActiveLayer(editor);
+        editor.clipHoldsPixels = false;
+    }
+}
+
+// Paste: another program's image if that is the newest thing on the
+// clipboard, then Fast's own pixels, then a copied layer.
+void pasteCommand(Editor& editor, CanvasView& canvas, bool asLayer) {
+    std::string note;
+    const bool fromSystem = adoptSystemClipboard(editor, &note);
+    const bool pasted = asLayer ? pastePixelsAsLayer(editor) : pastePixels(editor);
+    if (!pasted && !asLayer) {
+        pasteLayerHere(editor, canvas);
+    }
+    if (pasted && fromSystem && !note.empty()) {
+        editor.say(note);
+    }
+}
+
+bool pixelsToPaste(Editor& editor) {
+    return editor.clipHoldsPixels ||
+           (editor.systemClipboard && clipboardChangedElsewhere() && clipboardHasImage());
 }
 
 bool brushFromSelection(Editor& editor) {

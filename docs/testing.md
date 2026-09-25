@@ -342,6 +342,22 @@ sprits_fast --demo-stroke
    defaults* puts it back.
 6. Set undo steps to 10, draw twelve strokes. *Expect:* only ten undo.
 
+### 4q. The system clipboard
+
+1. Select part of a drawing, `Ctrl+C`, paste into Paint and into a browser
+   text box that takes images. *Expect:* the same pixels in both; the browser
+   keeps transparency.
+2. Copy an image in a browser (right click > Copy image), back in Fast
+   `Ctrl+V`. *Expect:* it floats in the middle of the canvas with the Move
+   tool in hand, and the status bar counts its colours and how many are
+   palette slots. Enter drops it.
+3. Copy pixels in Fast, `Ctrl+V` in Fast. *Expect:* Fast's own clip (a
+   dithered area stays a dither), not the picture it also put out.
+4. Copy a photograph. *Expect:* the paste says there were too many colours
+   and each took the nearest of the palette's.
+5. `Ctrl+Shift+V` with another program's image copied. *Expect:* it lands
+   on a new layer.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
