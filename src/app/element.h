@@ -39,6 +39,7 @@ struct Element {
     ls::RegionId    region;       // null for a line
     ls::GeometryId  geometry;     // null for freehand
     ElementKind     kind = ElementKind::Paint;
+    bool            outlined = false;    // a shape drawn as its edge only
 
     bool valid() const { return fill.valid(); }
     bool isShape() const { return kind != ElementKind::Paint; }

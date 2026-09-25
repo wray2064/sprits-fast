@@ -38,7 +38,8 @@ struct ShapeParams {
     ls::Vec2f from;
     ls::Vec2f to;
     float     cornerRadius = 0.f;   // rectangles only
-    float     thickness = 1.f;      // lines only
+    float     thickness = 1.f;      // a line's width, or an outlined shape's
+    bool      outline = false;      // a rectangle or ellipse drawn as its edge only
 };
 
 // A layer holding one editable shape. Everything a PaintLayer is, plus the
@@ -68,6 +69,15 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
                 ShapeLayer* out);
 
 bool updateShape(Document& doc, const ShapeLayer& shape, const ShapeParams& params);
+
+// Filled or outlined: the same shape, the same colour and slot, drawn as its
+// area or as its edge `width` pixels thick. Swaps the operation in place, so
+// the element keeps its position in the layer. `op` is updated to the new
+// operation. Does not bracket an action.
+bool setShapeOutlined(Document& doc, ls::LayerId layer, ls::OperationId* op, bool outlined,
+                      float width);
+// Whether an element's operation draws an outline, and how thick.
+bool shapeIsOutlined(Document& doc, ls::OperationId op, float* width);
 
 // Reads a shape's current parameters back, so the interface shows the shape's
 // own values rather than whatever was last dragged.

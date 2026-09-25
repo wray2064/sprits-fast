@@ -170,7 +170,8 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
                 continue;
             }
 
-            if (op.type != "FillSolidOp" && op.type != "FillDitherOp") {
+            if (op.type != "FillSolidOp" && op.type != "FillDitherOp" &&
+                op.type != "StrokeRegionBoundaryOp") {
                 continue;
             }
             auto region = engine.getOperationParameter(op.id, "targetRegion");
@@ -187,7 +188,7 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
             found.fill = op.id;
             found.region.value = *handle;
             auto source = engine.getRegionSourceGeometry(found.region);
-            if (source.ok() && source.value.valid()) {
+            if ((source.ok() && source.value.valid()) || op.type == "StrokeRegionBoundaryOp") {
                 if (!shapeOnly.valid()) {
                     shapeOnly = found;
                 }

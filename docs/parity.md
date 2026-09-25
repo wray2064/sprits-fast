@@ -72,7 +72,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 ### Tools
 - [x] Pencil, eraser, bucket, eyedropper, rectangle, ellipse, line
 - [x] Brush size, round/square, pixel-perfect, pen pressure
-- [~] Filled and outlined rectangle and ellipse; Shift constrains to a
+- [x] Filled and outlined rectangle and ellipse; Shift constrains to a
       square or circle, and a line to 15° steps
 - [x] Spray / airbrush (seeded, so the result is deterministic)
 - [x] Gradient tool, dithered **(better: it stays a live FillDitherOp)**
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — outlined rectangles and ellipses, any width, switchable in the Element panel.
 - 2026-09-25 — indexed PNG export: the palette's slots in order are the table's first entries; menu and batch --indexed.
 - 2026-09-25 — sheet border and spacing; manifest in Aseprite's JSON (hash/array) with cycles as frame tags; batch --border/--spacing/--json.
 - 2026-09-25 — runs of frames: Shift+click selection, duplicate/delete/reverse/one hold, Play loops the run; playback speed.

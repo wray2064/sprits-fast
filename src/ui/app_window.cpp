@@ -1401,6 +1401,8 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             params.from = here;
             params.to = { here.x + 1.f, here.y + 1.f };
             params.cornerRadius = editor.shapeCorner;
+            params.outline = editor.shapeOutline && kind != ShapeKind::Line;
+            params.thickness = params.outline ? editor.shapeOutlineWidth : 1.f;
             // Onto the active layer as one more element, unless asked for a
             // layer per shape. Either way the panel then shows the thing
             // under the cursor.

@@ -24,7 +24,7 @@ uint64_t handleParam(Document& doc, ls::OperationId op, const char* name) {
 // about the elements, not elements.
 bool isElementOp(const ls::OperationInfo& op) {
     return op.type == "FillSolidOp" || op.type == "FillDitherOp" ||
-           op.type == "StrokePolylineOp";
+           op.type == "StrokePolylineOp" || op.type == "StrokeRegionBoundaryOp";
 }
 
 } // namespace
@@ -62,6 +62,7 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
         if (!element.region.valid()) {
             continue;
         }
+        element.outlined = op.type == "StrokeRegionBoundaryOp";
         // A region still tied to the geometry it was built from is a shape;
         // one that is not -- authored, or a shape edited by hand -- is pixels.
         auto source = engine.getRegionSourceGeometry(element.region);

@@ -390,6 +390,15 @@ void drawToolPanel(Editor& editor) {
     if (editor.tool == Tool::Rectangle || editor.tool == Tool::Ellipse ||
         editor.tool == Tool::Line) {
         theme::sectionHeader("SHAPES");
+        if (editor.tool != Tool::Line) {
+            ImGui::Checkbox("Outline only", &editor.shapeOutline);
+            if (editor.shapeOutline) {
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(-1.f);
+                ImGui::SliderFloat("##outlinewidth", &editor.shapeOutlineWidth, 1.f, 8.f,
+                                   "width %.0f");
+            }
+        }
         ImGui::Checkbox("Each shape on its own layer", &editor.shapesOnOwnLayer);
         ImGui::SameLine();
         theme::hint("Off: a shape joins the active layer as one of its "
@@ -1083,7 +1092,7 @@ ImU32 elementChip(Editor& editor, ls::LayerId layer, const Element& element) {
 std::string elementLabel(Editor& editor, const Element& element) {
     std::string label = elementKindName(element.kind);
     if (element.kind != ElementKind::Paint) {
-        return label;
+        return element.outlined ? label + "  outline" : label;
     }
     Ink ink;
     if (!inkOfElement(editor.doc, element.fill, &ink)) {
@@ -1328,6 +1337,31 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
                 updateShape(editor.doc, shape, params);
                 canvas.invalidate();
                 editor.say("The shape is still a shape");
+            }
+
+            // Its area, or its edge: the same shape either way.
+            if (shape.kind != ShapeKind::Line) {
+                float width = 1.f;
+                bool outlined = shapeIsOutlined(editor.doc, selected->fill, &width);
+                ls::OperationId op = selected->fill;
+                if (ImGui::Checkbox("Outline only##element", &outlined)) {
+                    editor.doc.beginAction(outlined ? "Outline the shape" : "Fill the shape");
+                    setShapeOutlined(editor.doc, layer->layer, &op, outlined, width);
+                    editor.doc.endAction();
+                    editor.activeElement = op;
+                    resyncLayers(editor);
+                    canvas.invalidate();
+                    return;
+                }
+                if (outlined) {
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(-1.f);
+                    if (ImGui::SliderFloat("##elementwidth", &width, 1.f, 8.f, "width %.0f")) {
+                        setShapeOutlined(editor.doc, layer->layer, &op, true, std::round(width));
+                        canvas.invalidate();
+                    }
+                    bracketDrag(editor, editor.editingShape, "Outline width");
+                }
             }
 
             if (ImGui::SmallButton("Current colour")) {

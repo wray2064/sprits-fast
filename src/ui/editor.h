@@ -336,6 +336,9 @@ struct Editor {
     ShapeLayer pendingShape;
     ls::Vec2f  shapeAnchor;
     float      shapeCorner = 0.f;
+    // Rectangles and ellipses drawn as their edge rather than their area.
+    bool       shapeOutline = false;
+    float      shapeOutlineWidth = 1.f;
 
     // The references this document holds, re-read whenever they can have
     // changed, and which one the panel is editing.

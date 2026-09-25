@@ -13,6 +13,7 @@
 
 #include "app/file_io.h"
 #include "app/palette.h"
+#include "app/element.h"
 #include "app/shape.h"
 
 #include <cstdio>
@@ -479,7 +480,49 @@ void testTheOutlineScopeSurvivesAReload() {
 
 } // namespace
 
+// An outlined shape: its edge only, thickened inward, still a shape the
+// panel edits; switching to filled and back keeps its place, colour and slot.
+void testAnOutlinedShapeIsItsEdge() {
+    fast::Document doc;
+    if (!doc.create("outline", 16, 16)) { CHECK(false); return; }
+    auto layer = doc.engine().createLayer(doc.sprite(), { "shapes" });
+    if (layer.fail()) { CHECK(false); return; }
+    fast::ShapeParams params;
+    params.from = { 2.f, 2.f };
+    params.to = { 10.f, 10.f };
+    params.outline = true;
+    fast::ShapeLayer shape;
+    if (!fast::addShapeTo(doc, layer.value, fast::ShapeKind::Rectangle, params,
+                          ls::Color{ 200, 0, 0, 255 }, ls::kColorRoleNone, &shape)) {
+        CHECK(false);
+        return;
+    }
+    const auto alpha = [&](int x, int y) {
+        auto compiled = doc.engine().compileSprite(
+            doc.sprite(), fast::compileProfile(ls::CompileProfileType::Export, 16, 16));
+        return compiled.ok() ? ls::readPixel(compiled.value.raster, x, y).a : 0;
+    };
+    CHECK(alpha(2, 5) == 255);            // the edge
+    CHECK(alpha(5, 5) == 0);              // not the inside
+    const std::vector<fast::Element> elements = fast::elementsOf(doc, layer.value);
+    CHECK(elements.size() == 1 && elements[0].outlined &&
+          elements[0].kind == fast::ElementKind::Rectangle);
+
+    ls::OperationId op = shape.paint.fill;
+    doc.beginAction("fill it");
+    CHECK(fast::setShapeOutlined(doc, layer.value, &op, false, 1.f));
+    doc.endAction();
+    CHECK(alpha(5, 5) == 255);
+    doc.beginAction("outline it, 2 wide");
+    CHECK(fast::setShapeOutlined(doc, layer.value, &op, true, 2.f));
+    doc.endAction();
+    CHECK(alpha(3, 5) == 255 && alpha(5, 5) == 0);
+    float width = 0.f;
+    CHECK(fast::shapeIsOutlined(doc, op, &width) && width == 2.f);
+}
+
 int main() {
+    testAnOutlinedShapeIsItsEdge();
     testARectangleStaysARectangle();
     testEllipsesAndLines();
     testDrivingAShapeAddsNothing();

@@ -161,12 +161,23 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
             doc.abandonAction();
             return false;
         }
-        ls::FillSolidOp fill;
-        fill.targetRegion = region.value;
-        fill.fallbackColor = colour;
-        fill.paletteRole = role;
-
-        auto op = engine.addOperation(layer, fill);
+        // Its area, or -- outlined -- its edge, thickened inward.
+        ls::Result<ls::OperationId> op = ls::Result<ls::OperationId>::err(
+            ls::LSError::InvalidParameter);
+        if (params.outline) {
+            ls::StrokeRegionBoundaryOp edge;
+            edge.targetRegion = region.value;
+            edge.width = std::max(1.f, params.thickness);
+            edge.fallbackColor = colour;
+            edge.paletteRole = role;
+            op = engine.addOperation(layer, edge);
+        } else {
+            ls::FillSolidOp fill;
+            fill.targetRegion = region.value;
+            fill.fallbackColor = colour;
+            fill.paletteRole = role;
+            op = engine.addOperation(layer, fill);
+        }
         if (op.fail()) {
             doc.abandonAction();
             return false;
@@ -180,6 +191,82 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
 
     out->geometry = geometry.value;
     out->kind = kind;
+    return true;
+}
+
+bool shapeIsOutlined(Document& doc, ls::OperationId op, float* width) {
+    auto info = doc.engine().getOperationInfo(op);
+    if (info.fail() || info.value.type != "StrokeRegionBoundaryOp") {
+        return false;
+    }
+    if (width != nullptr) {
+        auto value = doc.engine().getOperationParameter(op, "width");
+        const float* found = value.ok() ? std::get_if<float>(&value.value) : nullptr;
+        *width = found != nullptr ? *found : 1.f;
+    }
+    return true;
+}
+
+bool setShapeOutlined(Document& doc, ls::LayerId layer, ls::OperationId* op, bool outlined,
+                      float width) {
+    if (op == nullptr) {
+        return false;
+    }
+    ls::LSContext& engine = doc.engine();
+    float was = 1.f;
+    const bool isOutlined = shapeIsOutlined(doc, *op, &was);
+    if (isOutlined == outlined) {
+        // Already so: only the width, if it is an outline.
+        return !outlined ||
+               engine.setOperationParameter(*op, "width",
+                                            ls::ParameterValue{ std::max(1.f, width) }).ok();
+    }
+    auto operation = engine.getOperation(*op);
+    auto operations = engine.getLayerOperations(layer);
+    if (operation.fail() || operations.fail()) {
+        return false;
+    }
+    int32_t at = -1;
+    for (size_t i = 0; i < operations.value.size(); ++i) {
+        if (operations.value[i].id == *op) { at = static_cast<int32_t>(i); }
+    }
+    if (at < 0) {
+        return false;
+    }
+    // The same region, colour and slot, drawn the other way.
+    ls::Operation swapped;
+    if (outlined) {
+        const auto* fill = std::get_if<ls::FillSolidOp>(&operation.value);
+        if (fill == nullptr) {
+            return false;
+        }
+        ls::StrokeRegionBoundaryOp edge;
+        edge.targetRegion = fill->targetRegion;
+        edge.width = std::max(1.f, width);
+        edge.fallbackColor = fill->fallbackColor;
+        edge.paletteRole = fill->paletteRole;
+        edge.blend = fill->blend;
+        edge.opacity = fill->opacity;
+        swapped = edge;
+    } else {
+        const auto* edge = std::get_if<ls::StrokeRegionBoundaryOp>(&operation.value);
+        if (edge == nullptr) {
+            return false;
+        }
+        ls::FillSolidOp fill;
+        fill.targetRegion = edge->targetRegion;
+        fill.fallbackColor = edge->fallbackColor;
+        fill.paletteRole = edge->paletteRole;
+        fill.blend = edge->blend;
+        fill.opacity = edge->opacity;
+        swapped = fill;
+    }
+    auto added = engine.addOperation(layer, swapped, at);
+    if (added.fail()) {
+        return false;
+    }
+    engine.removeOperation(layer, *op);
+    *op = added.value;
     return true;
 }
 
