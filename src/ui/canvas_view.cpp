@@ -39,6 +39,16 @@ constexpr float kCheckerSize = 8.f;
 
 } // namespace
 
+ls::Vec2i CanvasView::wrap(ls::Vec2i pixel) const {
+    const auto modulo = [](int32_t value, uint32_t size) {
+        if (size == 0) { return value; }
+        const int32_t s = static_cast<int32_t>(size);
+        return ((value % s) + s) % s;
+    };
+    return { tilesAcross() ? modulo(pixel.x, textureWidth_) : pixel.x,
+             tilesDown() ? modulo(pixel.y, textureHeight_) : pixel.y };
+}
+
 void CanvasView::setZoom(float zoom) {
     zoom_ = std::clamp(std::floor(zoom + 0.5f), 1.f, 64.f);
 }
@@ -201,6 +211,29 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     draw->AddImage(reinterpret_cast<ImTextureID>(texture_), origin, corner);
     endPixels(draw);
 
+    // Tiled mode: the same texture again on every side it tiles, faintly
+    // darkened so the real canvas is still the one that reads as the canvas.
+    // No compile -- the picture is the one already uploaded.
+    if (tiled_ != TiledMode::None) {
+        const int across = tilesAcross() ? 1 : 0;
+        const int down = tilesDown() ? 1 : 0;
+        for (int ty = -down; ty <= down; ++ty) {
+            for (int tx = -across; tx <= across; ++tx) {
+                if (tx == 0 && ty == 0) {
+                    continue;
+                }
+                const ImVec2 at(origin.x + static_cast<float>(tx) * drawWidth,
+                                origin.y + static_cast<float>(ty) * drawHeight);
+                const ImVec2 to(at.x + drawWidth, at.y + drawHeight);
+                draw->AddRectFilled(at, to, ImGui::GetColorU32(c.checkerDark));
+                beginPixels(draw);
+                draw->AddImage(reinterpret_cast<ImTextureID>(texture_), at, to);
+                endPixels(draw);
+                draw->AddRectFilled(at, to, IM_COL32(0, 0, 0, 60));
+            }
+        }
+    }
+
     if (overlay) {
         overlay(draw, origin, zoom_);
     }
@@ -219,6 +252,24 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
         }
     }
 
+    // The tile grid: stronger than the pixel grid, and shown at any zoom,
+    // since cells are what it is for and they are large.
+    if (tiles_.visible && tiles_.width > 0 && tiles_.height > 0) {
+        const ImU32 line = IM_COL32(120, 190, 255, 90);
+        draw->PushClipRect(origin, corner, true);
+        const int ox = ((tiles_.offsetX % tiles_.width) + tiles_.width) % tiles_.width;
+        const int oy = ((tiles_.offsetY % tiles_.height) + tiles_.height) % tiles_.height;
+        for (int x = ox; x <= static_cast<int>(textureWidth_); x += tiles_.width) {
+            const float at = origin.x + static_cast<float>(x) * zoom_;
+            draw->AddLine(ImVec2(at, origin.y), ImVec2(at, corner.y), line);
+        }
+        for (int y = oy; y <= static_cast<int>(textureHeight_); y += tiles_.height) {
+            const float at = origin.y + static_cast<float>(y) * zoom_;
+            draw->AddLine(ImVec2(origin.x, at), ImVec2(corner.x, at), line);
+        }
+        draw->PopClipRect();
+    }
+
     draw->AddRect(origin, corner, ImGui::GetColorU32(c.border), 0.f, 0, 1.f);
 
     ImGui::Dummy(available);
@@ -228,21 +279,27 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     const float localY = (io.MousePos.y - origin.y) / zoom_;
     pointer_ = { static_cast<int32_t>(std::floor(localX)),
                  static_cast<int32_t>(std::floor(localY)) };
-    const bool inside = localX >= 0.f && localY >= 0.f &&
-                        localX < static_cast<float>(textureWidth_) &&
-                        localY < static_cast<float>(textureHeight_);
+    const float w = static_cast<float>(textureWidth_);
+    const float h = static_cast<float>(textureHeight_);
+    const float spanX = tilesAcross() ? w : 0.f;
+    const float spanY = tilesDown() ? h : 0.f;
+    const bool inside = localX >= -spanX && localY >= -spanY &&
+                        localX < w + spanX && localY < h + spanY;
 
     if (inside && hovered != nullptr) {
-        hovered->x = static_cast<int32_t>(std::floor(localX));
-        hovered->y = static_cast<int32_t>(std::floor(localY));
+        const ls::Vec2i wrapped = wrap(pointer_);
+        hovered->x = wrapped.x;
+        hovered->y = wrapped.y;
 
         // Outline what the tool would cover, so its target is never a guess:
         // the pixel under the pointer, or the brush around it, placed the way
         // brushStamp places it. Drawn in two passes -- dark then light -- so
         // it stays visible over both a dark and a light sprite.
+        // Drawn where the pointer is, not where it wraps to: the outline
+        // follows the hand, and the wrap is what the stroke does with it.
         const int before = (hoverSize_ - 1) / 2;
-        const ImVec2 top(origin.x + static_cast<float>(hovered->x - before) * zoom_,
-                         origin.y + static_cast<float>(hovered->y - before) * zoom_);
+        const ImVec2 top(origin.x + static_cast<float>(pointer_.x - before) * zoom_,
+                         origin.y + static_cast<float>(pointer_.y - before) * zoom_);
         const ImVec2 bottom(top.x + zoom_ * static_cast<float>(hoverSize_),
                             top.y + zoom_ * static_cast<float>(hoverSize_));
         draw->AddRect(ImVec2(top.x - 1.f, top.y - 1.f),

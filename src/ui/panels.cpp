@@ -12,6 +12,7 @@
 #include "app/transform.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -328,6 +329,35 @@ void drawToolPanel(Editor& editor) {
                     "elements, beside the pixels and the other shapes, and "
                     "stays editable in the Shape panel. On: every shape is a "
                     "layer of its own, listed in the stack.");
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
+    if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser ||
+        editor.tool == Tool::Bucket) {
+        theme::sectionHeader("SYMMETRY");
+        ImGui::Checkbox("Across", &editor.symmetryAcross);
+        ImGui::SameLine();
+        ImGui::Checkbox("Down", &editor.symmetryDown);
+        ImGui::SameLine();
+        theme::hint("Drawing on one side of an axis draws on the other too. The "
+                    "axes start at the middle of the canvas; move them here. "
+                    "Shift+click with the pencil draws a straight line from "
+                    "where the last stroke ended.");
+        const Symmetry now = symmetryNow(editor);
+        if (editor.symmetryAcross) {
+            float x = static_cast<float>(now.axisX) * 0.5f;
+            ImGui::SetNextItemWidth(-1.f);
+            if (ImGui::DragFloat("##axisx", &x, 0.5f, 0.f, 16384.f, "axis x  %.1f")) {
+                editor.symmetryAxisX = static_cast<int>(std::lround(x * 2.f));
+            }
+        }
+        if (editor.symmetryDown) {
+            float y = static_cast<float>(now.axisY) * 0.5f;
+            ImGui::SetNextItemWidth(-1.f);
+            if (ImGui::DragFloat("##axisy", &y, 0.5f, 0.f, 16384.f, "axis y  %.1f")) {
+                editor.symmetryAxisY = static_cast<int>(std::lround(y * 2.f));
+            }
+        }
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 

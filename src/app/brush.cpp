@@ -56,6 +56,32 @@ std::vector<ls::Vec2i> strokePixels(ls::Vec2i from, ls::Vec2i to, int size, bool
     return out;
 }
 
+std::vector<ls::Vec2i> mirrored(const std::vector<ls::Vec2i>& pixels, const Symmetry& symmetry) {
+    if (!symmetry.active()) {
+        return pixels;
+    }
+    std::vector<ls::Vec2i> out;
+    out.reserve(pixels.size() * 4);
+    const auto add = [&](ls::Vec2i p) {
+        for (ls::Vec2i seen : out) {
+            if (seen.x == p.x && seen.y == p.y) {
+                return;
+            }
+        }
+        out.push_back(p);
+    };
+    for (ls::Vec2i p : pixels) {
+        const ls::Vec2i flippedX { symmetry.axisX - 1 - p.x, p.y };
+        const ls::Vec2i flippedY { p.x, symmetry.axisY - 1 - p.y };
+        const ls::Vec2i both { symmetry.axisX - 1 - p.x, symmetry.axisY - 1 - p.y };
+        add(p);
+        if (symmetry.across) { add(flippedX); }
+        if (symmetry.down)   { add(flippedY); }
+        if (symmetry.across && symmetry.down) { add(both); }
+    }
+    return out;
+}
+
 int pressuredSize(const BrushSettings& brush, float pressure) {
     if (!brush.pressureSize) {
         return brush.size;

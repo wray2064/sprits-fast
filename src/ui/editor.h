@@ -222,6 +222,18 @@ struct Editor {
 
     BucketSettings   bucket;
     BrushSettings    brush;
+
+    // Drawing on one side draws on the other. The axes are doubled pixel
+    // positions (see brush.h), -1 meaning the canvas's own middle, so a new
+    // document or a resized one needs nothing set.
+    bool             symmetryAcross = false;
+    bool             symmetryDown = false;
+    int              symmetryAxisX = -1;
+    int              symmetryAxisY = -1;
+
+    // Where the last stroke ended, so Shift+click draws a straight line from
+    // it -- the pixel editor's oldest trick for a clean straight edge.
+    ls::Vec2i        lastStrokeEnd { -1, -1 };
     PixelPerfect     pixelPerfect;       // the stroke in progress, filtered
 
     // A stylus, as SDL reports it beside the mouse events it also sends. The
@@ -345,6 +357,9 @@ void resyncLayers(Editor& editor);
 // dither and colour helpers take: the selected element when it is pixels, and
 // otherwise the layer's first pixels. False when the layer has none.
 bool selectedPixels(Editor& editor, PaintLayer* out);
+
+// The symmetry in force, with the axes resolved against the canvas.
+Symmetry symmetryNow(Editor& editor);
 
 // The inks as values the engine takes, and setting them from one.
 Ink  foregroundInk(const Editor& editor);

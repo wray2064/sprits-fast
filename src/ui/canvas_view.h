@@ -24,6 +24,21 @@
 
 namespace fast {
 
+// Tiled mode: the canvas drawn again beside itself, so a tile's seams show
+// while it is drawn, and a stroke that runs off one edge comes back on the
+// other. Across, down, or both.
+enum class TiledMode { None, Horizontal, Vertical, Both };
+
+// A grid of tiles over the pixel grid: the cells a tileset or a sprite sheet
+// is cut into, with an offset for art that does not start at the corner.
+struct TileGrid {
+    bool visible = false;
+    int  width = 16;
+    int  height = 16;
+    int  offsetX = 0;
+    int  offsetY = 0;
+};
+
 class CanvasView {
 public:
     explicit CanvasView(SDL_Renderer* renderer)
@@ -99,6 +114,18 @@ public:
     void setGridVisible(bool visible) { grid_ = visible; }
     bool gridVisible() const { return grid_; }
 
+    TileGrid&       tileGrid()       { return tiles_; }
+    const TileGrid& tileGrid() const { return tiles_; }
+
+    void      setTiledMode(TiledMode mode) { tiled_ = mode; }
+    TiledMode tiledMode() const { return tiled_; }
+    bool      tilesAcross() const { return tiled_ == TiledMode::Horizontal || tiled_ == TiledMode::Both; }
+    bool      tilesDown() const   { return tiled_ == TiledMode::Vertical || tiled_ == TiledMode::Both; }
+
+    // A pixel brought back onto the canvas the way tiled mode wraps it; the
+    // pixel itself when the mode does not tile that way.
+    ls::Vec2i wrap(ls::Vec2i pixel) const;
+
     // The colour of a pixel in the last compile, for the eyedropper. Null when
     // the point is outside the canvas or nothing has been compiled yet. Reading
     // the cached raster rather than recompiling means picking is free.
@@ -152,6 +179,8 @@ private:
     mutable ls::Color sampled_;
 
     bool   grid_  = true;
+    TileGrid  tiles_;
+    TiledMode tiled_ = TiledMode::None;
     bool   fitPending_ = false;
     float  zoom_  = 8.f;
     float  panX_  = 0.f;

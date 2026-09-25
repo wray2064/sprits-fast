@@ -125,7 +125,37 @@ void testPixelPerfectDropsCorners() {
 
 } // namespace
 
+void testSymmetryMirrorsAboutTheAxis() {
+    Symmetry s;
+    s.across = true;
+    s.axisX = 32;                   // the middle of a 32-wide canvas
+    std::vector<ls::Vec2i> out = mirrored({{ 0, 5 }, { 15, 6 }}, s);
+    CHECK(out.size() == 4);
+    const auto has = [&](int x, int y) {
+        for (ls::Vec2i p : out) { if (p.x == x && p.y == y) { return true; } }
+        return false;
+    };
+    CHECK(has(31, 5) && has(16, 6));
+
+    // An odd width: the axis runs through the middle pixel, which is its own
+    // mirror and appears once.
+    s.axisX = 33;
+    out = mirrored({{ 16, 0 }}, s);
+    CHECK(out.size() == 1);
+
+    // Both axes: four copies.
+    s.axisX = 8;
+    s.down = true;
+    s.axisY = 8;
+    out = mirrored({{ 1, 2 }}, s);
+    CHECK(out.size() == 4 && has(6, 2) && has(1, 5) && has(6, 5));
+
+    // Off: untouched.
+    CHECK(mirrored({{ 1, 2 }}, Symmetry{}).size() == 1);
+}
+
 int main() {
+    testSymmetryMirrorsAboutTheAxis();
     testStamps();
     testStrokesCoverTheLineOnce();
     testPressure();

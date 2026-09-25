@@ -229,6 +229,18 @@ bool selectedPixels(Editor& editor, PaintLayer* out) {
     return true;
 }
 
+Symmetry symmetryNow(Editor& editor) {
+    Symmetry symmetry;
+    symmetry.across = editor.symmetryAcross;
+    symmetry.down = editor.symmetryDown;
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    const int width = size.ok() ? size.value.x : 0;
+    const int height = size.ok() ? size.value.y : 0;
+    symmetry.axisX = editor.symmetryAxisX >= 0 ? editor.symmetryAxisX : width;
+    symmetry.axisY = editor.symmetryAxisY >= 0 ? editor.symmetryAxisY : height;
+    return symmetry;
+}
+
 Ink foregroundInk(const Editor& editor) {
     Ink ink;
     ink.colour = toColor(editor.color);

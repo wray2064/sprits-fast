@@ -64,15 +64,15 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Pan with Space+drag and with the middle mouse button (check which
       already work)
 - [x] Pixel grid
-- [ ] Custom grid (size and offset), snap to grid
-- [ ] Tiled-mode preview (draw across a wrapped edge) **(Aseprite, Pixelorama)**
-- [ ] Symmetry drawing: horizontal, vertical, both, with a movable axis
+- [~] Custom grid (size and offset), snap to grid
+- [x] Tiled-mode preview (draw across a wrapped edge) **(Aseprite, Pixelorama)**
+- [x] Symmetry drawing: horizontal, vertical, both, with a movable axis
 - [ ] New document dialog: size, background, palette preset
 
 ### Tools
 - [x] Pencil, eraser, bucket, eyedropper, rectangle, ellipse, line
 - [x] Brush size, round/square, pixel-perfect, pen pressure
-- [ ] Filled and outlined rectangle and ellipse; Shift constrains to a
+- [~] Filled and outlined rectangle and ellipse; Shift constrains to a
       square or circle, and a line to 15° steps
 - [ ] Spray / airbrush (seeded, so the result is deterministic)
 - [ ] Gradient tool, dithered **(better: it stays a live FillDitherOp)**
@@ -84,7 +84,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Custom brush from a selection
 - [ ] Stroke stabiliser / smoothing
 - [ ] Hand tool and zoom tool (for pen users)
-- [ ] Line tool drawn as pixels (Shift+click from the last point)
+- [x] Line tool drawn as pixels (Shift+click from the last point)
 
 ### Animation
 - [x] Frames: add, duplicate, delete, reorder, per-frame duration
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — symmetry, tiled mode with wrapping strokes, tile grid, Shift+click lines, Shift-constrained shapes.
 - 2026-09-25 — Sprite menu: canvas size with anchor (keeps what falls off), crop, trim, enlarge/reduce, rotate and flip canvas; shapes stay shapes.
 - 2026-09-25 — images open as documents (colours become the palette), GIF frames, sheet import; export GIF, APNG, PNG sequence; alpha preserved in every compile.
 - 2026-09-25 — selections: marquee, ellipse, lasso, wand; add/subtract/intersect; move, nudge, flip, rotate, cut/copy/paste/delete; shapes ride along as shapes.

@@ -21,7 +21,12 @@ and line tools, all with keyboard shortcuts; any number of colours on one
 layer, with a second colour on the right button and `X` to swap them; a brush
 with a size, a round or square shape, and the pixel-perfect rule that keeps a
 diagonal a line; pen tablets, with pressure driving the size and the eraser
-end erasing.
+end erasing. Symmetry across, down or both, about axes that start at the
+middle and move; Shift+click for a straight line from the last stroke; Shift
+keeps a rectangle square, an ellipse round and a line on fifteen-degree steps.
+**Tiled mode** draws the canvas again beside itself, and a stroke off one edge
+comes back on the other; a **tile grid** of any size and offset sits over the
+pixel grid.
 
 **Selecting** — rectangle and ellipse marquees, a lasso and a magic wand, with
 Shift to add, Alt to subtract and both to intersect; marching ants; select all,

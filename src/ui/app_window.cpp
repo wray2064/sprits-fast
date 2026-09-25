@@ -511,6 +511,39 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         bool grid = canvas.gridVisible();
         if (ImGui::MenuItem("Pixel grid", nullptr, &grid)) { canvas.setGridVisible(grid); }
+        if (ImGui::BeginMenu("Tile grid")) {
+            TileGrid& tiles = canvas.tileGrid();
+            ImGui::MenuItem("Show", nullptr, &tiles.visible);
+            ImGui::SetNextItemWidth(120.f);
+            ImGui::InputInt("width", &tiles.width);
+            ImGui::SetNextItemWidth(120.f);
+            ImGui::InputInt("height", &tiles.height);
+            ImGui::SetNextItemWidth(120.f);
+            ImGui::InputInt("offset x", &tiles.offsetX);
+            ImGui::SetNextItemWidth(120.f);
+            ImGui::InputInt("offset y", &tiles.offsetY);
+            tiles.width = std::clamp(tiles.width, 1, 4096);
+            tiles.height = std::clamp(tiles.height, 1, 4096);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Tiled mode")) {
+            const char* names[] = { "Off", "Across", "Down", "Both ways" };
+            for (int i = 0; i < 4; ++i) {
+                if (ImGui::MenuItem(names[i], nullptr,
+                                    static_cast<int>(canvas.tiledMode()) == i)) {
+                    canvas.setTiledMode(static_cast<TiledMode>(i));
+                }
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("The canvas drawn again beside itself, so a tile's "
+                              "seams show while it is drawn -- and a stroke off one "
+                              "edge comes back on the other.");
+        }
+        ImGui::Separator();
+        ImGui::MenuItem("Symmetry across", nullptr, &editor.symmetryAcross);
+        ImGui::MenuItem("Symmetry down", nullptr, &editor.symmetryDown);
         ImGui::MenuItem("Preview", "P", &editor.preview.visible);
         ImGui::EndMenu();
     }
@@ -774,6 +807,34 @@ void drawUnsavedPrompt(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
+}
+
+// The symmetry axes, as thin dashed lines across the canvas, so it is never a
+// surprise that a stroke is being mirrored.
+void drawSymmetryAxes(Editor& editor, const CanvasView& canvas, ImDrawList* draw,
+                      ImVec2 origin, float zoom) {
+    if (!editor.symmetryAcross && !editor.symmetryDown) {
+        return;
+    }
+    const Symmetry symmetry = symmetryNow(editor);
+    const float width = static_cast<float>(canvas.compiledWidth()) * zoom;
+    const float height = static_cast<float>(canvas.compiledHeight()) * zoom;
+    const ImU32 colour = IM_COL32(255, 170, 60, 170);
+    const float dash = 6.f;
+    if (symmetry.across) {
+        const float x = origin.x + static_cast<float>(symmetry.axisX) * 0.5f * zoom;
+        for (float y = 0.f; y < height; y += dash * 2.f) {
+            draw->AddLine(ImVec2(x, origin.y + y),
+                          ImVec2(x, origin.y + std::min(y + dash, height)), colour, 1.f);
+        }
+    }
+    if (symmetry.down) {
+        const float y = origin.y + static_cast<float>(symmetry.axisY) * 0.5f * zoom;
+        for (float x = 0.f; x < width; x += dash * 2.f) {
+            draw->AddLine(ImVec2(origin.x + x, y),
+                          ImVec2(origin.x + std::min(x + dash, width), y), colour, 1.f);
+        }
+    }
 }
 
 // Picks up whatever a native dialog came back with. The callback runs on SDL's
@@ -1159,6 +1220,24 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             ShapeParams params;
             params.from = editor.shapeAnchor;
             params.to = here;
+            if (ImGui::GetIO().KeyShift) {
+                const float dx = here.x - editor.shapeAnchor.x;
+                const float dy = here.y - editor.shapeAnchor.y;
+                if (kind == ShapeKind::Line) {
+                    // Fifteen-degree steps: horizontal, vertical, the
+                    // diagonals, and the slopes pixel art actually uses
+                    // between them.
+                    const float step = 3.14159265f / 12.f;
+                    const float angle = std::round(std::atan2(dy, dx) / step) * step;
+                    const float length = std::sqrt(dx * dx + dy * dy);
+                    params.to = { editor.shapeAnchor.x + std::round(std::cos(angle) * length),
+                                  editor.shapeAnchor.y + std::round(std::sin(angle) * length) };
+                } else {
+                    const float side = std::max(std::fabs(dx), std::fabs(dy));
+                    params.to = { editor.shapeAnchor.x + (dx < 0.f ? -side : side),
+                                  editor.shapeAnchor.y + (dy < 0.f ? -side : side) };
+                }
+            }
             params.cornerRadius = editor.shapeCorner;
             updateShape(editor.doc, editor.pendingShape, params);
             canvas.invalidate();
@@ -1178,11 +1257,19 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         if (overCanvas && (left || right)) {
             editor.doc.beginAction("Fill");
             InkStroke stroke;
-            const bool filled = beginPaint(editor, *layer, right && !left, &stroke) &&
-                                bucketFill(editor.doc, editor.sprite, stroke, pixel,
-                                           editor.bucket,
-                                           editor.selection.empty() ? nullptr
-                                                                    : &editor.selection.mask);
+            bool filled = beginPaint(editor, *layer, right && !left, &stroke);
+            if (filled) {
+                // With symmetry on, each mirror of the click fills as well --
+                // in the order given, so a fill that already covered a mirror
+                // leaves nothing for it to do.
+                bool any = false;
+                for (ls::Vec2i seed : mirrored({ pixel }, symmetryNow(editor))) {
+                    any = bucketFill(editor.doc, editor.sprite, stroke, seed, editor.bucket,
+                                     editor.selection.empty() ? nullptr
+                                                              : &editor.selection.mask) || any;
+                }
+                filled = any;
+            }
             if (filled) {
                 pruneEmptyInks(editor.doc, layer->layer, stroke.target.fill);
                 editor.doc.endAction();
@@ -1194,6 +1281,15 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             editor.say(filled ? "Filled" : "Nothing to fill there");
         }
         return;
+    }
+
+    // In tiled mode the stroke follows the pointer as it really moved, off
+    // the edge and all, and each pixel is brought back onto the canvas after
+    // the path is drawn -- wrapping first would draw a line straight across
+    // the canvas every time the pointer crossed a seam.
+    const bool tiled = canvas.tiledMode() != TiledMode::None;
+    if (tiled && overCanvas) {
+        pixel = canvas.pointerPixel();
     }
 
     // A layer shown rotated is still drawn on straight. The pencil writes into
@@ -1232,7 +1328,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         }
         editor.stroking = true;
         editor.strokeWithBack = back;
-        editor.lastPixel = pixel;
+        // Shift+click: a straight line from where the last stroke ended.
+        editor.lastPixel = ImGui::GetIO().KeyShift && editor.lastStrokeEnd.x >= 0
+                               ? editor.lastStrokeEnd : pixel;
         editor.pixelPerfect.reset();
     }
 
@@ -1262,6 +1360,12 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 ? brushStamp(pixel, size, editor.brush.round)
                 : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
         }
+        if (tiled) {
+            for (ls::Vec2i& at : run) {
+                at = canvas.wrap(at);
+            }
+        }
+        run = mirrored(run, symmetryNow(editor));
         if (!editor.selection.empty()) {
             run.erase(std::remove_if(run.begin(), run.end(), [&](ls::Vec2i at) {
                           return !editor.selection.contains(at);
@@ -1277,11 +1381,18 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
 
     if (editor.stroking && ImGui::IsMouseReleased(button)) {
         // The filter's last point, held until now.
-        const std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
+        std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
         if (!rest.empty() && editor.tool == Tool::Pencil) {
+            if (tiled) {
+                for (ls::Vec2i& at : rest) {
+                    at = canvas.wrap(at);
+                }
+            }
+            rest = mirrored(rest, symmetryNow(editor));
             strokeInk(editor.doc, editor.inkStroke, rest);
             canvas.invalidate();
         }
+        editor.lastStrokeEnd = editor.lastPixel;
         // A colour painted out entirely, or erased away, leaves the element
         // list rather than lingering as an element that draws nothing.
         const int pruned = pruneEmptyInks(editor.doc, editor.inkStroke.layer,
@@ -1606,6 +1717,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
             drawReferences(editor, canvas, draw, origin, zoom, false);
             drawSelectionOverlay(editor, draw, origin, zoom);
+            drawSymmetryAxes(editor, canvas, draw, origin, zoom);
         });
     editor.hovered = hovered;
 
@@ -1669,6 +1781,8 @@ struct Options {
     bool        showSheetPanel = false;
     std::string select;                // --select x,y,w,h: a marquee, for a capture
     std::string tool;                  // --tool name: the tool in hand, for a capture
+    bool        tiled = false;         // --tiled: tiled mode both ways and a tile grid
+    bool        symmetry = false;      // --symmetry: both axes on
     bool        play = false;            // start playback, for a headless run
     bool        library = false;         // open the library window
     uint32_t    autosaveSeconds = 0;     // override the interval, for testing
@@ -1707,6 +1821,10 @@ Options parseOptions(int argc, char** argv) {
             options.select = argv[++i];
         } else if (arg == "--tool" && i + 1 < argc) {
             options.tool = argv[++i];
+        } else if (arg == "--tiled") {
+            options.tiled = true;
+        } else if (arg == "--symmetry") {
+            options.symmetry = true;
         } else if (arg == "--expect-idle") {
             // Fails the run if the last frame compiled anything. Nothing is
             // changing by then, so a compile means something asked for a
@@ -2790,6 +2908,14 @@ int main(int argc, char** argv) {
                 { values[0] + values[2] - 1, values[1] + values[3] - 1 });
         }
     }
+    if (options.tiled) {
+        canvas.setTiledMode(TiledMode::Both);
+        canvas.tileGrid().visible = true;
+        canvas.tileGrid().width = 8;
+        canvas.tileGrid().height = 8;
+    }
+    editor.symmetryAcross = editor.symmetryAcross || options.symmetry;
+    editor.symmetryDown = editor.symmetryDown || options.symmetry;
     if (!options.tool.empty()) {
         struct Named { const char* name; Tool tool; };
         const Named tools[] = {

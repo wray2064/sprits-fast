@@ -266,6 +266,21 @@ sprits_fast --demo-stroke
 4. *Trim* on a sprite with a margin. *Expect:* the canvas hugs the drawing on
    every frame, including frames drawn further out than this one.
 
+### 4l. Drawing aids
+
+1. *View -> Symmetry across*. *Expect:* an orange dashed axis down the middle;
+   a stroke on the left appears mirrored on the right. Move the axis in the
+   Tool panel. *Expect:* the line moves in half-pixel steps.
+2. Pencil: click, then Shift+click elsewhere. *Expect:* a straight line
+   between them, pixel-perfect at size 1.
+3. Rectangle with Shift. *Expect:* square. Line with Shift. *Expect:* snaps to
+   0, 15, 30, 45... degrees.
+4. *View -> Tiled mode -> Both ways*, zoom out. *Expect:* the canvas repeated
+   around itself, the copies darker. Stroke off the right edge. *Expect:* it
+   continues from the left edge, with no line across the canvas at the seam.
+5. *View -> Tile grid*, 8 x 8, offset 4. *Expect:* blue lines every 8 pixels,
+   starting at 4.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
