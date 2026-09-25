@@ -1043,13 +1043,16 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
             }
 
             if (shape.kind == ShapeKind::Rectangle) {
+                // The rectangle's own radius, read back from its geometry. A
+                // radius set here is also the one the next rectangle starts
+                // with.
                 ImGui::SetNextItemWidth(-42.f);
-                if (ImGui::SliderFloat("round", &editor.shapeCorner, 0.f, 12.f,
+                if (ImGui::SliderFloat("round", &params.cornerRadius, 0.f, 12.f,
                                        "%.1f")) {
+                    editor.shapeCorner = params.cornerRadius;
                     changed = true;
                 }
                 bracketDrag(editor, editor.editingShape, "Corner radius");
-                params.cornerRadius = editor.shapeCorner;
             }
 
             if (changed) {

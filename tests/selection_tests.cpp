@@ -306,6 +306,7 @@ void testAShapeInsideGoesAlongAsAShape() {
     ShapeParams params;
     params.from = { 2, 2 };
     params.to = { 5, 5 };
+    params.cornerRadius = 1.5f;
     ShapeLayer inside, outside;
     REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, params, kBlue,
                        ls::kColorRoleNone, &inside));
@@ -326,6 +327,7 @@ void testAShapeInsideGoesAlongAsAShape() {
     ShapeParams moved;
     REQUIRE(readShapeParams(doc, inside, &moved));
     CHECK(moved.from.x == 5.f && moved.to.x == 8.f);     // still a rectangle, moved
+    CHECK(moved.cornerRadius == 1.5f);                    // and still rounded
     ShapeParams stayed;
     REQUIRE(readShapeParams(doc, outside, &stayed));
     CHECK(stayed.from.x == 10.f);                         // outside the mask, untouched

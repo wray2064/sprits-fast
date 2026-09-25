@@ -225,6 +225,32 @@ bool readShapeParams(Document& doc, const ShapeLayer& shape, ShapeParams* out) {
         return true;
     }
 
+    // The description itself, not its rasterised bounds: written back
+    // unchanged it must be the same shape, corner radius included -- a
+    // rounded rectangle carried along by a selection or turned with the
+    // canvas used to come back square.
+    if (shape.kind == ShapeKind::Rectangle) {
+        auto rect = engine.getRect(shape.geometry);
+        if (rect.ok()) {
+            out->from = rect.value.origin;
+            out->to = { rect.value.origin.x + rect.value.width,
+                        rect.value.origin.y + rect.value.height };
+            out->cornerRadius = rect.value.cornerRadius;
+            return true;
+        }
+    } else if (shape.kind == ShapeKind::Ellipse) {
+        auto oval = engine.getEllipse(shape.geometry);
+        if (oval.ok()) {
+            out->from = { oval.value.center.x - oval.value.radiusX,
+                          oval.value.center.y - oval.value.radiusY };
+            out->to = { oval.value.center.x + oval.value.radiusX,
+                        oval.value.center.y + oval.value.radiusY };
+            return true;
+        }
+    }
+
+    // A geometry of some other kind than the element claims: its bounds are
+    // the best description there is.
     auto bounds = engine.getGeometryBounds(shape.geometry);
     if (bounds.fail()) {
         return false;
