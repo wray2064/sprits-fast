@@ -139,8 +139,8 @@ only output. A feature that bakes pixels to get done faster is not done.
 ### Editing
 - [x] Undo and redo
 - [x] Undo history panel
-- [ ] Customisable keyboard shortcuts
-- [ ] Preferences: checker colours, grid colour, default size, autosave
+- [x] Customisable keyboard shortcuts
+- [x] Preferences: checker colours, grid colour, default size, autosave
 - [ ] Several documents open at once (tabs)
 
 ## Tier 2 — polish that users of the incumbents expect
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Customisable shortcuts: every shortcut is a named command (app/keymap) with default chords; Preferences > Keys rebinds by pressing, flags shared chords, resets one or all; keys.txt holds only overrides; menus show the live keys. Preferences window: new-document defaults, autosave, undo depth, pixel-grid colour/opacity, chequer colours and size, saved atomically to preferences.txt. Headless runs ignore both files.
 - 2026-09-25 — custom brush from a selection (Ctrl+B), stamped colour by colour or in the current colour.
 - 2026-09-25 — polygon lasso; stroke stabiliser (lazy mouse).
 - 2026-09-25 — text tool with Fast's own 5x7 face; text stays an element that can be retyped, resized and moved.

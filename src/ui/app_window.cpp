@@ -24,6 +24,7 @@
 #include "app/sheet.h"
 #include "app/transform.h"
 #include "app/ui_state.h"
+#include "ui/keys.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
 #include "ui/panels.h"
@@ -36,6 +37,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -281,7 +283,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         return;
     }
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("New...", "Ctrl+N")) {
+        if (ImGui::MenuItem("New...", keysLabel(editor.keys, "file.new").c_str())) {
             editor.newDocumentOpen = true;
         }
         if (ImGui::BeginMenu("Autosave")) {
@@ -314,7 +316,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Library...", "Ctrl+L")) {
+        if (ImGui::MenuItem("Library...", keysLabel(editor.keys, "file.library").c_str())) {
             editor.libraryOpen = true;
             editor.libraryStale = true;
         }
@@ -325,7 +327,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             showImportSheetDialog(editor.files, window, editor.doc);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Open...", "Ctrl+O")) {
+        if (ImGui::MenuItem("Open...", keysLabel(editor.keys, "file.open").c_str())) {
             requestAction(editor, canvas, window, PendingAction::OpenDialog);
         }
         if (ImGui::BeginMenu("Open recent", !editor.files.recent.empty())) {
@@ -345,10 +347,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Save", "Ctrl+S")) {
+        if (ImGui::MenuItem("Save", keysLabel(editor.keys, "file.save").c_str())) {
             saveOrAsk(editor, canvas, window);
         }
-        if (ImGui::MenuItem("Save as...", "Ctrl+Shift+S")) {
+        if (ImGui::MenuItem("Save as...", keysLabel(editor.keys, "file.save-as").c_str())) {
             showSaveAsDialog(editor.files, window, editor.doc);
         }
         if (ImGui::MenuItem("Save a copy...")) {
@@ -386,7 +388,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.animationPanelOpen = true;
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
+        if (ImGui::MenuItem("Quit", keysLabel(editor.keys, "file.quit").c_str())) {
             requestAction(editor, canvas, window, PendingAction::Quit);
         }
         ImGui::EndMenu();
@@ -397,14 +399,16 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ? "Undo " + editor.doc.undoLabel() : std::string("Undo");
         const std::string redo = editor.doc.canRedo()
             ? "Redo " + editor.doc.redoLabel() : std::string("Redo");
-        if (ImGui::MenuItem(undo.c_str(), "Ctrl+Z", false, editor.doc.canUndo())) {
+        if (ImGui::MenuItem(undo.c_str(), keysLabel(editor.keys, "edit.undo").c_str(), false,
+                            editor.doc.canUndo())) {
             editor.doc.undo();
             resyncLayers(editor);
             resyncReferences(editor, canvas);
             refreshInks(editor);
             canvas.invalidate();
         }
-        if (ImGui::MenuItem(redo.c_str(), "Ctrl+Shift+Z", false, editor.doc.canRedo())) {
+        if (ImGui::MenuItem(redo.c_str(), keysLabel(editor.keys, "edit.redo").c_str(), false,
+                            editor.doc.canRedo())) {
             editor.doc.redo();
             resyncLayers(editor);
             resyncReferences(editor, canvas);
@@ -413,6 +417,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         if (ImGui::MenuItem("History...", nullptr, editor.historyOpen)) {
             editor.historyOpen = !editor.historyOpen;
+        }
+        if (ImGui::MenuItem("Preferences...")) {
+            editor.preferencesOpen = true;
         }
         ImGui::Separator();
         const bool selected = !editor.selection.empty();
@@ -705,6 +712,244 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
+}
+
+// The canvas as the preferences have it: grid on or off, the chequer's
+// colours and size, and the grid's colour.
+ImU32 packedColour(uint32_t rgb, int alpha) {
+    return IM_COL32((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha);
+}
+
+void applyViewPreferences(const Preferences& prefs, CanvasView& canvas) {
+    canvas.setGridVisible(prefs.pixelGrid);
+    canvas.setChecker(packedColour(prefs.checkerLight, 255), packedColour(prefs.checkerDark, 255),
+                      static_cast<float>(prefs.checkerSize));
+    canvas.setGridColour(packedColour(prefs.gridColour, prefs.gridOpacity));
+}
+
+// An 0xRRGGBB preference as a colour button; true when it was changed.
+bool editColour(const char* label, uint32_t* rgb) {
+    float colour[3] = { static_cast<float>((*rgb >> 16) & 0xFF) / 255.f,
+                        static_cast<float>((*rgb >> 8) & 0xFF) / 255.f,
+                        static_cast<float>(*rgb & 0xFF) / 255.f };
+    if (!ImGui::ColorEdit3(label, colour, ImGuiColorEditFlags_NoInputs)) {
+        return false;
+    }
+    const auto byte = [](float v) {
+        return static_cast<uint32_t>(std::clamp(v, 0.f, 1.f) * 255.f + 0.5f);
+    };
+    *rgb = (byte(colour[0]) << 16) | (byte(colour[1]) << 8) | byte(colour[2]);
+    return true;
+}
+
+// Preferences: what a new document is, autosave, the grid and the history's
+// length on one tab; every command and its keys on the other, where a key is
+// given by pressing it. Everything is written the moment it changes.
+void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
+    if (!editor.preferencesOpen) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(520.f, 560.f), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Preferences", &editor.preferencesOpen)) {
+        ImGui::End();
+        return;
+    }
+    Preferences& prefs = editor.prefs;
+    bool changed = false;
+    if (ImGui::BeginTabBar("preference-tabs")) {
+        if (ImGui::BeginTabItem("General")) {
+            theme::sectionHeader("A NEW DOCUMENT");
+            int size[2] = { static_cast<int>(prefs.newWidth), static_cast<int>(prefs.newHeight) };
+            ImGui::SetNextItemWidth(200.f);
+            if (ImGui::InputInt2("size", size)) {
+                size[0] = std::clamp(size[0], 1, static_cast<int>(kMaxCanvasDimension));
+                size[1] = std::clamp(size[1], 1, static_cast<int>(kMaxCanvasDimension));
+                if (static_cast<uint64_t>(size[0]) * static_cast<uint64_t>(size[1]) <=
+                    kMaxCanvasPixels) {
+                    prefs.newWidth = static_cast<uint32_t>(size[0]);
+                    prefs.newHeight = static_cast<uint32_t>(size[1]);
+                    changed = true;
+                }
+            }
+            const char* backgrounds[] = { "Transparent", "White", "Black", "The palette's first colour" };
+            ImGui::SetNextItemWidth(200.f);
+            changed |= ImGui::Combo("background", &prefs.newBackground, backgrounds, 4);
+            const std::vector<PalettePreset>& presets = palettePresets();
+            const char* current = prefs.newPreset < 0 ||
+                                  prefs.newPreset >= static_cast<int>(presets.size())
+                ? "Starter" : presets[static_cast<size_t>(prefs.newPreset)].name.c_str();
+            ImGui::SetNextItemWidth(200.f);
+            if (ImGui::BeginCombo("palette", current)) {
+                if (ImGui::Selectable("Starter", prefs.newPreset < 0)) {
+                    prefs.newPreset = -1;
+                    changed = true;
+                }
+                for (size_t i = 0; i < presets.size(); ++i) {
+                    if (ImGui::Selectable(presets[i].name.c_str(),
+                                          prefs.newPreset == static_cast<int>(i))) {
+                        prefs.newPreset = static_cast<int>(i);
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            theme::sectionHeader("WORKING");
+            if (ImGui::Checkbox("Autosave a copy", &prefs.autosaveOn)) {
+                editor.autosaveOn = prefs.autosaveOn && editor.recovery.active();
+                changed = true;
+            }
+            int minutes = static_cast<int>(prefs.autosaveSeconds / 60);
+            ImGui::SetNextItemWidth(200.f);
+            if (ImGui::SliderInt("every", &minutes, 1, 30, "%d min")) {
+                prefs.autosaveSeconds = static_cast<uint32_t>(minutes) * 60u;
+                editor.recovery.setIntervalSeconds(prefs.autosaveSeconds);
+                changed = true;
+            }
+            int history = static_cast<int>(prefs.historyLimit);
+            ImGui::SetNextItemWidth(200.f);
+            if (ImGui::SliderInt("undo steps", &history, 10, 2000)) {
+                prefs.historyLimit = static_cast<uint32_t>(history);
+                editor.doc.setHistoryLimit(prefs.historyLimit);
+                changed = true;
+            }
+
+            theme::sectionHeader("THE CANVAS");
+            bool view = false;
+            view |= ImGui::Checkbox("Pixel grid", &prefs.pixelGrid);
+            ImGui::SameLine();
+            view |= editColour("##grid", &prefs.gridColour);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.f);
+            view |= ImGui::SliderInt("grid opacity", &prefs.gridOpacity, 0, 255);
+            view |= editColour("##checker-light", &prefs.checkerLight);
+            ImGui::SameLine();
+            view |= editColour("##checker-dark", &prefs.checkerDark);
+            ImGui::SameLine();
+            ImGui::TextUnformatted("chequer");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.f);
+            view |= ImGui::SliderInt("square", &prefs.checkerSize, 2, 64, "%d px");
+            if (ImGui::Button("Canvas defaults")) {
+                const Preferences defaults;
+                prefs.pixelGrid = defaults.pixelGrid;
+                prefs.gridColour = defaults.gridColour;
+                prefs.gridOpacity = defaults.gridOpacity;
+                prefs.checkerLight = defaults.checkerLight;
+                prefs.checkerDark = defaults.checkerDark;
+                prefs.checkerSize = defaults.checkerSize;
+                view = true;
+            }
+            if (view) {
+                applyViewPreferences(prefs, canvas);
+                changed = true;
+            }
+            ImGui::EndTabItem();
+        }
+        const ImGuiTabItemFlags keysFlags =
+            editor.preferencesShowKeys ? ImGuiTabItemFlags_SetSelected : 0;
+        editor.preferencesShowKeys = false;
+        if (ImGui::BeginTabItem("Keys", nullptr, keysFlags)) {
+            // A key being given: the next chord pressed is it, Escape gives
+            // up, Backspace removes the chord.
+            if (!editor.rebinding.empty()) {
+                const CommandInfo* info = findCommand(editor.rebinding);
+                ImGui::TextColored(theme::palette().accent, "Press the keys for %s...",
+                                   info != nullptr ? info->label : "?");
+                ImGui::TextDisabled("Escape to give up, Backspace to remove this key.");
+                Chord chord;
+                if (chordPressed(&chord)) {
+                    std::vector<Chord> chords = editor.keys.chordsFor(editor.rebinding);
+                    const int at = editor.rebindingChord;
+                    if (chord.key == "Backspace" && !chord.ctrl && !chord.shift && !chord.alt) {
+                        if (at >= 0 && at < static_cast<int>(chords.size())) {
+                            chords.erase(chords.begin() + at);
+                        }
+                        editor.keys.setChords(editor.rebinding, chords);
+                        changed = true;
+                    } else if (!(chord.key == "Escape")) {
+                        if (at >= 0 && at < static_cast<int>(chords.size())) {
+                            chords[static_cast<size_t>(at)] = chord;
+                        } else if (chords.size() < 4) {
+                            chords.push_back(chord);
+                        }
+                        editor.keys.setChords(editor.rebinding, chords);
+                        changed = true;
+                    }
+                    editor.rebinding.clear();
+                }
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+                    editor.rebinding.clear();
+                }
+                ImGui::Separator();
+            }
+            if (ImGui::Button("Reset every key")) {
+                editor.keys.resetAll();
+                changed = true;
+            }
+            ImGui::BeginChild("keys", ImVec2(0.f, 0.f));
+            const char* group = "";
+            for (const CommandInfo& info : commandList()) {
+                if (std::string(group) != info.group) {
+                    group = info.group;
+                    std::string header = group;
+                    for (char& ch : header) {
+                        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                    }
+                    theme::sectionHeader(header.c_str());
+                }
+                ImGui::PushID(info.id);
+                ImGui::TextUnformatted(info.label);
+                ImGui::SameLine(190.f);
+                const std::vector<Chord>& chords = editor.keys.chordsFor(info.id);
+                for (size_t i = 0; i < chords.size(); ++i) {
+                    ImGui::PushID(static_cast<int>(i));
+                    const std::string text = chordText(chords[i]);
+                    // A chord two commands share is marked: pressing it would
+                    // fire both.
+                    const bool shared = editor.keys.commandsUsing(chords[i]).size() > 1;
+                    if (shared) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
+                    }
+                    if (ImGui::SmallButton(text.c_str())) {
+                        editor.rebinding = info.id;
+                        editor.rebindingChord = static_cast<int>(i);
+                    }
+                    if (shared) {
+                        ImGui::PopStyleColor();
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetTooltip("Another command has this key too.");
+                        }
+                    }
+                    ImGui::SameLine();
+                    ImGui::PopID();
+                }
+                if (chords.size() < 4 && ImGui::SmallButton("+")) {
+                    editor.rebinding = info.id;
+                    editor.rebindingChord = -1;
+                }
+                if (!editor.keys.isDefault(info.id)) {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("default")) {
+                        editor.keys.reset(info.id);
+                        changed = true;
+                    }
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndChild();
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+    ImGui::End();
+    if (changed) {
+        editor.files.newDocument.width = prefs.newWidth;
+        editor.files.newDocument.height = prefs.newHeight;
+        editor.files.newDocument.background = prefs.newBackground;
+        editor.files.newDocument.preset = prefs.newPreset;
+        saveSettings(editor);
+    }
 }
 
 // The history as a list. Clicking a step goes to just after it -- undoing or
@@ -1871,7 +2116,8 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // A modal question is on screen, a drag is in progress, or a text field has
     // the keyboard: none of them is a moment to act on a shortcut.
-    if (editor.busy() || editor.files.askingToSave || io.WantTextInput) {
+    if (editor.busy() || editor.files.askingToSave || io.WantTextInput ||
+        !editor.rebinding.empty()) {
         return;
     }
 
@@ -1894,7 +2140,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (other) {
             // Undo while a move is up takes the move back, rather than
             // dropping it and then undoing something older.
-            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false) && !io.KeyShift) {
+            if (commandPressed(editor.keys, "edit.undo")) {
                 cancelFloating(editor);
                 return;
             }
@@ -1902,98 +2148,116 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
     }
 
-    if (!io.KeyCtrl) {
-        // Tool shortcuts, the letters every editor uses.
-        if (ImGui::IsKeyPressed(ImGuiKey_B, false)) {
-            editor.tool = io.KeyShift ? Tool::Spray : Tool::Pencil;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_D, false)) { editor.tool = Tool::Contour; }
-        if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.KeyShift) { editor.tool = Tool::Hand; }
-        if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) { editor.tool = Tool::Zoom; }
-        if (ImGui::IsKeyPressed(ImGuiKey_E, false)) { editor.tool = Tool::Eraser; }
-        if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
-            editor.tool = io.KeyShift ? Tool::Gradient : Tool::Bucket;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_I, false)) {
+    // Every shortcut is a named command in the keymap (app/keymap.h), which
+    // the person can rebind in Preferences. A chord fires only with exactly
+    // its modifiers, so Shift+] is the brush and ] alone is the zoom.
+    const Keymap& keys = editor.keys;
+    const auto fired = [&keys](const char* id) { return commandPressed(keys, id); };
+    const auto pick = [&editor](Tool tool) {
+        if (tool == Tool::Picker && editor.tool != Tool::Picker) {
             editor.toolBeforePicker = editor.tool;
-            editor.tool = Tool::Picker;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_R, false)) { editor.tool = Tool::Rectangle; }
-        // The selection tools, on Aseprite's letters.
-        if (ImGui::IsKeyPressed(ImGuiKey_M, false)) {
-            editor.tool = io.KeyShift ? Tool::SelectEllipse : Tool::Select;
+        editor.tool = tool;
+    };
+
+    // Tools.
+    const struct { const char* id; Tool tool; } tools[] = {
+        { "tool.pencil", Tool::Pencil }, { "tool.spray", Tool::Spray },
+        { "tool.eraser", Tool::Eraser }, { "tool.bucket", Tool::Bucket },
+        { "tool.gradient", Tool::Gradient }, { "tool.picker", Tool::Picker },
+        { "tool.rectangle", Tool::Rectangle }, { "tool.ellipse", Tool::Ellipse },
+        { "tool.line", Tool::Line }, { "tool.contour", Tool::Contour },
+        { "tool.text", Tool::Text }, { "tool.select", Tool::Select },
+        { "tool.select-ellipse", Tool::SelectEllipse }, { "tool.lasso", Tool::Lasso },
+        { "tool.polygon-lasso", Tool::PolygonLasso }, { "tool.wand", Tool::Wand },
+        { "tool.move", Tool::Move }, { "tool.hand", Tool::Hand }, { "tool.zoom", Tool::Zoom },
+    };
+    for (const auto& entry : tools) {
+        if (fired(entry.id)) {
+            pick(entry.tool);
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
-            editor.tool = io.KeyShift ? Tool::PolygonLasso : Tool::Lasso;
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { editor.tool = Tool::Wand; }
-        if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_H, false)) {
-            turnSelection(editor, FloatTurn::FlipHorizontal);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_V, false)) {
-            if (io.KeyShift) {
-                turnSelection(editor, FloatTurn::FlipVertical);
-            } else {
-                editor.tool = Tool::Move;
-            }
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_U, false)) { editor.tool = Tool::Ellipse; }
-        if (ImGui::IsKeyPressed(ImGuiKey_L, false)) { editor.tool = Tool::Line; }
-        if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
-            editor.preview.visible = !editor.preview.visible;
-        }
-        // Brush size, on the brackets with Shift; Ctrl and the brackets move
-        // layers. Held, they repeat.
-        if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_RightBracket, true)) {
-            editor.brush.size = std::min(kMaxBrushSize, editor.brush.size + 1);
-            editor.say("Brush " + std::to_string(editor.brush.size));
-        }
-        if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
-            editor.brush.size = std::max(1, editor.brush.size - 1);
-            editor.say("Brush " + std::to_string(editor.brush.size));
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
-            if (io.KeyShift) {
-                editor.tool = Tool::Text;
-            } else {
-                editor.timeline.visible = !editor.timeline.visible;
-            }
-        }
-        // Enter plays, as in Aseprite. Space is the hand: held, a drag pans
-        // the canvas, and it would be a poor hand that also started playback.
-        if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
-            ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false)) {
-            editor.timeline.playing = !editor.timeline.playing;
-            editor.timeline.startedAtMs = SDL_GetTicks();
-            editor.timeline.visible = true;
-        }
-        // Comma and full stop step frames -- the keys every animation tool
-        // uses, and the ones already under the fingers on a keyboard.
-        if (ImGui::IsKeyPressed(ImGuiKey_Comma, true)) {
-            editor.timeline.playing = false;
-            selectFrame(editor, editor.timeline.activeFrame - 1);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_Period, true)) {
-            editor.timeline.playing = false;
-            selectFrame(editor, editor.timeline.activeFrame + 1);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
-            editor.timeline.onion = !editor.timeline.onion;
-        }
-        // The two colours trade places, the key every pixel editor uses.
-        if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
-            swapInks(editor);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, true)) {
-            canvas.setZoom(canvas.zoom() - 1.f);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, true)) {
-            canvas.setZoom(canvas.zoom() + 1.f);
-        }
-        return;
     }
 
-    if (ImGui::IsKeyPressed(ImGuiKey_D, false) && io.KeyShift) {
+    // The brush and the colours.
+    if (fired("brush.bigger")) {
+        editor.brush.size = std::min(kMaxBrushSize, editor.brush.size + 1);
+        editor.say("Brush " + std::to_string(editor.brush.size));
+    }
+    if (fired("brush.smaller")) {
+        editor.brush.size = std::max(1, editor.brush.size - 1);
+        editor.say("Brush " + std::to_string(editor.brush.size));
+    }
+    if (fired("colour.swap")) { swapInks(editor); }
+
+    // Files.
+    if (fired("file.new")) { editor.newDocumentOpen = true; }
+    if (fired("file.open")) { requestAction(editor, canvas, window, PendingAction::OpenDialog); }
+    if (fired("file.save")) { saveOrAsk(editor, canvas, window); }
+    if (fired("file.save-as")) { showSaveAsDialog(editor.files, window, editor.doc); }
+    if (fired("file.library")) {
+        editor.libraryOpen = !editor.libraryOpen;
+        editor.libraryStale = editor.libraryStale || editor.libraryOpen;
+    }
+    if (fired("file.quit")) { requestAction(editor, canvas, window, PendingAction::Quit); }
+
+    // Editing.
+    const bool undo = fired("edit.undo");
+    const bool redo = fired("edit.redo");
+    if ((undo && editor.doc.undo()) || (redo && editor.doc.redo())) {
+        resyncLayers(editor);
+        resyncReferences(editor, canvas);
+        refreshInks(editor);
+        canvas.invalidate();
+    }
+    if (fired("edit.cut")) { cutSelectionPixels(editor); }
+    // Copy and paste mean the selected pixels while there is a selection, and
+    // the layer otherwise -- the clipboard remembers which it holds.
+    if (fired("edit.copy") && !copySelectionPixels(editor)) {
+        copyActiveLayer(editor);
+        editor.clipHoldsPixels = false;
+    }
+    if (fired("edit.paste") && !pastePixels(editor)) { pasteLayerHere(editor, canvas); }
+    if (fired("edit.paste-layer")) { pastePixelsAsLayer(editor); }
+    if (fired("edit.brush")) { brushFromSelection(editor); }
+    if (fired("selection.flip-h")) { turnSelection(editor, FloatTurn::FlipHorizontal); }
+    if (fired("selection.flip-v")) { turnSelection(editor, FloatTurn::FlipVertical); }
+    if (fired("select.all")) { selectAll(editor); }
+    if (fired("select.none")) {
+        deselect(editor);
+        editor.say("Deselected");
+    }
+    if (fired("select.invert")) { invertSelection(editor); }
+
+    // The stack.
+    if (fired("layer.duplicate")) { duplicateActiveLayer(editor, canvas); }
+    if (fired("layer.merge")) { mergeActiveLayerDown(editor, canvas); }
+    if (fired("layer.group")) { groupSelectedLayers(editor, canvas); }
+    if (fired("layer.ungroup")) { ungroupActiveLayer(editor, canvas); }
+    if (fired("layer.raise")) { raiseActiveLayer(editor, canvas); }
+    if (fired("layer.lower")) { lowerActiveLayer(editor, canvas); }
+
+    // The swap: the next palette, wrapping. One key for the thing the engine
+    // exists for.
+    if (fired("palette.swap")) {
+        swapPalette(editor, canvas, nextPalette(editor.doc, documentPalette(editor.doc)));
+    }
+
+    // Animation. Enter plays, as in Aseprite; Space is the hand.
+    if (fired("anim.play")) {
+        editor.timeline.playing = !editor.timeline.playing;
+        editor.timeline.startedAtMs = SDL_GetTicks();
+        editor.timeline.visible = true;
+    }
+    if (fired("anim.previous")) {
+        editor.timeline.playing = false;
+        selectFrame(editor, editor.timeline.activeFrame - 1);
+    }
+    if (fired("anim.next")) {
+        editor.timeline.playing = false;
+        selectFrame(editor, editor.timeline.activeFrame + 1);
+    }
+    if (fired("anim.onion")) { editor.timeline.onion = !editor.timeline.onion; }
+    if (fired("anim.duplicate")) {
         const int at = duplicateFrame(editor.doc, editor.timeline.activeFrame);
         if (at >= 0) {
             resyncFrames(editor);
@@ -2001,88 +2265,14 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.timeline.visible = true;
             editor.say("Duplicated frame");
         }
-        return;
     }
 
-    if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
-        const bool moved = io.KeyShift ? editor.doc.redo() : editor.doc.undo();
-        if (moved) {
-            resyncLayers(editor);
-            resyncReferences(editor, canvas);
-            refreshInks(editor);
-            canvas.invalidate();
-        }
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_Y, false) && editor.doc.redo()) {
-        resyncLayers(editor);
-        resyncReferences(editor, canvas);
-        refreshInks(editor);
-        canvas.invalidate();
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-        if (io.KeyShift) {
-            showSaveAsDialog(editor.files, window, editor.doc);
-        } else {
-            saveOrAsk(editor, canvas, window);
-        }
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
-        requestAction(editor, canvas, window, PendingAction::OpenDialog);
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_N, false)) {
-        editor.newDocumentOpen = true;
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_L, false)) {
-        editor.libraryOpen = !editor.libraryOpen;
-        editor.libraryStale = editor.libraryStale || editor.libraryOpen;
-    }
-    // The selection, from the keyboard.
-    if (ImGui::IsKeyPressed(ImGuiKey_A, false)) { selectAll(editor); }
-    if (ImGui::IsKeyPressed(ImGuiKey_D, false) && !io.KeyShift) {
-        deselect(editor);
-        editor.say("Deselected");
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_I, false) && io.KeyShift) { invertSelection(editor); }
-    if (ImGui::IsKeyPressed(ImGuiKey_X, false)) { cutSelectionPixels(editor); }
-
-    // Copy and paste mean the selected pixels while there is a selection, and
-    // the layer otherwise -- the clipboard remembers which it holds.
-    if (ImGui::IsKeyPressed(ImGuiKey_C, false)) {
-        if (!copySelectionPixels(editor)) {
-            copyActiveLayer(editor);
-            editor.clipHoldsPixels = false;
-        }
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_V, false)) {
-        if (io.KeyShift) {
-            pastePixelsAsLayer(editor);
-        } else if (!pastePixels(editor)) {
-            pasteLayerHere(editor, canvas);
-        }
-    }
-
-    // The stack, from the keyboard.
-    if (ImGui::IsKeyPressed(ImGuiKey_J, false)) { duplicateActiveLayer(editor, canvas); }
-    if (ImGui::IsKeyPressed(ImGuiKey_B, false)) { brushFromSelection(editor); }
-    if (ImGui::IsKeyPressed(ImGuiKey_E, false)) { mergeActiveLayerDown(editor, canvas); }
-    if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
-        if (io.KeyShift) { ungroupActiveLayer(editor, canvas); }
-        else             { groupSelectedLayers(editor, canvas); }
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_RightBracket, false)) { raiseActiveLayer(editor, canvas); }
-    if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket, false))  { lowerActiveLayer(editor, canvas); }
-
-    // The swap, from the keyboard: the next palette, wrapping. One key for
-    // the thing the engine exists for.
-    if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
-        swapPalette(editor, canvas, nextPalette(editor.doc, documentPalette(editor.doc)));
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
-        requestAction(editor, canvas, window, PendingAction::Quit);
-    }
-    if (ImGui::IsKeyPressed(ImGuiKey_Equal, true))  { canvas.setZoom(canvas.zoom() + 1.f); }
-    if (ImGui::IsKeyPressed(ImGuiKey_Minus, true))  { canvas.setZoom(canvas.zoom() - 1.f); }
-    if (ImGui::IsKeyPressed(ImGuiKey_0, false))     { canvas.requestFit(); }
+    // The view.
+    if (fired("view.timeline")) { editor.timeline.visible = !editor.timeline.visible; }
+    if (fired("view.preview")) { editor.preview.visible = !editor.preview.visible; }
+    if (fired("view.zoom-in")) { canvas.setZoom(canvas.zoom() + 1.f); }
+    if (fired("view.zoom-out")) { canvas.setZoom(canvas.zoom() - 1.f); }
+    if (fired("view.fit")) { canvas.requestFit(); }
 }
 
 // ----------------------------------------------------------------- layout --
@@ -2281,6 +2471,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);
+    drawPreferencesPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);
@@ -2308,6 +2499,8 @@ struct Options {
     bool        symmetry = false;      // --symmetry: both axes on
     bool        play = false;            // start playback, for a headless run
     bool        library = false;         // open the library window
+    bool        preferences = false;     // open the preferences window
+    bool        preferencesKeys = false; // ... on its Keys tab
     uint32_t    autosaveSeconds = 0;     // override the interval, for testing
     bool        selfTest = false;
     std::string openPath;
@@ -2332,6 +2525,11 @@ Options parseOptions(int argc, char** argv) {
             options.autosaveSeconds = static_cast<uint32_t>(std::atoi(argv[++i]));
         } else if (arg == "--library") {
             options.library = true;
+        } else if (arg == "--preferences") {
+            options.preferences = true;
+        } else if (arg == "--preferences-keys") {
+            options.preferences = true;
+            options.preferencesKeys = true;
         } else if (arg == "--play") {
             options.play = true;
         } else if (arg == "--show-sheet-panel") {
@@ -3537,9 +3735,22 @@ int main(int argc, char** argv) {
     // The safety net, before anything can be drawn and lost. Autosave is
     // simply off when there is nowhere to write, rather than writing
     // somewhere the person would not think to look.
+    // A headless run keeps to the defaults, so what it captures or checks is
+    // the same on every machine, whatever keys the person there has set.
+    const bool headless = options.selfTest || options.frames > 0;
+    if (!headless) {
+        loadSettings(editor);
+    }
+    editor.preferencesOpen = options.preferences;
+    editor.preferencesShowKeys = options.preferencesKeys;
     if (!editor.recovery.begin()) {
         editor.autosaveOn = false;
+    } else {
+        editor.autosaveOn = editor.prefs.autosaveOn;
+        editor.recovery.setIntervalSeconds(editor.prefs.autosaveSeconds);
     }
+    applyViewPreferences(editor.prefs, canvas);
+    editor.doc.setHistoryLimit(editor.prefs.historyLimit);
     if (options.autosaveSeconds > 0) {
         editor.recovery.setIntervalSeconds(options.autosaveSeconds);
     }

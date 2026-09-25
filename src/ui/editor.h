@@ -17,6 +17,8 @@
 #include "app/export_anim.h"
 #include "app/floating.h"
 #include "app/ink.h"
+#include "app/keymap.h"
+#include "app/preferences.h"
 #include "app/layers.h"
 #include "app/library.h"
 #include "app/paint.h"
@@ -254,6 +256,16 @@ struct Editor {
     // Whether the New document window is up.
     bool newDocumentOpen = false;
 
+    // The person's keys and preferences, read at start and written as they
+    // change; the Preferences window, and the command whose key is being
+    // given (with which of its chords, or -1 for a new one).
+    Keymap      keys;
+    Preferences prefs;
+    bool        preferencesOpen = false;
+    bool        preferencesShowKeys = false;   // open on the Keys tab, once
+    std::string rebinding;
+    int         rebindingChord = -1;
+
     // Whether the history window is up.
     bool historyOpen = false;
 
@@ -433,6 +445,11 @@ void resyncLayers(Editor& editor);
 // dither and colour helpers take: the selected element when it is pixels, and
 // otherwise the layer's first pixels. False when the layer has none.
 bool selectedPixels(Editor& editor, PaintLayer* out);
+
+// Reads the keys and preferences from the settings folder, and writes them
+// back. Writing is atomic; a missing folder means nothing is kept, silently.
+void loadSettings(Editor& editor);
+void saveSettings(const Editor& editor);
 
 // The symmetry in force, with the axes resolved against the canvas.
 Symmetry symmetryNow(Editor& editor);

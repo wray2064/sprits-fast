@@ -30,14 +30,6 @@ void endPixels(ImDrawList* draw) {
 }
 
 } // namespace
-namespace {
-
-// The checkerboard square, in screen pixels. Fixed rather than scaled with the
-// zoom, so it stays a background texture instead of becoming a second pattern
-// competing with whatever is being drawn.
-constexpr float kCheckerSize = 8.f;
-
-} // namespace
 
 ls::Vec2i CanvasView::wrap(ls::Vec2i pixel) const {
     const auto modulo = [](int32_t value, uint32_t size) {
@@ -73,20 +65,19 @@ void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
     const ImVec2 corner(at.x + width, at.y + height);
 
     if (checker) {
-        const theme::Palette& c = theme::palette();
-        draw->AddRectFilled(at, corner, ImGui::GetColorU32(c.checkerDark));
+        draw->AddRectFilled(at, corner, checkerDark_);
         draw->PushClipRect(at, corner, true);
-        for (float y = 0.f; y < height; y += kCheckerSize) {
-            for (float x = 0.f; x < width; x += kCheckerSize) {
-                if ((static_cast<int>(x / kCheckerSize) +
-                     static_cast<int>(y / kCheckerSize)) % 2 == 0) {
+        for (float y = 0.f; y < height; y += checkerSize_) {
+            for (float x = 0.f; x < width; x += checkerSize_) {
+                if ((static_cast<int>(x / checkerSize_) +
+                     static_cast<int>(y / checkerSize_)) % 2 == 0) {
                     continue;
                 }
                 draw->AddRectFilled(
                     ImVec2(at.x + x, at.y + y),
-                    ImVec2(at.x + std::min(x + kCheckerSize, width),
-                           at.y + std::min(y + kCheckerSize, height)),
-                    ImGui::GetColorU32(c.checkerLight));
+                    ImVec2(at.x + std::min(x + checkerSize_, width),
+                           at.y + std::min(y + checkerSize_, height)),
+                    checkerLight_);
             }
         }
         draw->PopClipRect();
@@ -194,19 +185,19 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
 
     // The transparency chequer, clipped to the artwork.
     draw->PushClipRect(origin, corner, true);
-    draw->AddRectFilled(origin, corner, ImGui::GetColorU32(c.checkerDark));
-    for (float y = 0.f; y < drawHeight; y += kCheckerSize) {
-        for (float x = 0.f; x < drawWidth; x += kCheckerSize) {
-            const bool odd = (static_cast<int>(x / kCheckerSize) +
-                              static_cast<int>(y / kCheckerSize)) % 2 == 1;
+    draw->AddRectFilled(origin, corner, checkerDark_);
+    for (float y = 0.f; y < drawHeight; y += checkerSize_) {
+        for (float x = 0.f; x < drawWidth; x += checkerSize_) {
+            const bool odd = (static_cast<int>(x / checkerSize_) +
+                              static_cast<int>(y / checkerSize_)) % 2 == 1;
             if (!odd) {
                 continue;
             }
             draw->AddRectFilled(
                 ImVec2(origin.x + x, origin.y + y),
-                ImVec2(origin.x + std::min(x + kCheckerSize, drawWidth),
-                       origin.y + std::min(y + kCheckerSize, drawHeight)),
-                ImGui::GetColorU32(c.checkerLight));
+                ImVec2(origin.x + std::min(x + checkerSize_, drawWidth),
+                       origin.y + std::min(y + checkerSize_, drawHeight)),
+                checkerLight_);
         }
     }
     draw->PopClipRect();
@@ -233,7 +224,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
                 const ImVec2 at(origin.x + static_cast<float>(tx) * drawWidth,
                                 origin.y + static_cast<float>(ty) * drawHeight);
                 const ImVec2 to(at.x + drawWidth, at.y + drawHeight);
-                draw->AddRectFilled(at, to, ImGui::GetColorU32(c.checkerDark));
+                draw->AddRectFilled(at, to, checkerDark_);
                 beginPixels(draw);
                 draw->AddImage(reinterpret_cast<ImTextureID>(texture_), at, to);
                 endPixels(draw);
@@ -249,7 +240,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     // The pixel grid, once the zoom is large enough for it to help rather than
     // turn the artwork into a mesh.
     if (grid_ && zoom_ >= 8.f) {
-        const ImU32 line = IM_COL32(255, 255, 255, 16);
+        const ImU32 line = gridColour_;
         for (uint32_t x = 1; x < textureWidth_; ++x) {
             const float at = origin.x + static_cast<float>(x) * zoom_;
             draw->AddLine(ImVec2(at, origin.y), ImVec2(at, corner.y), line);

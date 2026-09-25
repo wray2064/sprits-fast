@@ -3,6 +3,7 @@
 
 #include "ui/editor.h"
 
+#include "app/file_io.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
 
@@ -259,6 +260,39 @@ bool selectedPixels(Editor& editor, PaintLayer* out) {
     out->fill = first->fill;
     out->region = first->region;
     return true;
+}
+
+void loadSettings(Editor& editor) {
+    std::vector<uint8_t> bytes;
+    std::string error;
+    const std::string prefs = preferencesPath();
+    if (!prefs.empty() && readFile(prefs, bytes, &error)) {
+        editor.prefs = loadPreferences(std::string(bytes.begin(), bytes.end()));
+    }
+    const std::string keys = keymapPath();
+    bytes.clear();
+    if (!keys.empty() && readFile(keys, bytes, &error)) {
+        editor.keys.load(std::string(bytes.begin(), bytes.end()));
+    }
+    // What the preferences say a new document is, the New window starts from.
+    editor.files.newDocument.width = editor.prefs.newWidth;
+    editor.files.newDocument.height = editor.prefs.newHeight;
+    editor.files.newDocument.background = editor.prefs.newBackground;
+    editor.files.newDocument.preset = editor.prefs.newPreset;
+}
+
+void saveSettings(const Editor& editor) {
+    std::string error;
+    const std::string prefs = preferencesPath();
+    if (!prefs.empty()) {
+        const std::string text = savePreferences(editor.prefs);
+        writeFileAtomic(prefs, std::vector<uint8_t>(text.begin(), text.end()), &error);
+    }
+    const std::string keys = keymapPath();
+    if (!keys.empty()) {
+        const std::string text = editor.keys.save();
+        writeFileAtomic(keys, std::vector<uint8_t>(text.begin(), text.end()), &error);
+    }
 }
 
 Symmetry symmetryNow(Editor& editor) {

@@ -77,6 +77,7 @@ add_library(fast_core STATIC
     src/app/import_aseprite.cpp
     src/app/import_image.cpp
     src/app/ink.cpp
+    src/app/keymap.cpp
     src/app/library.cpp
     src/app/reference.cpp
     src/app/selection.cpp
@@ -87,6 +88,7 @@ add_library(fast_core STATIC
     src/app/file_io.cpp
     src/app/paint.cpp
     src/app/pixel_font.cpp
+    src/app/preferences.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -139,6 +141,7 @@ if (FAST_BUILD_GUI)
         src/ui/frame_cache.cpp
         src/ui/reference_cache.cpp
         src/ui/selection_tools.cpp
+        src/ui/keys.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp
@@ -203,6 +206,14 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_text_tests tests/text_tests.cpp)
     target_link_libraries(fast_text_tests PRIVATE fast_core)
     add_test(NAME fast_text COMMAND fast_text_tests)
+
+    add_executable(fast_keymap_tests tests/keymap_tests.cpp)
+    target_link_libraries(fast_keymap_tests PRIVATE fast_core)
+    add_test(NAME fast_keymap COMMAND fast_keymap_tests)
+
+    add_executable(fast_preferences_tests tests/preferences_tests.cpp)
+    target_link_libraries(fast_preferences_tests PRIVATE fast_core)
+    add_test(NAME fast_preferences COMMAND fast_preferences_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

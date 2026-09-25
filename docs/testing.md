@@ -324,6 +324,24 @@ sprits_fast --demo-stroke
    in order, selected as the new run.
 5. Speed at 0.5x. *Expect:* playback at half speed; the holds are unchanged.
 
+### 4p. Keys and preferences
+
+1. *Edit > Preferences*, Keys. Click the `B` beside Pencil and press `P`.
+   *Expect:* the chord reads `P`; `P` now takes the pencil and `B` does
+   nothing; *File*'s menu items still show their keys.
+2. Give Eraser `P` too. *Expect:* both `P`s turn red, with a tooltip saying
+   another command has the key. Click *default* beside Eraser. *Expect:* back
+   to `E`, and the red goes.
+3. Click a chord and press Escape. *Expect:* unchanged. Click it and press
+   Backspace. *Expect:* the chord is removed. *+* adds a second chord.
+4. Quit and start again. *Expect:* the keys are as left. `keys.txt` in the
+   settings folder lists only what differs from the defaults.
+5. General: set a new document to 64 x 48 on white. *File > New*. *Expect:*
+   the window starts there. Change the grid colour, its opacity and the
+   chequer at 16x zoom. *Expect:* the canvas follows at once; *Canvas
+   defaults* puts it back.
+6. Set undo steps to 10, draw twelve strokes. *Expect:* only ten undo.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

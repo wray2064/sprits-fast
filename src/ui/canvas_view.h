@@ -121,6 +121,15 @@ public:
     void setGridVisible(bool visible) { grid_ = visible; }
     bool gridVisible() const { return grid_; }
 
+    // The chequer under transparent pixels and the pixel grid's line, as the
+    // preferences have them. Colours are ImGui's packed ABGR.
+    void setChecker(ImU32 light, ImU32 dark, float size) {
+        checkerLight_ = light;
+        checkerDark_ = dark;
+        checkerSize_ = size < 2.f ? 2.f : size;
+    }
+    void setGridColour(ImU32 colour) { gridColour_ = colour; }
+
     TileGrid&       tileGrid()       { return tiles_; }
     const TileGrid& tileGrid() const { return tiles_; }
 
@@ -187,6 +196,12 @@ private:
     mutable ls::Color sampled_;
 
     bool   grid_  = true;
+    ImU32  checkerLight_ = IM_COL32(56, 64, 74, 255);
+    ImU32  checkerDark_  = IM_COL32(44, 51, 60, 255);
+    // In screen pixels, not scaled with the zoom, so the chequer stays a
+    // background texture instead of a second pattern competing with the drawing.
+    float  checkerSize_  = 8.f;
+    ImU32  gridColour_   = IM_COL32(255, 255, 255, 16);
     bool   panWithPrimary_ = false;
     bool   zoomOnClick_ = false;
     TileGrid  tiles_;

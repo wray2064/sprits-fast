@@ -45,6 +45,16 @@ eraser and bucket keep inside the selection while there is one.
 what is drawn, enlarge or reduce by a whole number, and turn or flip the whole
 canvas -- every frame at once, one undo step each.
 
+**Your keys, your defaults** — every shortcut is a named command, and
+*Edit > Preferences* rebinds any of them by pressing the new keys, up to four
+per command, with a warning where two commands share one and a reset per
+command or for all. The menus show whatever keys you have. The same window
+sets what a new document is, how often autosave writes, the undo depth, and
+the canvas: the pixel grid's colour and opacity, and the chequer's colours
+and square size. Both are plain text files in the settings folder
+(`preferences.txt`, `keys.txt`), read as untrusted -- a hand-edited file can
+make Fast odd, never broken.
+
 **Layers** — blend modes, opacity, groups that composite as one, clipping,
 locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row.
 One layer holds several elements: one per colour its pixels are painted in,
