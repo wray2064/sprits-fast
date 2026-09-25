@@ -35,6 +35,7 @@ const char* elementKindName(ElementKind kind) {
         case ElementKind::Rectangle: return "Rectangle";
         case ElementKind::Ellipse:   return "Ellipse";
         case ElementKind::Line:      return "Line";
+        case ElementKind::Text:      return "Text";
     }
     return "Element";
 }
@@ -71,6 +72,8 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
             auto path = engine.getGeometryPath(source.value);
             element.kind = (path.ok() && path.value.size() > 12) ? ElementKind::Ellipse
                                                                   : ElementKind::Rectangle;
+        } else if (engine.getMetadata(element.region.value, "fast.text").ok()) {
+            element.kind = ElementKind::Text;
         } else {
             element.kind = ElementKind::Paint;
         }

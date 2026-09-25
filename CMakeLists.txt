@@ -86,8 +86,10 @@ add_library(fast_core STATIC
     src/app/floating.cpp
     src/app/file_io.cpp
     src/app/paint.cpp
+    src/app/pixel_font.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
+    src/app/text.cpp
     src/app/sheet.cpp
     src/app/transform.cpp
     src/app/ui_state.cpp
@@ -197,6 +199,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_batch_tests tests/batch_tests.cpp)
     target_link_libraries(fast_batch_tests PRIVATE fast_core)
     add_test(NAME fast_batch COMMAND fast_batch_tests)
+
+    add_executable(fast_text_tests tests/text_tests.cpp)
+    target_link_libraries(fast_text_tests PRIVATE fast_core)
+    add_test(NAME fast_text COMMAND fast_text_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

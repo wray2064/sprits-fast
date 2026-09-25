@@ -5,7 +5,9 @@
 
 #include "app/animation.h"
 #include "app/reference.h"
+#include "app/pixel_font.h"
 #include "app/selection.h"
+#include "app/text.h"
 #include "app/transform.h"
 
 #include <algorithm>
@@ -141,6 +143,30 @@ void remapDocument(Document& doc, const Remap& remap) {
                         auto set = engine.getRegionIntervals(id);
                         if (set.ok()) {
                             engine.setRegionIntervals(id, remap.pixels(set.value));
+                        }
+                        // Text keeps its words, place and size on the region;
+                        // they move with it, so retyping lands where it now is.
+                        TextSpec text;
+                        if (readTextElement(doc, id, &text)) {
+                            int w = 0;
+                            int h = 0;
+                            layOutText(text.text, text.at, text.scale, &w, &h);
+                            ls::Vec2f min, max;
+                            mappedBox(remap,
+                                      { static_cast<float>(text.at.x), static_cast<float>(text.at.y) },
+                                      { static_cast<float>(text.at.x + w),
+                                        static_cast<float>(text.at.y + h) }, &min, &max);
+                            text.at = { static_cast<int32_t>(std::floor(min.x + 0.5f)),
+                                        static_cast<int32_t>(std::floor(min.y + 0.5f)) };
+                            if (remap.lengthScale >= 1.f) {
+                                text.scale = std::min(16, static_cast<int>(
+                                    static_cast<float>(text.scale) * remap.lengthScale + 0.5f));
+                            }
+                            engine.setMetadata(id.value, "fast.text.at",
+                                               std::to_string(text.at.x) + "," +
+                                                   std::to_string(text.at.y));
+                            engine.setMetadata(id.value, "fast.text.scale",
+                                               std::to_string(text.scale));
                         }
                     }
                 }

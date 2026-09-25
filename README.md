@@ -31,6 +31,10 @@ keeps a rectangle square, an ellipse round and a line on fifteen-degree steps.
 comes back on the other; a **tile grid** of any size and offset sits over the
 pixel grid.
 
+**Text** that stays text: Fast's own five-by-seven pixel face, and a piece of
+text is an element whose words, place and size are kept, so the Element panel
+retypes it and the pixels are rebuilt from the words -- no erasing a typo.
+
 **Selecting** — rectangle and ellipse marquees, a lasso and a magic wand, with
 Shift to add, Alt to subtract and both to intersect; marching ants; select all,
 deselect, reselect, invert; move the selected pixels by dragging or with the

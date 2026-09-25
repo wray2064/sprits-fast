@@ -188,7 +188,9 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
             found.fill = op.id;
             found.region.value = *handle;
             auto source = engine.getRegionSourceGeometry(found.region);
-            if ((source.ok() && source.value.valid()) || op.type == "StrokeRegionBoundaryOp") {
+            const bool text = engine.getMetadata(found.region.value, "fast.text").ok();
+            if ((source.ok() && source.value.valid()) || op.type == "StrokeRegionBoundaryOp" ||
+                text) {
                 if (!shapeOnly.valid()) {
                     shapeOnly = found;
                 }

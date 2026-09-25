@@ -80,7 +80,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Replace-colour ink, lock-alpha ink
 - [~] Contour / polygon fill
 - [ ] Curve tool (Bezier) **(better: stays editable, like shapes)**
-- [ ] Text tool, with a bundled bitmap font
+- [x] Text tool, with a bundled bitmap font
 - [ ] Custom brush from a selection
 - [ ] Stroke stabiliser / smoothing
 - [x] Hand tool and zoom tool (for pen users)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — text tool with Fast's own 5x7 face; text stays an element that can be retyped, resized and moved.
 - 2026-09-25 — outlined rectangles and ellipses, any width, switchable in the Element panel.
 - 2026-09-25 — indexed PNG export: the palette's slots in order are the table's first entries; menu and batch --indexed.
 - 2026-09-25 — sheet border and spacing; manifest in Aseprite's JSON (hash/array) with cycles as frame tags; batch --border/--spacing/--json.

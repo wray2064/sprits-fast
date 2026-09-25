@@ -26,6 +26,7 @@
 #include "app/shape.h"
 #include "app/selection.h"
 #include "app/sheet.h"
+#include "app/text.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
@@ -37,7 +38,7 @@ namespace fast {
 
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
                   Select, SelectEllipse, Lasso, Wand, Move,
-                  Spray, Contour, Hand, Zoom, Gradient };
+                  Spray, Contour, Hand, Zoom, Gradient, Text };
 
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
@@ -274,6 +275,12 @@ struct Editor {
     int      sprayRadius = 6;
     int      sprayDensity = 10;
     uint32_t sprayBursts = 0;
+
+    // Text being placed: where it was clicked, what it will say, how large.
+    bool      textOpen = false;
+    ls::Vec2i textAt { 0, 0 };
+    char      textBuffer[kMaxTextLength + 1] = {};
+    int       textScale = 1;
 
     // A gradient mid-drag: the element made on the press, driven by the drag.
     bool           drawingGradient = false;

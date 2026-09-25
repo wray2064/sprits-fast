@@ -430,6 +430,15 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Text: {
+            // A capital T with serifs at the foot.
+            const float weight = std::max(2.f, size * 0.12f);
+            draw->AddLine(s(0.20f, 0.22f), s(0.80f, 0.22f), colour, weight);
+            draw->AddLine(s(0.50f, 0.22f), s(0.50f, 0.80f), colour, weight);
+            draw->AddLine(s(0.38f, 0.80f), s(0.62f, 0.80f), colour, weight * 0.8f);
+            break;
+        }
+
         case Icon::Hand: {
             // An open palm: four fingers and a thumb over a round heel.
             const float weight = std::max(1.8f, size * 0.10f);

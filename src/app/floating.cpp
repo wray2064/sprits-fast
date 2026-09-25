@@ -147,7 +147,7 @@ bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, F
     // half a rectangle is not a thing a shape can be.
     std::vector<Floating::Shape> shapes;
     for (const Element& element : elementsOf(doc, layer)) {
-        if (!element.isShape()) {
+        if (!element.isGeometry()) {
             continue;
         }
         ls::IntervalSet covers;

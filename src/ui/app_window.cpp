@@ -13,6 +13,7 @@
 #include "app/batch.h"
 #include "app/import_aseprite.h"
 #include "app/palette_tools.h"
+#include "app/pixel_font.h"
 #include "app/import_image.h"
 #include "app/animation.h"
 #include "app/export_png.h"
@@ -746,6 +747,62 @@ void drawHistoryPanel(Editor& editor, CanvasView& canvas) {
         }
     }
     ImGui::End();
+}
+
+// The words for a text element, where the Text tool was clicked. Placed on
+// the active layer in the left colour, as one undo step.
+void drawTextPanel(Editor& editor, CanvasView& canvas) {
+    if (!editor.textOpen) {
+        return;
+    }
+    ImGui::OpenPopup("Text");
+    if (!ImGui::BeginPopupModal("Text", &editor.textOpen, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    if (ImGui::IsWindowAppearing()) {
+        ImGui::SetKeyboardFocusHere();
+    }
+    ImGui::InputTextMultiline("##words", editor.textBuffer, sizeof(editor.textBuffer),
+                              ImVec2(300.f, ImGui::GetTextLineHeight() * 4.f));
+    ImGui::SetNextItemWidth(160.f);
+    ImGui::SliderInt("size", &editor.textScale, 1, 8, "%dx");
+    int width = 0;
+    int height = 0;
+    layOutText(editor.textBuffer, editor.textAt, editor.textScale, &width, &height);
+    ImGui::TextDisabled("%d x %d pixels at %d, %d", width, height, editor.textAt.x,
+                        editor.textAt.y);
+    const bool empty = editor.textBuffer[0] == '\0';
+    ImGui::BeginDisabled(empty);
+    if (ImGui::Button("Place", ImVec2(110.f, 0.f))) {
+        PaintLayer* layer = editor.active();
+        TextSpec spec;
+        spec.text = editor.textBuffer;
+        spec.at = editor.textAt;
+        spec.scale = editor.textScale;
+        PaintLayer made;
+        editor.doc.beginAction("Text");
+        if (layer != nullptr && !activeLayerLocked(editor) &&
+            addTextElement(editor.doc, layer->layer, spec, foregroundInk(editor), &made)) {
+            editor.doc.endAction();
+            editor.activeElement = made.fill;
+            resyncLayers(editor);
+            canvas.invalidate();
+            editor.say("Text placed -- retype it in the Element panel whenever you like");
+        } else {
+            editor.doc.abandonAction();
+            editor.say(layer == nullptr ? "No layer to write on"
+                                        : "This layer is locked -- unlock it to write on it");
+        }
+        editor.textOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        editor.textOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 // The New window: a size -- typed, or one of the sizes sprites are usually
@@ -1504,6 +1561,16 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         return;
     }
 
+    // Text: a click says where; the words are typed in the window that opens.
+    if (editor.tool == Tool::Text) {
+        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            !ImGui::IsKeyDown(ImGuiKey_Space) && !editor.textOpen) {
+            editor.textOpen = true;
+            editor.textAt = pixel;
+        }
+        return;
+    }
+
     // Gradient: the press makes the element over the area -- the selection,
     // or what a fill would find -- and the drag drives its axis, so what is
     // on screen during the drag is the gradient itself.
@@ -1801,7 +1868,11 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.say("Brush " + std::to_string(editor.brush.size));
         }
         if (ImGui::IsKeyPressed(ImGuiKey_T, false)) {
-            editor.timeline.visible = !editor.timeline.visible;
+            if (io.KeyShift) {
+                editor.tool = Tool::Text;
+            } else {
+                editor.timeline.visible = !editor.timeline.visible;
+            }
         }
         // Enter plays, as in Aseprite. Space is the hand: held, a drag pans
         // the canvas, and it would be a poor hand that also started playback.
@@ -2115,6 +2186,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawAnimationPanel(editor, window);
     drawCanvasSizePanel(editor, canvas);
     drawNewDocumentPanel(editor, canvas, window);
+    drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
@@ -3351,7 +3423,7 @@ int main(int argc, char** argv) {
             { "select-ellipse", Tool::SelectEllipse }, { "lasso", Tool::Lasso },
             { "wand", Tool::Wand }, { "move", Tool::Move }, { "spray", Tool::Spray },
             { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
-            { "gradient", Tool::Gradient },
+            { "gradient", Tool::Gradient }, { "text", Tool::Text },
         };
         for (const Named& named : tools) {
             if (options.tool == named.name) {

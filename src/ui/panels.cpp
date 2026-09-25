@@ -85,6 +85,9 @@ void drawToolbar(Editor& editor) {
           "Drag across an area -- the selection, or the colour under the press -- "
           "to lay a dithered gradient between the two colours. It stays a "
           "gradient: its ends, pattern and colours are in the Element panel." },
+        { Tool::Text, theme::Icon::Text, "Text", "Shift+T",
+          "Click where the text goes and type. It stays text: retype, resize or "
+          "move it in the Element panel, and it is rebuilt from the words." },
         { Tool::Contour, theme::Icon::Contour, "Contour", "D",
           "Draw round an area; on release it is filled with the current colour." },
         { Tool::Select, theme::Icon::Marquee, "Select", "M",
@@ -1292,8 +1295,57 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
         ImGui::Dummy(ImVec2(0.f, 4.f));
     }
 
+    if (selected != nullptr && selected->kind == ElementKind::Text) {
+        TextSpec spec;
+        if (readTextElement(editor.doc, selected->region, &spec)) {
+            theme::sectionHeader("TEXT");
+            char buffer[kMaxTextLength + 1] = {};
+            std::snprintf(buffer, sizeof(buffer), "%s", spec.text.c_str());
+            bool changed = false;
+            ImGui::InputTextMultiline("##text", buffer, sizeof(buffer),
+                                      ImVec2(-1.f, ImGui::GetTextLineHeight() * 3.5f));
+            // Written when the field lets go, so a word is one undo step
+            // rather than one per letter.
+            if (ImGui::IsItemDeactivatedAfterEdit() && buffer[0] != '\0' && spec.text != buffer) {
+                spec.text = buffer;
+                editor.doc.beginAction("Retype");
+                updateTextElement(editor.doc, selected->region, spec);
+                editor.doc.endAction();
+                canvas.invalidate();
+            }
+            int at[2] = { spec.at.x, spec.at.y };
+            ImGui::SetNextItemWidth(-42.f);
+            if (ImGui::DragInt2("at", at, 0.2f)) {
+                spec.at = { at[0], at[1] };
+                changed = true;
+            }
+            bracketDrag(editor, editor.editingShape, "Move text");
+            ImGui::SetNextItemWidth(-42.f);
+            if (ImGui::SliderInt("size", &spec.scale, 1, 8, "%dx")) {
+                changed = true;
+            }
+            bracketDrag(editor, editor.editingShape, "Text size");
+            if (changed) {
+                updateTextElement(editor.doc, selected->region, spec);
+                canvas.invalidate();
+            }
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+            ImGui::TextWrapped("Still text: the pixels are rebuilt from the words. Its "
+                               "colour is set like any other -- pick one and press = "
+                               "current in the list's pixels, or edit its slot.");
+            ImGui::PopStyleColor();
+            if (ImGui::SmallButton("Current colour##text")) {
+                editor.doc.beginAction("Recolour text");
+                setElementInk(editor.doc, selected->fill, foregroundInk(editor));
+                editor.doc.endAction();
+                canvas.invalidate();
+            }
+        }
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
     ShapeLayer shape;
-    const bool isShape = selected != nullptr && selected->isShape();
+    const bool isShape = selected != nullptr && selected->isGeometry();
     if (isShape) {
         shape = shapeOfElement(layer->layer, *selected);
     }
@@ -1381,7 +1433,7 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
                                   "when it has one.");
             }
         }
-    } else if (selected != nullptr) {
+    } else if (selected != nullptr && selected->kind == ElementKind::Paint) {
         PaintLayer target;
         target.layer = layer->layer;
         target.fill = selected->fill;
