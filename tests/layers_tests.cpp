@@ -398,6 +398,45 @@ void testTheStackSurvivesASave() {
 
 } // namespace
 
+// --- merge down ----------------------------------------------------------------
+//
+// Merging moves elements; it does not flatten. The picture is the same after
+// as before -- opacity and blend folded into what moved -- there is one layer
+// fewer, the moved pixels are still an element of their own, it is one undo
+// step, and the cases that would change the picture are refused.
+void testMergeDownKeepsThePictureAndTheElements() {
+    Stack s;
+    REQUIRE(s.build());
+    s.doc.beginAction("opacity");
+    REQUIRE(setLayerOpacity(s.doc, s.top.layer, 0.5f));
+    s.doc.endAction();
+    const ls::Color before = s.at(3, 3);
+    s.doc.clearHistory();
+
+    std::string why;
+    const ls::LayerId into = mergeDown(s.doc, s.top.layer, &why);
+    REQUIRE(into == s.middle.layer);
+    CHECK(layerOrder(s.doc, s.sprite).size() == 2);
+    const ls::Color after = s.at(3, 3);
+    CHECK(after.r == before.r && after.g == before.g && after.b == before.b);
+    auto operations = s.doc.engine().getLayerOperations(s.middle.layer);
+    CHECK(operations.ok() && operations.value.size() == 2);   // two colours, still two
+
+    CHECK(s.doc.undo());
+    CHECK(layerOrder(s.doc, s.sprite).size() == 3);
+    CHECK(!s.doc.canUndo());
+
+    // Nothing below the bottom layer to merge into.
+    CHECK(!mergeDown(s.doc, s.bottom.layer, &why).valid());
+    CHECK(!why.empty());
+
+    // A hidden layer would be shown by merging, so it is refused.
+    s.doc.beginAction("hide");
+    setLayerVisible(s.doc, s.top.layer, false);
+    s.doc.endAction();
+    CHECK(!mergeDown(s.doc, s.top.layer, &why).valid());
+}
+
 int main() {
     testBlendAndOpacityChangeThePicture();
     testMovingALayerMovesWhatDrawsOverWhat();
@@ -408,6 +447,7 @@ int main() {
     testAClipDrawsOnlyWhereTheLayerBelowDoes();
     testALockIsKeptAndSurvivesASave();
     testTheStackSurvivesASave();
+    testMergeDownKeepsThePictureAndTheElements();
 
     if (failures == 0) {
         std::printf("fast_layers: all checks passed\n");

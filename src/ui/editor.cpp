@@ -341,6 +341,23 @@ void duplicateActiveLayer(Editor& editor, CanvasView& canvas) {
     editor.say("Duplicated; the copy is its own from the first stroke");
 }
 
+void mergeActiveLayerDown(Editor& editor, CanvasView& canvas) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        return;
+    }
+    std::string why;
+    const ls::LayerId into = mergeDown(editor.doc, layer->layer, &why);
+    if (!into.valid()) {
+        editor.say("Cannot merge down: " + why);
+        return;
+    }
+    editor.activeElement = ls::OperationId{};
+    selectLayer(editor, into);
+    canvas.invalidate();
+    editor.say("Merged down; every element is still its own");
+}
+
 void copyActiveLayer(Editor& editor) {
     PaintLayer* layer = editor.active();
     if (layer == nullptr) {

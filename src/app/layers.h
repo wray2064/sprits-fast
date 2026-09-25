@@ -78,6 +78,21 @@ ls::LayerId duplicateLayer(Document& doc, ls::LayerId layer);
 // another frame. This is paste; copy is remembering the handle.
 ls::LayerId pasteLayer(Document& doc, ls::LayerId source, ls::SpriteId into, int atIndex);
 
+// --- merging ------------------------------------------------------------------
+//
+// Merge down, without flattening anything. A layer is a list of elements --
+// colours of pixels, shapes -- so merging moves the upper layer's elements into
+// the one below, on top of its own, and removes the upper layer. Every element
+// stays what it was: a rectangle is still a rectangle, a colour is still a
+// slot. The upper layer's opacity and blend are folded into each element it
+// gives up, so the picture does not change.
+//
+// Refused, with the reason, where folding would change the picture or lose
+// something: either layer transformed, clipped or outlined, the upper one
+// hidden, the two in different groups, or both blending non-normally.
+// Brackets its own action. Returns the layer merged into, or null.
+ls::LayerId mergeDown(Document& doc, ls::LayerId upper, std::string* why);
+
 // --- groups -------------------------------------------------------------------
 
 struct GroupProps {

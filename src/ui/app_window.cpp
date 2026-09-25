@@ -1634,6 +1634,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // The stack, from the keyboard.
     if (ImGui::IsKeyPressed(ImGuiKey_J, false)) { duplicateActiveLayer(editor, canvas); }
+    if (ImGui::IsKeyPressed(ImGuiKey_E, false)) { mergeActiveLayerDown(editor, canvas); }
     if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
         if (io.KeyShift) { ungroupActiveLayer(editor, canvas); }
         else             { groupSelectedLayers(editor, canvas); }

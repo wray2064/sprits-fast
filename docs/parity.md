@@ -130,7 +130,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 ### Layers
 - [x] Blend, opacity, groups, clipping, locks, reorder, duplicate,
       copy/paste
-- [ ] Merge down, done as grouping: the README's rule holds
+- [x] Merge down, done as grouping: the README's rule holds
 - [ ] Layer properties dialog (name, blend, opacity)
 - [x] Show or hide all others (Alt+click the eye)
 - [ ] A reference layer that exports nothing (a reference already covers
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — merge down moves elements into the layer below, folding opacity and blend; refuses what would change the picture.
 - 2026-09-25 — history panel, onion skin settings (range, cycle neighbours, wrap, tints), Alt+click solo.
 - 2026-09-25 — palette: drag to reorder and sort (engine palette order), ramps, adjust hue/sat/light, colours to slots, presets, .pal/.act/image; RGB/HSV/hex fields; palette gets its own panel.
 - 2026-09-25 — symmetry, tiled mode with wrapping strokes, tile grid, Shift+click lines, Shift-constrained shapes.

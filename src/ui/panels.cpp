@@ -1827,6 +1827,11 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                     selectLayer(editor, id);
                 }
                 if (ImGui::MenuItem("Duplicate", "Ctrl+J")) { duplicateActiveLayer(editor, canvas); }
+                if (ImGui::MenuItem("Merge down", "Ctrl+E")) { mergeActiveLayerDown(editor, canvas); }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("This layer's elements join the layer below, on top "
+                                      "of its own, each still what it was.");
+                }
                 if (ImGui::MenuItem("Copy", "Ctrl+C")) { copyActiveLayer(editor); }
                 if (ImGui::MenuItem("Paste above", "Ctrl+V", false, editor.clipboard.valid())) {
                     pasteLayerHere(editor, canvas);

@@ -105,9 +105,13 @@ own and cached until it changes -- the engine tracks dirtiness per layer, so
 editing one leaves the others' thumbnails alone. Hidden layers show faint.
 
 Nothing here rasterises. A layer at Multiply is still the drawing it was, and
-switching it back costs nothing. There is no *merge down* for the same reason:
-two layers merged is two drawings pretending to be one, and the engine would
-rather keep both. Group them instead.
+switching it back costs nothing. **Merge down** (`Ctrl+E`) keeps to the same
+rule: a layer is a list of elements, so merging moves the upper layer's
+elements into the one below, each still what it was -- a rectangle still a
+rectangle, a colour still a slot -- with the upper layer's opacity and blend
+folded into them so the picture does not change. Where folding would change
+it (a transform or an outline that would then act on both, a hidden layer, two
+blend modes at once) it is refused, and the reason is said.
 
 ### Autosave, and what survives a crash
 

@@ -227,6 +227,97 @@ ls::LayerId pasteLayer(Document& doc, ls::LayerId source, ls::SpriteId into, int
 
 // --- groups ---------------------------------------------------------------------
 
+ls::LayerId mergeDown(Document& doc, ls::LayerId upper, std::string* why) {
+    const auto refuse = [&](const char* reason) {
+        if (why != nullptr) { *why = reason; }
+        return ls::LayerId{};
+    };
+    ls::LSContext& engine = doc.engine();
+    auto upperInfo = engine.getLayerInfo(upper);
+    if (upperInfo.fail()) {
+        return refuse("there is no such layer");
+    }
+    const ls::SpriteId sprite = upperInfo.value.sprite;
+    const int at = indexOfLayer(doc, sprite, upper);
+    if (at <= 0) {
+        return refuse("there is no layer below this one to merge into");
+    }
+    const ls::LayerId lower = layerOrder(doc, sprite)[static_cast<size_t>(at - 1)];
+    LayerProps top, bottom;
+    if (!readLayerProps(doc, upper, &top) || !readLayerProps(doc, lower, &bottom)) {
+        return refuse("the layers could not be read");
+    }
+    if (top.group != bottom.group) {
+        return refuse("the layer below is in a different group");
+    }
+    if (!top.visible) {
+        return refuse("this layer is hidden; merging would show it");
+    }
+    if (top.clipBase.valid() || bottom.clipBase.valid()) {
+        return refuse("a clipped layer draws only where another does; unclip it first");
+    }
+    if (layerLocked(doc, lower)) {
+        return refuse("the layer below is locked");
+    }
+
+    // Anything that acts on a layer as a whole -- a transform, an outline --
+    // would, after a merge, act on both layers' drawings. Refused rather than
+    // silently extended.
+    const auto wholeLayerRules = [&](ls::LayerId layer) {
+        auto operations = engine.getLayerOperations(layer);
+        if (operations.fail()) {
+            return true;
+        }
+        for (const ls::OperationInfo& op : operations.value) {
+            const std::string& type = op.type;
+            if (type != "FillSolidOp" && type != "FillDitherOp" && type != "StrokePolylineOp") {
+                return true;
+            }
+        }
+        return false;
+    };
+    if (wholeLayerRules(upper) || wholeLayerRules(lower)) {
+        return refuse("a transform or an outline on one of the layers would then act on "
+                      "both; remove it first");
+    }
+    if (top.blend != ls::BlendMode::Normal && bottom.blend != ls::BlendMode::Normal) {
+        return refuse("both layers blend in their own way, and one element cannot carry both");
+    }
+
+    doc.beginAction("Merge down");
+    auto operations = engine.getLayerOperations(upper);
+    for (const ls::OperationInfo& op : operations.value) {
+        auto source = engine.getOperation(op.id);
+        if (source.fail()) {
+            doc.abandonAction();
+            return refuse("an element could not be moved");
+        }
+        auto moved = engine.addOperation(lower, source.value);
+        if (moved.fail()) {
+            doc.abandonAction();
+            return refuse("an element could not be moved");
+        }
+        // The upper layer's opacity and blend, folded into the element so it
+        // looks as it did when the layer carried them.
+        if (top.opacity < 1.f) {
+            auto opacity = engine.getOperationParameter(moved.value, "opacity");
+            const float* was = opacity.ok() ? std::get_if<float>(&opacity.value) : nullptr;
+            engine.setOperationParameter(moved.value, "opacity",
+                                         ls::ParameterValue{ (was ? *was : 1.f) * top.opacity });
+        }
+        if (top.blend != ls::BlendMode::Normal) {
+            engine.setOperationParameter(moved.value, "blend",
+                                         ls::ParameterValue{ static_cast<int64_t>(top.blend) });
+        }
+    }
+    if (engine.deleteLayer(upper).fail()) {
+        doc.abandonAction();
+        return refuse("the layer could not be removed after merging");
+    }
+    doc.endAction();
+    return lower;
+}
+
 std::vector<ls::GroupId> groupOrder(Document& doc, ls::SpriteId sprite) {
     auto info = doc.engine().getSpriteInfo(sprite);
     return info.ok() ? info.value.groups : std::vector<ls::GroupId>{};

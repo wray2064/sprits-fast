@@ -442,6 +442,7 @@ void selectLayer(Editor& editor, ls::LayerId layer, bool extend = false);
 bool layerSelected(const Editor& editor, ls::LayerId layer);
 
 void duplicateActiveLayer(Editor& editor, CanvasView& canvas);
+void mergeActiveLayerDown(Editor& editor, CanvasView& canvas);
 void copyActiveLayer(Editor& editor);
 void pasteLayerHere(Editor& editor, CanvasView& canvas);
 void deleteSelectedLayers(Editor& editor, CanvasView& canvas);
