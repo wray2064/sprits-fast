@@ -521,7 +521,147 @@ void testAnOutlinedShapeIsItsEdge() {
     CHECK(fast::shapeIsOutlined(doc, op, &width) && width == 2.f);
 }
 
+// A polygon is its corners: it fills between them, reads them back, drags one
+// of them, is recognised as a polygon on the layer and after a reload, and
+// turns with the canvas corner by corner.
+void testAPolygonIsItsCorners() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    fast::ShapeParams params;
+    params.points = { { 4.f, 4.f }, { 24.f, 4.f }, { 4.f, 24.f } };
+    fast::ShapeLayer shape;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite, fast::ShapeKind::Polygon, params,
+                                   Color{ 90, 200, 120, 255 }, &shape));
+    CHECK(canvas.at(6, 6).a != 0);
+    CHECK(canvas.at(20, 20).a == 0);                  // beyond the long edge
+    const int before = canvas.opaque();
+
+    fast::ShapeParams read;
+    REQUIRE(fast::readShapeParams(canvas.doc, shape, &read));
+    REQUIRE(read.points.size() == 3);
+    CHECK(read.points[1].x == 24.f && read.from.x == 4.f && read.to.y == 24.f);
+
+    // Drag the right-angle's far corner out: more is covered.
+    const std::vector<ls::Vec2f> handles = fast::shapeHandles(fast::ShapeKind::Polygon, read);
+    CHECK(handles.size() == 3);
+    fast::moveShapeHandle(fast::ShapeKind::Polygon, read, 1, { 28.f, 10.f });
+    REQUIRE(fast::updateShape(canvas.doc, shape, read));
+    CHECK(canvas.opaque() > before);
+
+    std::vector<fast::PaintLayer> layers;
+    SpriteId sprite;
+    REQUIRE(fast::adoptPaintLayers(canvas.doc, &sprite, &layers));
+    fast::ShapeLayer found;
+    REQUIRE(fast::shapeOfLayer(canvas.doc, layers.front(), &found));
+    CHECK(found.kind == fast::ShapeKind::Polygon);
+    const std::vector<fast::Element> elements = fast::elementsOf(canvas.doc, layers.front().layer);
+    REQUIRE(elements.size() == 1);
+    CHECK(elements.front().kind == fast::ElementKind::Polygon && elements.front().isGeometry());
+
+    std::string error;
+    const std::string path = "shape_polygon.lsprite";
+    REQUIRE(canvas.doc.save(path, &error));
+    fast::Document again;
+    REQUIRE(again.open(path, &error));
+    fast::deleteFile(path);
+    std::vector<fast::PaintLayer> reloaded;
+    REQUIRE(fast::adoptPaintLayers(again, &sprite, &reloaded));
+    REQUIRE(fast::shapeOfLayer(again, reloaded.front(), &found));
+    CHECK(found.kind == fast::ShapeKind::Polygon);
+    fast::ShapeParams back;
+    REQUIRE(fast::readShapeParams(again, found, &back));
+    CHECK(back.points.size() == 3 && back.points[1].x == 28.f);
+}
+
+// A curve through anchors with handles: its points laid out segment by
+// segment, drawn one pixel wide, its anchor dragging its controls along, a
+// closed one's first anchor being its last, and all of it kept in a file.
+void testACurveThroughAnchors() {
+    const std::vector<ls::Vec2f> open = fast::curveThrough(
+        { { 2.f, 16.f }, { 16.f, 4.f }, { 30.f, 16.f } },
+        { { 0.f, 0.f }, { 6.f, 0.f }, { 0.f, 0.f } }, false);
+    REQUIRE(open.size() == 7);
+    CHECK(open[2].x == 10.f && open[2].y == 4.f);     // the middle anchor's incoming handle
+    CHECK(open[4].x == 22.f && open[4].y == 4.f);     // and its outgoing one
+    const std::vector<ls::Vec2f> loop = fast::curveThrough(
+        { { 4.f, 4.f }, { 20.f, 4.f }, { 12.f, 20.f } }, {}, true);
+    CHECK(loop.size() == 10 && loop.back().x == 4.f && loop.back().y == 4.f);
+
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    fast::ShapeParams params;
+    params.points = open;
+    fast::ShapeLayer shape;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite, fast::ShapeKind::Curve, params,
+                                   Color{ 30, 30, 40, 255 }, &shape));
+    CHECK(canvas.at(16, 4).a != 0);                   // it passes through its anchors
+    CHECK(canvas.at(2, 16).a != 0 && canvas.at(30, 16).a != 0);
+    CHECK(canvas.at(16, 16).a == 0);                  // and it is a line, not an area
+    // One pixel wide: no row holds more than a short run of it near the top.
+    int widest = 0;
+    for (int x = 0; x < 32; ++x) {
+        widest += canvas.at(x, 4).a != 0;
+    }
+    CHECK(widest > 0 && widest < 12);
+
+    fast::ShapeParams read;
+    REQUIRE(fast::readShapeParams(canvas.doc, shape, &read));
+    REQUIRE(read.points.size() == 7);
+    CHECK(!read.closed);
+    CHECK(fast::isControlHandle(fast::ShapeKind::Curve, 2) &&
+          !fast::isControlHandle(fast::ShapeKind::Curve, 3));
+    fast::moveShapeHandle(fast::ShapeKind::Curve, read, 3, { 16.f, 8.f });
+    CHECK(read.points[3].y == 8.f && read.points[2].y == 8.f && read.points[4].y == 8.f);
+    REQUIRE(fast::updateShape(canvas.doc, shape, read));
+    CHECK(canvas.at(16, 8).a != 0 && canvas.at(16, 4).a == 0);
+
+    fast::ShapeParams closed;
+    closed.points = loop;
+    closed.closed = true;
+    CHECK(fast::shapeHandles(fast::ShapeKind::Curve, closed).size() == 9);
+    {
+        // Closed, a curve is an area with curved sides.
+        Canvas filled;
+        REQUIRE(filled.build());
+        fast::ShapeLayer blob;
+        REQUIRE(fast::createShapeLayer(filled.doc, filled.sprite, fast::ShapeKind::Curve, closed,
+                                       Color{ 200, 60, 90, 255 }, &blob));
+        CHECK(filled.at(12, 8).a != 0);
+        CHECK(filled.at(28, 28).a == 0);
+    }
+    fast::moveShapeHandle(fast::ShapeKind::Curve, closed, 0, { 6.f, 6.f });
+    CHECK(closed.points.back().x == 6.f && closed.points.front().x == 6.f);
+
+    std::vector<fast::PaintLayer> layers;
+    SpriteId sprite;
+    REQUIRE(fast::adoptPaintLayers(canvas.doc, &sprite, &layers));
+    REQUIRE(layers.size() == 1);
+    fast::ShapeLayer found;
+    REQUIRE(fast::shapeOfLayer(canvas.doc, layers.front(), &found));
+    CHECK(found.kind == fast::ShapeKind::Curve);
+    const std::vector<fast::Element> elements = fast::elementsOf(canvas.doc, layers.front().layer);
+    REQUIRE(elements.size() == 1);
+    CHECK(elements.front().kind == fast::ElementKind::Curve);
+
+    std::string error;
+    const std::string path = "shape_curve.lsprite";
+    const std::vector<uint8_t> before = canvas.pixels();
+    REQUIRE(canvas.doc.save(path, &error));
+    fast::Document again;
+    REQUIRE(again.open(path, &error));
+    fast::deleteFile(path);
+    std::vector<fast::PaintLayer> reloaded;
+    REQUIRE(fast::adoptPaintLayers(again, &sprite, &reloaded));
+    REQUIRE(fast::shapeOfLayer(again, reloaded.front(), &found));
+    CHECK(found.kind == fast::ShapeKind::Curve);
+    auto compiled = again.engine().compileSprite(sprite, profile());
+    REQUIRE(compiled.ok());
+    CHECK(compiled.value.raster.pixels == before);
+}
+
 int main() {
+    testAPolygonIsItsCorners();
+    testACurveThroughAnchors();
     testAnOutlinedShapeIsItsEdge();
     testARectangleStaysARectangle();
     testEllipsesAndLines();

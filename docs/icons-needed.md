@@ -50,8 +50,10 @@ Added here as each tool is built; the placeholder is drawn in the meantime.
 | Text (a "T") | Toolbar | planned |
 | Hand | Toolbar | planned |
 | Zoom (magnifier) | Toolbar | planned |
-| Curve | Toolbar | planned |
-| Contour / polygon | Toolbar | planned |
+| Curve (an S with a handle drawn out) | Toolbar | placeholder drawn |
+| Contour | Toolbar | placeholder drawn |
+| Polygon (a filled polygon, corners marked) | Toolbar | placeholder drawn |
+| Shape handles: square anchor, round control point | Canvas | drawn; fine as they are |
 | Shading ink | Tool options | planned |
 | Symmetry: horizontal, vertical, both | Tool options / view | planned |
 | Swap colours (two arrows) | Colour section | planned; now a click on the second swatch |

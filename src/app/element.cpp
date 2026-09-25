@@ -24,7 +24,8 @@ uint64_t handleParam(Document& doc, ls::OperationId op, const char* name) {
 // about the elements, not elements.
 bool isElementOp(const ls::OperationInfo& op) {
     return op.type == "FillSolidOp" || op.type == "FillDitherOp" ||
-           op.type == "StrokePolylineOp" || op.type == "StrokeRegionBoundaryOp";
+           op.type == "StrokePolylineOp" || op.type == "StrokeRegionBoundaryOp" ||
+           op.type == "StrokePixelPathOp";
 }
 
 } // namespace
@@ -36,6 +37,8 @@ const char* elementKindName(ElementKind kind) {
         case ElementKind::Ellipse:   return "Ellipse";
         case ElementKind::Line:      return "Line";
         case ElementKind::Text:      return "Text";
+        case ElementKind::Polygon:   return "Polygon";
+        case ElementKind::Curve:     return "Curve";
     }
     return "Element";
 }
@@ -59,6 +62,12 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
             out.push_back(element);
             continue;
         }
+        if (op.type == "StrokePixelPathOp") {
+            element.geometry.value = handleParam(doc, op.id, "path");
+            element.kind = ElementKind::Curve;
+            out.push_back(element);
+            continue;
+        }
         element.region.value = handleParam(doc, op.id, "targetRegion");
         if (!element.region.valid()) {
             continue;
@@ -69,9 +78,11 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
         auto source = engine.getRegionSourceGeometry(element.region);
         if (source.ok() && source.value.valid()) {
             element.geometry = source.value;
-            auto path = engine.getGeometryPath(source.value);
-            element.kind = (path.ok() && path.value.size() > 12) ? ElementKind::Ellipse
-                                                                  : ElementKind::Rectangle;
+            switch (shapeKindOf(doc, source.value)) {
+                case ShapeKind::Ellipse: element.kind = ElementKind::Ellipse; break;
+                case ShapeKind::Polygon: element.kind = ElementKind::Polygon; break;
+                default:                 element.kind = ElementKind::Rectangle; break;
+            }
         } else if (engine.getMetadata(element.region.value, "fast.text").ok()) {
             element.kind = ElementKind::Text;
         } else {
@@ -90,6 +101,8 @@ ShapeLayer shapeOfElement(ls::LayerId layer, const Element& element) {
     shape.geometry = element.geometry;
     shape.kind = element.kind == ElementKind::Ellipse ? ShapeKind::Ellipse
                : element.kind == ElementKind::Line    ? ShapeKind::Line
+               : element.kind == ElementKind::Polygon ? ShapeKind::Polygon
+               : element.kind == ElementKind::Curve   ? ShapeKind::Curve
                                                       : ShapeKind::Rectangle;
     return shape;
 }

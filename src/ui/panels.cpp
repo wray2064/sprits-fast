@@ -92,6 +92,13 @@ void drawToolbar(Editor& editor) {
           "move it in the Element panel, and it is rebuilt from the words." },
         { Tool::Contour, theme::Icon::Contour, "Contour", "D",
           "Draw round an area; on release it is filled with the current colour." },
+        { Tool::Polygon, theme::Icon::Polygon, "Polygon", "Shift+D",
+          "Click corner after corner; Enter, a double-click or the first corner "
+          "finishes it. It stays a polygon: drag its corners afterwards." },
+        { Tool::Curve, theme::Icon::Curve, "Curve", "Shift+L",
+          "Click to place points, drag to pull out a point's handles; Enter or "
+          "a double-click ends it, the first point closes it. It stays a curve: "
+          "drag its points and handles afterwards." },
         { Tool::Select, theme::Icon::Marquee, "Select", "M",
           "Drag a rectangle to select. Shift adds, Alt subtracts, both "
           "intersect. Drag inside the selection to move what it holds." },
@@ -1469,18 +1476,54 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
             bool changed = false;
             float from[2] = { params.from.x, params.from.y };
             float to[2]   = { params.to.x, params.to.y };
+            const bool path = shape.kind == ShapeKind::Polygon || shape.kind == ShapeKind::Curve;
 
-            ImGui::SetNextItemWidth(-42.f);
-            if (ImGui::DragFloat2("from", from, 0.25f, 0.f, 0.f, "%.0f")) {
-                params.from = { from[0], from[1] };
-                changed = true;
-            }
-            bracketDrag(editor, editor.editingShape, "Edit shape");
+            if (path) {
+                // A polygon or a curve is its points, edited on the canvas;
+                // here it moves as a whole, by its top-left corner.
+                ImGui::SetNextItemWidth(-42.f);
+                if (ImGui::DragFloat2("at", from, 0.25f, 0.f, 0.f, "%.0f")) {
+                    const ls::Vec2f by { std::round(from[0]) - params.from.x,
+                                         std::round(from[1]) - params.from.y };
+                    mapShapePoints(params, [by](ls::Vec2f p) {
+                        return ls::Vec2f{ p.x + by.x, p.y + by.y };
+                    });
+                    changed = true;
+                }
+                bracketDrag(editor, editor.editingShape, "Move shape");
+                const size_t count = shape.kind == ShapeKind::Curve
+                    ? (params.points.size() + 2) / 3 - (params.closed ? 1 : 0)
+                    : params.points.size();
+                ImGui::TextDisabled("%zu %s -- drag them on the canvas", count,
+                                    shape.kind == ShapeKind::Curve ? "points" : "corners");
+                if (shape.kind == ShapeKind::Curve) {
+                    bool closed = params.closed;
+                    if (ImGui::Checkbox("Closed##curve", &closed)) {
+                        editor.doc.beginAction(closed ? "Close the curve" : "Open the curve");
+                        params.closed = closed;
+                        updateShape(editor.doc, shape, params);
+                        editor.doc.endAction();
+                        canvas.invalidate();
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Joined back to its first point and filled: a "
+                                          "shape with curved sides that stays editable.");
+                    }
+                }
+            } else {
+                ImGui::SetNextItemWidth(-42.f);
+                if (ImGui::DragFloat2("from", from, 0.25f, 0.f, 0.f, "%.0f")) {
+                    params.from = { from[0], from[1] };
+                    changed = true;
+                }
+                bracketDrag(editor, editor.editingShape, "Edit shape");
 
-            ImGui::SetNextItemWidth(-42.f);
-            if (ImGui::DragFloat2("to", to, 0.25f, 0.f, 0.f, "%.0f")) {
-                params.to = { to[0], to[1] };
-                changed = true;
+                ImGui::SetNextItemWidth(-42.f);
+                if (ImGui::DragFloat2("to", to, 0.25f, 0.f, 0.f, "%.0f")) {
+                    params.to = { to[0], to[1] };
+                    changed = true;
+                }
+                bracketDrag(editor, editor.editingShape, "Edit shape");
             }
 
             if (shape.kind == ShapeKind::Rectangle) {
@@ -1502,8 +1545,9 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
                 editor.say("The shape is still a shape");
             }
 
-            // Its area, or its edge: the same shape either way.
-            if (shape.kind != ShapeKind::Line) {
+            // Its area, or its edge: the same shape either way. Lines and
+            // curves have no area.
+            if (shape.kind != ShapeKind::Line && shape.kind != ShapeKind::Curve) {
                 float width = 1.f;
                 bool outlined = shapeIsOutlined(editor.doc, selected->fill, &width);
                 ls::OperationId op = selected->fill;

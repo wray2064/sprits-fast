@@ -316,7 +316,7 @@ ls::LayerId mergeDown(Document& doc, ls::LayerId upper, std::string* why) {
         for (const ls::OperationInfo& op : operations.value) {
             const std::string& type = op.type;
             if (type != "FillSolidOp" && type != "FillDitherOp" && type != "StrokePolylineOp" &&
-                type != "StrokeRegionBoundaryOp") {
+                type != "StrokeRegionBoundaryOp" && type != "StrokePixelPathOp") {
                 return true;
             }
         }

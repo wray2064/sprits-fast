@@ -41,7 +41,8 @@ namespace fast {
 
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
                   Select, SelectEllipse, Lasso, Wand, Move,
-                  Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso };
+                  Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso,
+                  Polygon, Curve };
 
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
@@ -401,6 +402,20 @@ struct Editor {
     // with it afterwards.
     bool       draggingShape = false;
     ShapeLayer pendingShape;
+
+    // A polygon or a curve being placed point by point: its corners, or its
+    // anchors with each one's outgoing handle, and whether the latest anchor
+    // is still being pulled out into its handle.
+    bool                   placingPath = false;
+    bool                   pullingHandle = false;
+    std::vector<ls::Vec2f> pathPoints;
+    std::vector<ls::Vec2f> pathHandles;
+
+    // A handle of the active shape being dragged on the canvas: which one, and
+    // the shape as it was when the drag began.
+    int         draggingHandle = -1;
+    ShapeLayer  handleShape;
+    ShapeParams handleStart;
     ls::Vec2f  shapeAnchor;
     float      shapeCorner = 0.f;
     // Rectangles and ellipses drawn as their edge rather than their area.
@@ -448,7 +463,7 @@ struct Editor {
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
-               draggingLayerProperties ||
+               draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
                selecting || draggingFloat || drawingContour || drawingGradient;
     }
 

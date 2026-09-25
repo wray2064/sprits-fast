@@ -146,6 +146,7 @@ if (FAST_BUILD_GUI)
         src/ui/selection_tools.cpp
         src/ui/keys.cpp
         src/ui/os_clipboard.cpp
+        src/ui/shape_tools.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp

@@ -432,6 +432,24 @@ sprits_fast --demo-stroke
    any WebP decoder (Pillow's is libwebp) must give the raw pixels back
    exactly.
 
+### 4y. Polygons, curves and handles
+
+1. Polygon (`Shift+D`): click five corners, click the first. *Expect:* a
+   filled polygon in the current colour, listed as *Polygon* in the Element
+   panel, its corners marked on the canvas.
+2. Drag a corner. *Expect:* the polygon follows; one `Ctrl+Z` puts it back.
+   With snap on, corners land on grid points.
+3. Curve (`Shift+L`): click, then press and drag at the second point, then
+   click a third and press Enter. *Expect:* a one-pixel curve with no
+   doubled corners, bending through the middle point; its handles show.
+4. Drag a point: its handles come with it. Drag a handle: only the bend
+   changes. Tick *Closed* in the Element panel. *Expect:* it fills.
+5. Backspace while placing takes the last point back; Escape lets the whole
+   path go; changing tool does too.
+6. A rectangle drawn earlier and made active: its two corners are handles
+   under the Move and shape tools. Rotate the canvas, save, reopen.
+   *Expect:* polygon and curve still editable, in their new places.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

@@ -107,6 +107,25 @@ void remapGeometry(Document& doc, ls::GeometryId geometry, const Remap& remap) {
             p = remap.point(p);
         }
         engine.updatePolyline(geometry, desc);
+        return;
+    }
+    if (auto polygon = engine.getPolygon(geometry); polygon.ok()) {
+        ls::PolygonDesc desc = polygon.value;
+        for (ls::Vec2f& p : desc.vertices) {
+            p = remap.point(p);
+        }
+        engine.updatePolygon(geometry, desc);
+        return;
+    }
+    if (auto curve = engine.getCurve(geometry); curve.ok()) {
+        ls::CurveDesc desc = curve.value;
+        for (ls::CurveDesc::Segment& s : desc.segments) {
+            s.p0 = remap.point(s.p0);
+            s.cp0 = remap.point(s.cp0);
+            s.cp1 = remap.point(s.cp1);
+            s.p1 = remap.point(s.p1);
+        }
+        engine.updateCurve(geometry, desc);
     }
 }
 
@@ -170,11 +189,13 @@ void remapDocument(Document& doc, const Remap& remap) {
                         }
                     }
                 }
-                if (const uint64_t line = handle(doc, op.id, "polyline"); line != 0) {
-                    ls::GeometryId id;
-                    id.value = line;
-                    if (geometries.insert(line).second) {
-                        remapGeometry(doc, id, remap);
+                for (const char* name : { "polyline", "path" }) {
+                    if (const uint64_t line = handle(doc, op.id, name); line != 0) {
+                        ls::GeometryId id;
+                        id.value = line;
+                        if (geometries.insert(line).second) {
+                            remapGeometry(doc, id, remap);
+                        }
                     }
                 }
                 // A dithered gradient's axis is in canvas coordinates.

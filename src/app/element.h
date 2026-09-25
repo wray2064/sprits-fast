@@ -33,7 +33,7 @@ namespace fast {
 // Text is an element of its own: pixels rebuilt from words kept on its
 // region (see text.h). Like a shape, it is an object on the layer rather than
 // a colour the pencil paints into.
-enum class ElementKind { Paint, Rectangle, Ellipse, Line, Text };
+enum class ElementKind { Paint, Rectangle, Ellipse, Line, Text, Polygon, Curve };
 
 const char* elementKindName(ElementKind kind);
 
@@ -50,7 +50,8 @@ struct Element {
     bool isShape() const { return kind != ElementKind::Paint; }
     bool isGeometry() const {
         return kind == ElementKind::Rectangle || kind == ElementKind::Ellipse ||
-               kind == ElementKind::Line;
+               kind == ElementKind::Line || kind == ElementKind::Polygon ||
+               kind == ElementKind::Curve;
     }
 };
 

@@ -105,7 +105,8 @@ void sectionHeader(const char* label);
 
 enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line, Eye, EyeShut,
                   Marquee, EllipseMarquee, Lasso, Wand, Move,
-                  Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso };
+                  Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso,
+                  Polygon, Curve };
 
 // Draws `icon` inside a square of `size` at `at`, in `colour`.
 void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour);

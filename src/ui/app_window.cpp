@@ -27,6 +27,7 @@
 #include "app/ui_state.h"
 #include "ui/keys.h"
 #include "ui/os_clipboard.h"
+#include "ui/shape_tools.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
 #include "ui/panels.h"
@@ -1832,7 +1833,15 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         handleReferenceDrag(editor, canvas, overCanvas, pixel)) {
         return;
     }
+    // A shape's handles come before the tool: a press on one edits the
+    // shape whatever the tool would have done there.
+    if (handleShapeHandles(editor, canvas, overCanvas)) {
+        return;
+    }
     if (handleSelectionInput(editor, canvas, overCanvas, pixel)) {
+        return;
+    }
+    if (handlePathInput(editor, canvas, overCanvas)) {
         return;
     }
     // The hand and the zoom tool are the canvas's own business.
@@ -2286,6 +2295,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // The keys a selection or a float answers to come first; any other key
     // drops a float before doing what it does, so a shortcut never acts on a
     // document with pixels in the air.
+    if (handlePathKeys(editor, canvas)) {
+        return;
+    }
     if (handleSelectionKeys(editor)) {
         return;
     }
@@ -2332,6 +2344,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         { "tool.text", Tool::Text }, { "tool.select", Tool::Select },
         { "tool.select-ellipse", Tool::SelectEllipse }, { "tool.lasso", Tool::Lasso },
         { "tool.polygon-lasso", Tool::PolygonLasso }, { "tool.wand", Tool::Wand },
+        { "tool.polygon", Tool::Polygon }, { "tool.curve", Tool::Curve },
         { "tool.move", Tool::Move }, { "tool.hand", Tool::Hand }, { "tool.zoom", Tool::Zoom },
     };
     for (const auto& entry : tools) {
@@ -2562,6 +2575,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawReferences(editor, canvas, draw, origin, zoom, false);
             drawSelectionOverlay(editor, draw, origin, zoom);
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
+            drawShapeOverlay(editor, canvas, draw, origin, zoom);
             if (editor.stroking && editor.brush.stabiliser > 0) {
                 const ls::Vec2f a = editor.stabiliser.at();
                 const ls::Vec2f b = canvas.pointerExact();
@@ -2671,6 +2685,7 @@ struct Options {
     bool        preferences = false;     // open the preferences window
     bool        preferencesKeys = false; // ... on its Keys tab
     bool        layerProperties = false; // the active layer's properties, tagged
+    bool        paths = false;           // --paths: a polygon and a curve, handles showing
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2705,6 +2720,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--paths") {
+            options.paths = true;
         } else if (arg == "--layer-properties") {
             options.layerProperties = true;
         } else if (arg == "--system-copy") {
@@ -3758,6 +3775,50 @@ int runSelfTest() {
         check(!fresh.doc.canUndo() && !fresh.doc.modified(), "a new document has nothing to undo");
     }
 
+    // A polygon and a curve placed point by point: each lands as an element
+    // of its kind, is the active shape with a handle per point, and finishing
+    // with too few points places nothing.
+    {
+        Editor paths;
+        CanvasView view(nullptr);
+        check(newDocument(paths, 16), "a document for paths");
+        paths.tool = Tool::Polygon;
+        paths.placingPath = true;
+        paths.pathPoints = { { 2.5f, 2.5f }, { 12.5f, 2.5f }, { 7.5f, 12.5f } };
+        paths.pathHandles.assign(3, { 0.f, 0.f });
+        check(finishPath(paths, view, true), "a polygon is placed");
+        check(!paths.placingPath && paths.pathPoints.empty(), "and the tool is ready again");
+        ShapeLayer placed;
+        check(activeShape(paths, &placed) && placed.kind == ShapeKind::Polygon,
+              "the polygon is the active shape");
+        ShapeParams read;
+        check(readShapeParams(paths.doc, placed, &read) &&
+              shapeHandles(placed.kind, read).size() == 3, "with a handle per corner");
+
+        paths.tool = Tool::Curve;
+        paths.placingPath = true;
+        paths.pathPoints = { { 2.5f, 14.5f }, { 8.5f, 4.5f }, { 14.5f, 14.5f } };
+        paths.pathHandles = { { 0.f, 0.f }, { 3.f, 0.f }, { 0.f, 0.f } };
+        check(finishPath(paths, view, false), "a curve is placed");
+        check(activeShape(paths, &placed) && placed.kind == ShapeKind::Curve,
+              "the curve is the active shape");
+        check(readShapeParams(paths.doc, placed, &read) && read.points.size() == 7 &&
+              shapeHandles(placed.kind, read).size() == 7, "three anchors and four controls");
+        {
+            size_t shapes = 0;
+            for (const Element& element : elementsOf(paths.doc, paths.active()->layer)) {
+                shapes += element.isGeometry() ? 1u : 0u;
+            }
+            check(shapes == 2, "both on the one layer");
+        }
+
+        paths.placingPath = true;
+        paths.pathPoints = { { 1.5f, 1.5f } };
+        paths.pathHandles = { { 0.f, 0.f } };
+        check(!finishPath(paths, view, false) && !paths.placingPath,
+              "one point is not a curve, and is let go");
+    }
+
     // A run of frames selected in the strip: it is the run, it plays as a
     // loop of its own when no cycle is chosen, and speed scales the clock.
     {
@@ -3925,6 +3986,7 @@ int main(int argc, char** argv) {
             { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
             { "gradient", Tool::Gradient }, { "text", Tool::Text },
             { "polygon-lasso", Tool::PolygonLasso },
+            { "polygon", Tool::Polygon }, { "curve", Tool::Curve },
         };
         for (const Named& named : tools) {
             if (options.tool == named.name) {
@@ -3971,6 +4033,22 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.paths && editor.active() != nullptr) {
+        editor.tool = Tool::Polygon;
+        editor.placingPath = true;
+        editor.pathPoints = { { 3.5f, 20.5f }, { 12.5f, 6.5f }, { 22.5f, 12.5f }, { 16.5f, 27.5f } };
+        editor.pathHandles.assign(4, { 0.f, 0.f });
+        finishPath(editor, canvas, true);
+        editor.tool = Tool::Curve;
+        editor.placingPath = true;
+        editor.pathPoints = { { 4.5f, 4.5f }, { 16.5f, 16.5f }, { 28.5f, 4.5f } };
+        editor.pathHandles = { { 6.f, 0.f }, { 6.f, 6.f }, { 0.f, 6.f } };
+        editor.color[0] = 0.1f;
+        editor.color[1] = 0.1f;
+        editor.color[2] = 0.15f;
+        finishPath(editor, canvas, false);
+        editor.tool = Tool::Move;
     }
     if (options.layerProperties && editor.active() != nullptr) {
         // Tagged and annotated, so a capture shows the stripe and the notes.

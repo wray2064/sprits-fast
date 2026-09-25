@@ -78,8 +78,8 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Gradient tool, dithered **(better: it stays a live FillDitherOp)**
 - [x] Shading ink: step a pixel along a ramp of palette slots
 - [x] Replace-colour ink, lock-alpha ink
-- [~] Contour / polygon fill
-- [ ] Curve tool (Bezier) **(better: stays editable, like shapes)**
+- [x] Contour / polygon fill
+- [x] Curve tool (Bezier) **(better: stays editable, like shapes)**
 - [x] Text tool, with a bundled bitmap font
 - [x] Custom brush from a selection
 - [x] Stroke stabiliser / smoothing
@@ -159,7 +159,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 ## Tier 3 — beyond the incumbents
 - [x] Palette-indexed PNG export (engine issue; a game can swap colours at run time)
-- [ ] Shapes on a curve that stay editable
+- [x] Shapes on a curve that stay editable
 - [ ] Per-frame transforms as tweens between key frames
 
 ---
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Polygon (Shift+D) and Curve (Shift+L) tools placing shapes point by point (pen-style handles for curves); both stay geometry (engine getPolygon/getCurve added), survive saves, canvas ops, selection moves and turns. On-canvas handles for every shape kind while it is the active element (Move or a shape tool): drag corners, ends, polygon corners, curve anchors (carrying their controls) and control points, one undo step each, snapped when snapping. Open curves pixel-perfect (engine: ordered walk without L-corners); closed curves filled.
 - Lossless WebP, Fast's own VP8L encoder (app/webp): colour-indexing transform with 1/2/4/8-bit packing up to 256 colours, ARGB beyond; back-references to the previous pixel and the pixel above; canonical prefix codes with simple codes for tiny alphabets. Animated WebP (VP8X/ANIM/ANMF, no blending) in the animation export and batch (.webp, --animated); single frames through batch. Verified pixel-exact against libwebp via Pillow on 11 synthetic cases (1..5000 colours, partial alpha, 5000x2) and a GIF->lsprite->WebP round trip.
 - Sheet trim (panel checkbox, batch --trim): every cell cut to the union of what the frames draw, so cells still line up; Fast's manifest gains trim and source, Aseprite's JSON trimmed/spriteSourceSize/sourceSize. A sheet of nothing keeps the whole canvas. Checked end to end through batch export.
 - Light theme (Preferences > Look): paper and a darker amber; switching re-applies the style live, and a chequer and grid still at the old theme's defaults follow to the new one's (canvasDefaultsFor), while chosen colours stay. Saved as view.theme; --light for captures.

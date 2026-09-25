@@ -162,7 +162,7 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
             // A stroked line has no region -- it names a polyline and encloses
             // no area. It is still a layer the panel must list, or it would go
             // on drawing while vanishing from the interface.
-            if (op.type == "StrokePolylineOp") {
+            if (op.type == "StrokePolylineOp" || op.type == "StrokePixelPathOp") {
                 if (!shapeOnly.valid()) {
                     shapeOnly.layer = layer;
                     shapeOnly.fill = op.id;

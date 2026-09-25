@@ -117,6 +117,8 @@ const std::vector<CommandInfo>& commandList() {
         { "tool.select-ellipse", "Select ellipse", "Tools", { shift("M") } },
         { "tool.lasso", "Lasso", "Tools", { key("Q") } },
         { "tool.polygon-lasso", "Polygon lasso", "Tools", { shift("Q") } },
+        { "tool.polygon", "Polygon", "Tools", { shift("D") } },
+        { "tool.curve", "Curve", "Tools", { shift("L") } },
         { "tool.wand", "Magic wand", "Tools", { key("W") } },
         { "tool.move", "Move", "Tools", { key("V") } },
         { "tool.hand", "Hand", "Tools", { key("H") } },

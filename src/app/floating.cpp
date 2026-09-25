@@ -248,8 +248,7 @@ bool moveFloating(Document& doc, Floating& floating, ls::Vec2i offset) {
     const ls::Vec2f by { static_cast<float>(offset.x), static_cast<float>(offset.y) };
     for (const Floating::Shape& taken : floating.shapes) {
         ShapeParams moved = taken.original;
-        moved.from = { moved.from.x + by.x, moved.from.y + by.y };
-        moved.to = { moved.to.x + by.x, moved.to.y + by.y };
+        mapShapePoints(moved, [by](ls::Vec2f p) { return ls::Vec2f{ p.x + by.x, p.y + by.y }; });
         ok = updateShape(doc, taken.shape, moved) && ok;
     }
     return ok;
@@ -298,8 +297,7 @@ bool turnFloating(Document& doc, Floating& floating, FloatTurn turn) {
         return p;
     };
     for (Floating::Shape& taken : floating.shapes) {
-        taken.original.from = corner(taken.original.from);
-        taken.original.to = corner(taken.original.to);
+        mapShapePoints(taken.original, corner);
     }
     floating.originalMask = apply(floating.originalMask);
     return moveFloating(doc, floating, floating.offset);

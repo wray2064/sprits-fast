@@ -526,6 +526,10 @@ still line up -- and the manifest says where it was cut from, as Aseprite's
 ### Shapes that stay shapes
 
 Drag out a rectangle with **R**, an ellipse with **U**, a line with **L**.
+Click out a polygon corner by corner with **Shift+D**, and a curve with
+**Shift+L**: click to place its points, drag as you place one to pull out its
+handles, as in a vector editor. An open curve is drawn pixel-perfect, one pixel
+wide with no doubled corners; closed, it is a filled shape with curved sides.
 
 ![Editing a shape after drawing it](docs/shapes.png)
 
@@ -538,7 +542,10 @@ In every other pixel editor a shape becomes pixels the moment you release the
 mouse. Getting it two pixels wider means undoing and drawing it again, and the
 outline you added has to be redone as well. Here the rectangle is still a
 rectangle an hour later: it still has an origin, a width and a corner radius,
-and all three are in the Shape panel.
+and all three are in the Shape panel. **On the canvas**, the shape being edited
+shows its handles -- a box's corners, a line's ends, a polygon's corners, a
+curve's points and control points -- and dragging one reshapes it, in one undo
+step, with everything built on it following.
 
 A layer drawn freehand has no shape to edit, and the panel says so rather than
 offering controls that would do nothing. The outline works on it regardless.

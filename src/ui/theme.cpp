@@ -390,6 +390,35 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Polygon: {
+            // A filled five-sided shape with its corners marked: a shape
+            // made of corners that stay corners.
+            const ImVec2 corners[] = { { 0.50f, 0.16f }, { 0.84f, 0.42f }, { 0.70f, 0.84f },
+                                       { 0.26f, 0.80f }, { 0.16f, 0.38f } };
+            draw->PathClear();
+            for (const ImVec2& p : corners) {
+                draw->PathLineTo(s(p.x, p.y));
+            }
+            draw->PathFillConvex((colour & 0x00FFFFFFu) | 0x90000000u);
+            for (const ImVec2& p : corners) {
+                draw->AddRectFilled(s(p.x - 0.06f, p.y - 0.06f), s(p.x + 0.06f, p.y + 0.06f),
+                                    colour);
+            }
+            break;
+        }
+
+        case Icon::Curve: {
+            // An S with one anchor's handle drawn out: a pen, not a brush.
+            const float weight = std::max(1.6f, size * 0.08f);
+            draw->AddBezierCubic(s(0.16f, 0.78f), s(0.20f, 0.20f), s(0.80f, 0.80f),
+                                 s(0.84f, 0.22f), colour, weight, 20);
+            draw->AddLine(s(0.16f, 0.78f), s(0.20f, 0.20f), colour, 1.f);
+            draw->AddCircleFilled(s(0.20f, 0.20f), size * 0.07f, colour, 10);
+            draw->AddRectFilled(s(0.10f, 0.72f), s(0.22f, 0.84f), colour);
+            draw->AddRectFilled(s(0.78f, 0.16f), s(0.90f, 0.28f), colour);
+            break;
+        }
+
         case Icon::PolygonLasso: {
             // A dashed polygon, corners dotted.
             const ImVec2 corners[] = { { 0.18f, 0.72f }, { 0.30f, 0.22f }, { 0.78f, 0.30f },

@@ -24,12 +24,13 @@
 #include "app/document.h"
 #include "app/paint.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
 namespace fast {
 
-enum class ShapeKind { Rectangle, Ellipse, Line };
+enum class ShapeKind { Rectangle, Ellipse, Line, Polygon, Curve };
 
 // A shape's parameters, in canvas coordinates. One struct for all three kinds
 // because a drag produces the same two corners whichever tool is held, and the
@@ -40,7 +41,39 @@ struct ShapeParams {
     float     cornerRadius = 0.f;   // rectangles only
     float     thickness = 1.f;      // a line's width, or an outlined shape's
     bool      outline = false;      // a rectangle or ellipse drawn as its edge only
+
+    // A polygon's corners in order, or a curve's points: its first anchor,
+    // then for each segment two control points and the next anchor -- 3n + 1
+    // points for n segments. Empty for the kinds that are two corners; for
+    // these, `from` and `to` are their bounds, for showing.
+    std::vector<ls::Vec2f> points;
+    bool      closed = false;       // a curve that returns to where it began, filled
 };
+
+// Every point of a shape moved by one mapping: its corners and each of its
+// points. What a move, a flip or a turn does to a shape of any kind.
+void mapShapePoints(ShapeParams& params, const std::function<ls::Vec2f(ls::Vec2f)>& map);
+
+// The points a person drags to edit a shape: a box's two corners, a line's
+// ends, a polygon's corners, a curve's anchors and control points -- a closed
+// curve's last anchor, which is its first, only once.
+std::vector<ls::Vec2f> shapeHandles(ShapeKind kind, const ShapeParams& params);
+
+// Whether a handle is a curve's control point rather than a point it passes
+// through; they are drawn differently.
+bool isControlHandle(ShapeKind kind, size_t index);
+
+// Moves one handle to `to`. A curve's anchor carries its control points with
+// it, so the curve keeps its shape about the point; a closed curve's first
+// anchor is its last one too.
+void moveShapeHandle(ShapeKind kind, ShapeParams& params, size_t index, ls::Vec2f to);
+
+// A curve as a pen tool makes one: through `anchors`, each with an outgoing
+// handle offset (the incoming handle is its mirror, so the curve is smooth
+// there; a zero handle makes a corner). Closed adds the segment back to the
+// first anchor. The points layout of ShapeParams.
+std::vector<ls::Vec2f> curveThrough(const std::vector<ls::Vec2f>& anchors,
+                                    const std::vector<ls::Vec2f>& handles, bool closed);
 
 // A layer holding one editable shape. Everything a PaintLayer is, plus the
 // geometry that still defines it.
@@ -53,6 +86,9 @@ struct ShapeLayer {
 };
 
 const char* shapeKindName(ShapeKind kind);
+
+// What kind of shape a geometry is, asked of the geometry itself.
+ShapeKind shapeKindOf(Document& doc, ls::GeometryId geometry);
 
 // Adds a layer holding a shape. Brackets its own undo action.
 bool createShapeLayer(Document& doc, ls::SpriteId sprite, ShapeKind kind,
