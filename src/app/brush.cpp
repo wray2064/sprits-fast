@@ -82,6 +82,29 @@ std::vector<ls::Vec2i> mirrored(const std::vector<ls::Vec2i>& pixels, const Symm
     return out;
 }
 
+std::vector<ls::Vec2i> sprayPixels(ls::Vec2i at, int radius, int count, uint32_t seed) {
+    std::vector<ls::Vec2i> out;
+    if (radius < 1 || count < 1) {
+        return out;
+    }
+    out.reserve(static_cast<size_t>(count));
+    uint32_t state = seed * 2654435761u + 1u;
+    const auto next = [&state]() {
+        state = state * 1664525u + 1013904223u;
+        return state >> 8;
+    };
+    // Rejection inside the square: uniform over the disc, and cheap.
+    const int side = radius * 2 + 1;
+    for (int tries = 0; static_cast<int>(out.size()) < count && tries < count * 4; ++tries) {
+        const int dx = static_cast<int>(next() % static_cast<uint32_t>(side)) - radius;
+        const int dy = static_cast<int>(next() % static_cast<uint32_t>(side)) - radius;
+        if (dx * dx + dy * dy <= radius * radius) {
+            out.push_back({ at.x + dx, at.y + dy });
+        }
+    }
+    return out;
+}
+
 int pressuredSize(const BrushSettings& brush, float pressure) {
     if (!brush.pressureSize) {
         return brush.size;

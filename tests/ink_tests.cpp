@@ -305,6 +305,68 @@ void testColoursSurviveAFile() {
     deleteFile(path);
 }
 
+void testInkModes() {
+    Document doc;
+    REQUIRE(doc.create("modes", kSize, kSize));
+    REQUIRE(ensurePalette(doc, doc.sprite()));
+    const ls::PaletteId palette = paletteFor(doc, doc.sprite());
+    for (const PaletteEntry& entry : paletteEntries(doc, palette)) {
+        removePaletteEntry(doc, palette, entry.role);
+    }
+    // A three-step ramp, dark to light.
+    setPaletteEntry(doc, palette, 0, { 40, 0, 0, 255 });
+    setPaletteEntry(doc, palette, 1, { 120, 0, 0, 255 });
+    setPaletteEntry(doc, palette, 2, { 220, 0, 0, 255 });
+    std::vector<std::pair<ls::ColorRole, ls::Color>> ramp;
+    for (const PaletteEntry& entry : paletteEntries(doc, palette)) {
+        ramp.push_back({ entry.role, entry.color });
+    }
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "body", kRed, &layer));
+    Ink mid;
+    mid.role = 1;
+    mid.colour = { 120, 0, 0, 255 };
+    REQUIRE(paint(doc, layer.layer, mid, {{ 1, 1 }, { 2, 1 }}));
+    REQUIRE(paint(doc, layer.layer, literal(kBlue), {{ 3, 1 }}));
+
+    // Shading: forward steps a slot up the ramp, once per pixel per stroke;
+    // a pixel with no slot, or nothing there, is left alone.
+    doc.beginAction("Shade");
+    InkModeState state;
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::Shading, Ink{}, ramp, &state));
+    InkStroke unused;
+    REQUIRE(strokeInkMode(doc, state, unused, {{ 1, 1 }, { 3, 1 }, { 5, 5 }}, true));
+    REQUIRE(strokeInkMode(doc, state, unused, {{ 1, 1 }}, true));      // again: no further
+    doc.endAction();
+    CHECK(same(at(doc, 1, 1), ls::Color{ 220, 0, 0, 255 }));
+    CHECK(same(at(doc, 2, 1), ls::Color{ 120, 0, 0, 255 }));
+    CHECK(same(at(doc, 3, 1), kBlue));
+    CHECK(at(doc, 5, 5).a == 0);
+    Ink top;
+    top.role = 2;
+    CHECK(elementsWithInk(doc, layer.layer, top).size() == 1);      // a slot, not a colour
+
+    // Lock alpha: only where the layer already draws.
+    doc.beginAction("Lock alpha");
+    InkStroke green;
+    REQUIRE(beginInkStroke(doc, layer.layer, literal(kGreen), &green));
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::LockAlpha, Ink{}, ramp, &state));
+    REQUIRE(strokeInkMode(doc, state, green, {{ 2, 1 }, { 6, 6 }}, true));
+    doc.endAction();
+    CHECK(same(at(doc, 2, 1), kGreen));
+    CHECK(at(doc, 6, 6).a == 0);
+
+    // Replace: only pixels of the second colour.
+    doc.beginAction("Replace");
+    InkStroke red;
+    REQUIRE(beginInkStroke(doc, layer.layer, literal(kRed), &red));
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::Replace, literal(kBlue), ramp, &state));
+    REQUIRE(strokeInkMode(doc, state, red, {{ 2, 1 }, { 3, 1 }}, true));
+    doc.endAction();
+    CHECK(same(at(doc, 3, 1), kRed));
+    CHECK(same(at(doc, 2, 1), kGreen));
+}
+
 } // namespace
 
 int main() {
@@ -316,6 +378,7 @@ int main() {
     testOneStrokeOneUndo();
     testThePickerReadsTheSlot();
     testColoursSurviveAFile();
+    testInkModes();
     if (failures == 0) {
         std::printf("ink: all passed\n");
         return 0;

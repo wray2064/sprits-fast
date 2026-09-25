@@ -57,6 +57,11 @@ struct Symmetry {
 // for both. Each pixel appears once.
 std::vector<ls::Vec2i> mirrored(const std::vector<ls::Vec2i>& pixels, const Symmetry& symmetry);
 
+// A spray: `count` pixels scattered in a disc of `radius` about `at`, from a
+// seeded generator, so the same seed sprays the same pixels -- a stroke
+// replayed is the same stroke.
+std::vector<ls::Vec2i> sprayPixels(ls::Vec2i at, int radius, int count, uint32_t seed);
+
 // The size a pen at `pressure` (0..1) draws at, when pressure sets the size.
 int pressuredSize(const BrushSettings& brush, float pressure);
 

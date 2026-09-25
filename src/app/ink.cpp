@@ -6,6 +6,7 @@
 #include "app/element.h"
 #include "app/transform.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace fast {
@@ -210,6 +211,121 @@ int pruneEmptyInks(Document& doc, ls::LayerId layer, ls::OperationId keep) {
         }
     }
     return removed;
+}
+
+bool beginInkMode(Document& doc, ls::LayerId layer, InkMode mode, const Ink& second,
+                  const std::vector<std::pair<ls::ColorRole, ls::Color>>& palette,
+                  InkModeState* out) {
+    if (out == nullptr) {
+        return false;
+    }
+    *out = InkModeState{};
+    out->mode = mode;
+    out->layer = layer;
+    if (mode == InkMode::Simple) {
+        return true;
+    }
+    ls::LSContext& engine = doc.engine();
+    for (const Element& element : elementsOf(doc, layer)) {
+        if (!element.region.valid()) {
+            continue;
+        }
+        auto pixels = engine.getRegionIntervals(element.region);
+        if (pixels.fail() || pixels.value.empty()) {
+            continue;
+        }
+        Ink ink;
+        const bool solid = element.kind == ElementKind::Paint &&
+                           inkOfElement(doc, element.fill, &ink);
+        switch (mode) {
+            case InkMode::LockAlpha:
+                // Where anything on the layer draws -- shapes too, since a
+                // shape's pixels are the layer's pixels to the eye.
+                out->allowed = ls::geom::unionSets(out->allowed, pixels.value);
+                break;
+            case InkMode::Replace:
+                if (solid && ink == second) {
+                    out->allowed = ls::geom::unionSets(out->allowed, pixels.value);
+                }
+                break;
+            case InkMode::Shading:
+                if (solid) {
+                    out->held.push_back({ pixels.value, ink });
+                }
+                break;
+            case InkMode::Simple:
+                break;
+        }
+    }
+    for (const auto& [role, colour] : palette) {
+        out->ramp.push_back(role);
+        out->rampColours.push_back(colour);
+    }
+    return true;
+}
+
+bool strokeInkMode(Document& doc, InkModeState& state, const InkStroke& stroke,
+                   const std::vector<ls::Vec2i>& pixels, bool forward) {
+    if (state.mode == InkMode::Simple) {
+        return strokeInk(doc, stroke, pixels);
+    }
+    if (state.mode == InkMode::LockAlpha || state.mode == InkMode::Replace) {
+        std::vector<ls::Vec2i> kept;
+        kept.reserve(pixels.size());
+        for (ls::Vec2i p : pixels) {
+            if (ls::geom::contains(state.allowed, p)) {
+                kept.push_back(p);
+            }
+        }
+        return kept.empty() || strokeInk(doc, stroke, kept);
+    }
+
+    // Shading: each pixel once, to the slot beside its own.
+    std::map<ls::ColorRole, std::vector<ls::Vec2i>> byTarget;
+    for (ls::Vec2i p : pixels) {
+        if (ls::geom::contains(state.shaded, p)) {
+            continue;
+        }
+        const Ink* was = nullptr;
+        for (const InkModeState::Held& held : state.held) {
+            if (ls::geom::contains(held.pixels, p)) {
+                was = &held.ink;
+            }
+        }
+        if (was == nullptr || !was->usesSlot()) {
+            continue;                   // empty, or a colour with no slot to step from
+        }
+        const auto at = std::find(state.ramp.begin(), state.ramp.end(), was->role);
+        if (at == state.ramp.end()) {
+            continue;
+        }
+        const long long index = at - state.ramp.begin();
+        const long long next = forward ? index + 1 : index - 1;
+        if (next < 0 || next >= static_cast<long long>(state.ramp.size())) {
+            continue;                   // already at the end of the ramp
+        }
+        byTarget[state.ramp[static_cast<size_t>(next)]].push_back(p);
+        state.shaded.intervals.push_back({ p.y, p.x, p.x + 1 });
+    }
+    state.shaded = ls::geom::normalize(std::move(state.shaded));
+    bool ok = true;
+    for (const auto& [role, targets] : byTarget) {
+        auto found = state.strokes.find(role);
+        if (found == state.strokes.end()) {
+            Ink ink;
+            ink.role = role;
+            const auto at = std::find(state.ramp.begin(), state.ramp.end(), role);
+            ink.colour = state.rampColours[static_cast<size_t>(at - state.ramp.begin())];
+            InkStroke made;
+            if (!beginInkStroke(doc, state.layer, ink, &made)) {
+                ok = false;
+                continue;
+            }
+            found = state.strokes.emplace(role, made).first;
+        }
+        ok = strokeInk(doc, found->second, targets) && ok;
+    }
+    return ok;
 }
 
 bool inkAt(Document& doc, ls::SpriteId sprite, ls::Vec2i pixel, Ink* out) {

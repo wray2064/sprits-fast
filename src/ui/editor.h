@@ -36,7 +36,8 @@
 namespace fast {
 
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
-                  Select, SelectEllipse, Lasso, Wand, Move };
+                  Select, SelectEllipse, Lasso, Wand, Move,
+                  Spray, Contour, Hand, Zoom };
 
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
@@ -250,6 +251,21 @@ struct Editor {
     int              symmetryAxisX = -1;
     int              symmetryAxisY = -1;
 
+    // What a pencil or spray stroke is allowed to touch, and with what (see
+    // ink.h), and that stroke's own view of the layer, taken as it began.
+    InkMode      inkMode = InkMode::Simple;
+    InkModeState inkModeState;
+
+    // The spray: its reach, how many pixels a frame, and a count that seeds
+    // each burst, so a stroke is the same stroke however it is replayed.
+    int      sprayRadius = 6;
+    int      sprayDensity = 10;
+    uint32_t sprayBursts = 0;
+
+    // A contour mid-drag: the outline so far, filled on release.
+    bool                   drawingContour = false;
+    std::vector<ls::Vec2i> contourPoints;
+
     // Where the last stroke ended, so Shift+click draws a straight line from
     // it -- the pixel editor's oldest trick for a clean straight edge.
     ls::Vec2i        lastStrokeEnd { -1, -1 };
@@ -344,7 +360,7 @@ struct Editor {
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
-               selecting || draggingFloat;
+               selecting || draggingFloat || drawingContour;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls

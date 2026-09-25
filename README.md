@@ -16,8 +16,11 @@ production suite.
 
 Early, but it is a real editor.
 
-**Drawing** — pencil, eraser, paint bucket, eyedropper, and rectangle, ellipse
-and line tools, all with keyboard shortcuts; any number of colours on one
+**Drawing** — pencil, spray, eraser, paint bucket, eyedropper, contour fill,
+and rectangle, ellipse and line tools, with a hand and a zoom tool, all with
+keyboard shortcuts; four inks for the pencil and spray -- simple, lock alpha,
+replace colour, and **shading**, which steps each pixel to the neighbouring
+palette slot, so a shaded area still follows the palette; any number of colours on one
 layer, with a second colour on the right button and `X` to swap them; a brush
 with a size, a round or square shape, and the pixel-perfect rule that keeps a
 diagonal a line; pen tablets, with pressure driving the size and the eraser

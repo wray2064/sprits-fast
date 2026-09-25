@@ -63,6 +63,9 @@ void drawToolbar(Editor& editor) {
     static const Entry kTools[] = {
         { Tool::Pencil, theme::Icon::Pencil,  "Pencil", "B",
           "Draw single pixels. A drag is one undo step." },
+        { Tool::Spray, theme::Icon::Spray, "Spray", "Shift+B",
+          "Scatter pixels of the current colour about the pointer, for as long "
+          "as it is held." },
         { Tool::Eraser, theme::Icon::Eraser,  "Eraser", "E",
           "Remove pixels from the shape of the active layer." },
         { Tool::Bucket, theme::Icon::Bucket,  "Fill",   "G",
@@ -78,6 +81,8 @@ void drawToolbar(Editor& editor) {
           "Drag out an ellipse, editable afterwards in the same way." },
         { Tool::Line, theme::Icon::Line, "Line", "L",
           "Drag out a line. Both ends stay adjustable." },
+        { Tool::Contour, theme::Icon::Contour, "Contour", "D",
+          "Draw round an area; on release it is filled with the current colour." },
         { Tool::Select, theme::Icon::Marquee, "Select", "M",
           "Drag a rectangle to select. Shift adds, Alt subtracts, both "
           "intersect. Drag inside the selection to move what it holds." },
@@ -91,6 +96,10 @@ void drawToolbar(Editor& editor) {
         { Tool::Move, theme::Icon::Move, "Move", "V",
           "Drag the selected pixels -- or, with nothing selected, the whole layer. "
           "Shapes inside go along as shapes. Arrows nudge; Enter drops." },
+        { Tool::Hand, theme::Icon::Hand, "Hand", "H",
+          "Drag to pan. Space does the same with any tool held." },
+        { Tool::Zoom, theme::Icon::Zoom, "Zoom", "Z",
+          "Click to zoom in on a point; Alt+click or right-click to zoom out." },
     };
 
     for (const Entry& entry : kTools) {
@@ -287,6 +296,41 @@ void drawToolPanel(Editor& editor) {
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 
+    if (editor.tool == Tool::Pencil || editor.tool == Tool::Spray) {
+        theme::sectionHeader("INK");
+        const char* modes[] = { "Simple", "Lock alpha", "Replace colour", "Shading" };
+        int mode = static_cast<int>(editor.inkMode);
+        ImGui::SetNextItemWidth(-1.f);
+        if (ImGui::Combo("##inkmode", &mode, modes, 4)) {
+            editor.inkMode = static_cast<InkMode>(mode);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        ImGui::TextWrapped("%s",
+            editor.inkMode == InkMode::Simple
+                ? "Paints every pixel the brush covers."
+            : editor.inkMode == InkMode::LockAlpha
+                ? "Paints only where the layer already draws: recolour a shape "
+                  "without spilling past its edge."
+            : editor.inkMode == InkMode::Replace
+                ? "Paints only pixels of the other button's colour, turning "
+                  "them to this one."
+                : "Steps each pixel to the next palette slot -- or the one "
+                  "before, with the right button. Lay a ramp out in order and "
+                  "it is the shading scale, and the result still follows the "
+                  "palette.");
+        ImGui::PopStyleColor();
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
+    if (editor.tool == Tool::Spray) {
+        theme::sectionHeader("SPRAY");
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderInt("##sprayradius", &editor.sprayRadius, 1, 32, "reach  %d");
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderInt("##spraydensity", &editor.sprayDensity, 1, 60, "density  %d");
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser) {
         theme::sectionHeader("BRUSH");
         ImGui::SetNextItemWidth(-1.f);
@@ -335,7 +379,7 @@ void drawToolPanel(Editor& editor) {
     }
 
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser ||
-        editor.tool == Tool::Bucket) {
+        editor.tool == Tool::Bucket || editor.tool == Tool::Spray) {
         theme::sectionHeader("SYMMETRY");
         ImGui::Checkbox("Across", &editor.symmetryAcross);
         ImGui::SameLine();

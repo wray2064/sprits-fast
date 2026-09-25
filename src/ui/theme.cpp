@@ -388,6 +388,51 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Spray: {
+            // A can and its mist.
+            draw->AddRectFilled(s(0.30f, 0.42f), s(0.58f, 0.88f), colour, 2.f);
+            draw->AddRectFilled(s(0.38f, 0.30f), s(0.50f, 0.42f), colour);
+            const float dot = std::max(1.2f, size * 0.05f);
+            for (const ImVec2 mist : { ImVec2(0.68f, 0.20f), ImVec2(0.80f, 0.30f),
+                                     ImVec2(0.72f, 0.36f), ImVec2(0.86f, 0.16f),
+                                     ImVec2(0.62f, 0.12f), ImVec2(0.84f, 0.42f) }) {
+                draw->AddCircleFilled(s(mist.x, mist.y), dot, colour, 6);
+            }
+            break;
+        }
+
+        case Icon::Contour: {
+            // A freehand loop, filled: the shape a contour stroke makes.
+            draw->PathClear();
+            const ImVec2 points[] = { { 0.20f, 0.55f }, { 0.28f, 0.24f }, { 0.55f, 0.18f },
+                                      { 0.82f, 0.34f }, { 0.74f, 0.70f }, { 0.44f, 0.84f } };
+            for (const ImVec2& p : points) {
+                draw->PathLineTo(s(p.x, p.y));
+            }
+            draw->PathFillConvex(colour);
+            break;
+        }
+
+        case Icon::Hand: {
+            // An open palm: four fingers and a thumb over a round heel.
+            const float weight = std::max(1.8f, size * 0.10f);
+            draw->AddCircleFilled(s(0.50f, 0.68f), size * 0.22f, colour, 16);
+            for (int i = 0; i < 4; ++i) {
+                const float x = 0.32f + 0.12f * static_cast<float>(i);
+                draw->AddLine(s(x, 0.62f), s(x, i == 0 || i == 3 ? 0.26f : 0.16f), colour, weight);
+            }
+            draw->AddLine(s(0.30f, 0.72f), s(0.14f, 0.52f), colour, weight);
+            break;
+        }
+
+        case Icon::Zoom: {
+            // A magnifier.
+            const float weight = std::max(1.6f, size * 0.09f);
+            draw->AddCircle(s(0.42f, 0.42f), size * 0.24f, colour, 20, weight);
+            draw->AddLine(s(0.60f, 0.60f), s(0.84f, 0.84f), colour, weight * 1.4f);
+            break;
+        }
+
         case Icon::Eye:
         case Icon::EyeShut: {
             // Two arcs for the lid and a pupil; shut is the lower lid alone.

@@ -143,7 +143,15 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     };
 
     if (windowHovered) {
-        if (io.MouseWheel != 0.f) {
+        float step = io.MouseWheel;
+        if (zoomOnClick_) {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                step = io.KeyAlt ? -1.f : 1.f;
+            } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                step = -1.f;
+            }
+        }
+        if (step != 0.f) {
             // Zoom toward the cursor: the pixel under the pointer stays under
             // the pointer. Zooming to the centre instead means hunting for
             // what you were looking at after every step.
@@ -152,7 +160,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
             const float localY = (io.MousePos.y - before.y) / zoom_;
 
             const float previous = zoom_;
-            setZoom(zoom_ + (io.MouseWheel > 0.f ? 1.f : -1.f));
+            setZoom(zoom_ + (step > 0.f ? 1.f : -1.f));
 
             if (zoom_ != previous) {
                 const ImVec2 after = artworkOrigin(zoom_);
@@ -163,7 +171,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
         // Middle-drag pans, and so does space-drag, which is the habit most
         // people bring with them.
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle) ||
-            (ImGui::IsKeyDown(ImGuiKey_Space) &&
+            ((ImGui::IsKeyDown(ImGuiKey_Space) || panWithPrimary_) &&
              ImGui::IsMouseDragging(ImGuiMouseButton_Left))) {
             panX_ += io.MouseDelta.x;
             panY_ += io.MouseDelta.y;

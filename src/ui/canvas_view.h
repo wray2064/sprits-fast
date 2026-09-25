@@ -111,6 +111,11 @@ public:
     // available area, which is not known until the panel is being laid out.
     void requestFit() { fitPending_ = true; }
 
+    // The hand and zoom tools: the left button pans, or steps the zoom about
+    // the point clicked (Alt or the right button zooms out).
+    void setPanWithPrimary(bool on) { panWithPrimary_ = on; }
+    void setZoomOnClick(bool on) { zoomOnClick_ = on; }
+
     void setGridVisible(bool visible) { grid_ = visible; }
     bool gridVisible() const { return grid_; }
 
@@ -179,6 +184,8 @@ private:
     mutable ls::Color sampled_;
 
     bool   grid_  = true;
+    bool   panWithPrimary_ = false;
+    bool   zoomOnClick_ = false;
     TileGrid  tiles_;
     TiledMode tiled_ = TiledMode::None;
     bool   fitPending_ = false;

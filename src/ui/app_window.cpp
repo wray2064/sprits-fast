@@ -1164,6 +1164,45 @@ bool beginPaint(Editor& editor, const PaintLayer& layer, bool back, InkStroke* o
                           back ? backgroundInk(editor) : foregroundInk(editor), out);
 }
 
+// The palette the active frame draws with, in the order its swatches show --
+// the ramp Shading steps along.
+std::vector<std::pair<ls::ColorRole, ls::Color>> paletteRamp(Editor& editor) {
+    std::vector<std::pair<ls::ColorRole, ls::Color>> ramp;
+    for (const PaletteEntry& entry :
+         paletteEntries(editor.doc, paletteFor(editor.doc, editor.activeSprite()))) {
+        ramp.push_back({ entry.role, entry.color });
+    }
+    return ramp;
+}
+
+// The last step of every freehand mark -- pencil, spray, eraser, contour:
+// wrapped for tiled mode, mirrored for symmetry, kept inside the selection,
+// and laid down through the ink mode.
+void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, bool tiled) {
+    if (tiled) {
+        for (ls::Vec2i& at : run) {
+            at = canvas.wrap(at);
+        }
+    }
+    run = mirrored(run, symmetryNow(editor));
+    if (!editor.selection.empty()) {
+        run.erase(std::remove_if(run.begin(), run.end(), [&](ls::Vec2i at) {
+                      return !editor.selection.contains(at);
+                  }),
+                  run.end());
+    }
+    if (run.empty()) {
+        return;
+    }
+    if (editor.inkStroke.erasing()) {
+        strokeInk(editor.doc, editor.inkStroke, run);
+    } else {
+        strokeInkMode(editor.doc, editor.inkModeState, editor.inkStroke, run,
+                      !editor.strokeWithBack);
+    }
+    canvas.invalidate();
+}
+
 // The ink under the cursor: the slot a pixel was painted through when the
 // drawing knows it, and otherwise the colour on screen -- matched to a slot
 // if one is exactly that colour, so picking a palette colour off a shape or
@@ -1197,6 +1236,10 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         return;
     }
     if (handleSelectionInput(editor, canvas, overCanvas, pixel)) {
+        return;
+    }
+    // The hand and the zoom tool are the canvas's own business.
+    if (editor.tool == Tool::Hand || editor.tool == Tool::Zoom) {
         return;
     }
     PaintLayer* layer = editor.active();
@@ -1353,6 +1396,46 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         return;
     }
 
+    // Contour: the outline is drawn as the pointer goes, and on release what it
+    // encloses -- outline included -- is painted in one go.
+    if (editor.tool == Tool::Contour) {
+        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            !ImGui::IsKeyDown(ImGuiKey_Space)) {
+            editor.drawingContour = true;
+            editor.contourPoints.assign(1, pixel);
+        }
+        if (editor.drawingContour && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            const ls::Vec2i at = canvas.pointerPixel();
+            const ls::Vec2i last = editor.contourPoints.back();
+            if (at.x != last.x || at.y != last.y) {
+                editor.contourPoints.push_back(at);
+            }
+        }
+        if (editor.drawingContour && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            editor.drawingContour = false;
+            auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+            const std::vector<ls::Vec2i> inside = pixelsOf(clipToCanvas(
+                lassoMask(editor.contourPoints),
+                size.ok() ? static_cast<uint32_t>(size.value.x) : 0u,
+                size.ok() ? static_cast<uint32_t>(size.value.y) : 0u));
+            editor.contourPoints.clear();
+            editor.doc.beginAction("Contour");
+            editor.strokeWithBack = false;
+            if (!inside.empty() && beginPaint(editor, *layer, false, &editor.inkStroke) &&
+                beginInkMode(editor.doc, layer->layer, InkMode::Simple, Ink{}, {},
+                             &editor.inkModeState)) {
+                layDown(editor, canvas, inside, false);
+                pruneEmptyInks(editor.doc, layer->layer, editor.inkStroke.target.fill);
+                editor.doc.endAction();
+                resyncLayers(editor);
+            } else {
+                editor.doc.abandonAction();
+            }
+            editor.inkStroke = InkStroke{};
+        }
+        return;
+    }
+
     // In tiled mode the stroke follows the pointer as it really moved, off
     // the edge and all, and each pixel is brought back onto the canvas after
     // the path is drawn -- wrapping first would draw a line straight across
@@ -1387,10 +1470,16 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     if (overCanvas && !editor.stroking && (pressedLeft || pressedRight) &&
         !ImGui::IsKeyDown(ImGuiKey_Space)) {
         const bool back = pressedRight && !pressedLeft;
-        editor.doc.beginAction(editor.tool == Tool::Pencil ? "Pencil" : "Eraser");
-        const bool ready = editor.tool == Tool::Pencil
-            ? beginPaint(editor, *layer, back, &editor.inkStroke)
-            : beginEraseStroke(editor.doc, layer->layer, &editor.inkStroke);
+        const bool erasing = editor.tool == Tool::Eraser;
+        editor.doc.beginAction(editor.tool == Tool::Pencil ? "Pencil"
+                               : editor.tool == Tool::Spray ? "Spray" : "Eraser");
+        // Replace turns the other button's colour into this one's.
+        const Ink other = back ? foregroundInk(editor) : backgroundInk(editor);
+        const bool ready =
+            (erasing ? beginEraseStroke(editor.doc, layer->layer, &editor.inkStroke)
+                     : beginPaint(editor, *layer, back, &editor.inkStroke)) &&
+            beginInkMode(editor.doc, layer->layer, erasing ? InkMode::Simple : editor.inkMode,
+                         other, paletteRamp(editor), &editor.inkModeState);
         if (!ready) {
             editor.doc.abandonAction();
             editor.say("Nothing to draw on here");
@@ -1416,7 +1505,12 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         const bool perfect = size == 1 && editor.brush.pixelPerfect &&
                              editor.tool == Tool::Pencil;
         std::vector<ls::Vec2i> run;
-        if (perfect) {
+        if (editor.tool == Tool::Spray) {
+            // A burst every frame the button is held, moving or not, as a can
+            // keeps spraying where it is pointed.
+            run = sprayPixels(pixel, editor.sprayRadius, editor.sprayDensity,
+                              ++editor.sprayBursts);
+        } else if (perfect) {
             const std::vector<ls::Vec2i> path =
                 editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{pixel}
                                        : linePixels(editor.lastPixel, pixel);
@@ -1430,22 +1524,7 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 ? brushStamp(pixel, size, editor.brush.round)
                 : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
         }
-        if (tiled) {
-            for (ls::Vec2i& at : run) {
-                at = canvas.wrap(at);
-            }
-        }
-        run = mirrored(run, symmetryNow(editor));
-        if (!editor.selection.empty()) {
-            run.erase(std::remove_if(run.begin(), run.end(), [&](ls::Vec2i at) {
-                          return !editor.selection.contains(at);
-                      }),
-                      run.end());
-        }
-        if (!run.empty()) {
-            strokeInk(editor.doc, editor.inkStroke, run);
-            canvas.invalidate();
-        }
+        layDown(editor, canvas, std::move(run), tiled);
         editor.lastPixel = pixel;
     }
 
@@ -1453,20 +1532,18 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         // The filter's last point, held until now.
         std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
         if (!rest.empty() && editor.tool == Tool::Pencil) {
-            if (tiled) {
-                for (ls::Vec2i& at : rest) {
-                    at = canvas.wrap(at);
-                }
-            }
-            rest = mirrored(rest, symmetryNow(editor));
-            strokeInk(editor.doc, editor.inkStroke, rest);
-            canvas.invalidate();
+            layDown(editor, canvas, std::move(rest), tiled);
         }
         editor.lastStrokeEnd = editor.lastPixel;
         // A colour painted out entirely, or erased away, leaves the element
         // list rather than lingering as an element that draws nothing.
-        const int pruned = pruneEmptyInks(editor.doc, editor.inkStroke.layer,
-                                          editor.inkStroke.target.fill);
+        int pruned = pruneEmptyInks(editor.doc, editor.inkStroke.layer,
+                                    editor.inkStroke.target.fill);
+        // Shading lays colours down through strokes of its own; a slot it
+        // stepped every pixel out of goes the same way.
+        if (!editor.inkModeState.strokes.empty()) {
+            pruned += pruneEmptyInks(editor.doc, editor.inkStroke.layer);
+        }
         editor.doc.endAction();
         editor.stroking = false;
         editor.lastPixel = { -1, -1 };
@@ -1474,6 +1551,7 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             resyncLayers(editor);
         }
         editor.inkStroke = InkStroke{};
+        editor.inkModeState = InkModeState{};
     }
 }
 
@@ -1515,7 +1593,12 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     if (!io.KeyCtrl) {
         // Tool shortcuts, the letters every editor uses.
-        if (ImGui::IsKeyPressed(ImGuiKey_B, false)) { editor.tool = Tool::Pencil; }
+        if (ImGui::IsKeyPressed(ImGuiKey_B, false)) {
+            editor.tool = io.KeyShift ? Tool::Spray : Tool::Pencil;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_D, false)) { editor.tool = Tool::Contour; }
+        if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.KeyShift) { editor.tool = Tool::Hand; }
+        if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) { editor.tool = Tool::Zoom; }
         if (ImGui::IsKeyPressed(ImGuiKey_E, false)) { editor.tool = Tool::Eraser; }
         if (ImGui::IsKeyPressed(ImGuiKey_G, false)) { editor.tool = Tool::Bucket; }
         if (ImGui::IsKeyPressed(ImGuiKey_I, false)) {
@@ -1777,10 +1860,13 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // While playing, the canvas shows the frame the clock says rather than the
     // frame being edited. Selection does not move with it -- stopping is what
     // changes which frame the tools act on.
-    canvas.setHoverSize((editor.tool == Tool::Pencil || editor.tool == Tool::Eraser)
+    canvas.setHoverSize(editor.tool == Tool::Spray ? editor.sprayRadius * 2 + 1
+                        : (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser)
                             ? (editor.pen.down ? pressuredSize(editor.brush, editor.pen.pressure)
                                                : editor.brush.size)
                             : 1);
+    canvas.setPanWithPrimary(editor.tool == Tool::Hand);
+    canvas.setZoomOnClick(editor.tool == Tool::Zoom);
     const int showing = frameToShow(editor, SDL_GetTicks());
     const ls::SpriteId onScreen =
         (showing >= 0 && showing < static_cast<int>(editor.frames.size()))
@@ -1796,6 +1882,20 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawReferences(editor, canvas, draw, origin, zoom, false);
             drawSelectionOverlay(editor, draw, origin, zoom);
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
+            if (editor.drawingContour && editor.contourPoints.size() > 1) {
+                const ImU32 ink = ImGui::GetColorU32(ImVec4(editor.color[0], editor.color[1],
+                                                            editor.color[2], 1.f));
+                const auto centre = [&](ls::Vec2i p) {
+                    return ImVec2(origin.x + (static_cast<float>(p.x) + 0.5f) * zoom,
+                                  origin.y + (static_cast<float>(p.y) + 0.5f) * zoom);
+                };
+                for (size_t i = 1; i < editor.contourPoints.size(); ++i) {
+                    draw->AddLine(centre(editor.contourPoints[i - 1]),
+                                  centre(editor.contourPoints[i]), ink, 2.f);
+                }
+                draw->AddLine(centre(editor.contourPoints.back()),
+                              centre(editor.contourPoints.front()), ink, 1.f);
+            }
         });
     editor.hovered = hovered;
 
@@ -3002,7 +3102,8 @@ int main(int argc, char** argv) {
             { "picker", Tool::Picker }, { "rectangle", Tool::Rectangle },
             { "ellipse", Tool::Ellipse }, { "line", Tool::Line }, { "select", Tool::Select },
             { "select-ellipse", Tool::SelectEllipse }, { "lasso", Tool::Lasso },
-            { "wand", Tool::Wand }, { "move", Tool::Move },
+            { "wand", Tool::Wand }, { "move", Tool::Move }, { "spray", Tool::Spray },
+            { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
         };
         for (const Named& named : tools) {
             if (options.tool == named.name) {

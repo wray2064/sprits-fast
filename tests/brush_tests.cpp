@@ -154,7 +154,28 @@ void testSymmetryMirrorsAboutTheAxis() {
     CHECK(mirrored({{ 1, 2 }}, Symmetry{}).size() == 1);
 }
 
+void testSprayIsSeededAndInsideItsDisc() {
+    const std::vector<ls::Vec2i> a = sprayPixels({ 10, 10 }, 4, 30, 7);
+    const std::vector<ls::Vec2i> b = sprayPixels({ 10, 10 }, 4, 30, 7);
+    CHECK(a.size() == 30);
+    bool equal = a.size() == b.size();
+    for (size_t i = 0; equal && i < a.size(); ++i) {
+        equal = a[i].x == b[i].x && a[i].y == b[i].y;
+    }
+    CHECK(equal);
+    for (ls::Vec2i p : a) {
+        CHECK((p.x - 10) * (p.x - 10) + (p.y - 10) * (p.y - 10) <= 16);
+    }
+    const std::vector<ls::Vec2i> c = sprayPixels({ 10, 10 }, 4, 30, 8);
+    bool differs = false;
+    for (size_t i = 0; i < c.size() && i < a.size(); ++i) {
+        differs = differs || c[i].x != a[i].x || c[i].y != a[i].y;
+    }
+    CHECK(differs);
+}
+
 int main() {
+    testSprayIsSeededAndInsideItsDisc();
     testSymmetryMirrorsAboutTheAxis();
     testStamps();
     testStrokesCoverTheLineOnce();

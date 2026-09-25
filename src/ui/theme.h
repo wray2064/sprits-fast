@@ -100,7 +100,8 @@ void sectionHeader(const char* label);
 // pick up the accent colour when selected.
 
 enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line, Eye, EyeShut,
-                  Marquee, EllipseMarquee, Lasso, Wand, Move };
+                  Marquee, EllipseMarquee, Lasso, Wand, Move,
+                  Spray, Contour, Hand, Zoom };
 
 // Draws `icon` inside a square of `size` at `at`, in `colour`.
 void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour);

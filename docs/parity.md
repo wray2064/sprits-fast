@@ -74,16 +74,16 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Brush size, round/square, pixel-perfect, pen pressure
 - [~] Filled and outlined rectangle and ellipse; Shift constrains to a
       square or circle, and a line to 15° steps
-- [ ] Spray / airbrush (seeded, so the result is deterministic)
+- [x] Spray / airbrush (seeded, so the result is deterministic)
 - [ ] Gradient tool, dithered **(better: it stays a live FillDitherOp)**
-- [ ] Shading ink: step a pixel along a ramp of palette slots
-- [ ] Replace-colour ink, lock-alpha ink
-- [ ] Contour / polygon fill
+- [x] Shading ink: step a pixel along a ramp of palette slots
+- [x] Replace-colour ink, lock-alpha ink
+- [~] Contour / polygon fill
 - [ ] Curve tool (Bezier) **(better: stays editable, like shapes)**
 - [ ] Text tool, with a bundled bitmap font
 - [ ] Custom brush from a selection
 - [ ] Stroke stabiliser / smoothing
-- [ ] Hand tool and zoom tool (for pen users)
+- [x] Hand tool and zoom tool (for pen users)
 - [x] Line tool drawn as pixels (Shift+click from the last point)
 
 ### Animation
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — spray, contour, hand and zoom tools; ink modes: lock alpha, replace colour, shading along palette slots.
 - 2026-09-25 — .aseprite/.ase open as work: layers, groups, frames, holds, tags as cycles, palette; indices become slots.
 - 2026-09-25 — merge down moves elements into the layer below, folding opacity and blend; refuses what would change the picture.
 - 2026-09-25 — history panel, onion skin settings (range, cycle neighbours, wrap, tints), Alt+click solo.

@@ -297,6 +297,22 @@ sprits_fast --demo-stroke
 6. *Load...* a PNG. *Expect:* its colours become the palette, in the order they
    appear in it.
 
+### 4n. Inks and the extra tools
+
+1. Lay a ramp of four slots out in order (dark to light). Paint an area in the
+   second. Pencil, ink *Shading*, scrub over half of it. *Expect:* that half is
+   now the third slot, and scrubbing again does not push it further in the
+   same stroke; right-button scrubbing steps it back. Edit the third swatch.
+   *Expect:* the shaded half recolours.
+2. Ink *Lock alpha*, paint across the edge of a drawn shape. *Expect:* nothing
+   lands outside it.
+3. Ink *Replace colour* with a second colour on the right button. *Expect:* only
+   pixels of that second colour change.
+4. Spray (`Shift+B`): hold still. *Expect:* it keeps spraying where it is held.
+5. Contour (`D`): draw a loop. *Expect:* on release the loop and its inside
+   fill with the current colour.
+6. Hand (`H`) drags the view; Zoom (`Z`) zooms in on a click, out with Alt.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
