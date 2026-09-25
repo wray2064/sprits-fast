@@ -23,4 +23,11 @@ bool zlibInflate(const uint8_t* data, size_t size, size_t expected, std::vector<
 // Deflates, with a zlib header.
 bool zlibDeflate(const std::vector<uint8_t>& data, std::vector<uint8_t>* out);
 
+// PNG's CRC, and one chunk -- length, type, data, CRC -- appended to `out`.
+// Shared by the writers that go beyond what stb writes: animated PNG and
+// indexed PNG.
+uint32_t pngCrc(const uint8_t* data, size_t size);
+void appendPngChunk(std::vector<uint8_t>& out, const char type[4],
+                    const std::vector<uint8_t>& data);
+
 } // namespace fast

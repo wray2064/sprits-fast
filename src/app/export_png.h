@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace fast {
 
@@ -35,6 +36,28 @@ struct ExportSettings {
     // keeps `scale` from turning a legal canvas into an illegal raster.
     static constexpr uint32_t kMaxScale = 64;
 };
+
+// An indexed PNG: a colour table and one byte a pixel, which is what a game
+// that swaps palettes at run time wants. The table is `palette` in its order,
+// so slot n of the palette is index n of the file -- swap the table and the
+// slots swap. What the picture needs that the palette lacks goes after it: a
+// clear entry, when there is transparency and no clear slot, and any colour
+// painted as a value of its own. More than 256 in all is refused.
+struct IndexedReport {
+    size_t paletteEntries = 0;
+    size_t extraColours = 0;        // colours not in the palette, added after it
+    bool   transparentEntry = false;
+    size_t tableSize = 0;
+};
+bool encodeIndexedPng(const ls::RasterBuffer& raster, const std::vector<ls::Color>& palette,
+                      uint32_t scale, std::vector<uint8_t>* out, IndexedReport* report,
+                      std::string* error);
+
+// Compiles `sprite` and writes it as an indexed PNG whose table is the
+// palette that frame draws with, in its order.
+bool exportSpriteToIndexedPng(Document& doc, ls::SpriteId sprite, const std::string& path,
+                              const ExportSettings& settings, IndexedReport* report,
+                              std::string* error);
 
 // Whole-number magnification by duplicating pixels, never interpolating: at 4x
 // a pixel is exactly four identical pixels per side. Empty when the result

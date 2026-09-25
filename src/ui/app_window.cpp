@@ -359,6 +359,13 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "as they are.");
         }
         if (ImGui::BeginMenu("Export PNG")) {
+            ImGui::MenuItem("Indexed, the palette as its table", nullptr, &editor.exportIndexed);
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("A colour table and one byte a pixel, with the palette's "
+                                  "slots in order as the\nfirst entries -- what a game that "
+                                  "swaps palettes at run time wants.");
+            }
+            ImGui::Separator();
             const int scales[] = { 1, 2, 4, 8, 16 };
             for (int scale : scales) {
                 const std::string label = std::to_string(scale) + "x";
@@ -1046,9 +1053,21 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         ExportSettings settings;
         settings.scale = static_cast<uint32_t>(editor.exportScale);
         std::string error;
-        if (exportSpriteToPng(editor.doc, editor.sprite, path, settings, &error)) {
-            editor.say("Exported " + fileName(path) + " at " +
-                       std::to_string(editor.exportScale) + "x");
+        IndexedReport report;
+        const bool done = editor.exportIndexed
+            ? exportSpriteToIndexedPng(editor.doc, editor.sprite, path, settings, &report, &error)
+            : exportSpriteToPng(editor.doc, editor.sprite, path, settings, &error);
+        if (done) {
+            std::string said = "Exported " + fileName(path) + " at " +
+                               std::to_string(editor.exportScale) + "x";
+            if (editor.exportIndexed) {
+                said += ", indexed: " + std::to_string(report.paletteEntries) + " slot(s)";
+                if (report.extraColours > 0) {
+                    said += " and " + std::to_string(report.extraColours) +
+                            " colour(s) not in the palette, after them";
+                }
+            }
+            editor.say(said);
         } else {
             editor.say("Export failed: " + error);
         }

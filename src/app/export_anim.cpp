@@ -5,6 +5,7 @@
 
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/zlib.h"
 
 #include <algorithm>
 #include <array>
@@ -221,32 +222,8 @@ void writeTable(std::vector<uint8_t>& out, const std::vector<Rgb>& palette, int 
 
 // ------------------------------------------------------------------ APNG --
 
-uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc = 0) {
-    static uint32_t table[256];
-    static bool built = false;
-    if (!built) {
-        for (uint32_t n = 0; n < 256; ++n) {
-            uint32_t c = n;
-            for (int k = 0; k < 8; ++k) {
-                c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-            }
-            table[n] = c;
-        }
-        built = true;
-    }
-    crc = ~crc;
-    for (size_t i = 0; i < size; ++i) {
-        crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
-    }
-    return ~crc;
-}
-
 void chunk(std::vector<uint8_t>& out, const char type[4], const std::vector<uint8_t>& data) {
-    put32be(out, static_cast<uint32_t>(data.size()));
-    const size_t start = out.size();
-    out.insert(out.end(), type, type + 4);
-    out.insert(out.end(), data.begin(), data.end());
-    put32be(out, crc32(out.data() + start, out.size() - start));
+    appendPngChunk(out, type, data);
 }
 
 // The IHDR and the compressed image data of a PNG stb wrote.

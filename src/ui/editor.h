@@ -209,6 +209,7 @@ struct Editor {
     ls::PaletteId renamingPalette;
     char          paletteNameBuffer[64] = {};
     int   exportScale = 1;
+    bool  exportIndexed = false;    // PNG export as a colour table and indices
 
     // A sprite sheet chosen for import, waiting for its grid to be said. The
     // picture is held decoded so the window can say how many frames each

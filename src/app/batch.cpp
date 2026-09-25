@@ -99,6 +99,8 @@ bool parseBatch(const std::vector<std::string>& args, BatchJob* out, std::string
             job.sequence = true;
         } else if (arg == "--animated") {
             job.animated = true;
+        } else if (arg == "--indexed") {
+            job.indexed = true;
         }
     }
     if (!batch) {
@@ -186,9 +188,11 @@ int runBatch(const BatchJob& job, std::string* message) {
         }
         ExportSettings settings;
         settings.scale = job.scale;
-        written = exportSpriteToPng(doc, frames[static_cast<size_t>(job.frame - 1)].sprite, out,
-                                    settings, &error);
-        what = "frame " + std::to_string(job.frame);
+        const ls::SpriteId sprite = frames[static_cast<size_t>(job.frame - 1)].sprite;
+        written = job.indexed
+            ? exportSpriteToIndexedPng(doc, sprite, out, settings, nullptr, &error)
+            : exportSpriteToPng(doc, sprite, out, settings, &error);
+        what = "frame " + std::to_string(job.frame) + (job.indexed ? ", indexed" : "");
     } else {
         return fail("the output's extension says nothing Fast writes: use .png, .gif, "
                     ".lsprite, or a palette's .gpl, .hex, .pal or .act");

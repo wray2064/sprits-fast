@@ -39,6 +39,7 @@ struct BatchJob {
     bool        sheet = false;
     bool        sequence = false;
     bool        animated = false;
+    bool        indexed = false;    // a single frame as an indexed PNG
     // For --sheet: padding, and the manifest's layout ("hash" or "array" for
     // Aseprite's JSON; Fast's own otherwise).
     uint32_t    border = 0;

@@ -347,6 +347,12 @@ per side, because anything else defeats the point of the format.
 Export compiles at `Export` quality rather than writing what is on screen, and
 leaves the document untouched -- exporting is not saving.
 
+**Indexed PNG** writes a colour table and one byte a pixel, with the palette's
+slots in their order as the table's first entries: slot 3 is index 3. A game
+that swaps palettes at run time swaps the table, and the sprite recolours the
+way it does here. Colours painted as values of their own, and a clear entry
+when one is needed, go after the palette's, so the slots never move.
+
 **File -> Export animation** writes the selected cycle, in its loop mode, or
 every frame: as a **GIF**, which plays everywhere; as an **animated PNG**,
 which keeps every colour and every level of transparency exactly; or as a

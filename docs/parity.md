@@ -158,7 +158,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Localisation hooks
 
 ## Tier 3 — beyond the incumbents
-- [ ] Palette-indexed PNG export (engine issue; a game can swap colours at run time)
+- [x] Palette-indexed PNG export (engine issue; a game can swap colours at run time)
 - [ ] Shapes on a curve that stay editable
 - [ ] Per-frame transforms as tweens between key frames
 
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — indexed PNG export: the palette's slots in order are the table's first entries; menu and batch --indexed.
 - 2026-09-25 — sheet border and spacing; manifest in Aseprite's JSON (hash/array) with cycles as frame tags; batch --border/--spacing/--json.
 - 2026-09-25 — runs of frames: Shift+click selection, duplicate/delete/reverse/one hold, Play loops the run; playback speed.
 - 2026-09-25 — command-line batch export: --export in --to out.png/.gif/.lsprite/palette, with --scale, --cycle, --frame, --sheet, --sequence, --animated.

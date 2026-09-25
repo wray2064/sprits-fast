@@ -94,6 +94,14 @@ void testEachKindOfOutput() {
     CHECK(image.width == 12 && image.height == 8);
     deleteFile(job.output);
 
+    job.output = "batch_indexed.png";
+    job.indexed = true;
+    REQUIRE(runBatch(job, &message) == 0);
+    REQUIRE(readFile(job.output, bytes, &error));
+    CHECK(bytes.size() > 25 && bytes[25] == 3);          // colour type: indexed
+    deleteFile(job.output);
+    job.indexed = false;
+
     job.output = "batch_walk.gif";
     job.cycle = "walk";
     REQUIRE(runBatch(job, &message) == 0);

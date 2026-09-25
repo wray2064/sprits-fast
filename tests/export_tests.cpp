@@ -12,6 +12,7 @@
 
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/image_io.h"
 #include "app/paint.h"
 
 #include <cstdio>
@@ -256,7 +257,59 @@ void testExportingChangesNothing() {
 
 } // namespace
 
+// An indexed PNG: decodes to exactly the picture; its table starts with the
+// palette in its order, so slot n is index n; a clear entry and a colour the
+// palette lacks go after it; and more than 256 colours is refused.
+void testAnIndexedPngKeepsThePalettesOrder() {
+    ls::RasterBuffer picture = ls::makeRaster(3, 2);
+    const std::vector<ls::Color> palette = { { 10, 20, 30, 255 }, { 200, 100, 50, 255 } };
+    ls::writePixel(picture, 0, 0, palette[1]);
+    ls::writePixel(picture, 1, 0, palette[0]);
+    ls::writePixel(picture, 2, 0, ls::Color{ 1, 2, 3, 128 });     // not in the palette
+    // (0,1)..(2,1) left clear
+    std::vector<uint8_t> png;
+    fast::IndexedReport report;
+    std::string error;
+    REQUIRE(fast::encodeIndexedPng(picture, palette, 1, &png, &report, &error));
+    CHECK(report.paletteEntries == 2 && report.extraColours == 1 && report.transparentEntry);
+    CHECK(report.tableSize == 4);
+    CHECK(png.size() > 33 && png[25] == 3);        // IHDR colour type: indexed
+
+    // The table: find PLTE and read its first entries.
+    size_t at = 8;
+    std::vector<uint8_t> plte;
+    while (at + 12 <= png.size()) {
+        const uint32_t length = static_cast<uint32_t>(png[at]) << 24 | png[at + 1] << 16 |
+                                png[at + 2] << 8 | png[at + 3];
+        if (std::string(png.begin() + static_cast<long long>(at + 4),
+                        png.begin() + static_cast<long long>(at + 8)) == "PLTE") {
+            plte.assign(png.begin() + static_cast<long long>(at + 8),
+                        png.begin() + static_cast<long long>(at + 8 + length));
+        }
+        at += 12 + length;
+    }
+    REQUIRE(plte.size() == 12);
+    CHECK(plte[0] == 10 && plte[3] == 200);         // slot 0, then slot 1
+
+    ls::RasterBuffer back;
+    REQUIRE(fast::decodeImage(png, &back, &error));
+    CHECK(ls::readPixel(back, 0, 0).r == 200 && ls::readPixel(back, 1, 0).r == 10);
+    const ls::Color half = ls::readPixel(back, 2, 0);
+    CHECK(half.r == 1 && half.a == 128);
+    CHECK(ls::readPixel(back, 1, 1).a == 0);
+
+    ls::RasterBuffer busy = ls::makeRaster(20, 20);
+    for (uint32_t y = 0; y < 20; ++y) {
+        for (uint32_t x = 0; x < 20; ++x) {
+            ls::writePixel(busy, static_cast<int32_t>(x), static_cast<int32_t>(y),
+                           ls::Color{ static_cast<uint8_t>(x * 12), static_cast<uint8_t>(y * 12), 5, 255 });
+        }
+    }
+    CHECK(!fast::encodeIndexedPng(busy, {}, 1, &png, nullptr, &error));
+}
+
 int main() {
+    testAnIndexedPngKeepsThePalettesOrder();
     testAnExportIsAValidPng();
     testScalingIsWholePixels();
     testTheExtensionIsSupplied();
