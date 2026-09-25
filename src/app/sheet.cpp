@@ -5,6 +5,7 @@
 #include "app/file_io.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <cstdio>
 
@@ -147,6 +148,8 @@ bool planSheet(int frameCount, uint32_t cellWidth, uint32_t cellHeight,
 
     plan.width = static_cast<uint32_t>(width);
     plan.height = static_cast<uint32_t>(height);
+    plan.sourceWidth = plan.cellWidth;
+    plan.sourceHeight = plan.cellHeight;
     *out = plan;
     return true;
 }
@@ -166,12 +169,60 @@ bool composeSheet(Document& doc, const std::vector<ls::SpriteId>& frames,
     if (size.fail() || size.value.x <= 0 || size.value.y <= 0) {
         return fail("the document has no canvas");
     }
-    const uint32_t cellWidth  = static_cast<uint32_t>(size.value.x);
-    const uint32_t cellHeight = static_cast<uint32_t>(size.value.y);
+    const uint32_t canvasWidth  = static_cast<uint32_t>(size.value.x);
+    const uint32_t canvasHeight = static_cast<uint32_t>(size.value.y);
+
+    // Every frame at the origin first: exactly what exporting it alone makes.
+    std::vector<ls::RasterBuffer> cells;
+    cells.reserve(frames.size());
+    for (ls::SpriteId frame : frames) {
+        auto compiled = doc.engine().compileSprite(
+            frame, compileProfile(ls::CompileProfileType::Export, canvasWidth, canvasHeight));
+        if (compiled.fail()) {
+            return fail("a frame could not be compiled");
+        }
+        cells.push_back(std::move(compiled.value.raster));
+    }
+
+    // The part of the canvas the cells show: all of it, or -- trimmed -- the
+    // smallest rectangle holding every frame's drawn pixels. A sheet of
+    // nothing keeps the whole canvas rather than becoming zero pixels wide.
+    ls::Rect2i keep { { 0, 0 }, { static_cast<int32_t>(canvasWidth),
+                                  static_cast<int32_t>(canvasHeight) } };
+    if (settings.trim) {
+        ls::Rect2i found { { INT32_MAX, INT32_MAX }, { INT32_MIN, INT32_MIN } };
+        bool any = false;
+        for (const ls::RasterBuffer& cell : cells) {
+            for (uint32_t y = 0; y < cell.height; ++y) {
+                const uint8_t* row = cell.row(y);
+                for (uint32_t x = 0; x < cell.width; ++x) {
+                    if (row[x * 4 + 3] != 0) {
+                        any = true;
+                        found.min.x = std::min(found.min.x, static_cast<int32_t>(x));
+                        found.min.y = std::min(found.min.y, static_cast<int32_t>(y));
+                        found.max.x = std::max(found.max.x, static_cast<int32_t>(x) + 1);
+                        found.max.y = std::max(found.max.y, static_cast<int32_t>(y) + 1);
+                    }
+                }
+            }
+        }
+        if (any) {
+            keep = found;
+        }
+    }
+    const uint32_t cellWidth = static_cast<uint32_t>(keep.width());
+    const uint32_t cellHeight = static_cast<uint32_t>(keep.height());
 
     if (!planSheet(static_cast<int>(frames.size()), cellWidth, cellHeight,
                    settings, plan, error)) {
         return false;
+    }
+    if (settings.trim) {
+        plan->trimmed = true;
+        plan->trimX = keep.min.x * static_cast<int32_t>(settings.scale);
+        plan->trimY = keep.min.y * static_cast<int32_t>(settings.scale);
+        plan->sourceWidth = canvasWidth * settings.scale;
+        plan->sourceHeight = canvasHeight * settings.scale;
     }
 
     ls::RasterBuffer sheet = ls::makeRaster(plan->width, plan->height);
@@ -180,32 +231,31 @@ bool composeSheet(Document& doc, const std::vector<ls::SpriteId>& frames,
     }
 
     for (size_t i = 0; i < frames.size(); ++i) {
-        // Export, never what is on screen.
-        ls::CompileProfile profile =
-            compileProfile(ls::CompileProfileType::Export, cellWidth, cellHeight);
-
-        // The default is the origin, so a cell is exactly what exporting this
-        // frame on its own would have produced. Asking for the other thing --
-        // one lattice across the whole sheet -- is what this option is.
+        // Asked for one lattice across the whole sheet: compiled again with
+        // its export origin where its first kept pixel lands, which is the
+        // thing this option is. Otherwise the origin compile stands, so a
+        // cell is exactly a single-frame export.
         if (settings.patternAcrossSheet) {
             const int column = static_cast<int>(i) % plan->columns;
             const int row = static_cast<int>(i) / plan->columns;
+            ls::CompileProfile profile =
+                compileProfile(ls::CompileProfileType::Export, canvasWidth, canvasHeight);
             profile.exportOrigin = {
-                static_cast<int32_t>(static_cast<uint32_t>(column) * cellWidth),
-                static_cast<int32_t>(static_cast<uint32_t>(row) * cellHeight) };
+                static_cast<int32_t>(static_cast<uint32_t>(column) * cellWidth) - keep.min.x,
+                static_cast<int32_t>(static_cast<uint32_t>(row) * cellHeight) - keep.min.y };
+            auto compiled = doc.engine().compileSprite(frames[i], profile);
+            if (compiled.fail()) {
+                return fail("a frame could not be compiled");
+            }
+            cells[i] = std::move(compiled.value.raster);
         }
-
-        auto compiled = doc.engine().compileSprite(frames[i], profile);
-        if (compiled.fail()) {
-            return fail("a frame could not be compiled");
-        }
-        const ls::RasterBuffer& cell = compiled.value.raster;
+        const ls::RasterBuffer& cell = cells[i];
 
         const ls::Vec2i at = plan->positionOf(static_cast<int>(i));
         for (uint32_t y = 0; y < cellHeight; ++y) {
             for (uint32_t x = 0; x < cellWidth; ++x) {
-                const ls::Color pixel = ls::readPixel(cell, static_cast<int32_t>(x),
-                                                      static_cast<int32_t>(y));
+                const ls::Color pixel = ls::readPixel(
+                    cell, keep.min.x + static_cast<int32_t>(x), keep.min.y + static_cast<int32_t>(y));
                 // Scaling is pixel duplication, never interpolation: a sprite
                 // at 4x is four identical pixels a side or it is not pixel art
                 // any more.
@@ -244,6 +294,12 @@ std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frame
            ", \"height\": " + std::to_string(plan.cellHeight) + " },\n";
     out += "  \"size\": { \"width\": " + std::to_string(plan.width) +
            ", \"height\": " + std::to_string(plan.height) + " },\n";
+    if (plan.trimmed) {
+        out += "  \"trim\": { \"x\": " + std::to_string(plan.trimX) +
+               ", \"y\": " + std::to_string(plan.trimY) + " },\n";
+        out += "  \"source\": { \"width\": " + std::to_string(plan.sourceWidth) +
+               ", \"height\": " + std::to_string(plan.sourceHeight) + " },\n";
+    }
     if (plan.border > 0 || plan.spacing > 0) {
         out += "  \"border\": " + std::to_string(plan.border) + ",\n";
         out += "  \"spacing\": " + std::to_string(plan.spacing) + ",\n";
@@ -317,9 +373,13 @@ std::string asepriteManifest(const SheetPlan& plan, const std::vector<Frame>& fr
         out += hash ? "  " + name + ": {\n" : "  {\n   \"filename\": " + name + ",\n";
         out += "   \"frame\": { \"x\": " + std::to_string(at.x) + ", \"y\": " +
                std::to_string(at.y) + ", \"w\": " + w + ", \"h\": " + h + " },\n";
-        out += "   \"rotated\": false,\n   \"trimmed\": false,\n";
-        out += "   \"spriteSourceSize\": { \"x\": 0, \"y\": 0, \"w\": " + w + ", \"h\": " + h + " },\n";
-        out += "   \"sourceSize\": { \"w\": " + w + ", \"h\": " + h + " },\n";
+        out += std::string("   \"rotated\": false,\n   \"trimmed\": ") +
+               (plan.trimmed ? "true" : "false") + ",\n";
+        out += "   \"spriteSourceSize\": { \"x\": " + std::to_string(plan.trimX) +
+               ", \"y\": " + std::to_string(plan.trimY) + ", \"w\": " + w + ", \"h\": " + h +
+               " },\n";
+        out += "   \"sourceSize\": { \"w\": " + std::to_string(plan.sourceWidth) +
+               ", \"h\": " + std::to_string(plan.sourceHeight) + " },\n";
         out += "   \"duration\": " +
                std::to_string(known ? frames[static_cast<size_t>(index)].durationMs
                                     : kDefaultFrameMs) + "\n  }";

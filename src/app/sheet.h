@@ -78,6 +78,12 @@ struct SheetSettings {
     // is, how long it is held, and what the cycles are. Without it a consumer
     // has only the picture.
     bool writeManifest = true;
+
+    // Crop every cell to the smallest rectangle holding what any of the
+    // frames draws -- one rectangle for all of them, so the cells still line
+    // up and play without jitter -- and say in the manifest where it was cut
+    // from, as Aseprite's trimmed sheets do.
+    bool trim = false;
 };
 
 // Where the cells go. Worked out without an engine or a document, so the
@@ -93,6 +99,15 @@ struct SheetPlan {
     int      cells = 0;
     uint32_t border = 0;
     uint32_t spacing = 0;
+
+    // For a trimmed sheet: where the cells were cut from the canvas, and the
+    // canvas's size, both scaled. Untrimmed, the offset is zero and the
+    // source is the cell.
+    bool     trimmed = false;
+    int32_t  trimX = 0;
+    int32_t  trimY = 0;
+    uint32_t sourceWidth = 0;
+    uint32_t sourceHeight = 0;
 
     // The top-left of cell `index` in the finished image, in scaled pixels.
     ls::Vec2i positionOf(int index) const;

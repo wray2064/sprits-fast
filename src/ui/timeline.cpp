@@ -943,6 +943,12 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
         ImGui::SetTooltip("Empty pixels between cells, so a texture filter or a mip "
                           "level does not bleed one frame into the next.");
     }
+    ImGui::Checkbox("Trim to what is drawn", &settings.trim);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Every cell cut to the smallest rectangle holding what any "
+                          "frame draws -- the same for all, so they still line up. "
+                          "The description says where it was cut from.");
+    }
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
     theme::sectionHeader("BESIDE THE IMAGE");

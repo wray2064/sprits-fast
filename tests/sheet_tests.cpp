@@ -500,7 +500,49 @@ void testTheAsepriteLayouts() {
     CHECK(array.find("\"frameTags\": []") != std::string::npos);
 }
 
+// Trimmed: every cell is the drawn rectangle -- the shape at 2..8 -- the
+// same for every frame, its pixels are the frame's, and both manifests say
+// where it was cut from.
+void testATrimmedSheetKeepsOnlyWhatIsDrawn() {
+    Document doc;
+    REQUIRE(build(doc, 2));
+    const std::vector<Frame> frames = readFrames(doc);
+    SheetSettings settings;
+    settings.layout = SheetLayout::Row;
+    settings.trim = true;
+    settings.scale = 2;
+    ls::RasterBuffer sheet;
+    SheetPlan plan;
+    std::string error;
+    REQUIRE(composeSheet(doc, { frames[0].sprite, frames[1].sprite }, settings, &sheet,
+                         &plan, &error));
+    CHECK(plan.trimmed && plan.trimX == 4 && plan.trimY == 4);
+    CHECK(plan.cellWidth == 14 && plan.cellHeight == 14);       // 7 pixels, at 2x
+    CHECK(plan.sourceWidth == 32 && plan.sourceHeight == 32);
+    CHECK(sheet.width == 28 && sheet.height == 14);
+    const ls::RasterBuffer one = alone(doc, frames[1].sprite);
+    const ls::Color first = ls::readPixel(one, 2, 2);
+    const ls::Color got = ls::readPixel(sheet, 14, 0);
+    CHECK(first.a != 0 && got.r == first.r && got.g == first.g && got.a == first.a);
+
+    const std::string fast = sheetManifest(plan, frames, { 0, 1 }, {}, "hero.png", 2);
+    CHECK(fast.find("\"trim\": { \"x\": 4, \"y\": 4 }") != std::string::npos);
+    CHECK(fast.find("\"source\": { \"width\": 32, \"height\": 32 }") != std::string::npos);
+    const std::string ase = asepriteManifest(plan, frames, { 0, 1 }, {}, "hero.png", 2, true);
+    CHECK(ase.find("\"trimmed\": true") != std::string::npos);
+    CHECK(ase.find("\"spriteSourceSize\": { \"x\": 4, \"y\": 4, \"w\": 14, \"h\": 14 }") !=
+          std::string::npos);
+    CHECK(ase.find("\"sourceSize\": { \"w\": 32, \"h\": 32 }") != std::string::npos);
+
+    // Nothing drawn: the whole canvas, not a sheet of no pixels.
+    Document empty;
+    REQUIRE(empty.create("empty", kCanvas, kCanvas));
+    REQUIRE(composeSheet(empty, { empty.sprite() }, settings, &sheet, &plan, &error));
+    CHECK(plan.cellWidth == kCanvas * 2 && plan.trimX == 0);
+}
+
 int main() {
+    testATrimmedSheetKeepsOnlyWhatIsDrawn();
     testTheGridIsNearlySquare();
     testStripsAndColumnsAndFixedWidths();
     testScaleMultipliesTheCell();

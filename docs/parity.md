@@ -110,7 +110,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Import a sprite sheet (grid slicing) as frames
 - [x] Open `.aseprite`/`.ase` files **(the most important import for
       winning users over)**
-- [~] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
+- [x] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
       cycle
 - [x] Command-line batch export (`sprits_fast --export`)
 - [x] Save a copy (`Document::saveCopy` already exists)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Sheet trim (panel checkbox, batch --trim): every cell cut to the union of what the frames draw, so cells still line up; Fast's manifest gains trim and source, Aseprite's JSON trimmed/spriteSourceSize/sourceSize. A sheet of nothing keeps the whole canvas. Checked end to end through batch export.
 - Light theme (Preferences > Look): paper and a darker amber; switching re-applies the style live, and a chequer and grid still at the old theme's defaults follow to the new one's (canvasDefaultsFor), while chosen colours stay. Saved as view.theme; --light for captures.
 - Isometric tile grid: View > Tile grid > Isometric draws 2:1 diamonds (width across, height down, with the offset); --isometric for captures.
 - The corner preview is the navigator: when the view shows only part of the canvas, that part is outlined on it, and clicking or dragging on it centres the view there (CanvasView::visibleArea, centreOn). --zoom N for headless captures.

@@ -12,7 +12,7 @@
 // The output's extension decides what is written:
 //
 //   .png       one frame (--frame N, the first by default); with --sheet a
-//              sprite sheet and its manifest (--border N, --spacing N, and
+//              sprite sheet and its manifest (--border N, --spacing N, --trim, and
 //              --json hash|array for Aseprite's JSON); with --sequence one
 //              file per step;
 //              with --animated an animated PNG
@@ -45,6 +45,7 @@ struct BatchJob {
     uint32_t    border = 0;
     uint32_t    spacing = 0;
     std::string json;
+    bool        trim = false;       // --trim: cells cropped to what is drawn
 };
 
 // Reads the batch options. False when --export is not among them -- this is

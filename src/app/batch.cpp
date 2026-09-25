@@ -88,6 +88,8 @@ bool parseBatch(const std::vector<std::string>& args, BatchJob* out, std::string
                 return fail(arg + " takes a number of pixels");
             }
             (arg == "--border" ? job.border : job.spacing) = static_cast<uint32_t>(value);
+        } else if (arg == "--trim") {
+            job.trim = true;
         } else if (arg == "--json") {
             if (!hasValue || (args[i + 1] != "hash" && args[i + 1] != "array")) {
                 return fail("--json takes hash or array, for Aseprite's layouts");
@@ -176,6 +178,7 @@ int runBatch(const BatchJob& job, std::string* message) {
         settings.scale = job.scale;
         settings.border = job.border;
         settings.spacing = job.spacing;
+        settings.trim = job.trim;
         settings.manifestFormat = job.json == "hash"  ? SheetManifestFormat::AsepriteHash
                                 : job.json == "array" ? SheetManifestFormat::AsepriteArray
                                                       : SheetManifestFormat::Fast;

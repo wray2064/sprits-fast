@@ -412,6 +412,15 @@ sprits_fast --demo-stroke
 2. Click elsewhere on the preview, then drag across it. *Expect:* the view
    follows; nothing is painted. Fit (`Ctrl+0`). *Expect:* the box goes.
 
+### 4w. A trimmed sheet
+
+1. A 32 x 32 document with a figure in its middle, three frames. *Export
+   sheet*, *Trim to what is drawn*, Aseprite JSON (hash). *Expect:* cells
+   only as big as the figure's reach across all three frames; the JSON has
+   `"trimmed": true` and `spriteSourceSize` where they were cut from.
+2. Batch: `sprits_fast --export in.lsprite --to out.png --sheet --trim`.
+   *Expect:* the same.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
