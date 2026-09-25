@@ -2911,7 +2911,7 @@ const Backdrop kBackdrops[] = {
 
 } // namespace
 
-void drawPreviewOverlay(Editor& editor, const CanvasView& canvas) {
+void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
     if (!editor.preview.visible || canvas.compiledWidth() == 0) {
         return;
     }
@@ -2961,6 +2961,37 @@ void drawPreviewOverlay(Editor& editor, const CanvasView& canvas) {
     // still has a visible extent.
     draw->AddRect(artAt, ImVec2(artAt.x + artWidth, artAt.y + artHeight),
                   ImGui::GetColorU32(c.border));
+
+    // The navigator: while the view shows only part of the canvas, the part
+    // it shows is outlined here, and clicking or dragging here looks there.
+    {
+        const ls::Rect2f seen = canvas.visibleArea();
+        const float w = static_cast<float>(canvas.compiledWidth());
+        const float h = static_cast<float>(canvas.compiledHeight());
+        const bool partial = seen.min.x > 0.f || seen.min.y > 0.f || seen.max.x < w ||
+                             seen.max.y < h;
+        const ImVec2 cursor = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(artAt);
+        ImGui::InvisibleButton("navigate", ImVec2(artWidth, artHeight));
+        if (partial && ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            const ImVec2 mouse = ImGui::GetIO().MousePos;
+            canvas.centreOn(std::clamp((mouse.x - artAt.x) / scale, 0.f, w),
+                            std::clamp((mouse.y - artAt.y) / scale, 0.f, h));
+        }
+        if (partial && ImGui::IsItemHovered() && !ImGui::IsItemActive()) {
+            ImGui::SetTooltip("Click or drag to look there");
+        }
+        ImGui::SetCursorScreenPos(cursor);
+        if (partial) {
+            const ImVec2 a(artAt.x + std::clamp(seen.min.x, 0.f, w) * scale,
+                           artAt.y + std::clamp(seen.min.y, 0.f, h) * scale);
+            const ImVec2 b(artAt.x + std::clamp(seen.max.x, 0.f, w) * scale,
+                           artAt.y + std::clamp(seen.max.y, 0.f, h) * scale);
+            draw->AddRect(ImVec2(a.x - 1.f, a.y - 1.f), ImVec2(b.x + 1.f, b.y + 1.f),
+                          IM_COL32(0, 0, 0, 160));
+            draw->AddRect(a, b, ImGui::GetColorU32(c.accent));
+        }
+    }
 
     // The controls sit inside the box as a real ImGui region, so they can be
     // clicked rather than only looked at.

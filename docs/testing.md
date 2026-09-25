@@ -400,6 +400,13 @@ sprits_fast --demo-stroke
 3. *Keep these shades as slots*. *Expect:* the new ones join the palette;
    pressing it again adds none.
 
+### 4v. The navigator
+
+1. Zoom in until the sprite overflows the view. *Expect:* an orange box on
+   the corner preview marks what the view shows.
+2. Click elsewhere on the preview, then drag across it. *Expect:* the view
+   follows; nothing is painted. Fit (`Ctrl+0`). *Expect:* the box goes.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

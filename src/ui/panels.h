@@ -55,7 +55,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas);
 // The corner preview: the sprite at the size it will really be seen, over a
 // background the author chooses. Drawn as an overlay inside the canvas window,
 // so it must be called while that window is current.
-void drawPreviewOverlay(Editor& editor, const CanvasView& canvas);
+void drawPreviewOverlay(Editor& editor, CanvasView& canvas);
 
 // The frame strip along the bottom: every frame as a thumbnail, its duration,
 // and the playback controls. Thumbnails are the textures the cache already

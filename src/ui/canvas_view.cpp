@@ -108,6 +108,8 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     ImGuiIO& io = ImGui::GetIO();
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 topLeft = ImGui::GetCursorScreenPos();
+    viewTopLeft_ = topLeft;
+    viewSize_ = available;
 
     // Fitting needs the area, which is only known here.
     if (fitPending_ && textureWidth_ > 0 && textureHeight_ > 0) {

@@ -2646,6 +2646,7 @@ struct Options {
     bool        preferences = false;     // open the preferences window
     bool        preferencesKeys = false; // ... on its Keys tab
     bool        layerProperties = false; // the active layer's properties, tagged
+    float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
     // clipboard of whoever runs it, so only when asked by name.
@@ -2677,6 +2678,8 @@ Options parseOptions(int argc, char** argv) {
             options.library = true;
         } else if (arg == "--preferences") {
             options.preferences = true;
+        } else if (arg == "--zoom" && i + 1 < argc) {
+            options.zoom = static_cast<float>(std::atof(argv[++i]));
         } else if (arg == "--layer-properties") {
             options.layerProperties = true;
         } else if (arg == "--system-copy") {
@@ -4101,6 +4104,10 @@ int main(int argc, char** argv) {
 
         SDL_RenderPresent(renderer);
 
+        // The fit happens on the first frame; a zoom asked for comes after it.
+        if (frame == 0 && options.zoom > 0.f) {
+            canvas.setZoom(options.zoom);
+        }
         if (options.frames > 0 && ++frame >= options.frames) {
             // What the last settled frame cost. Nothing changed for the whole
             // run after the demo was built, so this must be zero -- if it is

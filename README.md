@@ -432,6 +432,9 @@ will actually be seen. The preview shows it at 1x to 4x in the corner of the
 canvas, and it costs nothing: it reuses the texture the canvas has already
 uploaded rather than compiling the sprite a second time.
 
+It is also the navigator. Zoomed in past the edges, the part the view shows is
+outlined on it, and clicking or dragging there takes the view with it.
+
 The background is the part that earns its keep. A sprite that reads perfectly on
 the transparency chequer can vanish against sky blue or lose its outline against
 black, and there is no way to find that out except to look. So there are eight

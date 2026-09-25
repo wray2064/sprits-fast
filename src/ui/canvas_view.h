@@ -104,6 +104,25 @@ public:
     float zoom() const { return zoom_; }
 
     void  setPan(float x, float y) { panX_ = x; panY_ = y; }
+
+    // The part of the canvas the view shows, in canvas pixels, as of the last
+    // draw -- what the navigator outlines.
+    ls::Rect2f visibleArea() const {
+        const float z = zoom_ > 0.f ? zoom_ : 1.f;
+        const float w = static_cast<float>(textureWidth_) * z;
+        const float h = static_cast<float>(textureHeight_) * z;
+        const float ox = viewTopLeft_.x + (viewSize_.x - w) * 0.5f + panX_;
+        const float oy = viewTopLeft_.y + (viewSize_.y - h) * 0.5f + panY_;
+        return { { (viewTopLeft_.x - ox) / z, (viewTopLeft_.y - oy) / z },
+                 { (viewTopLeft_.x + viewSize_.x - ox) / z,
+                   (viewTopLeft_.y + viewSize_.y - oy) / z } };
+    }
+
+    // Pans so the canvas point (x, y) is in the middle of the view.
+    void centreOn(float x, float y) {
+        panX_ = zoom_ * (static_cast<float>(textureWidth_) * 0.5f - x);
+        panY_ = zoom_ * (static_cast<float>(textureHeight_) * 0.5f - y);
+    }
     float panX() const { return panX_; }
     float panY() const { return panY_; }
 
@@ -210,6 +229,8 @@ private:
     float  zoom_  = 8.f;
     float  panX_  = 0.f;
     float  panY_  = 0.f;
+    ImVec2 viewTopLeft_ { 0.f, 0.f };   // the view's area, as of the last draw
+    ImVec2 viewSize_ { 0.f, 0.f };
 };
 
 } // namespace fast
