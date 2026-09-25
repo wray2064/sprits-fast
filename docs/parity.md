@@ -56,10 +56,10 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Copy and paste images through the OS clipboard
 
 ### Canvas and sprite
-- [ ] Canvas size (with an anchor), crop to the selection, trim to content
-- [ ] Resize the sprite (nearest neighbour, whole numbers and percentages)
+- [x] Canvas size (with an anchor), crop to the selection, trim to content
+- [~] Resize the sprite (nearest neighbour, whole numbers and percentages)
       **(better: shapes resize as shapes)**
-- [ ] Rotate the canvas 90/180, flip the canvas horizontally and vertically
+- [x] Rotate the canvas 90/180, flip the canvas horizontally and vertically
 - [x] Zoom with the wheel toward the cursor, fit, reset
 - [x] Pan with Space+drag and with the middle mouse button (check which
       already work)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — Sprite menu: canvas size with anchor (keeps what falls off), crop, trim, enlarge/reduce, rotate and flip canvas; shapes stay shapes.
 - 2026-09-25 — images open as documents (colours become the palette), GIF frames, sheet import; export GIF, APNG, PNG sequence; alpha preserved in every compile.
 - 2026-09-25 — selections: marquee, ellipse, lasso, wand; add/subtract/intersect; move, nudge, flip, rotate, cut/copy/paste/delete; shapes ride along as shapes.
 - 2026-09-25 — many colours on one layer (inks), left/right colours with X, picker reads the slot, Enter plays and Space pans.

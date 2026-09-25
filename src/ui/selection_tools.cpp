@@ -21,6 +21,26 @@ ls::IntervalSet canvasBounds(Editor& editor) {
     return rectangleMask({ 0, 0 }, { size.value.x - 1, size.value.y - 1 });
 }
 
+bool changeCanvas(Editor& editor, CanvasView& canvas,
+                  const std::function<bool(std::string*)>& change, const std::string& done) {
+    settleFloating(editor);
+    std::string error;
+    if (!change(&error)) {
+        editor.say(error.empty() ? std::string("That did not change anything") : error);
+        return false;
+    }
+    // The selection was in the old canvas's pixels; it means nothing now.
+    editor.selection = Selection{};
+    resyncLayers(editor);
+    canvas.requestFit();
+    canvas.invalidate();
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    editor.say(size.ok() ? done + " -- now " + std::to_string(size.value.x) + " x " +
+                               std::to_string(size.value.y)
+                         : done);
+    return true;
+}
+
 void selectAll(Editor& editor) {
     settleFloating(editor);
     editor.selection.mask = canvasBounds(editor);

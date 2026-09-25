@@ -414,6 +414,83 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndMenu();
     }
 
+    if (ImGui::BeginMenu("Sprite")) {
+        if (ImGui::MenuItem("Canvas size...")) {
+            auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+            if (size.ok()) {
+                editor.canvasDialog.width = size.value.x;
+                editor.canvasDialog.height = size.value.y;
+            }
+            editor.canvasDialog.open = true;
+        }
+        if (ImGui::MenuItem("Crop to selection", nullptr, false, !editor.selection.empty())) {
+            const ls::Rect2i box = editor.selection.bounds();
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return cropCanvas(editor.doc, box, error); },
+                         "Cropped to the selection");
+        }
+        if (ImGui::MenuItem("Trim")) {
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return trimCanvas(editor.doc, error); },
+                         "Trimmed to what is drawn");
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Crop to the smallest rectangle holding everything any "
+                              "frame draws.");
+        }
+        ImGui::Separator();
+        if (ImGui::BeginMenu("Enlarge")) {
+            for (uint32_t factor : { 2u, 3u, 4u, 8u }) {
+                const std::string label = std::to_string(factor) + "x";
+                if (ImGui::MenuItem(label.c_str())) {
+                    changeCanvas(editor, canvas, [&](std::string* error) {
+                        return enlargeSprite(editor.doc, factor, error);
+                    }, "Enlarged " + label + ", every pixel a block");
+                }
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Reduce")) {
+            ImGui::TextDisabled("Keeps one pixel of each block: detail is lost.");
+            for (uint32_t factor : { 2u, 3u, 4u }) {
+                const std::string label = "1/" + std::to_string(factor);
+                if (ImGui::MenuItem(label.c_str())) {
+                    changeCanvas(editor, canvas, [&](std::string* error) {
+                        return reduceSprite(editor.doc, factor, error);
+                    }, "Reduced to " + label);
+                }
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Rotate canvas 90 clockwise")) {
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return rotateCanvas(editor.doc, 1, error); },
+                         "Turned clockwise");
+        }
+        if (ImGui::MenuItem("Rotate canvas 90 anticlockwise")) {
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return rotateCanvas(editor.doc, 3, error); },
+                         "Turned anticlockwise");
+        }
+        if (ImGui::MenuItem("Rotate canvas 180")) {
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return rotateCanvas(editor.doc, 2, error); },
+                         "Turned around");
+        }
+        if (ImGui::MenuItem("Flip canvas horizontally")) {
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return flipCanvas(editor.doc, true, error); },
+                         "Flipped left to right");
+        }
+        if (ImGui::MenuItem("Flip canvas vertically")) {
+            changeCanvas(editor, canvas,
+                         [&](std::string* error) { return flipCanvas(editor.doc, false, error); },
+                         "Flipped top to bottom");
+        }
+        ImGui::EndMenu();
+    }
+
     if (ImGui::BeginMenu("Select")) {
         if (ImGui::MenuItem("All", "Ctrl+A")) { selectAll(editor); }
         if (ImGui::MenuItem("Deselect", "Ctrl+D", false, !editor.selection.empty())) {
@@ -492,6 +569,67 @@ void drawSheetImportPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
     if (!open) {
         sheet = Editor::SheetImport{};
     }
+}
+
+// The new size, and a three-by-three grid saying where the drawing stays put
+// as the canvas grows or shrinks around it -- the control every editor has,
+// because it is the one question the numbers alone cannot answer.
+void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
+    Editor::CanvasSizeDialog& dialog = editor.canvasDialog;
+    if (!dialog.open) {
+        return;
+    }
+    ImGui::OpenPopup("Canvas size");
+    if (!ImGui::BeginPopupModal("Canvas size", &dialog.open,
+                                ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    if (size.ok()) {
+        ImGui::TextDisabled("Now %d x %d", size.value.x, size.value.y);
+    }
+    ImGui::SetNextItemWidth(120.f);
+    ImGui::InputInt("width", &dialog.width);
+    ImGui::SetNextItemWidth(120.f);
+    ImGui::InputInt("height", &dialog.height);
+    dialog.width = std::clamp(dialog.width, 1, static_cast<int>(kMaxCanvasDimension));
+    dialog.height = std::clamp(dialog.height, 1, static_cast<int>(kMaxCanvasDimension));
+
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+    ImGui::TextUnformatted("Keep the drawing at");
+    for (int i = 0; i < 9; ++i) {
+        if (i % 3 != 0) {
+            ImGui::SameLine();
+        }
+        ImGui::PushID(i);
+        const bool chosen = static_cast<int>(dialog.anchor) == i;
+        if (ImGui::Selectable(chosen ? "#" : ".", chosen, 0, ImVec2(22.f, 22.f))) {
+            dialog.anchor = static_cast<CanvasAnchor>(i);
+        }
+        ImGui::PopID();
+    }
+    ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+    ImGui::TextWrapped("Pixels a smaller canvas leaves outside are kept, not "
+                       "thrown away: grow it again and they are back.");
+    ImGui::PopStyleColor();
+
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    if (ImGui::Button("Resize", ImVec2(110.f, 0.f))) {
+        const uint32_t w = static_cast<uint32_t>(dialog.width);
+        const uint32_t h = static_cast<uint32_t>(dialog.height);
+        const CanvasAnchor anchor = dialog.anchor;
+        changeCanvas(editor, canvas, [&](std::string* error) {
+            return resizeCanvas(editor.doc, w, h, anchor, error);
+        }, "Canvas resized");
+        dialog.open = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        dialog.open = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 // What was found waiting from a session that did not end normally.
@@ -1507,6 +1645,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     drawSheetPanel(editor, window);
     drawAnimationPanel(editor, window);
+    drawCanvasSizePanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);

@@ -253,6 +253,19 @@ sprits_fast --demo-stroke
    shows the half-transparency; the GIF of the same thing does not, and the
    status line said so when it was written.
 
+### 4k. The canvas
+
+1. The demo. *Sprite -> Rotate canvas 90 clockwise* four times. *Expect:* the
+   picture is back exactly as it was, and each turn was one undo step.
+2. *Canvas size*, 20 x 20, anchor bottom-right. *Expect:* the figure in the
+   bottom-right of a larger canvas. Then 16 x 16, anchor top-left. *Expect:*
+   part of the figure is cut off. Then 32 x 32 again. *Expect:* it is all back.
+3. Draw a rounded rectangle, then *Enlarge 2x*. *Expect:* the rectangle is
+   twice the size with twice the corner radius, and still listed as a
+   rectangle in the Element panel.
+4. *Trim* on a sprite with a margin. *Expect:* the canvas hugs the drawing on
+   every frame, including frames drawn further out than this one.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

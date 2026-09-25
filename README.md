@@ -29,6 +29,10 @@ deselect, reselect, invert; move the selected pixels by dragging or with the
 arrows, flip and rotate them, cut, copy, paste and delete -- and the pencil,
 eraser and bucket keep inside the selection while there is one.
 
+**The canvas** — canvas size with an anchor, crop to the selection, trim to
+what is drawn, enlarge or reduce by a whole number, and turn or flip the whole
+canvas -- every frame at once, one undo step each.
+
 **Layers** — blend modes, opacity, groups that composite as one, clipping,
 locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row.
 One layer holds several elements: one per colour its pixels are painted in,
@@ -175,6 +179,22 @@ With nothing selected they copy and paste the layer, as before. Delete clears
 the selected pixels. A layer with a transform on it refuses all of this: its
 pixels are not canvas pixels, and the only way to make them so would be to
 resample them.
+
+### The canvas, turned and trimmed
+
+The **Sprite** menu changes the canvas under every frame at once. In a bitmap
+editor that means resampling every layer; here it means moving descriptions.
+A region's runs move and a shape's corners move, by a mapping that sends a
+pixel to a pixel -- so a quarter turn, a flip and an enlargement are exact, and
+four turns give back the same bytes. A rounded rectangle on a canvas turned a
+quarter is a rounded rectangle of the other proportions, not a picture of one.
+
+**Canvas size** grows or shrinks the canvas about any of nine anchors, and a
+smaller canvas **keeps what falls outside it**: those pixels are still in their
+regions, just off the edge, and growing the canvas again brings them back.
+**Crop to selection** and **Trim** (to the smallest rectangle anything is drawn
+in, across every frame) are the same move. **Reduce** is the one lossy thing on
+the menu -- it keeps one pixel of each block -- and says so.
 
 ### The brush, with a mouse or a pen
 

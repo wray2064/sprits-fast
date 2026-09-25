@@ -63,6 +63,7 @@ endif()
 add_library(fast_core STATIC
     src/app/animation.cpp
     src/app/bucket.cpp
+    src/app/canvas_ops.cpp
     src/app/dither.cpp
     src/app/document.cpp
     src/app/palette.cpp
@@ -177,6 +178,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_anim_export_tests tests/anim_export_tests.cpp)
     target_link_libraries(fast_anim_export_tests PRIVATE fast_core)
     add_test(NAME fast_anim_export COMMAND fast_anim_export_tests)
+
+    add_executable(fast_canvas_ops_tests tests/canvas_ops_tests.cpp)
+    target_link_libraries(fast_canvas_ops_tests PRIVATE fast_core)
+    add_test(NAME fast_canvas_ops COMMAND fast_canvas_ops_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

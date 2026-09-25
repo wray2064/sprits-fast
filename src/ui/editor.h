@@ -10,6 +10,7 @@
 
 #include "app/animation.h"
 #include "app/brush.h"
+#include "app/canvas_ops.h"
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/element.h"
@@ -28,6 +29,7 @@
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -193,6 +195,15 @@ struct Editor {
         int              cellHeight = 32;
         int              holdMs = 100;
     } sheetImport;
+
+    // The canvas size window: the new size and which way the drawing is
+    // pinned while the canvas grows or shrinks around it.
+    struct CanvasSizeDialog {
+        bool         open = false;
+        int          width = 32;
+        int          height = 32;
+        CanvasAnchor anchor = CanvasAnchor::Centre;
+    } canvasDialog;
 
     // The animation export, and whether its window is up. Like the sheet's,
     // kept here so the choices survive the window closing.
@@ -446,6 +457,12 @@ bool copySelectionPixels(Editor& editor);
 bool cutSelectionPixels(Editor& editor);
 bool deleteSelectionPixels(Editor& editor);
 bool pastePixels(Editor& editor);
+
+// Changes the canvas through one of canvas_ops' calls, then tidies what the
+// window holds about the old one: the selection, the view, the layer list.
+// `change` returns false with a reason, which is said.
+bool changeCanvas(Editor& editor, CanvasView& canvas,
+                  const std::function<bool(std::string*)>& change, const std::string& done);
 
 // The canvas's own bounds as a mask, for select-all and invert.
 ls::IntervalSet canvasBounds(Editor& editor);
