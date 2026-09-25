@@ -4,6 +4,8 @@
 #include "app/layers.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstdio>
 
 namespace fast {
 namespace {
@@ -73,6 +75,8 @@ bool readLayerProps(Document& doc, ls::LayerId layer, LayerProps* out) {
     props.visible = info.value.visible;
     props.group = info.value.parentId;
     props.locked = layerLocked(doc, layer);
+    props.tagged = layerTag(doc, layer, &props.tag);
+    props.notes = layerNotes(doc, layer);
     if (info.value.hasClip) {
         // The engine says only that there is one; which layer it is has to be
         // inferred: a clip made here is always to the layer below.
@@ -114,6 +118,47 @@ bool setLayerLocked(Document& doc, ls::LayerId layer, bool locked) {
     }
     doc.engine().clearMetadata(layer.value, kLayerLockedKey);
     return true;
+}
+
+bool layerTag(Document& doc, ls::LayerId layer, ls::Color* out) {
+    auto value = doc.engine().getMetadata(layer.value, kLayerTagKey);
+    if (value.fail() || value.value.size() != 7 || value.value[0] != '#') {
+        return false;
+    }
+    char* end = nullptr;
+    const unsigned long rgb = std::strtoul(value.value.c_str() + 1, &end, 16);
+    if (end != value.value.c_str() + 7) {
+        return false;
+    }
+    if (out != nullptr) {
+        *out = ls::Color{ static_cast<uint8_t>((rgb >> 16) & 0xFF),
+                          static_cast<uint8_t>((rgb >> 8) & 0xFF),
+                          static_cast<uint8_t>(rgb & 0xFF), 255 };
+    }
+    return true;
+}
+
+bool setLayerTag(Document& doc, ls::LayerId layer, const ls::Color* tag) {
+    if (tag == nullptr) {
+        doc.engine().clearMetadata(layer.value, kLayerTagKey);
+        return true;
+    }
+    char text[8];
+    std::snprintf(text, sizeof(text), "#%02x%02x%02x", tag->r, tag->g, tag->b);
+    return doc.engine().setMetadata(layer.value, kLayerTagKey, text).ok();
+}
+
+std::string layerNotes(Document& doc, ls::LayerId layer) {
+    auto value = doc.engine().getMetadata(layer.value, kLayerNotesKey);
+    return value.ok() ? value.value : std::string();
+}
+
+bool setLayerNotes(Document& doc, ls::LayerId layer, const std::string& notes) {
+    if (notes.empty()) {
+        doc.engine().clearMetadata(layer.value, kLayerNotesKey);
+        return true;
+    }
+    return doc.engine().setMetadata(layer.value, kLayerNotesKey, notes).ok();
 }
 
 // --- order ----------------------------------------------------------------------

@@ -2467,6 +2467,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);
     drawPreferencesPanel(editor, canvas);
+    drawLayerPropertiesPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);
@@ -2496,6 +2497,7 @@ struct Options {
     bool        library = false;         // open the library window
     bool        preferences = false;     // open the preferences window
     bool        preferencesKeys = false; // ... on its Keys tab
+    bool        layerProperties = false; // the active layer's properties, tagged
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
     // clipboard of whoever runs it, so only when asked by name.
@@ -2527,6 +2529,8 @@ Options parseOptions(int argc, char** argv) {
             options.library = true;
         } else if (arg == "--preferences") {
             options.preferences = true;
+        } else if (arg == "--layer-properties") {
+            options.layerProperties = true;
         } else if (arg == "--system-copy") {
             options.systemCopy = true;
         } else if (arg == "--system-paste") {
@@ -3772,6 +3776,13 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.layerProperties && editor.active() != nullptr) {
+        // Tagged and annotated, so a capture shows the stripe and the notes.
+        const ls::Color orange{ 232, 146, 52, 255 };
+        setLayerTag(editor.doc, editor.active()->layer, &orange);
+        setLayerNotes(editor.doc, editor.active()->layer, "Outline pass still to do.");
+        editor.propertiesLayer = editor.active()->layer;
     }
     if (options.play) {
         editor.timeline.playing = true;

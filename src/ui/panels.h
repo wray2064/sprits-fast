@@ -31,6 +31,10 @@ void drawShapePanel(Editor& editor, CanvasView& canvas);
 // The layer stack, topmost first.
 void drawLayerPanel(Editor& editor, CanvasView& canvas);
 
+// One layer's properties: name, blend, opacity, visibility, lock, a colour
+// tag for its row, and notes. Open while editor.propertiesLayer is set.
+void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas);
+
 // The pictures being drawn from: import, place, fade, and remove.
 void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
 

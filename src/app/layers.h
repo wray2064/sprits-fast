@@ -28,6 +28,8 @@
 namespace fast {
 
 constexpr const char* kLayerLockedKey = "fast.layer.locked";
+constexpr const char* kLayerTagKey = "fast.layer.tag";
+constexpr const char* kLayerNotesKey = "fast.layer.notes";
 
 // In enum order, so a combo box is built from the engine's own list.
 const std::vector<const char*>& blendModeNames();
@@ -40,6 +42,9 @@ struct LayerProps {
     bool          locked = false;
     ls::GroupId   group;        // null at the top level
     ls::LayerId   clipBase;     // null when not clipped
+    bool          tagged = false;
+    ls::Color     tag;          // the row's colour, when tagged
+    std::string   notes;
 };
 
 bool readLayerProps(Document& doc, ls::LayerId layer, LayerProps* out);
@@ -54,6 +59,14 @@ bool renameLayer(Document& doc, ls::LayerId layer, const std::string& name);
 // one that has to refuse. Locking changes no pixel, so it is not an action.
 bool layerLocked(Document& doc, ls::LayerId layer);
 bool setLayerLocked(Document& doc, ls::LayerId layer, bool locked);
+
+// A colour to find a layer by in a long stack, and notes about it -- what
+// Aseprite calls user data. Metadata like the lock, and like it neither
+// changes a pixel. A null tag clears it; empty notes clear them.
+bool layerTag(Document& doc, ls::LayerId layer, ls::Color* out);
+bool setLayerTag(Document& doc, ls::LayerId layer, const ls::Color* tag);
+std::string layerNotes(Document& doc, ls::LayerId layer);
+bool setLayerNotes(Document& doc, ls::LayerId layer, const std::string& notes);
 
 // --- order --------------------------------------------------------------------
 //

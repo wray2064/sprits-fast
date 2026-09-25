@@ -1944,6 +1944,22 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
             // What the layer draws, small, so the stack can be read at a
             // glance rather than by hiding each one. Compiled on its own and
             // cached until it changes.
+            // The tag, a stripe down the row's edge, so a colour-coded stack
+            // reads the way it was coded. Always the room for it, so tagged
+            // and untagged rows line up.
+            {
+                const ImVec2 at = ImGui::GetCursorScreenPos();
+                if (props.tagged) {
+                    ImGui::GetWindowDrawList()->AddRectFilled(
+                        at, ImVec2(at.x + 3.f, at.y + 22.f),
+                        IM_COL32(props.tag.r, props.tag.g, props.tag.b, 255));
+                }
+                ImGui::Dummy(ImVec2(3.f, 22.f));
+                if (props.tagged && !props.notes.empty() && ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", props.notes.c_str());
+                }
+                ImGui::SameLine(0.f, 3.f);
+            }
             drawLayerThumbnail(editor, canvas, sprite, id, props.visible);
             ImGui::SameLine();
 
@@ -1958,6 +1974,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                               static_cast<int>(props.opacity * 100.f + 0.5f));
                 label += detail;
             }
+            if (!props.notes.empty()) { label += "  *"; }
             if (!drawable) { label += "  (not editable here)"; }
 
             const bool selected = drawable && !editor.activeGroup.valid() && layerSelected(editor, id);
@@ -2076,6 +2093,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                     std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
                                   "%s", props.name.c_str());
                 }
+                if (ImGui::MenuItem("Properties...")) {
+                    editor.propertiesLayer = id;
+                }
                 ImGui::EndPopup();
             }
         }
@@ -2096,6 +2116,152 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     }
 }
 
+
+// ------------------------------------------------------- layer properties --
+
+namespace {
+
+// Aseprite's tag colours are its own; these are the eight a stack needs to be
+// told apart at a glance, muted enough to sit beside the artwork.
+struct TagChoice { const char* name; ls::Color colour; };
+const TagChoice kTagChoices[] = {
+    { "Red",    ls::Color{ 214,  84,  68, 255 } },
+    { "Orange", ls::Color{ 232, 146,  52, 255 } },
+    { "Yellow", ls::Color{ 222, 200,  72, 255 } },
+    { "Green",  ls::Color{  96, 176,  88, 255 } },
+    { "Teal",   ls::Color{  64, 170, 170, 255 } },
+    { "Blue",   ls::Color{  76, 128, 214, 255 } },
+    { "Purple", ls::Color{ 150,  98, 200, 255 } },
+    { "Grey",   ls::Color{ 128, 136, 146, 255 } },
+};
+
+} // namespace
+
+void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
+    if (!editor.propertiesLayer.valid()) {
+        editor.propertiesLoaded = ls::LayerId{};
+        return;
+    }
+    const ls::LayerId id = editor.propertiesLayer;
+    LayerProps props;
+    if (!readLayerProps(editor.doc, id, &props)) {
+        // Deleted, or gone with an undo: nothing to show.
+        editor.propertiesLayer = ls::LayerId{};
+        return;
+    }
+    if (editor.propertiesLoaded != id) {
+        std::snprintf(editor.propertiesName, sizeof(editor.propertiesName), "%s",
+                      props.name.c_str());
+        std::snprintf(editor.propertiesNotes, sizeof(editor.propertiesNotes), "%s",
+                      props.notes.c_str());
+        editor.propertiesLoaded = id;
+    }
+    bool open = true;
+    ImGui::SetNextWindowSize(ImVec2(340.f, 0.f), ImGuiCond_Appearing);
+    if (!ImGui::Begin("Layer properties", &open,
+                      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End();
+        return;
+    }
+    // The name: kept when the field is left or Enter pressed, one undo step.
+    ImGui::SetNextItemWidth(-60.f);
+    ImGui::InputText("name", editor.propertiesName, sizeof(editor.propertiesName));
+    if (ImGui::IsItemDeactivatedAfterEdit() && props.name != editor.propertiesName &&
+        editor.propertiesName[0] != '\0') {
+        editor.doc.beginAction("Rename layer");
+        renameLayer(editor.doc, id, editor.propertiesName);
+        editor.doc.endAction();
+    }
+
+    int blend = static_cast<int>(props.blend);
+    ImGui::SetNextItemWidth(-60.f);
+    if (ImGui::Combo("blend", &blend, blendModeNames().data(),
+                     static_cast<int>(blendModeNames().size()))) {
+        editor.doc.beginAction("Blend mode");
+        setLayerBlend(editor.doc, id, static_cast<ls::BlendMode>(blend));
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    float opacity = props.opacity;
+    ImGui::SetNextItemWidth(-60.f);
+    if (ImGui::SliderFloat("opacity", &opacity, 0.f, 1.f, "%.2f")) {
+        setLayerOpacity(editor.doc, id, opacity);
+        canvas.invalidate();
+    }
+    bracketDrag(editor, editor.draggingLayerProperties, "Layer opacity");
+
+    bool visible = props.visible;
+    if (ImGui::Checkbox("Visible", &visible)) {
+        editor.doc.beginAction(visible ? "Show layer" : "Hide layer");
+        setLayerVisible(editor.doc, id, visible);
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    ImGui::SameLine();
+    bool locked = props.locked;
+    if (ImGui::Checkbox("Locked", &locked)) {
+        setLayerLocked(editor.doc, id, locked);
+        editor.doc.markModified();
+    }
+
+    theme::sectionHeader("TAG");
+    // None, the eight, and any colour at all.
+    {
+        const bool none = !props.tagged;
+        if (ImGui::RadioButton("none", none) && !none) {
+            setLayerTag(editor.doc, id, nullptr);
+            editor.doc.markModified();
+        }
+        for (const TagChoice& choice : kTagChoices) {
+            ImGui::SameLine();
+            ImGui::PushID(choice.name);
+            const ImVec4 colour(choice.colour.r / 255.f, choice.colour.g / 255.f,
+                                choice.colour.b / 255.f, 1.f);
+            const bool chosen = props.tagged && props.tag.r == choice.colour.r &&
+                                props.tag.g == choice.colour.g && props.tag.b == choice.colour.b;
+            if (chosen) {
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.f);
+                ImGui::PushStyleColor(ImGuiCol_Border, theme::palette().textBright);
+            }
+            if (ImGui::ColorButton(choice.name, colour, ImGuiColorEditFlags_NoTooltip,
+                                   ImVec2(18.f, 18.f))) {
+                setLayerTag(editor.doc, id, &choice.colour);
+                editor.doc.markModified();
+            }
+            if (chosen) {
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", choice.name);
+            }
+            ImGui::PopID();
+        }
+        ImGui::SameLine();
+        float custom[3] = { props.tag.r / 255.f, props.tag.g / 255.f, props.tag.b / 255.f };
+        if (ImGui::ColorEdit3("##custom-tag", custom,
+                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+            const ls::Color tag{ static_cast<uint8_t>(custom[0] * 255.f + 0.5f),
+                                 static_cast<uint8_t>(custom[1] * 255.f + 0.5f),
+                                 static_cast<uint8_t>(custom[2] * 255.f + 0.5f), 255 };
+            setLayerTag(editor.doc, id, &tag);
+            editor.doc.markModified();
+        }
+    }
+
+    theme::sectionHeader("NOTES");
+    ImGui::InputTextMultiline("##notes", editor.propertiesNotes, sizeof(editor.propertiesNotes),
+                              ImVec2(-1.f, 90.f));
+    if (ImGui::IsItemDeactivatedAfterEdit() && props.notes != editor.propertiesNotes) {
+        setLayerNotes(editor.doc, id, editor.propertiesNotes);
+        editor.doc.markModified();
+    }
+    ImGui::TextDisabled("Kept with the layer, shown when its tag is hovered.");
+    ImGui::End();
+    if (!open) {
+        editor.propertiesLayer = ls::LayerId{};
+    }
+}
 
 // ------------------------------------------------------------- references --
 

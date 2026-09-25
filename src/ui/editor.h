@@ -193,6 +193,14 @@ struct Editor {
     int   renaming = -1;              // index of the layer being renamed, or -1
     char  renameBuffer[64] = {};
 
+    // The layer properties window: which layer, and its name and notes as
+    // they are being typed (read in when the window opens on a layer).
+    ls::LayerId propertiesLayer;
+    ls::LayerId propertiesLoaded;
+    bool  draggingLayerProperties = false;
+    char  propertiesName[64] = {};
+    char  propertiesNotes[1024] = {};
+
     // The stack. Selection is a set, because grouping wants several; the
     // active layer is the one tools draw on and is always in the set. A group
     // row can be selected instead, and then the properties strip edits the
@@ -417,6 +425,7 @@ struct Editor {
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
+               draggingLayerProperties ||
                selecting || draggingFloat || drawingContour || drawingGradient;
     }
 

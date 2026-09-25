@@ -348,6 +348,39 @@ void testALockIsKeptAndSurvivesASave() {
     CHECK(!layerLocked(again, order[2]));
 }
 
+// --- tag and notes --------------------------------------------------------------
+
+void testATagAndNotesAreKept() {
+    Stack s;
+    REQUIRE(s.build());
+    LayerProps props;
+    REQUIRE(readLayerProps(s.doc, s.top.layer, &props));
+    CHECK(!props.tagged && props.notes.empty());
+    const ls::Color orange{ 240, 130, 20, 255 };
+    CHECK(setLayerTag(s.doc, s.top.layer, &orange));
+    CHECK(setLayerNotes(s.doc, s.top.layer, "the cape; redraw frame 3\nkeep the fold"));
+    REQUIRE(readLayerProps(s.doc, s.top.layer, &props));
+    CHECK(props.tagged && props.tag.r == 240 && props.tag.g == 130 && props.tag.b == 20);
+    CHECK(props.notes == "the cape; redraw frame 3\nkeep the fold");
+
+    std::string error;
+    const std::string path = "fast_layers_tag.lsprite";
+    REQUIRE(s.doc.save(path, &error));
+    Document again;
+    REQUIRE(again.open(path, &error));
+    deleteFile(path);
+    const std::vector<ls::LayerId> order = layerOrder(again, again.sprite());
+    REQUIRE(order.size() == 3);
+    ls::Color back;
+    CHECK(layerTag(again, order[2], &back) && back.r == 240 && back.b == 20);
+    CHECK(layerNotes(again, order[2]) == "the cape; redraw frame 3\nkeep the fold");
+
+    CHECK(setLayerTag(again, order[2], nullptr));
+    CHECK(setLayerNotes(again, order[2], ""));
+    CHECK(!layerTag(again, order[2], nullptr));
+    CHECK(layerNotes(again, order[2]).empty());
+}
+
 // --- the file -------------------------------------------------------------------
 
 void testTheStackSurvivesASave() {
@@ -438,6 +471,7 @@ void testMergeDownKeepsThePictureAndTheElements() {
 }
 
 int main() {
+    testATagAndNotesAreKept();
     testBlendAndOpacityChangeThePicture();
     testMovingALayerMovesWhatDrawsOverWhat();
     testADuplicateIsItsOwnAndSitsAbove();

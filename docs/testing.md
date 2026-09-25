@@ -358,6 +358,16 @@ sprits_fast --demo-stroke
 5. `Ctrl+Shift+V` with another program's image copied. *Expect:* it lands
    on a new layer.
 
+### 4r. Layer properties
+
+1. Right-click a layer > *Properties...*. Pick the orange tag. *Expect:* an
+   orange stripe at the row's left edge. Type notes and click away.
+   *Expect:* the row gains a `*`; hovering the stripe shows the notes.
+2. Rename, change blend and drag opacity in the window. *Expect:* each is one
+   undo step and the Layers panel follows.
+3. Save, reopen. *Expect:* tag and notes are still there. *none* clears the
+   tag; emptying the notes removes the `*`.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

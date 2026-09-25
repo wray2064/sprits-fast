@@ -131,7 +131,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Blend, opacity, groups, clipping, locks, reorder, duplicate,
       copy/paste
 - [x] Merge down, done as grouping: the README's rule holds
-- [ ] Layer properties dialog (name, blend, opacity)
+- [x] Layer properties dialog (name, blend, opacity)
 - [x] Show or hide all others (Alt+click the eye)
 - [ ] A reference layer that exports nothing (a reference already covers
       most of this)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Layer properties window (row menu > Properties...): name, blend, opacity, visible, locked, a colour tag (eight presets or any colour) drawn as a stripe on the row, and notes shown on hovering it; tag and notes are layer metadata, saved with the file. A lock toggle now marks the document modified.
 - System clipboard: copies also go out as PNG and a BITMAPV5 with alpha (Win32 directly on Windows, since SDL offers one image format and misreads V5 bitfield DIBs; SDL elsewhere). Another program's image pastes as a float, one piece per colour, exact palette colours as slots, over 256 colours reduced to the nearest slots. Windows' clipboard sequence number tells Fast's own copies from others, so a Fast-to-Fast paste keeps slots and dithers. Checked end to end via --system-paste/--system-copy against .NET's clipboard reader: PNG and DIB both pixel-exact.
 - Customisable shortcuts: every shortcut is a named command (app/keymap) with default chords; Preferences > Keys rebinds by pressing, flags shared chords, resets one or all; keys.txt holds only overrides; menus show the live keys. Preferences window: new-document defaults, autosave, undo depth, pixel-grid colour/opacity, chequer colours and size, saved atomically to preferences.txt. Headless runs ignore both files.
 - 2026-09-25 — custom brush from a selection (Ctrl+B), stamped colour by colour or in the current colour.

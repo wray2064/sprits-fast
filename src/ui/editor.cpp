@@ -612,6 +612,8 @@ void toggleActiveLayerLock(Editor& editor) {
     }
     const bool locked = !layerLocked(editor.doc, layer->layer);
     setLayerLocked(editor.doc, layer->layer, locked);
+    // Not an undo step, but kept in the file, so the file has changed.
+    editor.doc.markModified();
     editor.say(locked ? "Locked -- tools leave this layer alone" : "Unlocked");
 }
 
