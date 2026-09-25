@@ -74,6 +74,18 @@ bool isPiece(const Floating& floating, ls::OperationId fill) {
 
 } // namespace
 
+std::vector<std::vector<ls::Vec2i>> stampOf(const PixelClip& clip, ls::Vec2i centre) {
+    std::vector<std::vector<ls::Vec2i>> out;
+    const ls::Rect2i box = ls::geom::bounds(clip.mask);
+    const ls::Vec2i middle { box.min.x + box.width() / 2, box.min.y + box.height() / 2 };
+    const ls::Vec2i by { centre.x - middle.x, centre.y - middle.y };
+    out.reserve(clip.pieces.size());
+    for (const PixelClip::Piece& piece : clip.pieces) {
+        out.push_back(pixelsOf(translated(piece.pixels, by)));
+    }
+    return out;
+}
+
 bool layerTakesSelections(Document& doc, ls::LayerId layer) {
     return layer.valid() && listTransforms(doc, layer).empty();
 }

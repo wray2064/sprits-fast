@@ -157,6 +157,14 @@ struct Editor {
     ls::IntervalSet  selectPreview;             // the shape being dragged out
     BucketSettings   wand;                      // the magic wand's own settings
     PixelClip        pixelClip;
+
+    // A custom brush: pixels taken from a selection, stamped by the pencil
+    // colour by colour -- in their own colours, or all in the current one.
+    // The strokes are one per colour, made as the stroke begins.
+    PixelClip              customBrush;
+    bool                   customBrushOn = false;
+    bool                   customBrushOwnColours = true;
+    std::vector<InkStroke> brushStrokes;
     bool             clipHoldsPixels = false;   // the last copy was pixels, not a layer
     bool             canvasHovered = false;     // last frame's, for a click elsewhere
 
@@ -542,6 +550,8 @@ bool copySelectionPixels(Editor& editor);
 bool cutSelectionPixels(Editor& editor);
 bool deleteSelectionPixels(Editor& editor);
 bool pastePixels(Editor& editor);
+// The selected pixels of the active layer become the pencil's brush.
+bool brushFromSelection(Editor& editor);
 // The same, onto a new layer of its own above the active one.
 bool pastePixelsAsLayer(Editor& editor);
 

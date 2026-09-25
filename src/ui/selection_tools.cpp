@@ -183,6 +183,30 @@ bool copySelectionPixels(Editor& editor) {
     return true;
 }
 
+bool brushFromSelection(Editor& editor) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr || editor.selection.empty()) {
+        return false;
+    }
+    PixelClip clip;
+    if (!copyPixels(editor.doc, layer->layer, editor.selection.mask, &clip)) {
+        editor.say("Nothing on this layer inside the selection to make a brush of");
+        return false;
+    }
+    const ls::Rect2i box = ls::geom::bounds(clip.mask);
+    if (box.width() > 64 || box.height() > 64) {
+        editor.say("A brush is at most 64 pixels on a side");
+        return false;
+    }
+    editor.customBrush = std::move(clip);
+    editor.customBrushOn = true;
+    editor.tool = Tool::Pencil;
+    editor.say("The pencil stamps the selection now -- " + std::to_string(box.width()) + " x " +
+               std::to_string(box.height()) + ", " +
+               std::to_string(editor.customBrush.pieces.size()) + " colour(s)");
+    return true;
+}
+
 bool cutSelectionPixels(Editor& editor) {
     if (!copySelectionPixels(editor) || !editor.clipHoldsPixels) {
         return false;

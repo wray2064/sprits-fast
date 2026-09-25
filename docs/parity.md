@@ -81,7 +81,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [~] Contour / polygon fill
 - [ ] Curve tool (Bezier) **(better: stays editable, like shapes)**
 - [x] Text tool, with a bundled bitmap font
-- [ ] Custom brush from a selection
+- [x] Custom brush from a selection
 - [x] Stroke stabiliser / smoothing
 - [x] Hand tool and zoom tool (for pen users)
 - [x] Line tool drawn as pixels (Shift+click from the last point)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — custom brush from a selection (Ctrl+B), stamped colour by colour or in the current colour.
 - 2026-09-25 — polygon lasso; stroke stabiliser (lazy mouse).
 - 2026-09-25 — text tool with Fast's own 5x7 face; text stays an element that can be retyped, resized and moved.
 - 2026-09-25 — outlined rectangles and ellipses, any width, switchable in the Element panel.

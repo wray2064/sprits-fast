@@ -53,6 +53,10 @@ struct PixelClip {
     bool empty() const { return pieces.empty(); }
 };
 
+// A clip as a brush: each piece's pixels placed so the middle of what was
+// copied sits on `centre`. What a custom brush stamps, colour by colour.
+std::vector<std::vector<ls::Vec2i>> stampOf(const PixelClip& clip, ls::Vec2i centre);
+
 // Whether a layer's pixels can be lifted, copied and cleared through a
 // selection: false for a layer with any transform on it.
 bool layerTakesSelections(Document& doc, ls::LayerId layer);

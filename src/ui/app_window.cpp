@@ -433,6 +433,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             pastePixelsAsLayer(editor);
         }
         if (ImGui::MenuItem("Delete", "Del", false, selected)) { deleteSelectionPixels(editor); }
+        if (ImGui::MenuItem("Brush from selection", "Ctrl+B", false, selected)) {
+            brushFromSelection(editor);
+        }
         ImGui::Separator();
         const bool movable = selected || editor.floating.active();
         if (ImGui::MenuItem("Flip horizontally", "Shift+H", false, movable)) {
@@ -1366,6 +1369,33 @@ void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, boo
     canvas.invalidate();
 }
 
+// Whether the pencil is stamping a custom brush rather than its own.
+bool usingCustomBrush(const Editor& editor) {
+    return editor.tool == Tool::Pencil && editor.customBrushOn && !editor.customBrush.empty();
+}
+
+// A custom brush's colour, laid down the way layDown lays a stroke: wrapped,
+// mirrored, kept inside the selection -- through its own ink stroke.
+void layDownWith(Editor& editor, CanvasView& canvas, const InkStroke& stroke,
+                 std::vector<ls::Vec2i> run, bool tiled) {
+    if (tiled) {
+        for (ls::Vec2i& at : run) {
+            at = canvas.wrap(at);
+        }
+    }
+    run = mirrored(run, symmetryNow(editor));
+    if (!editor.selection.empty()) {
+        run.erase(std::remove_if(run.begin(), run.end(), [&](ls::Vec2i at) {
+                      return !editor.selection.contains(at);
+                  }),
+                  run.end());
+    }
+    if (!run.empty()) {
+        strokeInk(editor.doc, stroke, run);
+        canvas.invalidate();
+    }
+}
+
 // The ink under the cursor: the slot a pixel was painted through when the
 // drawing knows it, and otherwise the colour on screen -- matched to a slot
 // if one is exactly that colour, so picking a palette colour off a shape or
@@ -1716,6 +1746,24 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         editor.stroking = true;
         editor.strokeWithBack = back;
         editor.stabiliser.reset(canvas.pointerExact());
+        editor.brushStrokes.clear();
+        if (usingCustomBrush(editor)) {
+            // A stroke per colour of the brush, all made first so that each
+            // one's list of the layer's other colours includes the rest.
+            std::vector<ls::OperationId> targets;
+            for (const PixelClip::Piece& piece : editor.customBrush.pieces) {
+                Ink ink = editor.customBrushOwnColours ? piece.ink
+                        : (back ? backgroundInk(editor) : foregroundInk(editor));
+                InkStroke made;
+                if (beginInkStroke(editor.doc, layer->layer, ink, &made)) {
+                    targets.push_back(made.target.fill);
+                    editor.brushStrokes.push_back(made);
+                }
+            }
+            for (InkStroke& made : editor.brushStrokes) {
+                beginElementStroke(editor.doc, made.target, &made);
+            }
+        }
         // Shift+click: a straight line from where the last stroke ended.
         editor.lastPixel = ImGui::GetIO().KeyShift && editor.lastStrokeEnd.x >= 0
                                ? editor.lastStrokeEnd : pixel;
@@ -1746,7 +1794,23 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         const bool perfect = size == 1 && editor.brush.pixelPerfect &&
                              editor.tool == Tool::Pencil;
         std::vector<ls::Vec2i> run;
-        if (editor.tool == Tool::Spray) {
+        if (usingCustomBrush(editor)) {
+            // The brush stamped at every pixel of the path, colour by colour.
+            const std::vector<ls::Vec2i> path =
+                editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{ pixel }
+                                       : linePixels(editor.lastPixel, pixel);
+            for (size_t n = 0; n < path.size(); ++n) {
+                if (n == 0 && editor.lastPixel.x >= 0 && path.size() > 1) {
+                    continue;              // stamped already, at the end of the last run
+                }
+                const std::vector<std::vector<ls::Vec2i>> stamp =
+                    stampOf(editor.customBrush, path[n]);
+                for (size_t k = 0; k < stamp.size() && k < editor.brushStrokes.size(); ++k) {
+                    layDownWith(editor, canvas, editor.brushStrokes[k], stamp[k], tiled);
+                }
+            }
+            editor.lastPixel = pixel;
+        } else if (editor.tool == Tool::Spray) {
             // A burst every frame the button is held, moving or not, as a can
             // keeps spraying where it is pointed.
             run = sprayPixels(pixel, editor.sprayRadius, editor.sprayDensity,
@@ -1765,14 +1829,16 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 ? brushStamp(pixel, size, editor.brush.round)
                 : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
         }
-        layDown(editor, canvas, std::move(run), tiled);
+        if (!usingCustomBrush(editor)) {
+            layDown(editor, canvas, std::move(run), tiled);
+        }
         editor.lastPixel = pixel;
     }
 
     if (editor.stroking && ImGui::IsMouseReleased(button)) {
         // The filter's last point, held until now.
         std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
-        if (!rest.empty() && editor.tool == Tool::Pencil) {
+        if (!rest.empty() && editor.tool == Tool::Pencil && !usingCustomBrush(editor)) {
             layDown(editor, canvas, std::move(rest), tiled);
         }
         editor.lastStrokeEnd = editor.lastPixel;
@@ -1780,6 +1846,10 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         // list rather than lingering as an element that draws nothing.
         int pruned = pruneEmptyInks(editor.doc, editor.inkStroke.layer,
                                     editor.inkStroke.target.fill);
+        if (!editor.brushStrokes.empty()) {
+            pruned += pruneEmptyInks(editor.doc, editor.inkStroke.layer);
+            editor.brushStrokes.clear();
+        }
         // Shading lays colours down through strokes of its own; a slot it
         // stepped every pixel out of goes the same way.
         if (!editor.inkModeState.strokes.empty()) {
@@ -1993,6 +2063,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // The stack, from the keyboard.
     if (ImGui::IsKeyPressed(ImGuiKey_J, false)) { duplicateActiveLayer(editor, canvas); }
+    if (ImGui::IsKeyPressed(ImGuiKey_B, false)) { brushFromSelection(editor); }
     if (ImGui::IsKeyPressed(ImGuiKey_E, false)) { mergeActiveLayerDown(editor, canvas); }
     if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
         if (io.KeyShift) { ungroupActiveLayer(editor, canvas); }
@@ -2657,6 +2728,15 @@ int runSelfTest() {
             check(!editor.floating.active() && editor.doc.undoLabel() == before,
                   "Escape leaves no history entry");
             check(editor.selection.contains({ 2, 2 }), "and the selection is where it was");
+
+            // A brush from the selection: the pixels, colour by colour, and
+            // the pencil in hand to stamp them.
+            editor.tool = Tool::Select;
+            check(brushFromSelection(editor), "a brush from the selected pixels");
+            check(editor.tool == Tool::Pencil && editor.customBrushOn &&
+                  editor.customBrush.pieces.size() == 1 &&
+                  ls::geom::pixelCount(editor.customBrush.mask) == 2, "two pixels, one colour");
+            editor.customBrushOn = false;
 
             // Copy and paste carry pixels while something is selected.
             check(copySelectionPixels(editor) && editor.clipHoldsPixels, "copy pixels");

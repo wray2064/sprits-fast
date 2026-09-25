@@ -379,6 +379,25 @@ void drawToolPanel(Editor& editor) {
                         "staircase with doubled steps. The last pixel lands when "
                         "the stroke ends.");
         }
+        if (!editor.customBrush.empty() && editor.tool == Tool::Pencil) {
+            ImGui::Checkbox("Stamp the custom brush", &editor.customBrushOn);
+            if (editor.customBrushOn) {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("forget it")) {
+                    editor.customBrush = PixelClip{};
+                    editor.customBrushOn = false;
+                }
+                if (ImGui::RadioButton("its own colours", editor.customBrushOwnColours)) {
+                    editor.customBrushOwnColours = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::RadioButton("the current colour", !editor.customBrushOwnColours)) {
+                    editor.customBrushOwnColours = false;
+                }
+            }
+        } else if (editor.tool == Tool::Pencil) {
+            ImGui::TextDisabled("Select pixels and press Ctrl+B for a brush of them.");
+        }
         ImGui::SetNextItemWidth(-1.f);
         ImGui::SliderInt("##stabiliser", &editor.brush.stabiliser, 0, 32,
                          editor.brush.stabiliser == 0 ? "stabiliser off" : "stabiliser %d");

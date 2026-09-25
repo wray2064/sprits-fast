@@ -335,6 +335,20 @@ void testAShapeInsideGoesAlongAsAShape() {
     CHECK(at(doc, 1, 1).a == 0);
 }
 
+void testAClipStampsAboutItsMiddle() {
+    PixelClip clip;
+    PixelClip::Piece a;
+    a.pixels = rectangleMask({ 10, 10 }, { 12, 10 });     // three wide
+    PixelClip::Piece b;
+    b.pixels = rectangleMask({ 11, 11 }, { 11, 11 });
+    clip.pieces = { a, b };
+    clip.mask = ls::geom::unionSets(a.pixels, b.pixels);  // 3 x 2, middle (11, 11)
+    const std::vector<std::vector<ls::Vec2i>> stamp = stampOf(clip, { 0, 0 });
+    REQUIRE(stamp.size() == 2 && stamp[0].size() == 3 && stamp[1].size() == 1);
+    CHECK(stamp[0][0].x == -1 && stamp[0][0].y == -1);
+    CHECK(stamp[1][0].x == 0 && stamp[1][0].y == 0);
+}
+
 void testTransformedLayersRefuse() {
     Document doc;
     REQUIRE(doc.create("turned", kSize, kSize));
@@ -366,6 +380,7 @@ int main() {
     testClearLeavesShapes();
     testAShapeInsideGoesAlongAsAShape();
     testTransformedLayersRefuse();
+    testAClipStampsAboutItsMiddle();
     if (failures == 0) {
         std::printf("selection: all passed\n");
         return 0;
