@@ -155,8 +155,12 @@ void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc) 
 // palette can come from GIMP or Aseprite and go back to either, and from
 // Lospec as a .hex.
 static const SDL_DialogFileFilter kPaletteFilters[] = {
+    { "Palettes",                "gpl;hex;pal;act" },
     { "GIMP / Aseprite palette", "gpl" },
     { "Lospec hex palette",      "hex" },
+    { "JASC palette",            "pal" },
+    { "Photoshop colour table",  "act" },
+    { "An image's colours",      "png;gif;bmp;jpg;jpeg" },
     { "All files",               "*" },
 };
 

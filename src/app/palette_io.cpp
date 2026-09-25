@@ -3,7 +3,10 @@
 
 #include "app/palette_io.h"
 #include "app/file_io.h"
+#include "app/image_io.h"
+#include "app/palette_tools.h"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace fast {
@@ -146,15 +149,34 @@ bool parsePalette(const std::string& text, PaletteFile* out, std::string* error)
 
     const std::vector<std::string> all = lines(text);
     const bool gpl = !all.empty() && trimmed(all.front()).rfind("GIMP Palette", 0) == 0;
+    // JASC's header is "JASC-PAL", a version, and a count; after it, the
+    // colour lines read exactly as .gpl's do.
+    const bool jasc = !all.empty() && trimmed(all.front()).rfind("JASC-PAL", 0) == 0;
 
     PaletteFile file;
     size_t skipped = 0;
+    size_t lineNumber = 0;
     for (const std::string& raw : all) {
+        ++lineNumber;
         if (file.entries.size() >= kMaxPaletteEntries) {
             break;
         }
         const std::string line = trimmed(raw);
         if (line.empty()) {
+            continue;
+        }
+        if (jasc) {
+            if (lineNumber <= 3) {
+                continue;                 // the header: name, version, count
+            }
+            PaletteEntry entry;
+            if (!parseGplLine(line, &entry.color, &entry.label)) {
+                ++skipped;
+                continue;
+            }
+            entry.label.clear();
+            entry.role = static_cast<ls::ColorRole>(file.entries.size());
+            file.entries.push_back(entry);
             continue;
         }
         if (gpl) {
@@ -234,6 +256,112 @@ std::string toHex(const std::vector<PaletteEntry>& entries) {
     return out;
 }
 
+std::string toJasc(const std::vector<PaletteEntry>& entries) {
+    std::string out = "JASC-PAL\r\n0100\r\n" + std::to_string(entries.size()) + "\r\n";
+    char buffer[32];
+    for (const PaletteEntry& entry : entries) {
+        std::snprintf(buffer, sizeof(buffer), "%u %u %u\r\n",
+                      entry.color.r, entry.color.g, entry.color.b);
+        out += buffer;
+    }
+    return out;
+}
+
+std::vector<uint8_t> toAct(const std::vector<PaletteEntry>& entries) {
+    std::vector<uint8_t> out(772, 0);
+    const size_t count = std::min<size_t>(entries.size(), 256);
+    for (size_t i = 0; i < count; ++i) {
+        out[i * 3] = entries[i].color.r;
+        out[i * 3 + 1] = entries[i].color.g;
+        out[i * 3 + 2] = entries[i].color.b;
+    }
+    // How many are used, then "no transparent entry", both big-endian.
+    out[768] = static_cast<uint8_t>(count >> 8);
+    out[769] = static_cast<uint8_t>(count & 0xFF);
+    out[770] = 0xFF;
+    out[771] = 0xFF;
+    return out;
+}
+
+bool parseAct(const std::vector<uint8_t>& bytes, PaletteFile* out, std::string* error) {
+    if (out == nullptr) {
+        return false;
+    }
+    if (bytes.size() != 768 && bytes.size() != 772) {
+        if (error != nullptr) {
+            *error = "a colour table is 768 or 772 bytes, and this is " +
+                     std::to_string(bytes.size());
+        }
+        return false;
+    }
+    size_t count = 256;
+    if (bytes.size() == 772) {
+        const size_t used = static_cast<size_t>(bytes[768]) << 8 | bytes[769];
+        // Zero, or more than there are, means the whole table.
+        if (used > 0 && used <= 256) {
+            count = used;
+        }
+    }
+    PaletteFile file;
+    for (size_t i = 0; i < count; ++i) {
+        PaletteEntry entry;
+        entry.role = static_cast<ls::ColorRole>(i);
+        entry.color = { bytes[i * 3], bytes[i * 3 + 1], bytes[i * 3 + 2], 255 };
+        file.entries.push_back(entry);
+    }
+    *out = std::move(file);
+    return true;
+}
+
+bool paletteFromImage(const std::vector<uint8_t>& bytes, PaletteFile* out, std::string* error) {
+    if (out == nullptr) {
+        return false;
+    }
+    ls::RasterBuffer image;
+    if (!decodeImage(bytes, &image, error)) {
+        return false;
+    }
+    PaletteFile file;
+    for (uint32_t y = 0; y < image.height; ++y) {
+        const uint8_t* row = image.row(y);
+        for (uint32_t x = 0; x < image.width; ++x) {
+            const uint8_t* p = row + static_cast<size_t>(x) * 4u;
+            if (p[3] == 0) {
+                continue;
+            }
+            const ls::Color colour { p[0], p[1], p[2], p[3] };
+            bool known = false;
+            for (const PaletteEntry& entry : file.entries) {
+                if (entry.color.r == colour.r && entry.color.g == colour.g &&
+                    entry.color.b == colour.b && entry.color.a == colour.a) {
+                    known = true;
+                    break;
+                }
+            }
+            if (known) {
+                continue;
+            }
+            if (file.entries.size() >= kMaxPaletteEntries) {
+                if (error != nullptr) {
+                    *error = "the image has more than " + std::to_string(kMaxPaletteEntries) +
+                             " colours, more than a palette holds";
+                }
+                return false;
+            }
+            PaletteEntry entry;
+            entry.role = static_cast<ls::ColorRole>(file.entries.size());
+            entry.color = colour;
+            file.entries.push_back(entry);
+        }
+    }
+    if (file.entries.empty()) {
+        if (error != nullptr) { *error = "the image has no colours in it"; }
+        return false;
+    }
+    *out = std::move(file);
+    return true;
+}
+
 bool applyPaletteFile(Document& doc, ls::SpriteId sprite, const PaletteFile& file,
                       int* dropped) {
     if (file.entries.empty() || !ensurePalette(doc, sprite)) {
@@ -265,6 +393,12 @@ bool applyPaletteFile(Document& doc, ls::SpriteId sprite, const PaletteFile& fil
     if (!file.name.empty()) {
         renamePalette(doc, palette, file.name);
     }
+    // Shown in the file's order, whatever order the slots had before.
+    std::vector<ls::ColorRole> order;
+    for (const PaletteEntry& entry : file.entries) {
+        order.push_back(entry.role);
+    }
+    setSlotOrder(doc, palette, order);
 
     doc.endAction();
     if (dropped != nullptr) {
@@ -279,8 +413,15 @@ bool importPaletteFile(Document& doc, ls::SpriteId sprite, const std::string& pa
     if (!readFile(path, bytes, error)) {
         return false;
     }
+    // By content where the content says -- an image, a colour table -- and
+    // as text otherwise, which parsePalette sorts out itself.
     PaletteFile file;
-    if (!parsePalette(std::string(bytes.begin(), bytes.end()), &file, error)) {
+    const bool parsed = looksLikeImageName(path)
+        ? paletteFromImage(bytes, &file, error)
+        : hasExtension(path, ".act")
+            ? parseAct(bytes, &file, error)
+            : parsePalette(std::string(bytes.begin(), bytes.end()), &file, error);
+    if (!parsed) {
         return false;
     }
     if (!applyPaletteFile(doc, sprite, file, dropped)) {
@@ -297,10 +438,13 @@ bool exportPaletteFile(Document& doc, ls::SpriteId sprite, const std::string& pa
         if (error != nullptr) { *error = "the document has no palette"; }
         return false;
     }
-    // The extension decides the format; .hex is the only one that is not .gpl.
-    const std::string text = hasExtension(path, ".hex")
-        ? toHex(entries)
-        : toGpl(fileStem(path), entries);
+    // The extension decides the format, .gpl unless it says otherwise.
+    if (hasExtension(path, ".act")) {
+        return writeFileAtomic(path, toAct(entries), error);
+    }
+    const std::string text = hasExtension(path, ".hex") ? toHex(entries)
+                           : hasExtension(path, ".pal") ? toJasc(entries)
+                                                        : toGpl(fileStem(path), entries);
     return writeFileAtomic(path, std::vector<uint8_t>(text.begin(), text.end()), error);
 }
 

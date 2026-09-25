@@ -1637,12 +1637,19 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
 
+    // The left column: the tool's options above, the palette below, each
+    // scrolling on its own. The palette is reached for more often than any
+    // tool option, so it is never the thing pushed off the bottom.
+    const float toolShare = 0.52f;
     ImGui::SetNextWindowPos({left + toolbarWidth, top});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * toolShare});
     ImGui::Begin("Tool", nullptr, kPanel);
     drawToolPanel(editor);
-    ImGui::Dummy(ImVec2(0.f, m.sectionGap));
-    ImGui::SeparatorText("Palette");
+    ImGui::End();
+
+    ImGui::SetNextWindowPos({left + toolbarWidth, top + bodyHeight * toolShare});
+    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * (1.f - toolShare)});
+    ImGui::Begin("Palette", nullptr, kPanel);
     drawPalettePanel(editor, canvas, window);
     ImGui::End();
 

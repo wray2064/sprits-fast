@@ -8,12 +8,14 @@
 #include "app/library.h"
 #include "app/file_io.h"
 #include "app/palette_io.h"
+#include "app/palette_tools.h"
 #include "app/shape.h"
 #include "app/transform.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -411,12 +413,35 @@ void drawInkControls(Editor& editor) {
                 "picked here is a value of its own. Right-click paints with the "
                 "second colour.");
 
+    // Smaller than the column: the palette under it is used more often than
+    // the picker, and a picker the width of the panel pushes it off screen.
+    ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x, 150.f));
     if (ImGui::ColorPicker4("##colour", editor.color,
                             ImGuiColorEditFlags_NoSidePreview |
                             ImGuiColorEditFlags_NoSmallPreview |
-                            ImGuiColorEditFlags_DisplayHex)) {
+                            ImGuiColorEditFlags_NoInputs)) {
         // A colour chosen here is a value, not a slot -- unless it happens
         // to be exactly one, which is how a slot's own colour stays one.
+        editor.inkRole = ls::kColorRoleNone;
+    }
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::ColorEdit4("##hex", editor.color,
+                          ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_NoPicker |
+                          ImGuiColorEditFlags_NoSmallPreview)) {
+        editor.inkRole = ls::kColorRoleNone;
+    }
+    // The same colour as numbers, both ways: RGB for matching a value from
+    // elsewhere, HSV for nudging one along a ramp.
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::ColorEdit4("##rgb", editor.color,
+                          ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoPicker |
+                          ImGuiColorEditFlags_NoSmallPreview)) {
+        editor.inkRole = ls::kColorRoleNone;
+    }
+    ImGui::SetNextItemWidth(-1.f);
+    if (ImGui::ColorEdit4("##hsv", editor.color,
+                          ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_NoPicker |
+                          ImGuiColorEditFlags_NoSmallPreview)) {
         editor.inkRole = ls::kColorRoleNone;
     }
 }
@@ -682,6 +707,26 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             setBackgroundInk(editor, ink);
             editor.say("Right button paints with slot " + std::to_string(entry.role));
         }
+        // Drag a swatch onto another to put it there. The order is what the
+        // swatches show and what a save keeps; no slot changes number, so
+        // nothing painted through one notices.
+        if (ImGui::BeginDragDropSource()) {
+            const ls::ColorRole dragged = entry.role;
+            ImGui::SetDragDropPayload("fast-slot", &dragged, sizeof(dragged));
+            ImGui::ColorButton("##dragging", ImGui::ColorConvertU32ToFloat4(colour),
+                               ImGuiColorEditFlags_NoTooltip, ImVec2(swatchSize, swatchSize));
+            ImGui::EndDragDropSource();
+        }
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("fast-slot")) {
+                ls::ColorRole dragged = ls::kColorRoleNone;
+                std::memcpy(&dragged, payload->Data, sizeof(dragged));
+                editor.doc.beginAction("Reorder palette");
+                moveSlot(editor.doc, shown, dragged, static_cast<int>(i));
+                editor.doc.endAction();
+            }
+            ImGui::EndDragDropTarget();
+        }
         if (ImGui::IsItemHovered()) {
             if (entry.label.empty()) {
                 ImGui::SetTooltip("Slot %u  -  #%02X%02X%02X\nClick to paint with it, "
@@ -812,7 +857,136 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         showExportPaletteDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip(".gpl keeps the slot names; .hex is just the colours.");
+        ImGui::SetTooltip(".gpl keeps the slot names; .hex, .pal and .act are just "
+                          "the colours.");
+    }
+
+    // Arranging and building: sort, a ramp between the two colours, an
+    // adjustment of the whole palette, and the presets that ship with Fast.
+    const float quarter = (ImGui::GetContentRegionAvail().x -
+                           theme::metrics().itemSpacing * 3.f) * 0.25f;
+    if (ImGui::Button("Sort", ImVec2(quarter, 0.f))) {
+        ImGui::OpenPopup("sort-palette");
+    }
+    if (ImGui::BeginPopup("sort-palette")) {
+        const struct { const char* name; PaletteSort by; } sorts[] = {
+            { "By hue", PaletteSort::Hue }, { "By saturation", PaletteSort::Saturation },
+            { "By lightness", PaletteSort::Lightness }, { "Reverse", PaletteSort::Reverse } };
+        for (const auto& sort : sorts) {
+            if (ImGui::MenuItem(sort.name)) {
+                editor.doc.beginAction("Sort palette");
+                sortPalette(editor.doc, shown, sort.by);
+                editor.doc.endAction();
+                editor.say("Sorted; no slot changed, so nothing on the canvas did");
+            }
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    const bool rampable = editor.inkRole != ls::kColorRoleNone &&
+                          editor.backRole != ls::kColorRoleNone &&
+                          editor.inkRole != editor.backRole;
+    ImGui::BeginDisabled(!rampable);
+    if (ImGui::Button("Ramp", ImVec2(quarter, 0.f))) {
+        ImGui::OpenPopup("ramp-palette");
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip(rampable
+            ? "New slots between the left and right colours, evenly spaced."
+            : "Pick two palette slots, one for each button, to ramp between.");
+    }
+    if (ImGui::BeginPopup("ramp-palette")) {
+        static int steps = 3;
+        ImGui::SetNextItemWidth(120.f);
+        ImGui::SliderInt("steps", &steps, 1, 16);
+        if (ImGui::Button("Add the ramp")) {
+            editor.doc.beginAction("Palette ramp");
+            const std::vector<ls::ColorRole> made =
+                addRampBetween(editor.doc, shown, editor.inkRole, editor.backRole, steps);
+            editor.doc.endAction();
+            editor.say("Added " + std::to_string(made.size()) + " slot(s) between them");
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Adjust", ImVec2(quarter, 0.f))) {
+        editor.paletteAdjust = Editor::PaletteAdjust{};
+        editor.paletteAdjust.base = entries;
+        ImGui::OpenPopup("adjust-palette");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Turn the hue, and push saturation and lightness, of every "
+                          "slot at once -- a recolour of everything painted through "
+                          "them, from the drawing.");
+    }
+    if (ImGui::BeginPopup("adjust-palette")) {
+        Editor::PaletteAdjust& adjust = editor.paletteAdjust;
+        bool changed = false;
+        ImGui::SetNextItemWidth(200.f);
+        changed |= ImGui::SliderFloat("hue", &adjust.hue, -180.f, 180.f, "%.0f deg");
+        bracketDrag(editor, editor.draggingPalette, "Adjust palette");
+        ImGui::SetNextItemWidth(200.f);
+        changed |= ImGui::SliderFloat("saturation", &adjust.saturation, -1.f, 1.f, "%.2f");
+        bracketDrag(editor, editor.draggingPalette, "Adjust palette");
+        ImGui::SetNextItemWidth(200.f);
+        changed |= ImGui::SliderFloat("lightness", &adjust.lightness, -1.f, 1.f, "%.2f");
+        bracketDrag(editor, editor.draggingPalette, "Adjust palette");
+        if (changed) {
+            adjustPalette(editor.doc, shown, adjust.base, adjust.hue, adjust.saturation,
+                          adjust.lightness);
+            refreshInks(editor);
+            canvas.invalidate();
+        }
+        ImGui::TextDisabled("From the palette as it was when this opened.");
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Presets", ImVec2(quarter, 0.f))) {
+        ImGui::OpenPopup("palette-presets");
+    }
+    if (ImGui::BeginPopup("palette-presets")) {
+        ImGui::TextDisabled("Replaces this palette, as loading a file does.");
+        for (const PalettePreset& preset : palettePresets()) {
+            const std::string label = preset.name + "  (" +
+                                      std::to_string(preset.colours.size()) + ")";
+            if (ImGui::MenuItem(label.c_str())) {
+                PaletteFile file;
+                file.name = preset.name;
+                for (size_t n = 0; n < preset.colours.size(); ++n) {
+                    file.entries.push_back({ static_cast<ls::ColorRole>(n), preset.colours[n], "" });
+                }
+                int dropped = 0;
+                if (applyPaletteFile(editor.doc, editor.activeSprite(), file, &dropped)) {
+                    refreshInks(editor);
+                    canvas.invalidate();
+                    editor.say("Loaded " + preset.name +
+                               (dropped > 0 ? "; " + std::to_string(dropped) +
+                                                  " slot(s) in use were not in it"
+                                            : std::string()));
+                }
+            }
+        }
+        ImGui::EndPopup();
+    }
+
+    if (ImGui::Button("Make every colour a slot", ImVec2(-1.f, 0.f))) {
+        editor.doc.beginAction("Colours to slots");
+        const int made = slotsFromColours(editor.doc, shown);
+        if (made > 0) {
+            editor.doc.endAction();
+            editor.say(std::to_string(made) + " colour(s) now paint through the palette");
+        } else {
+            editor.doc.abandonAction();
+            editor.say("Every colour already paints through the palette");
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Every colour painted as a value of its own, on every "
+                          "frame, becomes a palette slot -- one that already has "
+                          "the colour, or a new one. After this the palette "
+                          "recolours the whole sprite.");
     }
 
     if (current != ls::kColorRoleNone) {

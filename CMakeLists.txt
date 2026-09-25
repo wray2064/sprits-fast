@@ -68,6 +68,7 @@ add_library(fast_core STATIC
     src/app/document.cpp
     src/app/palette.cpp
     src/app/palette_io.cpp
+    src/app/palette_tools.cpp
     src/app/layers.cpp
     src/app/element.cpp
     src/app/brush.cpp
@@ -182,6 +183,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_canvas_ops_tests tests/canvas_ops_tests.cpp)
     target_link_libraries(fast_canvas_ops_tests PRIVATE fast_core)
     add_test(NAME fast_canvas_ops COMMAND fast_canvas_ops_tests)
+
+    add_executable(fast_palette_tools_tests tests/palette_tools_tests.cpp)
+    target_link_libraries(fast_palette_tools_tests PRIVATE fast_core)
+    add_test(NAME fast_palette_tools COMMAND fast_palette_tools_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

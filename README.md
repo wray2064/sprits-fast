@@ -275,8 +275,21 @@ flash frame; one palette per frame with the timeline is colour cycling, for
 nothing. The slots shown are always the palette the current frame draws with,
 so what you edit is what you see.
 
+**Arranging a palette** is a palette edit like any other. Drag a swatch onto
+another to move it, or **Sort** by hue, saturation or lightness: the order is
+what the swatches show and what a save keeps, and no slot changes number, so
+nothing painted through one notices. **Ramp** fills evenly spaced slots between
+the left and right colours. **Adjust** turns the hue and pushes the saturation
+and lightness of every slot at once -- a recolour of the whole sprite that can
+be dragged back to exactly where it was. **Make every colour a slot** turns
+every colour painted as a value of its own, on every frame, into a slot, after
+which the palette recolours all of it. **Presets** are palettes generated for
+Fast -- greys, one bit, hue ramps shaded toward blue and yellow -- so none
+carries anyone else's licence; the famous ones load from their own files.
+
 **Load** and **Save** take `.gpl` (GIMP, and what Aseprite reads and writes --
-it keeps the slot names) and `.hex` (what Lospec serves). Loading replaces the
+it keeps the slot names), `.hex` (what Lospec serves), `.pal` (JASC) and `.act`
+(Photoshop's colour table); Load also reads a palette off any image. Loading replaces the
 palette the frame uses, which is what loading a palette means everywhere else, and it recolours
 a sprite drawn through slots -- the point of them. Both are treated as untrusted
 input: a stray line is skipped rather than failing the file, and a value outside

@@ -12,6 +12,13 @@
 //         carries names, so it is the one to round-trip our own palettes in.
 //   .hex  Lospec's, and the simplest thing that could work: one "rrggbb" per
 //         line. No names, no header.
+//   .pal  JASC's (Paint Shop Pro), which much older pixel art and many tools
+//         still use: a three-line header, then "R G B" per line.
+//   .act  Photoshop's colour table: 256 RGB triples, binary, optionally
+//         followed by how many of them are used.
+//
+// And any image a palette can be read off: its colours, in the order they are
+// first met, up to the 256 a palette holds.
 //
 // **Both are untrusted input.** They arrive from wherever, and a parser that
 // trusts them is the wrong place to be generous. Lines that are not colours are
@@ -41,9 +48,19 @@ struct PaletteFile {
 // extension. Returns false only if nothing in the text was a colour at all.
 bool parsePalette(const std::string& text, PaletteFile* out, std::string* error);
 
-// The two writers. Labels go into .gpl; .hex has nowhere to put them.
+// The writers. Labels go into .gpl; the others have nowhere to put them.
 std::string toGpl(const std::string& name, const std::vector<PaletteEntry>& entries);
 std::string toHex(const std::vector<PaletteEntry>& entries);
+std::string toJasc(const std::vector<PaletteEntry>& entries);
+std::vector<uint8_t> toAct(const std::vector<PaletteEntry>& entries);
+
+// The binary .act, as bytes. False for a file that is not 768 or 772 bytes.
+bool parseAct(const std::vector<uint8_t>& bytes, PaletteFile* out, std::string* error);
+
+// An image's colours as a palette: each distinct opaque colour once, in the
+// order it is first met, up to kMaxPaletteEntries. False past that -- a
+// photograph is not a palette.
+bool paletteFromImage(const std::vector<uint8_t>& bytes, PaletteFile* out, std::string* error);
 
 // Replaces the document's palette with the file's entries, roles 0..n-1.
 //

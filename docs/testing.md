@@ -281,6 +281,22 @@ sprits_fast --demo-stroke
 5. *View -> Tile grid*, 8 x 8, offset 4. *Expect:* blue lines every 8 pixels,
    starting at 4.
 
+### 4m. Arranging the palette
+
+1. Drag the last swatch onto the first. *Expect:* it moves; nothing on the
+   canvas changes. Save, reopen. *Expect:* the order is as you left it.
+2. *Sort -> By lightness*. *Expect:* dark to light; the canvas unchanged.
+3. Click a dark slot, right-click a light one, *Ramp*, 4 steps. *Expect:* four
+   evenly spaced slots appear between the two.
+4. *Adjust*, drag hue. *Expect:* the whole sprite recolours as you drag, on
+   every frame. Drag back to 0. *Expect:* exactly as before. `Ctrl+Z` undoes
+   each drag as one step.
+5. Paint with colours picked in the picker (not from the palette), then *Make
+   every colour a slot*. *Expect:* new swatches for them; editing one
+   recolours those pixels.
+6. *Load...* a PNG. *Expect:* its colours become the palette, in the order they
+   appear in it.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

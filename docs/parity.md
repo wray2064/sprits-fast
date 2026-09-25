@@ -34,7 +34,7 @@ only output. A feature that bakes pixels to get done faster is not done.
       with the background colour
 - [x] The picker takes the slot as well as the colour, so painting with a
       picked colour stays in the palette **(better)**
-- [~] Hex entry and HSV/RGB sliders on the brush colour
+- [x] Hex entry and HSV/RGB sliders on the brush colour
 - [x] Recolour one ink of a layer afterwards (what the old layer-colour control
       did), from the element list
 
@@ -118,13 +118,13 @@ only output. A feature that bakes pixels to get done faster is not done.
 ### Palette
 - [x] Slots as roles, several palettes, the swap, per-frame palettes
 - [x] `.gpl` and `.hex` load and save
-- [ ] Palette presets that ship with Fast (licences checked; see *Assets*)
-- [ ] Reorder slots by dragging; sort by hue, saturation, lightness
-- [ ] Add or insert a slot, and generate a ramp between two slots
-- [ ] `.pal` (JASC) and `.act` load and save; a palette from a PNG
-- [ ] Palette from the sprite's current colours
+- [x] Palette presets that ship with Fast (licences checked; see *Assets*)
+- [x] Reorder slots by dragging; sort by hue, saturation, lightness
+- [x] Add or insert a slot, and generate a ramp between two slots
+- [x] `.pal` (JASC) and `.act` load and save; a palette from a PNG
+- [x] Palette from the sprite's current colours
 - [ ] Colour-shade bar for the current colour
-- [ ] Hue-shift, saturate or lighten a whole palette **(better: a palette
+- [x] Hue-shift, saturate or lighten a whole palette **(better: a palette
       edit, so every frame follows it)**
 
 ### Layers
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — palette: drag to reorder and sort (engine palette order), ramps, adjust hue/sat/light, colours to slots, presets, .pal/.act/image; RGB/HSV/hex fields; palette gets its own panel.
 - 2026-09-25 — symmetry, tiled mode with wrapping strokes, tile grid, Shift+click lines, Shift-constrained shapes.
 - 2026-09-25 — Sprite menu: canvas size with anchor (keeps what falls off), crop, trim, enlarge/reduce, rotate and flip canvas; shapes stay shapes.
 - 2026-09-25 — images open as documents (colours become the palette), GIF frames, sheet import; export GIF, APNG, PNG sequence; alpha preserved in every compile.

@@ -180,6 +180,15 @@ struct Editor {
     // list of palettes opens for the rarer things -- rename, copy, delete,
     // and giving a frame a palette of its own.
     bool          palettesOpen = false;
+
+    // A whole-palette adjustment in progress: the palette as it was when the
+    // window opened, so dragging a slider back to zero returns it exactly.
+    struct PaletteAdjust {
+        std::vector<PaletteEntry> base;
+        float hue = 0.f;
+        float saturation = 0.f;
+        float lightness = 0.f;
+    } paletteAdjust;
     ls::PaletteId renamingPalette;
     char          paletteNameBuffer[64] = {};
     int   exportScale = 1;
