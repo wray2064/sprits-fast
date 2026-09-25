@@ -81,6 +81,10 @@ void drawToolbar(Editor& editor) {
           "Drag out an ellipse, editable afterwards in the same way." },
         { Tool::Line, theme::Icon::Line, "Line", "L",
           "Drag out a line. Both ends stay adjustable." },
+        { Tool::Gradient, theme::Icon::Gradient, "Gradient", "Shift+G",
+          "Drag across an area -- the selection, or the colour under the press -- "
+          "to lay a dithered gradient between the two colours. It stays a "
+          "gradient: its ends, pattern and colours are in the Element panel." },
         { Tool::Contour, theme::Icon::Contour, "Contour", "D",
           "Draw round an area; on release it is filled with the current colour." },
         { Tool::Select, theme::Icon::Marquee, "Select", "M",
@@ -318,6 +322,23 @@ void drawToolPanel(Editor& editor) {
                   "before, with the right button. Lay a ramp out in order and "
                   "it is the shading scale, and the result still follows the "
                   "palette.");
+        ImGui::PopStyleColor();
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
+    if (editor.tool == Tool::Gradient) {
+        theme::sectionHeader("GRADIENT");
+        int pattern = static_cast<int>(editor.dither.pattern);
+        ImGui::SetNextItemWidth(-1.f);
+        if (ImGui::Combo("##gradpattern", &pattern, ditherPatternNames().data(),
+                         static_cast<int>(ditherPatternNames().size()))) {
+            editor.dither.pattern = static_cast<ls::DitherPatternKind>(pattern);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        ImGui::TextWrapped("From the left colour to the right one, along the drag. "
+                           "Inside the selection when there is one, otherwise the "
+                           "area of the colour under the press, as a fill would "
+                           "find it.");
         ImGui::PopStyleColor();
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }

@@ -37,7 +37,7 @@ namespace fast {
 
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
                   Select, SelectEllipse, Lasso, Wand, Move,
-                  Spray, Contour, Hand, Zoom };
+                  Spray, Contour, Hand, Zoom, Gradient };
 
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
@@ -262,6 +262,11 @@ struct Editor {
     int      sprayDensity = 10;
     uint32_t sprayBursts = 0;
 
+    // A gradient mid-drag: the element made on the press, driven by the drag.
+    bool           drawingGradient = false;
+    PaintLayer     gradientElement;
+    DitherSettings gradientSettings;
+
     // A contour mid-drag: the outline so far, filled on release.
     bool                   drawingContour = false;
     std::vector<ls::Vec2i> contourPoints;
@@ -360,7 +365,7 @@ struct Editor {
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
-               selecting || draggingFloat || drawingContour;
+               selecting || draggingFloat || drawingContour || drawingGradient;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls

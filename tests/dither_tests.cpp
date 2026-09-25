@@ -10,6 +10,7 @@
 // be baked as.
 
 #include "app/dither.h"
+#include "app/paint.h"
 #include "app/transform.h"
 
 #include <cstdio>
@@ -383,7 +384,51 @@ void testADitheredLayerSurvivesAReload() {
 
 } // namespace
 
+// The gradient tool's element: laid on top, taking its pixels from the
+// layer's other colours, dithered between its two ends -- and a rule still, so
+// moving its end afterwards changes the picture without a stroke.
+void testAGradientIsAnElementThatStaysARule() {
+    fast::Document doc;
+    if (!doc.create("gradient", 16, 16)) { CHECK(false); return; }
+    fast::PaintLayer layer;
+    if (!fast::createPaintLayer(doc, doc.sprite(), "Layer 1", ls::Color{ 9, 9, 9, 255 },
+                                &layer)) { CHECK(false); return; }
+    doc.beginAction("paint");
+    CHECK(fast::paintPixels(doc, layer, {{ 0, 0 }, { 15, 0 }}));
+    doc.endAction();
+
+    std::vector<ls::Vec2i> row;
+    for (int x = 0; x < 16; ++x) { row.push_back({ x, 0 }); }
+    fast::DitherSettings settings;
+    settings.from = { 0, 0, 0, 255 };
+    settings.to = { 255, 255, 255, 255 };
+    settings.modulation = ls::DitherModulation::Linear;
+    settings.gradientStart = { 0.f, 0.f };
+    settings.gradientEnd = { 16.f, 0.f };
+    fast::PaintLayer gradient;
+    doc.beginAction("Gradient");
+    CHECK(fast::addGradientElement(doc, layer.layer, row, settings, &gradient));
+    doc.endAction();
+    CHECK(fast::layerIsDithered(doc, gradient));
+
+    const auto pixel = [&](int x) {
+        auto compiled = doc.engine().compileSprite(
+            doc.sprite(), fast::compileProfile(ls::CompileProfileType::Export, 16, 16));
+        return compiled.ok() ? ls::readPixel(compiled.value.raster, x, 0) : ls::Color{};
+    };
+    CHECK(pixel(0).r == 0 && pixel(15).r == 255);          // dark end, light end
+    // The old colour gave its pixels up: nothing of it shows under the gradient.
+    auto region = doc.engine().getRegionIntervals(layer.region);
+    CHECK(region.ok() && region.value.empty());
+
+    // Move the end: a parameter, not a repaint.
+    settings.gradientEnd = { 8.f, 0.f };
+    CHECK(fast::applyDitherSettings(doc, gradient, settings));
+    CHECK(pixel(10).r == 255);
+}
+
 int main() {
+    testAGradientIsAnElementThatStaysARule();
     testSwitchingFillKindKeepsTheDrawing();
     testALinearGradientVariesAcrossTheShape();
     testDensityControlsTheMix();

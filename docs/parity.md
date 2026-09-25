@@ -75,7 +75,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [~] Filled and outlined rectangle and ellipse; Shift constrains to a
       square or circle, and a line to 15° steps
 - [x] Spray / airbrush (seeded, so the result is deterministic)
-- [ ] Gradient tool, dithered **(better: it stays a live FillDitherOp)**
+- [x] Gradient tool, dithered **(better: it stays a live FillDitherOp)**
 - [x] Shading ink: step a pixel along a ramp of palette slots
 - [x] Replace-colour ink, lock-alpha ink
 - [~] Contour / polygon fill
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — gradient tool: a drag lays a dithered gradient that stays a live FillDitherOp.
 - 2026-09-25 — spray, contour, hand and zoom tools; ink modes: lock alpha, replace colour, shading along palette slots.
 - 2026-09-25 — .aseprite/.ase open as work: layers, groups, frames, holds, tags as cycles, palette; indices become slots.
 - 2026-09-25 — merge down moves elements into the layer below, folding opacity and blend; refuses what would change the picture.

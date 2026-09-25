@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/dither.h"
+#include "app/ink.h"
 
 #include "app/palette.h"
 
@@ -119,6 +120,45 @@ ls::RampDesc rampOf(const DitherSettings& settings) {
 }
 
 } // namespace
+
+bool addGradientElement(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels,
+                        const DitherSettings& settings, PaintLayer* out) {
+    if (out == nullptr || pixels.empty()) {
+        return false;
+    }
+    // Made as a solid colour first, through the same path a pencil stroke
+    // takes -- so it lands on top of the layer and takes its pixels from the
+    // layer's other colours -- then turned into the dither in place.
+    Ink placeholder;
+    placeholder.colour = settings.from;
+    placeholder.role = settings.fromRole;
+    InkStroke stroke;
+    ls::LSContext& engine = doc.engine();
+    auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
+    if (region.fail()) {
+        return false;
+    }
+    ls::FillSolidOp fill;
+    fill.targetRegion = region.value;
+    fill.fallbackColor = settings.from;
+    auto op = engine.addOperation(layer, fill);
+    if (op.fail()) {
+        return false;
+    }
+    PaintLayer made;
+    made.layer = layer;
+    made.fill = op.value;
+    made.region = region.value;
+    if (!beginElementStroke(doc, made, &stroke) || !strokeInk(doc, stroke, pixels)) {
+        return false;
+    }
+    (void)placeholder;
+    if (!setLayerDithered(doc, made, settings)) {
+        return false;
+    }
+    *out = made;
+    return true;
+}
 
 bool setLayerDithered(Document& doc, PaintLayer& layer, const DitherSettings& settings) {
     if (!layer.valid()) {

@@ -1396,6 +1396,59 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         return;
     }
 
+    // Gradient: the press makes the element over the area -- the selection,
+    // or what a fill would find -- and the drag drives its axis, so what is
+    // on screen during the drag is the gradient itself.
+    if (editor.tool == Tool::Gradient) {
+        const ls::Vec2f here { static_cast<float>(canvas.pointerPixel().x) + 0.5f,
+                               static_cast<float>(canvas.pointerPixel().y) + 0.5f };
+        if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            !ImGui::IsKeyDown(ImGuiKey_Space)) {
+            const std::vector<ls::Vec2i> area = editor.selection.empty()
+                ? bucketArea(editor.doc, editor.sprite, pixel, editor.bucket)
+                : pixelsOf(editor.selection.mask);
+            DitherSettings settings;
+            settings.pattern = editor.dither.pattern;
+            settings.modulation = ls::DitherModulation::Linear;
+            const Ink front = foregroundInk(editor);
+            const Ink back = backgroundInk(editor);
+            settings.from = front.colour;
+            settings.fromRole = front.role;
+            settings.to = back.colour;
+            settings.toRole = back.role;
+            settings.gradientStart = here;
+            settings.gradientEnd = { here.x + 1.f, here.y };
+            editor.doc.beginAction("Gradient");
+            if (!area.empty() && addGradientElement(editor.doc, layer->layer, area, settings,
+                                                    &editor.gradientElement)) {
+                editor.drawingGradient = true;
+                editor.gradientSettings = settings;
+            } else {
+                editor.doc.abandonAction();
+                editor.say("Nothing to lay a gradient over there");
+            }
+        }
+        if (editor.drawingGradient && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            if (here.x != editor.gradientSettings.gradientEnd.x ||
+                here.y != editor.gradientSettings.gradientEnd.y) {
+                editor.gradientSettings.gradientEnd = here;
+                applyDitherSettings(editor.doc, editor.gradientElement,
+                                    editor.gradientSettings);
+            }
+        }
+        if (editor.drawingGradient && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            editor.drawingGradient = false;
+            pruneEmptyInks(editor.doc, layer->layer, editor.gradientElement.fill);
+            editor.doc.endAction();
+            // The panel then shows the gradient, ready to be adjusted.
+            editor.activeElement = editor.gradientElement.fill;
+            editor.paintIntoElement = false;
+            resyncLayers(editor);
+            editor.say("A gradient that stays one -- adjust it in the Element panel");
+        }
+        return;
+    }
+
     // Contour: the outline is drawn as the pointer goes, and on release what it
     // encloses -- outline included -- is painted in one go.
     if (editor.tool == Tool::Contour) {
@@ -1600,7 +1653,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !io.KeyShift) { editor.tool = Tool::Hand; }
         if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) { editor.tool = Tool::Zoom; }
         if (ImGui::IsKeyPressed(ImGuiKey_E, false)) { editor.tool = Tool::Eraser; }
-        if (ImGui::IsKeyPressed(ImGuiKey_G, false)) { editor.tool = Tool::Bucket; }
+        if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
+            editor.tool = io.KeyShift ? Tool::Gradient : Tool::Bucket;
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_I, false)) {
             editor.toolBeforePicker = editor.tool;
             editor.tool = Tool::Picker;
@@ -1882,6 +1937,16 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawReferences(editor, canvas, draw, origin, zoom, false);
             drawSelectionOverlay(editor, draw, origin, zoom);
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
+            if (editor.drawingGradient) {
+                const ls::Vec2f a = editor.gradientSettings.gradientStart;
+                const ls::Vec2f b = editor.gradientSettings.gradientEnd;
+                const ImVec2 from(origin.x + a.x * zoom, origin.y + a.y * zoom);
+                const ImVec2 to(origin.x + b.x * zoom, origin.y + b.y * zoom);
+                draw->AddLine(from, to, IM_COL32(0, 0, 0, 200), 3.f);
+                draw->AddLine(from, to, IM_COL32(255, 255, 255, 230), 1.f);
+                draw->AddCircleFilled(from, 4.f, IM_COL32(255, 255, 255, 230));
+                draw->AddCircle(to, 4.f, IM_COL32(255, 255, 255, 230));
+            }
             if (editor.drawingContour && editor.contourPoints.size() > 1) {
                 const ImU32 ink = ImGui::GetColorU32(ImVec4(editor.color[0], editor.color[1],
                                                             editor.color[2], 1.f));
@@ -3104,6 +3169,7 @@ int main(int argc, char** argv) {
             { "select-ellipse", Tool::SelectEllipse }, { "lasso", Tool::Lasso },
             { "wand", Tool::Wand }, { "move", Tool::Move }, { "spray", Tool::Spray },
             { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
+            { "gradient", Tool::Gradient },
         };
         for (const Named& named : tools) {
             if (options.tool == named.name) {

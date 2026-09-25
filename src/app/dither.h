@@ -71,6 +71,13 @@ const std::vector<const char*>& ditherPatternNames();
 const std::vector<const char*>& ditherModulationNames();
 const std::vector<const char*>& patternAnchorNames();
 
+// A gradient laid over `pixels` of `layer`: a new element at the top of the
+// layer, dithered with `settings`, taking those pixels from the layer's other
+// colours. What the gradient tool makes -- and it stays a rule, so its ends,
+// pattern and colours can be changed afterwards. Does not bracket an action.
+bool addGradientElement(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels,
+                        const DitherSettings& settings, PaintLayer* out);
+
 // Turns a layer's fill from solid into dithered, or back, keeping the drawing.
 //
 // The region is untouched -- only the rule that colours it changes -- so

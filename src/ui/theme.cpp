@@ -413,6 +413,23 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Gradient: {
+            // A bar that dithers from solid to nothing: the tool's result.
+            const float cell = size * 0.1f;
+            for (int x = 0; x < 7; ++x) {
+                for (int y = 0; y < 4; ++y) {
+                    // Denser at the left; a Bayer-ish step to the right.
+                    const int threshold = ((x + y * 3) % 4);
+                    if (x < 2 || threshold < 4 - (x * 4) / 7) {
+                        const ImVec2 cellAt = s(0.14f + 0.1f * static_cast<float>(x),
+                                            0.30f + 0.1f * static_cast<float>(y));
+                        draw->AddRectFilled(cellAt, ImVec2(cellAt.x + cell, cellAt.y + cell), colour);
+                    }
+                }
+            }
+            break;
+        }
+
         case Icon::Hand: {
             // An open palm: four fingers and a thumb over a round heel.
             const float weight = std::max(1.8f, size * 0.10f);
