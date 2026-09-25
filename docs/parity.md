@@ -91,11 +91,11 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Cycles (tags), with loop, once and ping-pong
 - [x] Playback, onion skin
 - [x] Onion skin settings: range, tint, show only within the cycle
-- [ ] Reverse frames, and set the duration of a range of frames at once
+- [x] Reverse frames, and set the duration of a range of frames at once
 - [ ] Linked cels (the same layer content in several frames)
       **(better: a shared region, so editing one edits all)**
-- [ ] Frame and cycle selection by range (Shift+click in the strip)
-- [ ] Playback speed and a loop-section preview
+- [x] Frame and cycle selection by range (Shift+click in the strip)
+- [x] Playback speed and a loop-section preview
 - [ ] Layers the same across frames (a layer added to one frame appears in
       all of them, as in Aseprite's timeline grid)
 
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — runs of frames: Shift+click selection, duplicate/delete/reverse/one hold, Play loops the run; playback speed.
 - 2026-09-25 — command-line batch export: --export in --to out.png/.gif/.lsprite/palette, with --scale, --cycle, --frame, --sheet, --sequence, --animated.
 - 2026-09-25 — New document window (size, background, preset), Save a copy, Paste as new layer.
 - 2026-09-25 — gradient tool: a drag lays a dithered gradient that stays a live FillDitherOp.

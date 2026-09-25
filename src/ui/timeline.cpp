@@ -465,19 +465,25 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     ImGui::SameLine();
 
     const bool busy = editor.busy();
+    int first = 0;
+    int last = 0;
+    const bool ranged = frameRange(editor, &first, &last);
     ImGui::BeginDisabled(busy || timeline.playing);
     if (ImGui::Button("+ Frame")) {
-        const int at = duplicateFrame(editor.doc, timeline.activeFrame);
+        const int at = ranged ? duplicateFrames(editor.doc, first, last)
+                              : duplicateFrame(editor.doc, timeline.activeFrame);
         if (at >= 0) {
             resyncFrames(editor);
-            selectFrame(editor, at);
-            editor.say("Duplicated frame " + std::to_string(timeline.activeFrame));
+            timeline.rangeAnchor = ranged ? at : -1;
+            selectFrame(editor, ranged ? at + (last - first) : at);
+            editor.say(ranged ? "Duplicated " + std::to_string(last - first + 1) + " frames"
+                              : "Duplicated frame " + std::to_string(timeline.activeFrame));
         } else {
             editor.say("Could not add a frame");
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Duplicate this frame  (Ctrl+Shift+D)\n"
+        ImGui::SetTooltip("Duplicate this frame, or the selected run  (Ctrl+Shift+D)\n"
                           "The copy owns its own drawing.");
     }
     ImGui::SameLine();
@@ -491,13 +497,31 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     ImGui::SameLine();
     ImGui::BeginDisabled(editor.frames.size() <= 1);
     if (ImGui::Button("Delete")) {
-        if (deleteFrame(editor.doc, timeline.activeFrame)) {
-            const int wanted = timeline.activeFrame - 1;
+        const int from = ranged ? first : timeline.activeFrame;
+        const int to = ranged ? last : timeline.activeFrame;
+        if (deleteFrames(editor.doc, from, to)) {
+            timeline.rangeAnchor = -1;
             resyncFrames(editor);
-            selectFrame(editor, wanted < 0 ? 0 : wanted);
+            selectFrame(editor, from - 1 < 0 ? 0 : from - 1);
+        } else if (ranged) {
+            editor.say("The last frame stays; leave at least one");
         }
     }
     ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!ranged);
+    if (ImGui::Button("Reverse")) {
+        if (reverseFrames(editor.doc, first, last)) {
+            resyncFrames(editor);
+            editor.say("Reversed frames " + std::to_string(first + 1) + " to " +
+                       std::to_string(last + 1) + "; every cycle still plays the same pictures");
+        }
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip(ranged ? "Put the selected frames in the opposite order."
+                                 : "Shift+click a second frame to select a run to reverse.");
+    }
     ImGui::EndDisabled();
 
     // The duration of the frame being looked at. One number, on the frame it
@@ -509,10 +533,26 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         int held = editor.frames[static_cast<size_t>(timeline.activeFrame)].durationMs;
         if (ImGui::DragInt("##hold", &held, 5.f, kMinFrameMs, kMaxFrameMs, "%d ms")) {
             // Driven live, then bracketed on release like every other slider,
-            // so a drag through forty values is one undo step.
-            setFrameDuration(editor.doc, timeline.activeFrame, held);
+            // so a drag through forty values is one undo step. With a run
+            // selected it is the hold of every frame in it.
+            if (ranged) {
+                setFramesDuration(editor.doc, first, last, held);
+            } else {
+                setFrameDuration(editor.doc, timeline.activeFrame, held);
+            }
             resyncFrames(editor);
         }
+        if (ImGui::IsItemHovered() && ranged) {
+            ImGui::SetTooltip("The hold of every selected frame");
+        }
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(70.f);
+    ImGui::DragFloat("##speed", &timeline.speed, 0.01f, 0.25f, 4.f, "%.2fx");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Playback speed: a preview at half speed to judge the "
+                          "timing, or faster to see the motion. The holds are "
+                          "not changed.");
     }
     ImGui::SameLine();
     ImGui::Checkbox("Onion", &timeline.onion);
@@ -594,6 +634,15 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
 
         if (ImGui::InvisibleButton("cell", ImVec2(kThumbSize, kThumbSize + 16.f))) {
             timeline.playing = false;
+            // Shift+click selects the run from the frame already selected to
+            // this one; a plain click selects this frame alone.
+            if (ImGui::GetIO().KeyShift) {
+                if (timeline.rangeAnchor < 0) {
+                    timeline.rangeAnchor = timeline.activeFrame;
+                }
+            } else {
+                timeline.rangeAnchor = -1;
+            }
             selectFrame(editor, i);         // safe to go on: `frame` is a copy
         }
         const bool hovered = ImGui::IsItemHovered();
@@ -623,6 +672,14 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         const ImVec2 corner(cell.x + kThumbSize, cell.y + kThumbSize);
         draw->AddRectFilled(cell, corner, ImGui::GetColorU32(c.canvasBackground),
                             theme::metrics().rounding);
+        // A frame in the selected run: a band under its cell.
+        if (ranged && i >= first && i <= last) {
+            draw->AddRectFilled(ImVec2(cell.x - 2.f, cell.y - 2.f),
+                                ImVec2(corner.x + 2.f, corner.y + 18.f),
+                                ImGui::ColorConvertFloat4ToU32(
+                                    ImVec4(c.accent.x, c.accent.y, c.accent.z, 0.18f)),
+                                theme::metrics().rounding);
+        }
 
         // The picture. A frame that is already current costs nothing to ask
         // for; one that is stale or missing costs a compile, and only a couple

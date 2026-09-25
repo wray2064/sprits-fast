@@ -47,7 +47,10 @@ One layer holds several elements: one per colour its pixels are painted in,
 plus any shapes drawn onto it.
 
 **Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
-per frame, named cycles with their own loop mode, playback, and an onion skin.
+per frame, named cycles with their own loop mode, playback at any speed, and an
+onion skin with its range, tints, and neighbours taken from the cycle. Shift+click
+selects a run of frames to duplicate, delete, reverse or give one hold, and Play
+loops the run on its own.
 
 **What makes it different** — shapes that stay editable after they are drawn,
 outlines that follow the artwork and can trace a whole figure across layers,

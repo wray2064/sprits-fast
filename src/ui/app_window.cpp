@@ -3177,6 +3177,30 @@ int runSelfTest() {
         check(!fresh.doc.canUndo() && !fresh.doc.modified(), "a new document has nothing to undo");
     }
 
+    // A run of frames selected in the strip: it is the run, it plays as a
+    // loop of its own when no cycle is chosen, and speed scales the clock.
+    {
+        Editor anim;
+        check(newDocument(anim, 8), "a document to animate");
+        for (int i = 0; i < 3; ++i) {
+            check(addEmptyFrame(anim, i) == i + 1, "an empty frame");
+        }
+        resyncFrames(anim);
+        anim.timeline.activeFrame = 3;
+        anim.timeline.rangeAnchor = 1;
+        int first = 0;
+        int last = 0;
+        check(frameRange(anim, &first, &last) && first == 1 && last == 3, "the run is 1 to 3");
+        check(activeCycle(anim).frames == std::vector<int>({ 1, 2, 3 }), "the run plays alone");
+        anim.timeline.playing = true;
+        anim.timeline.startedAtMs = 1000;
+        anim.timeline.speed = 2.f;
+        // Holds of 100 ms at double speed: 100 ms in is the run's third step.
+        check(frameToShow(anim, 1100) == 3, "speed scales the clock, not the holds");
+        anim.timeline.rangeAnchor = 3;
+        check(!frameRange(anim, &first, &last), "one frame is not a run");
+    }
+
     if (failures == 0) {
         std::printf("ui_selftest: all checks passed\n");
         return 0;

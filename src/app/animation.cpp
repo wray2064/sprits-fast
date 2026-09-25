@@ -358,6 +358,88 @@ bool moveFrame(Document& doc, int from, int to) {
     return true;
 }
 
+bool reverseFrames(Document& doc, int first, int last) {
+    std::vector<ls::SpriteId> sprites = spritesOf(doc);
+    if (!inRange(first, sprites.size()) || !inRange(last, sprites.size()) || first >= last) {
+        return false;
+    }
+    const std::vector<Cycle> cycles = readCycles(doc, static_cast<int>(sprites.size()));
+    std::reverse(sprites.begin() + first, sprites.begin() + last + 1);
+    doc.beginAction("Reverse frames");
+    if (!doc.engine().setSpriteOrder(doc.id(), sprites).ok()) {
+        doc.abandonAction();
+        return false;
+    }
+    // Every cycle keeps naming the same pictures: a walk that played the run
+    // forwards now plays it backwards, which is the point of reversing it.
+    std::vector<int> moved(sprites.size());
+    for (int i = 0; i < static_cast<int>(moved.size()); ++i) {
+        moved[static_cast<size_t>(i)] = (i >= first && i <= last) ? first + last - i : i;
+    }
+    writeCycles(doc, renumbered(cycles, moved));
+    doc.endAction();
+    return true;
+}
+
+bool deleteFrames(Document& doc, int first, int last) {
+    const std::vector<ls::SpriteId> sprites = spritesOf(doc);
+    if (!inRange(first, sprites.size()) || !inRange(last, sprites.size()) || first > last) {
+        return false;
+    }
+    const int count = last - first + 1;
+    if (count >= static_cast<int>(sprites.size())) {
+        return false;
+    }
+    doc.beginAction(count == 1 ? "Delete frame" : "Delete frames");
+    for (int i = 0; i < count; ++i) {
+        if (!deleteFrame(doc, first)) {
+            doc.abandonAction();
+            return false;
+        }
+    }
+    doc.endAction();
+    return true;
+}
+
+bool setFramesDuration(Document& doc, int first, int last, int milliseconds) {
+    const std::vector<ls::SpriteId> sprites = spritesOf(doc);
+    if (!inRange(first, sprites.size()) || !inRange(last, sprites.size()) || first > last) {
+        return false;
+    }
+    doc.beginAction("Frame durations");
+    for (int i = first; i <= last; ++i) {
+        if (!setFrameDuration(doc, i, milliseconds)) {
+            doc.abandonAction();
+            return false;
+        }
+    }
+    doc.endAction();
+    return true;
+}
+
+int duplicateFrames(Document& doc, int first, int last) {
+    const std::vector<ls::SpriteId> sprites = spritesOf(doc);
+    if (!inRange(first, sprites.size()) || !inRange(last, sprites.size()) || first > last) {
+        return -1;
+    }
+    const int count = last - first + 1;
+    if (sprites.size() + static_cast<size_t>(count) > kMaxFrames) {
+        return -1;
+    }
+    // Each frame is copied beside itself and the copy carried to the end of
+    // the run, so the originals stay put and the copies follow in order.
+    doc.beginAction(count == 1 ? "Duplicate frame" : "Duplicate frames");
+    for (int k = 0; k < count; ++k) {
+        const int copy = duplicateFrame(doc, first + k);
+        if (copy < 0 || (copy != last + 1 + k && !moveFrame(doc, copy, last + 1 + k))) {
+            doc.abandonAction();
+            return -1;
+        }
+    }
+    doc.endAction();
+    return last + 1;
+}
+
 bool setFrameDuration(Document& doc, int index, int milliseconds) {
     const std::vector<ls::SpriteId> sprites = spritesOf(doc);
     if (!inRange(index, sprites.size())) {

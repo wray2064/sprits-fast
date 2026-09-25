@@ -600,7 +600,54 @@ void testCyclesAreBounded() {
 
 } // namespace
 
+// A run of frames: reversing it keeps every cycle naming the same pictures,
+// duplicating it puts the copies straight after it in order, deleting it
+// leaves the rest and refuses to leave nothing, and a hold set across it is
+// one step.
+void testRangesOfFrames() {
+    fast::Document doc;
+    if (!doc.create("ranges", 4, 4)) { CHECK(false); return; }
+    for (int i = 0; i < 3; ++i) {
+        if (fast::duplicateFrame(doc, i) < 0) { CHECK(false); return; }
+    }
+    std::vector<fast::Frame> before = fast::readFrames(doc);
+    if (before.size() != 4) { CHECK(false); return; }
+    fast::Cycle cycle;
+    cycle.name = "walk";
+    cycle.frames = { 0, 1, 2, 3 };
+    fast::setCycles(doc, { cycle }, 4);
+    doc.clearHistory();
+
+    CHECK(fast::reverseFrames(doc, 1, 3));
+    std::vector<fast::Frame> after = fast::readFrames(doc);
+    CHECK(after[1].sprite == before[3].sprite && after[3].sprite == before[1].sprite);
+    // The cycle still plays the same pictures in the same order.
+    const std::vector<fast::Cycle> cycles = fast::readCycles(doc, 4);
+    CHECK(cycles.size() == 1 && cycles[0].frames == std::vector<int>({ 0, 3, 2, 1 }));
+    CHECK(doc.undo() && !doc.canUndo());
+
+    CHECK(fast::duplicateFrames(doc, 1, 2) == 3);
+    after = fast::readFrames(doc);
+    CHECK(after.size() == 6);
+    CHECK(after[0].sprite == before[0].sprite && after[1].sprite == before[1].sprite &&
+          after[2].sprite == before[2].sprite && after[5].sprite == before[3].sprite);
+    CHECK(doc.undo() && !doc.canUndo());
+
+    CHECK(fast::setFramesDuration(doc, 0, 2, 250));
+    after = fast::readFrames(doc);
+    CHECK(after[0].durationMs == 250 && after[2].durationMs == 250 &&
+          after[3].durationMs != 250);
+    CHECK(doc.undo() && !doc.canUndo());
+
+    CHECK(!fast::deleteFrames(doc, 0, 3));                    // not every frame
+    CHECK(fast::deleteFrames(doc, 1, 2));
+    after = fast::readFrames(doc);
+    CHECK(after.size() == 2 && after[1].sprite == before[3].sprite);
+    CHECK(doc.undo() && !doc.canUndo());
+}
+
 int main() {
+    testRangesOfFrames();
     testANewDocumentIsOneFrame();
     testADuplicatedFrameIsItsOwn();
     testAFrameLandsAfterTheOneItCameFrom();

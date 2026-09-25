@@ -313,6 +313,17 @@ sprits_fast --demo-stroke
    fill with the current colour.
 6. Hand (`H`) drags the view; Zoom (`Z`) zooms in on a click, out with Alt.
 
+### 4o. Runs of frames
+
+1. Click frame 2, Shift+click frame 4. *Expect:* a band under frames 2 to 4.
+   Press Play with no cycle chosen. *Expect:* only those three loop.
+2. *Reverse*. *Expect:* 4, 3, 2 in the strip; a cycle that played them still
+   plays the same pictures (its steps renumber). `Ctrl+Z` once undoes it.
+3. Drag the hold field. *Expect:* all three frames take the hold.
+4. *+ Frame* with the run selected. *Expect:* three copies straight after it,
+   in order, selected as the new run.
+5. Speed at 0.5x. *Expect:* playback at half speed; the holds are unchanged.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

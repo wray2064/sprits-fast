@@ -84,6 +84,9 @@ void resyncFrames(Editor& editor) {
     if (editor.timeline.activeCycle >= static_cast<int>(editor.cycles.size())) {
         editor.timeline.activeCycle = -1;
     }
+    if (editor.timeline.rangeAnchor >= static_cast<int>(editor.frames.size())) {
+        editor.timeline.rangeAnchor = -1;
+    }
     if (!editor.frames.empty()) {
         editor.sprite =
             editor.frames[static_cast<size_t>(editor.timeline.activeFrame)].sprite;
@@ -155,10 +158,34 @@ void selectFrame(Editor& editor, int index) {
     refreshInks(editor);
 }
 
+bool frameRange(const Editor& editor, int* first, int* last) {
+    const int anchor = editor.timeline.rangeAnchor;
+    const int active = editor.timeline.activeFrame;
+    const int count = static_cast<int>(editor.frames.size());
+    if (anchor < 0 || anchor >= count || anchor == active) {
+        return false;
+    }
+    *first = std::min(anchor, active);
+    *last = std::max(anchor, active);
+    return true;
+}
+
 Cycle activeCycle(const Editor& editor) {
     if (editor.timeline.activeCycle >= 0 &&
         editor.timeline.activeCycle < static_cast<int>(editor.cycles.size())) {
         return editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)];
+    }
+    // A run selected in the strip plays as a loop of its own: the section
+    // being worked on, without making a cycle for it.
+    int first = 0;
+    int last = 0;
+    if (frameRange(editor, &first, &last)) {
+        Cycle run;
+        run.name = "selection";
+        for (int i = first; i <= last; ++i) {
+            run.frames.push_back(i);
+        }
+        return run;
     }
     return everyFrame(static_cast<int>(editor.frames.size()));
 }
@@ -199,7 +226,9 @@ int frameToShow(const Editor& editor, uint64_t nowMs) {
     // A function of elapsed time rather than a counter that is stepped. A UI
     // frame that took too long therefore costs nothing: the next one lands
     // where the clock says, not one step further on.
-    const int64_t elapsed = static_cast<int64_t>(nowMs - editor.timeline.startedAtMs);
+    const int64_t elapsed = static_cast<int64_t>(
+        static_cast<double>(nowMs - editor.timeline.startedAtMs) *
+        static_cast<double>(editor.timeline.speed));
     const int at = frameAt(editor.frames, cycle, elapsed);
     return at < 0 ? editor.timeline.activeFrame : at;
 }

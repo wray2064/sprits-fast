@@ -75,6 +75,15 @@ struct TimelineSettings {
     // Milliseconds since SDL started, at the moment play began.
     uint64_t startedAtMs = 0;
 
+    // How fast playback runs against the holds: a preview at half speed to
+    // judge the timing, or double to see the motion.
+    float speed = 1.f;
+
+    // A run of frames selected with Shift+click, from here to the active
+    // frame; -1 when only the active frame is selected. The strip's buttons
+    // act on the whole run, and Play loops it when no cycle is chosen.
+    int rangeAnchor = -1;
+
     // Onion skin: the frames either side, drawn faint under the live one. It
     // costs nothing here that it would not cost anyway, because both neighbours
     // already have textures in the cache.
@@ -542,9 +551,13 @@ int frameToShow(const Editor& editor, uint64_t nowMs);
 // a jump with no cause a person can see.
 void selectCycle(Editor& editor, int index);
 
-// The cycle currently driving playback: the selected one, or every frame in
-// order when none is selected.
+// The cycle currently driving playback: the selected one, or the selected run
+// of frames, or every frame in order.
 Cycle activeCycle(const Editor& editor);
+
+// The run of frames selected in the strip, first to last. False when only one
+// frame is selected.
+bool frameRange(const Editor& editor, int* first, int* last);
 
 // Which frames a sheet would contain, in cell order: the selected cycle's steps,
 // or every frame. A cycle that plays a frame twice therefore produces two cells,

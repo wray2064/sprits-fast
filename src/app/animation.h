@@ -111,6 +111,15 @@ bool deleteFrame(Document& doc, int index);
 bool moveFrame(Document& doc, int from, int to);
 
 bool setFrameDuration(Document& doc, int index, int milliseconds);
+
+// A run of frames, first to last inclusive, as the strip selects one. Each is
+// one undo step, and each keeps every cycle naming the same pictures.
+bool reverseFrames(Document& doc, int first, int last);
+bool deleteFrames(Document& doc, int first, int last);        // the last frame of all stays
+bool setFramesDuration(Document& doc, int first, int last, int milliseconds);
+// Copies of the run, in order, straight after it. Returns the first copy's
+// position, or -1.
+int duplicateFrames(Document& doc, int first, int last);
 bool setFrameName(Document& doc, int index, const std::string& name);
 
 // Replaces the whole cycle list. Bounded and cleaned before it is written.
