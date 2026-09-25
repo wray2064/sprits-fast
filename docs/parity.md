@@ -48,7 +48,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Marching ants
 - [x] Move the selected pixels (drag, arrow keys); it moves the authored
       pixels, not a raster copy of them
-- [~] Cut, copy, paste (in place, and as a new layer); paste into another frame
+- [x] Cut, copy, paste (in place, and as a new layer); paste into another frame
       *(done: in place and into another frame; as a new layer is open)*
 - [x] Delete clears the selected pixels on the active layer
 - [x] Flip the selection horizontally and vertically, and rotate it 90/180
@@ -67,7 +67,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [~] Custom grid (size and offset), snap to grid
 - [x] Tiled-mode preview (draw across a wrapped edge) **(Aseprite, Pixelorama)**
 - [x] Symmetry drawing: horizontal, vertical, both, with a movable axis
-- [ ] New document dialog: size, background, palette preset
+- [x] New document dialog: size, background, palette preset
 
 ### Tools
 - [x] Pencil, eraser, bucket, eyedropper, rectangle, ellipse, line
@@ -113,7 +113,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
       cycle
 - [ ] Command-line batch export (`sprits_fast --export`)
-- [ ] Save a copy (`Document::saveCopy` already exists)
+- [x] Save a copy (`Document::saveCopy` already exists)
 
 ### Palette
 - [x] Slots as roles, several palettes, the swap, per-frame palettes
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — New document window (size, background, preset), Save a copy, Paste as new layer.
 - 2026-09-25 — gradient tool: a drag lays a dithered gradient that stays a live FillDitherOp.
 - 2026-09-25 — spray, contour, hand and zoom tools; ink modes: lock alpha, replace colour, shading along palette slots.
 - 2026-09-25 — .aseprite/.ase open as work: layers, groups, frames, holds, tags as cycles, palette; indices become slots.

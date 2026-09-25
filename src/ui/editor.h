@@ -228,6 +228,9 @@ struct Editor {
     bool              animationFromCycle = true;
     AnimationSettings animation;
 
+    // Whether the New document window is up.
+    bool newDocumentOpen = false;
+
     // Whether the history window is up.
     bool historyOpen = false;
 
@@ -415,6 +418,7 @@ void swapInks(Editor& editor);
 void refreshInks(Editor& editor);
 
 bool newDocument(Editor& editor, uint32_t size);
+bool newDocument(Editor& editor, const FileState::NewDocument& spec);
 
 // Forgets every interaction that was about the previous document: a layer or
 // frame mid-rename, a palette slot waiting for its removal to be confirmed, a
@@ -513,6 +517,8 @@ bool copySelectionPixels(Editor& editor);
 bool cutSelectionPixels(Editor& editor);
 bool deleteSelectionPixels(Editor& editor);
 bool pastePixels(Editor& editor);
+// The same, onto a new layer of its own above the active one.
+bool pastePixelsAsLayer(Editor& editor);
 
 // Changes the canvas through one of canvas_ops' calls, then tidies what the
 // window holds about the old one: the selection, the view, the layer list.

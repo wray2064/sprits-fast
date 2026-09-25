@@ -3,6 +3,9 @@
 
 #include "ui/editor.h"
 
+#include "app/palette_io.h"
+#include "app/palette_tools.h"
+
 #include <algorithm>
 
 namespace fast {
@@ -631,7 +634,14 @@ void forgetInteraction(Editor& editor) {
 }
 
 bool newDocument(Editor& editor, uint32_t size) {
-    if (!editor.doc.create("untitled", size, size)) {
+    FileState::NewDocument spec;
+    spec.width = size;
+    spec.height = size;
+    return newDocument(editor, spec);
+}
+
+bool newDocument(Editor& editor, const FileState::NewDocument& spec) {
+    if (!editor.doc.create("untitled", spec.width, spec.height)) {
         return false;
     }
     editor.layers.clear();
@@ -647,17 +657,61 @@ bool newDocument(Editor& editor, uint32_t size) {
     editor.sprite = info.value.sprites.front();
 
     // Every document starts with a palette, so the colours are a named set from
-    // the first stroke rather than something to be organised later.
+    // the first stroke rather than something to be organised later -- the
+    // starter, or a preset chosen in the New window.
     ensurePalette(editor.doc, editor.sprite);
+    const std::vector<PalettePreset>& presets = palettePresets();
+    if (spec.preset >= 0 && spec.preset < static_cast<int>(presets.size())) {
+        PaletteFile file;
+        file.name = presets[static_cast<size_t>(spec.preset)].name;
+        for (size_t n = 0; n < presets[static_cast<size_t>(spec.preset)].colours.size(); ++n) {
+            file.entries.push_back({ static_cast<ls::ColorRole>(n),
+                                     presets[static_cast<size_t>(spec.preset)].colours[n], "" });
+        }
+        int dropped = 0;
+        applyPaletteFile(editor.doc, editor.sprite, file, &dropped);
+    }
+
+    // A background, when asked for: a layer of its own at the bottom, filled,
+    // and through a palette slot where the colour is one -- so the backdrop
+    // follows a palette swap like everything else.
+    if (spec.background != 0) {
+        const std::vector<PaletteEntry> entries = paletteEntries(editor.doc);
+        Ink fill;
+        fill.colour = spec.background == 1 ? ls::Color{ 255, 255, 255, 255 }
+                    : spec.background == 2 ? ls::Color{ 0, 0, 0, 255 }
+                    : (entries.empty() ? ls::Color{ 0, 0, 0, 255 } : entries.front().color);
+        for (const PaletteEntry& entry : entries) {
+            if (entry.color.r == fill.colour.r && entry.color.g == fill.colour.g &&
+                entry.color.b == fill.colour.b && entry.color.a == fill.colour.a) {
+                fill.role = entry.role;
+                break;
+            }
+        }
+        PaintLayer background;
+        if (createPaintLayer(editor.doc, editor.sprite, "Background", fill.colour, &background)) {
+            std::vector<ls::Vec2i> all;
+            all.reserve(static_cast<size_t>(spec.width) * spec.height);
+            for (uint32_t y = 0; y < spec.height; ++y) {
+                for (uint32_t x = 0; x < spec.width; ++x) {
+                    all.push_back({ static_cast<int32_t>(x), static_cast<int32_t>(y) });
+                }
+            }
+            InkStroke stroke;
+            if (beginInkStroke(editor.doc, background.layer, fill, &stroke)) {
+                strokeInk(editor.doc, stroke, all);
+                pruneEmptyInks(editor.doc, background.layer, stroke.target.fill);
+            }
+        }
+    }
 
     PaintLayer layer;
     if (!createPaintLayer(editor.doc, editor.sprite, "Layer 1",
                           toColor(editor.color), &layer)) {
         return false;
     }
-    editor.layers.push_back(layer);
-    editor.selectedLayers = { layer.layer };
-    resyncFrames(editor);
+    resyncLayers(editor);
+    selectLayer(editor, layer.layer);
     editor.doc.setUiState({});
 
     // Setting up a document is not editing it. Without this a brand-new file is
@@ -665,7 +719,7 @@ bool newDocument(Editor& editor, uint32_t size) {
     // first layer is an undo entry, so Ctrl+Z removes the only layer.
     editor.doc.markUnmodified();
     editor.doc.clearHistory();
-    editor.say("New " + std::to_string(size) + " x " + std::to_string(size) +
+    editor.say("New " + std::to_string(spec.width) + " x " + std::to_string(spec.height) +
                " document");
     return true;
 }

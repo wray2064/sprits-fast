@@ -248,6 +248,38 @@ bool pastePixels(Editor& editor) {
     return true;
 }
 
+bool pastePixelsAsLayer(Editor& editor) {
+    if (!editor.clipHoldsPixels || editor.pixelClip.empty()) {
+        return false;
+    }
+    settleFloating(editor);
+    PaintLayer made;
+    editor.doc.beginAction("Paste as layer");
+    if (!createPaintLayer(editor.doc, editor.activeSprite(), "Pasted", toColor(editor.color),
+                          &made)) {
+        editor.doc.abandonAction();
+        return false;
+    }
+    // Just above the active layer, where the eye already is.
+    if (PaintLayer* active = editor.active()) {
+        const int at = indexOfLayer(editor.doc, editor.activeSprite(), active->layer);
+        if (at >= 0) {
+            moveLayer(editor.doc, made.layer, at + 1);
+        }
+    }
+    if (!floatClip(editor.doc, made.layer, editor.pixelClip, &editor.floating)) {
+        editor.doc.abandonAction();
+        return false;
+    }
+    // The float keeps the action open; settling it closes it, as with a paste.
+    resyncLayers(editor);
+    selectLayer(editor, made.layer);
+    editor.selection.mask = floatingMask(editor.floating);
+    editor.tool = Tool::Move;
+    editor.say("Pasted onto a new layer -- drag it into place, Enter to drop it");
+    return true;
+}
+
 // ------------------------------------------------------------------ input --
 
 namespace {

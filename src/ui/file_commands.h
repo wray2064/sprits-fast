@@ -32,7 +32,7 @@ struct DialogResult {
     enum class Kind { None, Open, SaveAs, ExportPng, ExportSheet,
                       ImportPalette, ExportPalette,
                       ImportReference, ProjectFolder, ReferenceFolder,
-                      ImportSheet, ExportAnimation };
+                      ImportSheet, ExportAnimation, SaveCopy };
 
     SDL_Mutex*  mutex = nullptr;
     Kind        kind = Kind::None;
@@ -60,7 +60,13 @@ struct FileState {
 
     PendingAction pending = PendingAction::None;
     std::string   pendingPath;
-    uint32_t      pendingNewSize = 32;
+    // What File > New makes: its size, what it starts on, and its palette.
+    struct NewDocument {
+        uint32_t width = 32;
+        uint32_t height = 32;
+        int      background = 0;       // 0 transparent, 1 white, 2 black, 3 the first colour
+        int      preset = -1;          // -1 the starter palette, else palettePresets()[preset]
+    } newDocument;
     bool          askingToSave = false;
 
     // Set when a save is needed before the pending action can continue, so the
@@ -71,6 +77,8 @@ struct FileState {
 // Opens the native dialogs. The answer arrives later, in DialogResult.
 void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc);
+// Where a copy goes: saved there, while the document stays the file it was.
+void showSaveCopyDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showExportDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc);
 // Where an animation goes. `extension` is ".gif" or ".png", which decides

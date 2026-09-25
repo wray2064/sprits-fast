@@ -11,6 +11,7 @@
 // Everything it does goes through fast_core, which knows nothing about windows.
 
 #include "app/import_aseprite.h"
+#include "app/palette_tools.h"
 #include "app/import_image.h"
 #include "app/animation.h"
 #include "app/export_png.h"
@@ -213,7 +214,7 @@ void performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
                    PendingAction action, const std::string& path) {
     switch (action) {
         case PendingAction::NewDocument:
-            newDocument(editor, editor.files.pendingNewSize);
+            newDocument(editor, editor.files.newDocument);
             canvas.frames().clear();          // the old document's textures
             // Fit rather than a fixed zoom: a 128 canvas at 8x does not fit the
             // window, and starting half off-screen is a poor first impression.
@@ -278,16 +279,8 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         return;
     }
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::BeginMenu("New")) {
-            const uint32_t sizes[] = { 16, 32, 64, 128 };
-            for (uint32_t size : sizes) {
-                const std::string label = std::to_string(size) + " x " + std::to_string(size);
-                if (ImGui::MenuItem(label.c_str())) {
-                    editor.files.pendingNewSize = size;
-                    requestAction(editor, canvas, window, PendingAction::NewDocument);
-                }
-            }
-            ImGui::EndMenu();
+        if (ImGui::MenuItem("New...", "Ctrl+N")) {
+            editor.newDocumentOpen = true;
         }
         if (ImGui::BeginMenu("Autosave")) {
             if (ImGui::MenuItem("On", nullptr, editor.autosaveOn,
@@ -356,6 +349,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem("Save as...", "Ctrl+Shift+S")) {
             showSaveAsDialog(editor.files, window, editor.doc);
         }
+        if (ImGui::MenuItem("Save a copy...")) {
+            showSaveCopyDialog(editor.files, window, editor.doc);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Write the document somewhere else, and carry on in the "
+                              "file you are in -- its name and its unsaved state stay "
+                              "as they are.");
+        }
         if (ImGui::BeginMenu("Export PNG")) {
             const int scales[] = { 1, 2, 4, 8, 16 };
             for (int scale : scales) {
@@ -417,6 +418,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             if (!pastePixels(editor)) {
                 pasteLayerHere(editor, canvas);
             }
+        }
+        if (ImGui::MenuItem("Paste as new layer", "Ctrl+Shift+V", false,
+                            editor.clipHoldsPixels)) {
+            pastePixelsAsLayer(editor);
         }
         if (ImGui::MenuItem("Delete", "Del", false, selected)) { deleteSelectionPixels(editor); }
         ImGui::Separator();
@@ -735,6 +740,75 @@ void drawHistoryPanel(Editor& editor, CanvasView& canvas) {
     ImGui::End();
 }
 
+// The New window: a size -- typed, or one of the sizes sprites are usually
+// drawn at -- what the canvas starts on, and which palette.
+void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
+    if (!editor.newDocumentOpen) {
+        return;
+    }
+    FileState::NewDocument& spec = editor.files.newDocument;
+    ImGui::OpenPopup("New document");
+    if (!ImGui::BeginPopupModal("New document", &editor.newDocumentOpen,
+                                ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    int width = static_cast<int>(spec.width);
+    int height = static_cast<int>(spec.height);
+    ImGui::SetNextItemWidth(120.f);
+    ImGui::InputInt("width", &width);
+    ImGui::SetNextItemWidth(120.f);
+    ImGui::InputInt("height", &height);
+    for (int size : { 16, 24, 32, 48, 64, 128, 256 }) {
+        const std::string label = std::to_string(size);
+        if (ImGui::SmallButton(label.c_str())) {
+            width = height = size;
+        }
+        ImGui::SameLine();
+    }
+    ImGui::NewLine();
+    spec.width = static_cast<uint32_t>(std::clamp(width, 1, static_cast<int>(kMaxCanvasDimension)));
+    spec.height = static_cast<uint32_t>(std::clamp(height, 1, static_cast<int>(kMaxCanvasDimension)));
+    const bool fits = static_cast<uint64_t>(spec.width) * spec.height <= kMaxCanvasPixels;
+
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+    const char* backgrounds[] = { "Transparent", "White", "Black", "The palette's first colour" };
+    ImGui::SetNextItemWidth(220.f);
+    ImGui::Combo("background", &spec.background, backgrounds, 4);
+
+    const std::vector<PalettePreset>& presets = palettePresets();
+    const char* current = spec.preset < 0 ? "Starter"
+                                          : presets[static_cast<size_t>(spec.preset)].name.c_str();
+    ImGui::SetNextItemWidth(220.f);
+    if (ImGui::BeginCombo("palette", current)) {
+        if (ImGui::Selectable("Starter", spec.preset < 0)) {
+            spec.preset = -1;
+        }
+        for (size_t i = 0; i < presets.size(); ++i) {
+            if (ImGui::Selectable(presets[i].name.c_str(), spec.preset == static_cast<int>(i))) {
+                spec.preset = static_cast<int>(i);
+            }
+        }
+        ImGui::EndCombo();
+    }
+    if (!fits) {
+        ImGui::TextColored(theme::palette().danger, "Larger than a canvas Fast works on.");
+    }
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    ImGui::BeginDisabled(!fits);
+    if (ImGui::Button("Create", ImVec2(110.f, 0.f))) {
+        editor.newDocumentOpen = false;
+        ImGui::CloseCurrentPopup();
+        requestAction(editor, canvas, window, PendingAction::NewDocument);
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        editor.newDocumentOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
 // What was found waiting from a session that did not end normally.
 //
 // The choice is deliberately not "recover or not". It is: open this, or throw
@@ -1047,6 +1121,18 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         return;
     }
 
+    if (kind == DialogResult::Kind::SaveCopy) {
+        const std::string target = withExtension(path, kFileExtension);
+        std::string error;
+        if (editor.doc.saveCopy(target, &error)) {
+            editor.say("Wrote a copy to " + fileName(target) + "; still working in " +
+                       (editor.doc.path().empty() ? std::string("the untitled document")
+                                                  : fileName(editor.doc.path())));
+        } else {
+            editor.say("The copy failed: " + error);
+        }
+        return;
+    }
     if (kind == DialogResult::Kind::ExportAnimation) {
         const Cycle cycle = editor.animationFromCycle
             ? activeCycle(editor) : everyFrame(static_cast<int>(editor.frames.size()));
@@ -1765,6 +1851,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (ImGui::IsKeyPressed(ImGuiKey_O, false)) {
         requestAction(editor, canvas, window, PendingAction::OpenDialog);
     }
+    if (ImGui::IsKeyPressed(ImGuiKey_N, false)) {
+        editor.newDocumentOpen = true;
+    }
     if (ImGui::IsKeyPressed(ImGuiKey_L, false)) {
         editor.libraryOpen = !editor.libraryOpen;
         editor.libraryStale = editor.libraryStale || editor.libraryOpen;
@@ -1787,7 +1876,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
     }
     if (ImGui::IsKeyPressed(ImGuiKey_V, false)) {
-        if (!pastePixels(editor)) {
+        if (io.KeyShift) {
+            pastePixelsAsLayer(editor);
+        } else if (!pastePixels(editor)) {
             pasteLayerHere(editor, canvas);
         }
     }
@@ -2001,6 +2092,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawSheetPanel(editor, window);
     drawAnimationPanel(editor, window);
     drawCanvasSizePanel(editor, canvas);
+    drawNewDocumentPanel(editor, canvas, window);
     drawHistoryPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
@@ -3057,6 +3149,32 @@ int runSelfTest() {
 
     theirs.save();
     deleteFile(path);
+
+    // File > New as the window drives it: a size that is not square, a
+    // background of its own at the bottom, a preset palette, and the drawing
+    // layer above the background, selected, with nothing to undo.
+    {
+        Editor fresh;
+        FileState::NewDocument spec;
+        spec.width = 12;
+        spec.height = 5;
+        spec.background = 1;
+        spec.preset = 0;
+        check(newDocument(fresh, spec), "a new document from the window's choices");
+        auto size = fresh.doc.engine().getCanvasSize(fresh.doc.id());
+        check(size.ok() && size.value.x == 12 && size.value.y == 5, "its own width and height");
+        check(fresh.layers.size() == 2, "a background and a layer to draw on");
+        check(fresh.active() != nullptr && fresh.activeLayer == 1, "the drawing layer is active");
+        const ls::RasterBuffer shown = [&] {
+            auto compiled = fresh.doc.engine().compileSprite(
+                fresh.sprite, compileProfile(ls::CompileProfileType::Export, 12, 5));
+            return compiled.ok() ? compiled.value.raster : ls::RasterBuffer{};
+        }();
+        check(!shown.empty() && ls::readPixel(shown, 11, 4).r == 255, "the background is white");
+        check(paletteEntries(fresh.doc).size() == palettePresets()[0].colours.size(),
+              "the preset is the palette");
+        check(!fresh.doc.canUndo() && !fresh.doc.modified(), "a new document has nothing to undo");
+    }
 
     if (failures == 0) {
         std::printf("ui_selftest: all checks passed\n");

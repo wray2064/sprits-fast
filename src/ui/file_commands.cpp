@@ -74,6 +74,20 @@ void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc)
                            suggestion.empty() ? nullptr : suggestion.c_str());
 }
 
+void showSaveCopyDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::SaveCopy, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+    const std::string suggestion = doc.path().empty()
+                                 ? std::string()
+                                 : withExtension(fileStem(doc.path()) + " copy", kFileExtension);
+    const std::string location = doc.path().empty() ? std::string() : directoryOf(doc.path());
+    const std::string start = location.empty() ? suggestion : location + "/" + suggestion;
+    SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, kFilters,
+                           static_cast<int>(SDL_arraysize(kFilters)),
+                           start.empty() ? nullptr : start.c_str());
+}
+
 void showExportDialog(FileState& state, SDL_Window* window, const Document& doc) {
     SDL_LockMutex(state.dialog.mutex);
     state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportPng, false, false, {} };
