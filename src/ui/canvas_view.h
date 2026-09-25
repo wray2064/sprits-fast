@@ -37,6 +37,9 @@ struct TileGrid {
     int  height = 16;
     int  offsetX = 0;
     int  offsetY = 0;
+    // Diamonds instead of squares: the lines of an isometric map, each cell a
+    // diamond `width` across and `height` down (16 x 8 is the usual 2:1).
+    bool isometric = false;
 };
 
 class CanvasView {

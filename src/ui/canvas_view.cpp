@@ -260,13 +260,39 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
         draw->PushClipRect(origin, corner, true);
         const int ox = ((tiles_.offsetX % tiles_.width) + tiles_.width) % tiles_.width;
         const int oy = ((tiles_.offsetY % tiles_.height) + tiles_.height) % tiles_.height;
-        for (int x = ox; x <= static_cast<int>(textureWidth_); x += tiles_.width) {
-            const float at = origin.x + static_cast<float>(x) * zoom_;
-            draw->AddLine(ImVec2(at, origin.y), ImVec2(at, corner.y), line);
-        }
-        for (int y = oy; y <= static_cast<int>(textureHeight_); y += tiles_.height) {
-            const float at = origin.y + static_cast<float>(y) * zoom_;
-            draw->AddLine(ImVec2(origin.x, at), ImVec2(corner.x, at), line);
+        if (tiles_.isometric) {
+            // Two families of diagonals, u = k and v = k, where
+            // u = (x - ox) / W + (y - oy) / H and v = (x - ox) / W - (y - oy) / H.
+            // Each is drawn top to bottom across the canvas; the clip trims it.
+            const float W = static_cast<float>(tiles_.width);
+            const float H = static_cast<float>(tiles_.height);
+            const float fx = static_cast<float>(ox);
+            const float fy = static_cast<float>(oy);
+            const float w = static_cast<float>(textureWidth_);
+            const float h = static_cast<float>(textureHeight_);
+            const auto toScreen = [&](float x, float y) {
+                return ImVec2(origin.x + x * zoom_, origin.y + y * zoom_);
+            };
+            const int first = static_cast<int>(std::floor(-fx / W - fy / H - (h / H))) - 1;
+            const int last = static_cast<int>(std::ceil((w - fx) / W + (h - fy) / H + h / H)) + 1;
+            for (int k = first; k <= last; ++k) {
+                const float kk = static_cast<float>(k);
+                // u = k: x = ox + W * (k - (y - oy) / H)
+                draw->AddLine(toScreen(fx + W * (kk + fy / H), 0.f),
+                              toScreen(fx + W * (kk - (h - fy) / H), h), line);
+                // v = k: x = ox + W * (k + (y - oy) / H)
+                draw->AddLine(toScreen(fx + W * (kk - fy / H), 0.f),
+                              toScreen(fx + W * (kk + (h - fy) / H), h), line);
+            }
+        } else {
+            for (int x = ox; x <= static_cast<int>(textureWidth_); x += tiles_.width) {
+                const float at = origin.x + static_cast<float>(x) * zoom_;
+                draw->AddLine(ImVec2(at, origin.y), ImVec2(at, corner.y), line);
+            }
+            for (int y = oy; y <= static_cast<int>(textureHeight_); y += tiles_.height) {
+                const float at = origin.y + static_cast<float>(y) * zoom_;
+                draw->AddLine(ImVec2(origin.x, at), ImVec2(corner.x, at), line);
+            }
         }
         draw->PopClipRect();
     }

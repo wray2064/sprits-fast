@@ -592,6 +592,17 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::BeginMenu("Tile grid")) {
             TileGrid& tiles = canvas.tileGrid();
             ImGui::MenuItem("Show", nullptr, &tiles.visible);
+            if (ImGui::MenuItem("Isometric", nullptr, &tiles.isometric) && tiles.isometric) {
+                tiles.visible = true;
+                // The usual 2:1 diamond, unless a shape was already chosen.
+                if (tiles.width == tiles.height) {
+                    tiles.height = std::max(1, tiles.width / 2);
+                }
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Diamonds for isometric tiles: width across, height "
+                                  "down, 2:1 by default. Snapping keeps to the square grid.");
+            }
             ImGui::SetNextItemWidth(120.f);
             ImGui::InputInt("width", &tiles.width);
             ImGui::SetNextItemWidth(120.f);
@@ -2640,6 +2651,7 @@ struct Options {
     std::string select;                // --select x,y,w,h: a marquee, for a capture
     std::string tool;                  // --tool name: the tool in hand, for a capture
     bool        tiled = false;         // --tiled: tiled mode both ways and a tile grid
+    bool        isometric = false;     // --isometric: an isometric tile grid
     bool        symmetry = false;      // --symmetry: both axes on
     bool        play = false;            // start playback, for a headless run
     bool        library = false;         // open the library window
@@ -2701,6 +2713,8 @@ Options parseOptions(int argc, char** argv) {
             options.select = argv[++i];
         } else if (arg == "--tool" && i + 1 < argc) {
             options.tool = argv[++i];
+        } else if (arg == "--isometric") {
+            options.isometric = true;
         } else if (arg == "--tiled") {
             options.tiled = true;
         } else if (arg == "--symmetry") {
@@ -3864,6 +3878,12 @@ int main(int argc, char** argv) {
                 { values[0], values[1] },
                 { values[0] + values[2] - 1, values[1] + values[3] - 1 });
         }
+    }
+    if (options.isometric) {
+        canvas.tileGrid().visible = true;
+        canvas.tileGrid().isometric = true;
+        canvas.tileGrid().width = 16;
+        canvas.tileGrid().height = 8;
     }
     if (options.tiled) {
         canvas.setTiledMode(TiledMode::Both);

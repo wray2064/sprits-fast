@@ -152,7 +152,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Pixel-art rotation (RotSprite-quality) for selections and layers
 - [x] Minimap / navigator
 - [ ] Guides and rulers
-- [ ] Isometric grid
+- [x] Isometric grid
 - [x] Reference layer from the clipboard
 - [ ] Light theme
 - [ ] Localisation hooks
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Isometric tile grid: View > Tile grid > Isometric draws 2:1 diamonds (width across, height down, with the offset); --isometric for captures.
 - The corner preview is the navigator: when the view shows only part of the canvas, that part is outlined on it, and clicking or dragging on it centres the view there (CanvasView::visibleArea, centreOn). --zoom N for headless captures.
 - Paste image (References panel) and Edit > Paste as reference: an image copied anywhere becomes a reference, stored in the package like an imported one.
 - Shade strip under the palette: seven shades of the current colour, darks turned toward blue with a little more saturation and lights toward yellow with a little less (shadesOf, greys stay grey); click to paint (through a slot when the palette has that colour), right-click for the second colour; the strip holds still while picked from; one button keeps them as slots.

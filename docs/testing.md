@@ -381,6 +381,8 @@ sprits_fast --demo-stroke
 4. Rectangle tool. *Expect:* its corners land on tile lines.
 5. Set the tile grid to 10 x 6 with offset 3, 1 and repeat. *Expect:* the
    same, on the new lines.
+6. *View > Tile grid > Isometric*. *Expect:* diamonds 16 across and 8 down
+   over the canvas; the offset moves them.
 
 ### 4t. Sprite size
 

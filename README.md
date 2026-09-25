@@ -29,7 +29,7 @@ middle and move; Shift+click for a straight line from the last stroke; Shift
 keeps a rectangle square, an ellipse round and a line on fifteen-degree steps.
 **Tiled mode** draws the canvas again beside itself, and a stroke off one edge
 comes back on the other; a **tile grid** of any size and offset sits over the
-pixel grid, and **snap to grid** (`Shift+S`) makes marquees cover whole tiles,
+pixel grid (or an **isometric** one of 2:1 diamonds), and **snap to grid** (`Shift+S`) makes marquees cover whole tiles,
 shapes put their corners on tile lines, and a moved selection step tile to
 tile.
 
