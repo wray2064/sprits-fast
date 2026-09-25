@@ -35,6 +35,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas);
 // tag for its row, and notes. Open while editor.propertiesLayer is set.
 void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas);
 
+// An image on the system clipboard, kept as a reference. False, with the
+// reason said, when there is none or it cannot be kept.
+bool pasteReference(Editor& editor, CanvasView& canvas);
+
 // The pictures being drawn from: import, place, fade, and remove.
 void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
 

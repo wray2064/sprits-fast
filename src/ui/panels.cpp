@@ -2,11 +2,13 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "ui/panels.h"
+#include "ui/os_clipboard.h"
 #include "ui/theme.h"
 
 #include "app/reference.h"
 #include "app/library.h"
 #include "app/file_io.h"
+#include "app/image_io.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
 #include "app/shape.h"
@@ -2376,14 +2378,48 @@ void drawReferences(Editor& editor, CanvasView& canvas, ImDrawList* draw,
     (void)zoom;
 }
 
+bool pasteReference(Editor& editor, CanvasView& canvas) {
+    ls::RasterBuffer image;
+    std::string error;
+    if (!imageFromClipboard(&image, &error)) {
+        editor.say("Nothing to paste as a reference: " + error);
+        return false;
+    }
+    std::vector<uint8_t> png;
+    Reference made;
+    if (!encodeImageAsPng(image, &png, &error) ||
+        !addReference(editor.doc, "Pasted " + std::to_string(image.width) + " x " +
+                                      std::to_string(image.height),
+                      png, &made, &error)) {
+        editor.say("Could not keep the pasted image: " + error);
+        return false;
+    }
+    resyncReferences(editor, canvas);
+    editor.activeReference = made.id;
+    canvas.invalidate();
+    editor.say("Pasted as a reference -- it travels with this file");
+    return true;
+}
+
 void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
-    if (ImGui::Button("Import image...", ImVec2(-1.f, 0.f))) {
+    const float half = (ImGui::GetContentRegionAvail().x - theme::metrics().itemSpacing) * 0.5f;
+    if (ImGui::Button("Import image...", ImVec2(half, 0.f))) {
         showImportReferenceDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("A photograph, a sketch, a pose to draw from. It is "
                           "stored in this document, so it travels with the "
                           "work and is never exported.");
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!clipboardHasImage());
+    if (ImGui::Button("Paste image", ImVec2(half, 0.f))) {
+        pasteReference(editor, canvas);
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("An image copied in a browser or another program, as a "
+                          "reference.");
     }
 
     if (editor.references.empty()) {

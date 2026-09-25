@@ -357,6 +357,9 @@ sprits_fast --demo-stroke
    and each took the nearest of the palette's.
 5. `Ctrl+Shift+V` with another program's image copied. *Expect:* it lands
    on a new layer.
+6. Copy an image elsewhere, then *Paste image* in the References panel (or
+   *Edit > Paste as reference*). *Expect:* a reference fitted to the canvas,
+   named for its size, saved with the file.
 
 ### 4r. Layer properties
 

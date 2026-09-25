@@ -439,6 +439,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                             false, pixelsToPaste(editor))) {
             pasteCommand(editor, canvas, true);
         }
+        if (ImGui::MenuItem("Paste as reference", nullptr, false, clipboardHasImage())) {
+            pasteReference(editor, canvas);
+        }
         if (ImGui::MenuItem("Delete", "Del", false, selected)) { deleteSelectionPixels(editor); }
         if (ImGui::MenuItem("Brush from selection", keysLabel(editor.keys, "edit.brush").c_str(),
                             false, selected)) {

@@ -153,7 +153,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Minimap / navigator
 - [ ] Guides and rulers
 - [ ] Isometric grid
-- [ ] Reference layer from the clipboard
+- [x] Reference layer from the clipboard
 - [ ] Light theme
 - [ ] Localisation hooks
 
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Paste image (References panel) and Edit > Paste as reference: an image copied anywhere becomes a reference, stored in the package like an imported one.
 - Shade strip under the palette: seven shades of the current colour, darks turned toward blue with a little more saturation and lights toward yellow with a little less (shadesOf, greys stay grey); click to paint (through a slot when the palette has that colour), right-click for the second colour; the strip holds still while picked from; one button keeps them as slots.
 - Sprite size window: any size in pixels or percent, proportion locked or not, nearest neighbour by pixel centres (resizeSprite); a doubling equals enlargeSprite exactly, shapes scale as geometry, off-canvas pixels are carried along, one undo step for every frame.
 - Snap to grid (View menu, Shift+S, rebindable): rectangle and ellipse marquees cover whole tiles (a drag inside one tile selects it), shape corners land on tile lines, and moving a selection steps its top-left corner from grid point to grid point. Uses the tile grid's size and offset; turning snap on shows the grid. Math in app/grid_snap with its own tests.
