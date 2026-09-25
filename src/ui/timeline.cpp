@@ -928,9 +928,39 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
         settings.scale = static_cast<uint32_t>(scale);
     }
 
+    int border = static_cast<int>(settings.border);
+    int spacing = static_cast<int>(settings.spacing);
+    ImGui::SetNextItemWidth(110.f);
+    if (ImGui::DragInt("##border", &border, 0.1f, 0, 64, "border %d")) {
+        settings.border = static_cast<uint32_t>(std::max(0, border));
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.f);
+    if (ImGui::DragInt("##spacing", &spacing, 0.1f, 0, 64, "spacing %d")) {
+        settings.spacing = static_cast<uint32_t>(std::max(0, spacing));
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Empty pixels between cells, so a texture filter or a mip "
+                          "level does not bleed one frame into the next.");
+    }
+
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
     theme::sectionHeader("BESIDE THE IMAGE");
     ImGui::Checkbox("Write a description of the sheet", &settings.writeManifest);
+    if (settings.writeManifest) {
+        const char* formats[] = { "Fast's own", "Aseprite JSON (hash)", "Aseprite JSON (array)" };
+        int format = static_cast<int>(settings.manifestFormat);
+        ImGui::SetNextItemWidth(220.f);
+        if (ImGui::Combo("##manifestformat", &format, formats, 3)) {
+            settings.manifestFormat = static_cast<SheetManifestFormat>(format);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Fast's own says everything, cycles and repeats included.\n"
+                              "The Aseprite layouts are what game-engine importers built "
+                              "for\nAseprite already read; cycles become frame tags where "
+                              "they are a run of cells.");
+        }
+    }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("A small .json beside the PNG: where every cell is, how "
                           "long it is held,\nand what the cycles are. Without it a "

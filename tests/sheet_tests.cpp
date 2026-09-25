@@ -443,6 +443,63 @@ void testAStepNamingNothingIsRefused() {
 
 } // namespace
 
+// Padding: a border round the sheet and spacing between cells, in the
+// finished image's pixels, counted into its size and every cell's position.
+void testBorderAndSpacingMoveTheCells() {
+    SheetSettings settings;
+    settings.columns = 2;
+    settings.border = 3;
+    settings.spacing = 2;
+    SheetPlan plan;
+    std::string error;
+    REQUIRE(planSheet(4, kCanvas, kCanvas, settings, &plan, &error));
+    CHECK(plan.width == 3 + 16 + 2 + 16 + 3);
+    CHECK(plan.height == plan.width);
+    CHECK(plan.positionOf(0).x == 3 && plan.positionOf(0).y == 3);
+    CHECK(plan.positionOf(3).x == 3 + 16 + 2 && plan.positionOf(3).y == 3 + 16 + 2);
+}
+
+// The Aseprite layouts: every cell with its rectangle and hold, a cycle that
+// is a run of cells as a frame tag in its direction, one that is not left
+// out, and Fast named as the app.
+void testTheAsepriteLayouts() {
+    Document doc;
+    REQUIRE(build(doc, 3));
+    REQUIRE(setFrameDuration(doc, 2, 250));
+    const std::vector<Frame> frames = readFrames(doc);
+    Cycle run;
+    run.name = "walk";
+    run.frames = { 1, 2 };
+    run.loop = LoopMode::PingPong;
+    Cycle scattered;
+    scattered.name = "odd";
+    scattered.frames = { 2, 0 };
+    const std::vector<int> steps{ 0, 1, 2 };
+    SheetSettings settings;
+    settings.layout = SheetLayout::Row;
+    SheetPlan plan;
+    std::string error;
+    REQUIRE(planSheet(3, kCanvas, kCanvas, settings, &plan, &error));
+
+    const std::string hash =
+        asepriteManifest(plan, frames, steps, { run, scattered }, "hero.png", 1, true);
+    CHECK(hash.find("\"hero 2\": {") != std::string::npos);
+    CHECK(hash.find("\"frame\": { \"x\": 32, \"y\": 0, \"w\": 16, \"h\": 16 }") !=
+          std::string::npos);
+    CHECK(hash.find("\"duration\": 250") != std::string::npos);
+    CHECK(hash.find("\"name\": \"walk\", \"from\": 1, \"to\": 2, \"direction\": \"pingpong\"") !=
+          std::string::npos);
+    CHECK(hash.find("\"odd\"") == std::string::npos);
+    CHECK(hash.find("\"app\": \"Sprit's'fast\"") != std::string::npos);
+    CHECK(hash.find("\"size\": { \"w\": 48, \"h\": 16 }") != std::string::npos);
+
+    const std::string array =
+        asepriteManifest(plan, frames, steps, {}, "hero.png", 1, false);
+    CHECK(array.find("{ \"frames\": [") != std::string::npos);
+    CHECK(array.find("\"filename\": \"hero 0\"") != std::string::npos);
+    CHECK(array.find("\"frameTags\": []") != std::string::npos);
+}
+
 int main() {
     testTheGridIsNearlySquare();
     testStripsAndColumnsAndFixedWidths();
@@ -455,6 +512,8 @@ int main() {
     testAHostileNameCannotBreakTheManifest();
     testASheetIsWrittenWithItsDescription();
     testAStepNamingNothingIsRefused();
+    testBorderAndSpacingMoveTheCells();
+    testTheAsepriteLayouts();
 
     if (failures == 0) {
         std::printf("sheet: all checks passed\n");

@@ -12,7 +12,9 @@
 // The output's extension decides what is written:
 //
 //   .png       one frame (--frame N, the first by default); with --sheet a
-//              sprite sheet and its manifest; with --sequence one file per step;
+//              sprite sheet and its manifest (--border N, --spacing N, and
+//              --json hash|array for Aseprite's JSON); with --sequence one
+//              file per step;
 //              with --animated an animated PNG
 //   .gif       the animation
 //   .lsprite   the document itself -- which is how an .aseprite, a PNG or a GIF
@@ -37,6 +39,11 @@ struct BatchJob {
     bool        sheet = false;
     bool        sequence = false;
     bool        animated = false;
+    // For --sheet: padding, and the manifest's layout ("hash" or "array" for
+    // Aseprite's JSON; Fast's own otherwise).
+    uint32_t    border = 0;
+    uint32_t    spacing = 0;
+    std::string json;
 };
 
 // Reads the batch options. False when --export is not among them -- this is

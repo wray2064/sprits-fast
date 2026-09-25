@@ -44,9 +44,24 @@ enum class SheetLayout : uint8_t {
     Column,
 };
 
+// What the description beside the sheet looks like. Fast's own is the full
+// story -- cycles as sequences, repeats and all. The Aseprite layouts are the
+// JSON Aseprite writes, hash or array, which game-engine importers already
+// read; cycles go in as frame tags where a cycle is a run of cells, which is
+// what a tag can say.
+enum class SheetManifestFormat : uint8_t { Fast, AsepriteHash, AsepriteArray };
+
 struct SheetSettings {
     uint32_t    scale = 1;                  // whole numbers, like every export here
     SheetLayout layout = SheetLayout::Grid;
+
+    // Empty pixels round the edge of the sheet, and between cells -- in the
+    // finished image's pixels, not scaled. Spacing keeps a texture filter or
+    // a mip level from bleeding one cell into the next.
+    uint32_t border = 0;
+    uint32_t spacing = 0;
+
+    SheetManifestFormat manifestFormat = SheetManifestFormat::Fast;
 
     // Columns for Grid. Zero means choose: the arrangement closest to square,
     // which keeps a long animation from becoming an image no viewer will open
@@ -76,6 +91,8 @@ struct SheetPlan {
     uint32_t width = 0;          // the finished image, after scaling
     uint32_t height = 0;
     int      cells = 0;
+    uint32_t border = 0;
+    uint32_t spacing = 0;
 
     // The top-left of cell `index` in the finished image, in scaled pixels.
     ls::Vec2i positionOf(int index) const;
@@ -105,6 +122,13 @@ std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frame
                           const std::vector<int>& steps,
                           const std::vector<Cycle>& cycles,
                           const std::string& imageName, uint32_t scale);
+
+// The same, in the JSON Aseprite writes, so an importer built for Aseprite's
+// sheets reads Fast's. `hash` chooses frames keyed by name or listed in order.
+// It names Fast as the app that wrote it, not Aseprite.
+std::string asepriteManifest(const SheetPlan& plan, const std::vector<Frame>& frames,
+                             const std::vector<int>& steps, const std::vector<Cycle>& cycles,
+                             const std::string& imageName, uint32_t scale, bool hash);
 
 // Compiles, composites and writes. The PNG is written atomically like every
 // other file here; the manifest follows it, and a failure to write the manifest

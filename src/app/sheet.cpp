@@ -83,8 +83,8 @@ ls::Vec2i SheetPlan::positionOf(int index) const {
     }
     const int column = index % columns;
     const int row = index / columns;
-    return { static_cast<int32_t>(static_cast<uint32_t>(column) * cellWidth),
-             static_cast<int32_t>(static_cast<uint32_t>(row) * cellHeight) };
+    return { static_cast<int32_t>(border + static_cast<uint32_t>(column) * (cellWidth + spacing)),
+             static_cast<int32_t>(border + static_cast<uint32_t>(row) * (cellHeight + spacing)) };
 }
 
 bool planSheet(int frameCount, uint32_t cellWidth, uint32_t cellHeight,
@@ -106,10 +106,15 @@ bool planSheet(int frameCount, uint32_t cellWidth, uint32_t cellHeight,
         return fail("that scale is outside 1x to 64x");
     }
 
+    if (settings.border > 1024 || settings.spacing > 1024) {
+        return fail("a border or spacing that wide is not padding any more");
+    }
     SheetPlan plan;
     plan.cells = frameCount;
     plan.cellWidth = cellWidth * settings.scale;
     plan.cellHeight = cellHeight * settings.scale;
+    plan.border = settings.border;
+    plan.spacing = settings.spacing;
 
     switch (settings.layout) {
         case SheetLayout::Row:    plan.columns = frameCount; break;
@@ -126,8 +131,12 @@ bool planSheet(int frameCount, uint32_t cellWidth, uint32_t cellHeight,
     // In 64-bit, so the check happens before the multiplication that would
     // overflow. An image is not a canvas, but it is still something somebody
     // has to open, and the same policy bounds are the right ones.
-    const uint64_t width  = static_cast<uint64_t>(plan.columns) * plan.cellWidth;
-    const uint64_t height = static_cast<uint64_t>(plan.rows) * plan.cellHeight;
+    const uint64_t width  = static_cast<uint64_t>(plan.columns) * plan.cellWidth +
+                            static_cast<uint64_t>(plan.columns - 1) * plan.spacing +
+                            2ull * plan.border;
+    const uint64_t height = static_cast<uint64_t>(plan.rows) * plan.cellHeight +
+                            static_cast<uint64_t>(plan.rows - 1) * plan.spacing +
+                            2ull * plan.border;
     if (width > kMaxCanvasDimension || height > kMaxCanvasDimension) {
         return fail("that sheet is longer than 16384 pixels on a side");
     }
@@ -235,6 +244,10 @@ std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frame
            ", \"height\": " + std::to_string(plan.cellHeight) + " },\n";
     out += "  \"size\": { \"width\": " + std::to_string(plan.width) +
            ", \"height\": " + std::to_string(plan.height) + " },\n";
+    if (plan.border > 0 || plan.spacing > 0) {
+        out += "  \"border\": " + std::to_string(plan.border) + ",\n";
+        out += "  \"spacing\": " + std::to_string(plan.spacing) + ",\n";
+    }
 
     // One entry per cell, in the order they are laid out -- so playing the
     // animation is stepping through this array, which is all most consumers
@@ -282,6 +295,78 @@ std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frame
     return out;
 }
 
+std::string asepriteManifest(const SheetPlan& plan, const std::vector<Frame>& frames,
+                             const std::vector<int>& steps, const std::vector<Cycle>& cycles,
+                             const std::string& imageName, uint32_t scale, bool hash) {
+    // Frames are named "<image stem> <cell>", as Aseprite names them after
+    // the file.
+    std::string stem = imageName;
+    const size_t dot = stem.find_last_of('.');
+    if (dot != std::string::npos && dot > 0) {
+        stem.erase(dot);
+    }
+    std::string out = "{ \"frames\": ";
+    out += hash ? "{\n" : "[\n";
+    for (size_t i = 0; i < steps.size(); ++i) {
+        const int index = steps[i];
+        const bool known = index >= 0 && static_cast<size_t>(index) < frames.size();
+        const ls::Vec2i at = plan.positionOf(static_cast<int>(i));
+        const std::string w = std::to_string(plan.cellWidth);
+        const std::string h = std::to_string(plan.cellHeight);
+        const std::string name = quoted(stem + " " + std::to_string(i));
+        out += hash ? "  " + name + ": {\n" : "  {\n   \"filename\": " + name + ",\n";
+        out += "   \"frame\": { \"x\": " + std::to_string(at.x) + ", \"y\": " +
+               std::to_string(at.y) + ", \"w\": " + w + ", \"h\": " + h + " },\n";
+        out += "   \"rotated\": false,\n   \"trimmed\": false,\n";
+        out += "   \"spriteSourceSize\": { \"x\": 0, \"y\": 0, \"w\": " + w + ", \"h\": " + h + " },\n";
+        out += "   \"sourceSize\": { \"w\": " + w + ", \"h\": " + h + " },\n";
+        out += "   \"duration\": " +
+               std::to_string(known ? frames[static_cast<size_t>(index)].durationMs
+                                    : kDefaultFrameMs) + "\n  }";
+        out += (i + 1 < steps.size()) ? ",\n" : "\n";
+    }
+    out += hash ? " },\n" : " ],\n";
+
+    // A tag is a run of cells, so a cycle becomes one where its steps appear
+    // as a run in the cell order -- which is every cycle when the sheet was
+    // made from it, and every forward run of frames when it was made from all.
+    std::string tags;
+    for (const Cycle& cycle : cycles) {
+        const size_t length = cycle.frames.size();
+        if (length == 0 || length > steps.size()) {
+            continue;
+        }
+        for (size_t start = 0; start + length <= steps.size(); ++start) {
+            if (!std::equal(cycle.frames.begin(), cycle.frames.end(), steps.begin() +
+                            static_cast<long long>(start))) {
+                continue;
+            }
+            if (!tags.empty()) {
+                tags += ",\n";
+            }
+            tags += "   { \"name\": " + quoted(cycle.name) + ", \"from\": " +
+                    std::to_string(start) + ", \"to\": " + std::to_string(start + length - 1) +
+                    ", \"direction\": " +
+                    quoted(cycle.loop == LoopMode::PingPong ? "pingpong" : "forward");
+            if (cycle.loop == LoopMode::Once) {
+                tags += ", \"repeat\": \"1\"";
+            }
+            tags += ", \"color\": \"#000000ff\" }";
+            break;
+        }
+    }
+    out += " \"meta\": {\n";
+    out += "  \"app\": \"Sprit's'fast\",\n  \"version\": \"sprits-sheet/1\",\n";
+    out += "  \"image\": " + quoted(imageName) + ",\n";
+    out += "  \"format\": \"RGBA8888\",\n";
+    out += "  \"size\": { \"w\": " + std::to_string(plan.width) + ", \"h\": " +
+           std::to_string(plan.height) + " },\n";
+    out += "  \"scale\": \"" + std::to_string(scale) + "\",\n";
+    out += "  \"frameTags\": [" + (tags.empty() ? std::string() : "\n" + tags + "\n  ") + "],\n";
+    out += "  \"layers\": [],\n  \"slices\": []\n }\n}\n";
+    return out;
+}
+
 bool exportSheetToPng(Document& doc, const std::vector<Frame>& frames,
                       const std::vector<int>& steps,
                       const std::vector<Cycle>& cycles,
@@ -325,7 +410,10 @@ bool exportSheetToPng(Document& doc, const std::vector<Frame>& frames,
     if (settings.writeManifest) {
         const std::string name = fileName(path);
         const std::string json =
-            sheetManifest(plan, frames, steps, cycles, name, settings.scale);
+            settings.manifestFormat == SheetManifestFormat::Fast
+                ? sheetManifest(plan, frames, steps, cycles, name, settings.scale)
+                : asepriteManifest(plan, frames, steps, cycles, name, settings.scale,
+                                   settings.manifestFormat == SheetManifestFormat::AsepriteHash);
         const std::vector<uint8_t> bytes(json.begin(), json.end());
 
         // Beside the image and named after it. A failure here is reported, but

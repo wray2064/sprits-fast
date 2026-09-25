@@ -82,6 +82,17 @@ bool parseBatch(const std::vector<std::string>& args, BatchJob* out, std::string
         } else if (arg == "--cycle") {
             if (!hasValue) { return fail("--cycle needs a cycle's name"); }
             job.cycle = args[++i];
+        } else if (arg == "--border" || arg == "--spacing") {
+            long long value = 0;
+            if (!hasValue || !number(args[++i], 0, 1024, &value)) {
+                return fail(arg + " takes a number of pixels");
+            }
+            (arg == "--border" ? job.border : job.spacing) = static_cast<uint32_t>(value);
+        } else if (arg == "--json") {
+            if (!hasValue || (args[i + 1] != "hash" && args[i + 1] != "array")) {
+                return fail("--json takes hash or array, for Aseprite's layouts");
+            }
+            job.json = args[++i];
         } else if (arg == "--sheet") {
             job.sheet = true;
         } else if (arg == "--sequence") {
@@ -161,6 +172,11 @@ int runBatch(const BatchJob& job, std::string* message) {
     } else if (png && job.sheet) {
         SheetSettings settings;
         settings.scale = job.scale;
+        settings.border = job.border;
+        settings.spacing = job.spacing;
+        settings.manifestFormat = job.json == "hash"  ? SheetManifestFormat::AsepriteHash
+                                : job.json == "array" ? SheetManifestFormat::AsepriteArray
+                                                      : SheetManifestFormat::Fast;
         written = exportSheetToPng(doc, frames, stepsToPlay(cycle), cycles, out, settings, &error);
         what = "a sheet of " + std::to_string(stepsToPlay(cycle).size()) + " cell(s)";
     } else if (png) {

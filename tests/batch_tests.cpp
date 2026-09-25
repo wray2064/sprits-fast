@@ -103,8 +103,17 @@ void testEachKindOfOutput() {
 
     job.output = "batch_sheet.png";
     job.sheet = true;
+    job.json = "hash";
+    job.spacing = 1;
     REQUIRE(runBatch(job, &message) == 0);
     CHECK(fileExists("batch_sheet.png") && fileExists("batch_sheet.json"));
+    std::vector<uint8_t> manifest;
+    REQUIRE(readFile("batch_sheet.json", manifest, &error));
+    const std::string text(manifest.begin(), manifest.end());
+    CHECK(text.find("\"frameTags\"") != std::string::npos &&
+          text.find("\"walk\"") != std::string::npos);
+    job.json.clear();
+    job.spacing = 0;
     deleteFile("batch_sheet.png");
     deleteFile("batch_sheet.json");
     job.sheet = false;

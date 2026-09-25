@@ -110,7 +110,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Import a sprite sheet (grid slicing) as frames
 - [x] Open `.aseprite`/`.ase` files **(the most important import for
       winning users over)**
-- [ ] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
+- [~] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
       cycle
 - [x] Command-line batch export (`sprits_fast --export`)
 - [x] Save a copy (`Document::saveCopy` already exists)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — sheet border and spacing; manifest in Aseprite's JSON (hash/array) with cycles as frame tags; batch --border/--spacing/--json.
 - 2026-09-25 — runs of frames: Shift+click selection, duplicate/delete/reverse/one hold, Play loops the run; playback speed.
 - 2026-09-25 — command-line batch export: --export in --to out.png/.gif/.lsprite/palette, with --scale, --cycle, --frame, --sheet, --sequence, --animated.
 - 2026-09-25 — New document window (size, background, preset), Save a copy, Paste as new layer.

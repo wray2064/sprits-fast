@@ -385,7 +385,8 @@ sprits_fast --export hero.aseprite --to hero.gif --scale 4 --cycle walk
 ```
 
 The output's extension says what is written: `.png` is one frame (`--frame N`),
-or with `--sheet` a sprite sheet and its manifest, `--sequence` a file per step,
+or with `--sheet` a sprite sheet and its manifest (`--border`, `--spacing`, and
+`--json hash` or `--json array` for Aseprite's JSON layouts), `--sequence` a file per step,
 `--animated` an animated PNG; `.gif` is the animation; `.lsprite` is the
 document itself, which is how an `.aseprite`, a PNG or a GIF is converted; and
 `.gpl`, `.hex`, `.pal` or `.act` is the palette. The input is anything Open
@@ -472,7 +473,11 @@ correctly by stepping through its cells in order.
 
 Beside the image goes a small `.json` naming every cell's position and hold, the
 frame names and the cycles, so a consumer has more than a picture. The format is
-versioned from its first line and is not stable yet.
+versioned from its first line and is not stable yet. It can be written instead
+in the **JSON Aseprite writes**, keyed or listed, which game-engine importers
+built for Aseprite already read: cycles become frame tags wherever a cycle is a
+run of cells. A border and spacing between cells keep a texture filter from
+bleeding one frame into the next.
 
 ### Shapes that stay shapes
 
