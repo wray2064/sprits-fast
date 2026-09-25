@@ -39,7 +39,7 @@ only output. A feature that bakes pixels to get done faster is not done.
       did), from the element list
 
 ### Selection
-- [~] Rectangle marquee, ellipse marquee, lasso, polygon lasso, magic wand
+- [x] Rectangle marquee, ellipse marquee, lasso, polygon lasso, magic wand
       (contiguous and global, tolerance), select by colour
       *(done: all but the polygon lasso; the wand's Whole canvas is select by
       colour)*
@@ -82,7 +82,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [ ] Curve tool (Bezier) **(better: stays editable, like shapes)**
 - [x] Text tool, with a bundled bitmap font
 - [ ] Custom brush from a selection
-- [ ] Stroke stabiliser / smoothing
+- [x] Stroke stabiliser / smoothing
 - [x] Hand tool and zoom tool (for pen users)
 - [x] Line tool drawn as pixels (Shift+click from the last point)
 
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — polygon lasso; stroke stabiliser (lazy mouse).
 - 2026-09-25 — text tool with Fast's own 5x7 face; text stays an element that can be retyped, resized and moved.
 - 2026-09-25 — outlined rectangles and ellipses, any width, switchable in the Element panel.
 - 2026-09-25 — indexed PNG export: the palette's slots in order are the table's first entries; menu and batch --indexed.

@@ -1715,6 +1715,7 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         }
         editor.stroking = true;
         editor.strokeWithBack = back;
+        editor.stabiliser.reset(canvas.pointerExact());
         // Shift+click: a straight line from where the last stroke ended.
         editor.lastPixel = ImGui::GetIO().KeyShift && editor.lastStrokeEnd.x >= 0
                                ? editor.lastStrokeEnd : pixel;
@@ -1723,6 +1724,18 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
 
     const ImGuiMouseButton button = editor.strokeWithBack ? ImGuiMouseButton_Right
                                                           : ImGuiMouseButton_Left;
+    // With the stabiliser on, the stroke follows the point on the string
+    // rather than the pointer itself -- only for the pencil and eraser, and
+    // only where the layer is not transformed, since the point is in canvas
+    // pixels.
+    if (editor.stroking && editor.brush.stabiliser > 0 && editor.tool != Tool::Spray &&
+        ImGui::IsMouseDown(button) && listTransforms(editor.doc, layer->layer).empty()) {
+        const ls::Vec2f held = editor.stabiliser.follow(
+            canvas.pointerExact(), static_cast<float>(editor.brush.stabiliser));
+        pixel = { static_cast<int32_t>(std::floor(held.x)),
+                  static_cast<int32_t>(std::floor(held.y)) };
+        overCanvas = true;
+    }
     if (editor.stroking && ImGui::IsMouseDown(button) && overCanvas) {
         // Interpolate: the mouse reports once a frame, not once a pixel. The
         // path is then laid down through the brush -- stamped at its size, or
@@ -1840,7 +1853,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::IsKeyPressed(ImGuiKey_M, false)) {
             editor.tool = io.KeyShift ? Tool::SelectEllipse : Tool::Select;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) { editor.tool = Tool::Lasso; }
+        if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) {
+            editor.tool = io.KeyShift ? Tool::PolygonLasso : Tool::Lasso;
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { editor.tool = Tool::Wand; }
         if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_H, false)) {
             turnSelection(editor, FloatTurn::FlipHorizontal);
@@ -2121,6 +2136,13 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawReferences(editor, canvas, draw, origin, zoom, false);
             drawSelectionOverlay(editor, draw, origin, zoom);
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
+            if (editor.stroking && editor.brush.stabiliser > 0) {
+                const ls::Vec2f a = editor.stabiliser.at();
+                const ls::Vec2f b = canvas.pointerExact();
+                draw->AddLine(ImVec2(origin.x + a.x * zoom, origin.y + a.y * zoom),
+                              ImVec2(origin.x + b.x * zoom, origin.y + b.y * zoom),
+                              IM_COL32(255, 255, 255, 120), 1.f);
+            }
             if (editor.drawingGradient) {
                 const ls::Vec2f a = editor.gradientSettings.gradientStart;
                 const ls::Vec2f b = editor.gradientSettings.gradientEnd;
@@ -3424,6 +3446,7 @@ int main(int argc, char** argv) {
             { "wand", Tool::Wand }, { "move", Tool::Move }, { "spray", Tool::Spray },
             { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
             { "gradient", Tool::Gradient }, { "text", Tool::Text },
+            { "polygon-lasso", Tool::PolygonLasso },
         };
         for (const Named& named : tools) {
             if (options.tool == named.name) {

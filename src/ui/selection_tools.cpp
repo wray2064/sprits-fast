@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 
 #include <cmath>
+#include <cstdlib>
 
 namespace fast {
 
@@ -289,6 +290,11 @@ ls::IntervalSet shapeFor(const Editor& editor, ls::Vec2i to) {
         case Tool::Select:        return rectangleMask(editor.selectAnchor, to);
         case Tool::SelectEllipse: return ellipseMask(editor.selectAnchor, to);
         case Tool::Lasso:         return lassoMask(editor.lassoPoints);
+        case Tool::PolygonLasso: {
+            std::vector<ls::Vec2i> corners = editor.lassoPoints;
+            corners.push_back(to);
+            return lassoMask(corners);
+        }
         default:                  return {};
     }
 }
@@ -305,11 +311,56 @@ uint32_t canvasHeight(Editor& editor) {
 
 } // namespace
 
+namespace {
+
+// Closes the polygon lasso: its corners become the shape, combined as the
+// first click's modifiers said.
+void closePolygon(Editor& editor) {
+    editor.drawingPolygon = false;
+    if (editor.lassoPoints.size() >= 3) {
+        const ls::IntervalSet shape = lassoMask(editor.lassoPoints);
+        if (editor.selectMode == SelectMode::Replace && !editor.selection.empty()) {
+            editor.selection.previous = editor.selection.mask;
+        }
+        editor.selection.mask = clipToCanvas(combine(editor.selection.mask, shape,
+                                                     editor.selectMode),
+                                             canvasWidth(editor), canvasHeight(editor));
+    }
+    editor.lassoPoints.clear();
+    editor.selectPreview.clear();
+}
+
+} // namespace
+
 bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
                           ls::Vec2i pixel) {
     const ImGuiIO& io = ImGui::GetIO();
     // Past the edge of the artwork a drag still knows where it is.
     const ls::Vec2i pointer = canvas.pointerPixel();
+
+    // The polygon lasso between clicks: each click a corner, the first corner
+    // or a double-click closes it, and the preview follows the pointer.
+    if (editor.drawingPolygon) {
+        if (editor.tool != Tool::PolygonLasso) {
+            editor.drawingPolygon = false;
+            editor.lassoPoints.clear();
+            editor.selectPreview.clear();
+            return false;
+        }
+        editor.selectPreview = shapeFor(editor, pointer);
+        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            closePolygon(editor);
+        } else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            const ls::Vec2i first = editor.lassoPoints.front();
+            if (editor.lassoPoints.size() >= 3 && std::abs(pointer.x - first.x) <= 1 &&
+                std::abs(pointer.y - first.y) <= 1) {
+                closePolygon(editor);
+            } else {
+                editor.lassoPoints.push_back(pointer);
+            }
+        }
+        return true;
+    }
 
     // A float being dragged goes on being dragged, whatever the tool.
     if (editor.draggingFloat) {
@@ -375,6 +426,12 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
                              " pixel(s) selected");
             return true;
         }
+        if (editor.tool == Tool::PolygonLasso) {
+            editor.drawingPolygon = true;
+            editor.lassoPoints.assign(1, pixel);
+            editor.selectPreview = shapeFor(editor, pixel);
+            return true;
+        }
         editor.selecting = true;
         editor.selectAnchor = pixel;
         editor.lassoPoints.assign(1, pixel);
@@ -426,6 +483,23 @@ bool handleSelectionInput(Editor& editor, CanvasView& canvas, bool overCanvas,
 
 bool handleSelectionKeys(Editor& editor) {
     const ImGuiIO& io = ImGui::GetIO();
+    if (editor.drawingPolygon) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
+            ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false)) {
+            closePolygon(editor);
+            return true;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            editor.drawingPolygon = false;
+            editor.lassoPoints.clear();
+            editor.selectPreview.clear();
+            return true;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Backspace, false) && editor.lassoPoints.size() > 1) {
+            editor.lassoPoints.pop_back();       // take the last corner back
+            return true;
+        }
+    }
     if (editor.floating.active()) {
         if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
             cancelFloating(editor);
@@ -515,7 +589,7 @@ void drawSelectionOverlay(const Editor& editor, ImDrawList* draw, ImVec2 origin,
         }
     };
     ants(shown, true);
-    if (editor.selecting) {
+    if (editor.selecting || editor.drawingPolygon) {
         ants(editor.selectPreview, false);
     }
 }

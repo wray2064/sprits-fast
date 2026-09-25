@@ -360,6 +360,21 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::PolygonLasso: {
+            // A dashed polygon, corners dotted.
+            const ImVec2 corners[] = { { 0.18f, 0.72f }, { 0.30f, 0.22f }, { 0.78f, 0.30f },
+                                       { 0.66f, 0.82f } };
+            const float weight = std::max(1.4f, size * 0.07f);
+            for (int i = 0; i < 4; ++i) {
+                const ImVec2 a = corners[i];
+                const ImVec2 b = corners[(i + 1) % 4];
+                const ImVec2 mid { (a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f };
+                draw->AddLine(s(a.x, a.y), s(mid.x, mid.y), colour, weight);
+                draw->AddCircleFilled(s(a.x, a.y), size * 0.06f, colour, 8);
+            }
+            break;
+        }
+
         case Icon::Wand: {
             // A stick and a star at its tip.
             const float weight = std::max(1.8f, size * 0.09f);

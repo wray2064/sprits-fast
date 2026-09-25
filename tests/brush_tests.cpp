@@ -174,7 +174,21 @@ void testSprayIsSeededAndInsideItsDisc() {
     CHECK(differs);
 }
 
+void testTheStabiliserLagsByItsString() {
+    Stabiliser lazy;
+    lazy.reset({ 0.f, 0.f });
+    // Within the string: nothing moves.
+    ls::Vec2f at = lazy.follow({ 3.f, 0.f }, 4.f);
+    CHECK(at.x == 0.f && at.y == 0.f);
+    // Past it: pulled to exactly the string's length behind.
+    at = lazy.follow({ 10.f, 0.f }, 4.f);
+    CHECK(at.x == 6.f && at.y == 0.f);
+    // A tremor back and forth inside the string does nothing.
+    CHECK(lazy.follow({ 8.f, 1.f }, 4.f).x == 6.f);
+}
+
 int main() {
+    testTheStabiliserLagsByItsString();
     testSprayIsSeededAndInsideItsDisc();
     testSymmetryMirrorsAboutTheAxis();
     testStamps();

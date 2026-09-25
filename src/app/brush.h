@@ -27,6 +27,20 @@ struct BrushSettings {
     bool round = false;          // round rather than square, which only shows from 3 up
     bool pixelPerfect = true;    // at size 1: drop the corner of every L
     bool pressureSize = false;   // a pen's pressure scales the size, 1 up to `size`
+    int  stabiliser = 0;         // the string's length in pixels; 0 is off
+};
+
+// The lazy mouse: the line follows a point dragged along behind the pointer
+// on a string, so a hand's tremor never reaches the canvas and a curve comes
+// out smooth. Nothing moves until the pointer is further than the string's
+// length away; then the point is pulled straight toward it.
+class Stabiliser {
+public:
+    void      reset(ls::Vec2f at) { at_ = at; }
+    ls::Vec2f follow(ls::Vec2f pointer, float length);
+    ls::Vec2f at() const { return at_; }
+private:
+    ls::Vec2f at_ { 0.f, 0.f };
 };
 
 // The pixels one stamp of the brush covers, centred on `at`. Even sizes sit

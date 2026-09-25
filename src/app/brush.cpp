@@ -105,6 +105,18 @@ std::vector<ls::Vec2i> sprayPixels(ls::Vec2i at, int radius, int count, uint32_t
     return out;
 }
 
+ls::Vec2f Stabiliser::follow(ls::Vec2f pointer, float length) {
+    const float dx = pointer.x - at_.x;
+    const float dy = pointer.y - at_.y;
+    const float distance = std::sqrt(dx * dx + dy * dy);
+    if (distance > length && distance > 0.f) {
+        const float pull = (distance - length) / distance;
+        at_.x += dx * pull;
+        at_.y += dy * pull;
+    }
+    return at_;
+}
+
 int pressuredSize(const BrushSettings& brush, float pressure) {
     if (!brush.pressureSize) {
         return brush.size;

@@ -97,6 +97,9 @@ void drawToolbar(Editor& editor) {
           "Drag an ellipse to select, with the same modifiers." },
         { Tool::Lasso, theme::Icon::Lasso, "Lasso", "Q",
           "Draw round what to select. The outline counts as well as the inside." },
+        { Tool::PolygonLasso, theme::Icon::PolygonLasso, "Polygon lasso", "Shift+Q",
+          "Click corner after corner; click the first corner, double-click or press "
+          "Enter to close it, Escape to let it go. The same modifiers as the marquee." },
         { Tool::Wand, theme::Icon::Wand, "Magic wand", "W",
           "Select what a fill would fill: the area of one colour, or every pixel "
           "of it with Whole canvas." },
@@ -375,6 +378,14 @@ void drawToolPanel(Editor& editor) {
                         "dropped, so a diagonal reads as a line rather than a "
                         "staircase with doubled steps. The last pixel lands when "
                         "the stroke ends.");
+        }
+        ImGui::SetNextItemWidth(-1.f);
+        ImGui::SliderInt("##stabiliser", &editor.brush.stabiliser, 0, 32,
+                         editor.brush.stabiliser == 0 ? "stabiliser off" : "stabiliser %d");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("The line follows a point pulled along behind the pointer "
+                              "on a string this long,\nso a shaky hand draws a smooth "
+                              "curve. 0 turns it off.");
         }
         if (editor.pen.seen) {
             ImGui::Checkbox("Pen pressure sets size", &editor.brush.pressureSize);

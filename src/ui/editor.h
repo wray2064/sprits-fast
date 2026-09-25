@@ -38,12 +38,12 @@ namespace fast {
 
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
                   Select, SelectEllipse, Lasso, Wand, Move,
-                  Spray, Contour, Hand, Zoom, Gradient, Text };
+                  Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso };
 
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
     return tool == Tool::Select || tool == Tool::SelectEllipse ||
-           tool == Tool::Lasso || tool == Tool::Wand;
+           tool == Tool::Lasso || tool == Tool::Wand || tool == Tool::PolygonLasso;
 }
 
 // The corner preview.
@@ -150,6 +150,10 @@ struct Editor {
     SelectMode       selectMode = SelectMode::Replace;
     ls::Vec2i        selectAnchor { 0, 0 };
     std::vector<ls::Vec2i> lassoPoints;
+    // A polygon lasso between clicks: its corners so far. Unlike a drag it is
+    // not busy -- the button is up between corners -- but the keys that close
+    // or abandon it come to it first.
+    bool                   drawingPolygon = false;
     ls::IntervalSet  selectPreview;             // the shape being dragged out
     BucketSettings   wand;                      // the magic wand's own settings
     PixelClip        pixelClip;
@@ -295,6 +299,7 @@ struct Editor {
     // it -- the pixel editor's oldest trick for a clean straight edge.
     ls::Vec2i        lastStrokeEnd { -1, -1 };
     PixelPerfect     pixelPerfect;       // the stroke in progress, filtered
+    Stabiliser       stabiliser;         // and smoothed, when the string is on
 
     // A stylus, as SDL reports it beside the mouse events it also sends. The
     // mouse path draws; this says how hard, and which end. The eraser end

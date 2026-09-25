@@ -287,6 +287,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     const float localY = (io.MousePos.y - origin.y) / zoom_;
     pointer_ = { static_cast<int32_t>(std::floor(localX)),
                  static_cast<int32_t>(std::floor(localY)) };
+    pointerExact_ = { localX, localY };
     const float w = static_cast<float>(textureWidth_);
     const float h = static_cast<float>(textureHeight_);
     const float spanX = tilesAcross() ? w : 0.f;
