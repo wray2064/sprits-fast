@@ -79,7 +79,10 @@ loops the run on its own.
 outlines that follow the artwork and can trace a whole figure across layers,
 non-destructive transforms, dithered fills with pattern anchoring, and palettes
 whose slots recolour every layer that uses them — several per document, with a
-one-key swap and a per-frame binding that gives colour cycling for nothing.
+one-key swap and a per-frame binding that gives colour cycling for nothing. A
+shade strip under the palette offers the current colour's ramp, hue-shifted
+the way pixel artists shade (darks toward blue, lights toward yellow), to paint
+from or keep as slots.
 
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
 saves, a prompt before anything discards unsaved work, autosave to a copy that

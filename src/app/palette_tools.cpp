@@ -44,6 +44,47 @@ float wrapHue(float h) {
 
 } // namespace
 
+namespace {
+
+// `from` turned toward `to` by at most `degrees`, the short way round.
+float turnToward(float from, float to, float degrees) {
+    float gap = std::fmod(to - from + 540.f, 360.f) - 180.f;      // -180..180
+    const float step = std::clamp(gap, -degrees, degrees);
+    return std::fmod(from + step + 360.f, 360.f);
+}
+
+} // namespace
+
+std::vector<ls::Color> shadesOf(ls::Color base, int steps, float hueShiftDegrees) {
+    steps = std::clamp(steps, 1, 16);
+    float h = 0.f;
+    float s = 0.f;
+    float l = 0.f;
+    rgbToHsl(base, &h, &s, &l);
+    const bool grey = s < 0.02f;
+    std::vector<ls::Color> out;
+    out.reserve(static_cast<size_t>(2 * steps + 1));
+    for (int i = -steps; i <= steps; ++i) {
+        if (i == 0) {
+            out.push_back(base);
+            continue;
+        }
+        const float t = static_cast<float>(i) / static_cast<float>(steps);   // -1..1
+        const float a = std::fabs(t);
+        // Most of the way to black or white at the ends, never all of it: the
+        // ends of a ramp are still the colour.
+        const float lightness = t < 0.f ? l - a * l * 0.8f : l + a * (1.f - l) * 0.8f;
+        float hue = h;
+        float saturation = s;
+        if (!grey) {
+            hue = turnToward(h, t < 0.f ? 240.f : 60.f, a * hueShiftDegrees);
+            saturation = std::clamp(t < 0.f ? s + a * 0.10f : s - a * 0.15f, 0.f, 1.f);
+        }
+        out.push_back(hslToRgb(hue, saturation, std::clamp(lightness, 0.f, 1.f), base.a));
+    }
+    return out;
+}
+
 void rgbToHsl(ls::Color c, float* h, float* s, float* l) {
     const float r = static_cast<float>(c.r) / 255.f;
     const float g = static_cast<float>(c.g) / 255.f;

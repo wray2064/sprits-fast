@@ -236,7 +236,38 @@ void testHslRoundTrips() {
 
 } // namespace
 
+void testShadesRampTheWayArtistsDo() {
+    const ls::Color base{ 200, 60, 60, 255 };          // a red
+    const std::vector<ls::Color> shades = shadesOf(base, 3);
+    REQUIRE(shades.size() == 7);
+    CHECK(shades[3].r == base.r && shades[3].g == base.g && shades[3].b == base.b);
+    float h0, s0, l0;
+    rgbToHsl(base, &h0, &s0, &l0);
+    float previous = -1.f;
+    for (const ls::Color& c : shades) {
+        float h, s, l;
+        rgbToHsl(c, &h, &s, &l);
+        CHECK(l > previous);                           // darkest first, strictly
+        previous = l;
+        CHECK(c.a == 255);
+    }
+    // The darkest has turned toward blue (red's hue 0 -> down past 360 toward
+    // 240), the lightest toward yellow (up toward 60).
+    float hd, sd, ld, hl, sl, ll;
+    rgbToHsl(shades.front(), &hd, &sd, &ld);
+    rgbToHsl(shades.back(), &hl, &sl, &ll);
+    CHECK(hd > 300.f && hd < 350.f);
+    CHECK(hl > 5.f && hl < 30.f);
+    CHECK(sl < s0);
+
+    // A grey stays grey.
+    for (const ls::Color& c : shadesOf(ls::Color{ 128, 128, 128, 200 }, 2)) {
+        CHECK(c.r == c.g && c.g == c.b && c.a == 200);
+    }
+}
+
 int main() {
+    testShadesRampTheWayArtistsDo();
     testSortingChangesNoPixel();
     testARampSitsBetweenItsEnds();
     testAdjustingIsAPaletteEditAndReturnsExactly();

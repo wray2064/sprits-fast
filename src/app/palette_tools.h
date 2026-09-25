@@ -63,6 +63,12 @@ struct PalettePreset {
 };
 const std::vector<PalettePreset>& palettePresets();
 
+// Shades of a colour the way pixel art ramps them: darker steps turn toward
+// blue and gain a little saturation, lighter ones turn toward yellow and give
+// some up, rather than only mixing in black and white. 2 * steps + 1 colours,
+// darkest first, the middle one `base` exactly. A grey stays grey.
+std::vector<ls::Color> shadesOf(ls::Color base, int steps, float hueShiftDegrees = 20.f);
+
 // HSL, for sorting and adjusting. Hue in degrees 0..360, the rest 0..1.
 void rgbToHsl(ls::Color c, float* h, float* s, float* l);
 ls::Color hslToRgb(float h, float s, float l, uint8_t alpha);

@@ -123,7 +123,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Add or insert a slot, and generate a ramp between two slots
 - [x] `.pal` (JASC) and `.act` load and save; a palette from a PNG
 - [x] Palette from the sprite's current colours
-- [ ] Colour-shade bar for the current colour
+- [x] Colour-shade bar for the current colour
 - [x] Hue-shift, saturate or lighten a whole palette **(better: a palette
       edit, so every frame follows it)**
 
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Shade strip under the palette: seven shades of the current colour, darks turned toward blue with a little more saturation and lights toward yellow with a little less (shadesOf, greys stay grey); click to paint (through a slot when the palette has that colour), right-click for the second colour; the strip holds still while picked from; one button keeps them as slots.
 - Sprite size window: any size in pixels or percent, proportion locked or not, nearest neighbour by pixel centres (resizeSprite); a doubling equals enlargeSprite exactly, shapes scale as geometry, off-canvas pixels are carried along, one undo step for every frame.
 - Snap to grid (View menu, Shift+S, rebindable): rectangle and ellipse marquees cover whole tiles (a drag inside one tile selects it), shape corners land on tile lines, and moving a selection steps its top-left corner from grid point to grid point. Uses the tile grid's size and offset; turning snap on shows the grid. Math in app/grid_snap with its own tests.
 - Layer properties window (row menu > Properties...): name, blend, opacity, visible, locked, a colour tag (eight presets or any colour) drawn as a stripe on the row, and notes shown on hovering it; tag and notes are layer metadata, saved with the file. A lock toggle now marks the document modified.

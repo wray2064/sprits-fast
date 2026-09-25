@@ -129,6 +129,11 @@ struct Editor {
     float         color[4]     = { 0.88f, 0.56f, 0.25f, 1.f };
     ls::ColorRole inkRole      = ls::kColorRoleNone;
     float         backColor[4] = { 0.10f, 0.10f, 0.12f, 1.f };
+    // The shade strip's colour: the current colour, except that picking one
+    // of its own shades does not move it, so the strip holds still while it
+    // is being picked from.
+    ls::Color shadeBase { 92, 140, 199, 255 };
+    ls::Color shadePicked { 0, 0, 0, 0 };
     ls::ColorRole backRole     = ls::kColorRoleNone;
 
     // The stroke in progress: which element gains the pixels and which lose

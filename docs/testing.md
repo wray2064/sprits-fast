@@ -388,6 +388,15 @@ sprits_fast --demo-stroke
    a rectangle, wider.
 3. Undo. *Expect:* one step back to the old size for every frame.
 
+### 4u. Shades
+
+1. Pick a saturated colour. *Expect:* under the palette, seven shades with it
+   in the middle, framed; the darks lean blue, the lights lean yellow.
+2. Click a dark shade. *Expect:* it becomes the colour and the strip does not
+   move. Pick a palette swatch. *Expect:* the strip re-centres on it.
+3. *Keep these shades as slots*. *Expect:* the new ones join the palette;
+   pressing it again adds none.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

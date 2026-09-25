@@ -934,6 +934,85 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     ImGui::Dummy(ImVec2(0.f, 6.f));
 
+    // Shades of the current colour, hue-shifted the way pixel art ramps are:
+    // click one to paint with it, or keep the lot as slots.
+    {
+        const ls::Color painting = toColor(editor.color);
+        const auto sameColour = [](ls::Color a, ls::Color b) {
+            return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+        };
+        if (!sameColour(painting, editor.shadePicked)) {
+            editor.shadeBase = painting;
+        }
+        const std::vector<ls::Color> shades = shadesOf(editor.shadeBase, 3);
+        const float gap = 2.f;
+        const float width = ImGui::GetContentRegionAvail().x;
+        const float swatch = std::floor((width - gap * static_cast<float>(shades.size() - 1)) /
+                                        static_cast<float>(shades.size()));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
+        for (size_t i = 0; i < shades.size(); ++i) {
+            const ls::Color& shade = shades[i];
+            ImGui::PushID(static_cast<int>(1000 + i));
+            if (i > 0) {
+                ImGui::SameLine();
+            }
+            const ImVec4 colour(shade.r / 255.f, shade.g / 255.f, shade.b / 255.f,
+                                shade.a / 255.f);
+            const bool isCurrent = sameColour(shade, painting);
+            if (isCurrent) {
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.f);
+                ImGui::PushStyleColor(ImGuiCol_Border, theme::palette().accent);
+            }
+            if (ImGui::ColorButton("##shade", colour, ImGuiColorEditFlags_NoTooltip,
+                                   ImVec2(swatch, 14.f))) {
+                Ink ink;
+                ink.colour = shade;
+                // A shade the palette already has paints through its slot.
+                for (const PaletteEntry& entry : entries) {
+                    if (sameColour(entry.color, shade)) {
+                        ink.role = entry.role;
+                        break;
+                    }
+                }
+                setForegroundInk(editor, ink);
+                editor.shadePicked = shade;
+            }
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+                Ink ink;
+                ink.colour = shade;
+                setBackgroundInk(editor, ink);
+            }
+            if (isCurrent) {
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("#%02X%02X%02X -- click to paint with it, right-click "
+                                  "for the right button", shade.r, shade.g, shade.b);
+            }
+            ImGui::PopID();
+        }
+        ImGui::PopStyleVar();
+        if (ImGui::SmallButton("Keep these shades as slots")) {
+            editor.doc.beginAction("Add shades");
+            int added = 0;
+            for (const ls::Color& shade : shades) {
+                bool have = false;
+                for (const PaletteEntry& entry : paletteEntries(editor.doc, shown)) {
+                    have = have || sameColour(entry.color, shade);
+                }
+                if (!have && addPaletteEntry(editor.doc, editor.sprite, shade) !=
+                                 ls::kColorRoleNone) {
+                    ++added;
+                }
+            }
+            editor.doc.endAction();
+            editor.say(added == 0 ? "The palette has every one of these already"
+                                  : "Added " + std::to_string(added) + " shade(s) to the palette");
+        }
+    }
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+
     if (ImGui::Button("Add current colour", ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("Add palette colour");
         const ls::ColorRole added =
