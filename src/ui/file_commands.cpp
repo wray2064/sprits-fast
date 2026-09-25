@@ -16,8 +16,9 @@ const SDL_DialogFileFilter kFilters[] = {
 // Open takes pictures as well as documents: a PNG or a GIF from another
 // editor opens as a document of its own, colours and frames and all.
 const SDL_DialogFileFilter kOpenFilters[] = {
-    { "Sprites and images", "lsprite;png;gif;jpg;jpeg;bmp" },
+    { "Sprites and images", "lsprite;aseprite;ase;png;gif;jpg;jpeg;bmp" },
     { "Sprit's sprite",     "lsprite" },
+    { "Aseprite",           "aseprite;ase" },
     { "Images",             "png;gif;jpg;jpeg;bmp" },
     { "All files",          "*" },
 };

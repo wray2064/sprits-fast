@@ -3,6 +3,7 @@
 
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/zlib.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
@@ -130,6 +131,22 @@ bool exportSpriteToPng(Document& doc, ls::SpriteId sprite, const std::string& pa
         return false;
     }
     return writeFileAtomic(withExtension(path, ".png"), png, error);
+}
+
+bool zlibDeflate(const std::vector<uint8_t>& data, std::vector<uint8_t>* out) {
+    if (out == nullptr || data.size() > 0x7FFFFFFF) {
+        return false;
+    }
+    int length = 0;
+    unsigned char* packed = stbi_zlib_compress(const_cast<unsigned char*>(data.data()),
+                                               static_cast<int>(data.size()), &length, 8);
+    if (packed == nullptr || length <= 0) {
+        STBIW_FREE(packed);
+        return false;
+    }
+    out->assign(packed, packed + length);
+    STBIW_FREE(packed);
+    return true;
 }
 
 } // namespace fast

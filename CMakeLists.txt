@@ -73,6 +73,7 @@ add_library(fast_core STATIC
     src/app/element.cpp
     src/app/brush.cpp
     src/app/image_io.cpp
+    src/app/import_aseprite.cpp
     src/app/import_image.cpp
     src/app/ink.cpp
     src/app/library.cpp
@@ -187,6 +188,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_palette_tools_tests tests/palette_tools_tests.cpp)
     target_link_libraries(fast_palette_tools_tests PRIVATE fast_core)
     add_test(NAME fast_palette_tools COMMAND fast_palette_tools_tests)
+
+    add_executable(fast_aseprite_tests tests/aseprite_tests.cpp)
+    target_link_libraries(fast_aseprite_tests PRIVATE fast_core)
+    add_test(NAME fast_aseprite COMMAND fast_aseprite_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

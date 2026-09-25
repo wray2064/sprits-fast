@@ -10,6 +10,7 @@
 // This is still the only part of Fast that knows what toolkit is in use.
 // Everything it does goes through fast_core, which knows nothing about windows.
 
+#include "app/import_aseprite.h"
 #include "app/import_image.h"
 #include "app/animation.h"
 #include "app/export_png.h"
@@ -81,6 +82,27 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
             return;
         }
         adoptImported(editor, canvas, report, fileName(path));
+        return;
+    }
+    // Aseprite's own files open as the work they are: layers, frames, tags
+    // as cycles, the palette as the palette.
+    if (looksLikeAsepriteName(path)) {
+        AsepriteReport report;
+        if (!openAsepriteAsDocument(editor.doc, path, &report, &error)) {
+            editor.say("Could not open " + fileName(path) + ": " + error);
+            return;
+        }
+        adoptImported(editor, canvas, report, fileName(path));
+        std::string said = "Opened " + fileName(path) + ": " + std::to_string(report.frames) +
+                           " frame(s), " + std::to_string(report.layers) + " layer(s), " +
+                           std::to_string(report.tags) + " tag(s) as cycles";
+        if (report.approximatedBlends) {
+            said += "; some blend modes are the nearest Fast has";
+        }
+        if (report.skippedTilemaps) {
+            said += "; tilemap layers were left out";
+        }
+        editor.say(said);
         return;
     }
     if (!editor.doc.open(path, &error)) {

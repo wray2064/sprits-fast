@@ -108,7 +108,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [~] Export animated PNG and WebP
 - [x] Export frames as a numbered PNG sequence
 - [x] Import a sprite sheet (grid slicing) as frames
-- [ ] Open `.aseprite`/`.ase` files **(the most important import for
+- [x] Open `.aseprite`/`.ase` files **(the most important import for
       winning users over)**
 - [ ] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
       cycle
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — .aseprite/.ase open as work: layers, groups, frames, holds, tags as cycles, palette; indices become slots.
 - 2026-09-25 — merge down moves elements into the layer below, folding opacity and blend; refuses what would change the picture.
 - 2026-09-25 — history panel, onion skin settings (range, cycle neighbours, wrap, tints), Alt+click solo.
 - 2026-09-25 — palette: drag to reorder and sort (engine palette order), ramps, adjust hue/sat/light, colours to slots, presets, .pal/.act/image; RGB/HSV/hex fields; palette gets its own panel.

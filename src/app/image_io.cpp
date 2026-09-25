@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/image_io.h"
+#include "app/zlib.h"
 
 #include "app/export_png.h"
 #include "app/file_io.h"
@@ -311,6 +312,23 @@ bool looksLikeImageName(const std::string& utf8Path) {
         }
     }
     return false;
+}
+
+bool zlibInflate(const uint8_t* data, size_t size, size_t expected, std::vector<uint8_t>* out) {
+    if (out == nullptr || data == nullptr || size == 0 || size > 0x7FFFFFFF ||
+        expected == 0 || expected > 0x7FFFFFFF) {
+        return false;
+    }
+    out->assign(expected, 0);
+    const int written = stbi_zlib_decode_buffer(reinterpret_cast<char*>(out->data()),
+                                                static_cast<int>(expected),
+                                                reinterpret_cast<const char*>(data),
+                                                static_cast<int>(size));
+    if (written != static_cast<int>(expected)) {
+        out->clear();
+        return false;
+    }
+    return true;
 }
 
 } // namespace fast

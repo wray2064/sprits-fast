@@ -312,6 +312,17 @@ somewhere else is recolour it by editing a swatch. A picture with more colours
 keeps them as colours of their own; one with thousands is a photograph, and is
 refused with the suggestion to import it as a reference instead.
 
+**Aseprite files open as the work they are.** A `.aseprite` or `.ase` file comes
+in with its layers -- names, opacity, visibility, blend, groups -- its frames
+and their holds, its tags as cycles in the right direction, and its palette as
+the palette. Raw, compressed and linked cels all land where they belong. In an
+indexed sprite every index becomes its slot, so two indices that happen to share
+a colour stay two slots, and recolouring a swatch recolours what Aseprite
+painted with that index. What does not carry over is said rather than dropped:
+tilemap layers, and the handful of blend modes the engine does not have, which
+come in as the nearest one it does. Read from Aseprite's published format
+description, and treated as untrusted input like every other file.
+
 An animated GIF opens as frames, each held for as long as the GIF said. **File
 -> Import sprite sheet** slices one image on a grid into frames, guessing the
 grid from the sheet's shape and saying how many frames each guess makes before
