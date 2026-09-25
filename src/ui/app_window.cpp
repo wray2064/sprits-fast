@@ -489,6 +489,20 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "frame draws.");
         }
         ImGui::Separator();
+        if (ImGui::MenuItem("Sprite size...")) {
+            auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+            if (size.ok()) {
+                editor.spriteDialog.width = size.value.x;
+                editor.spriteDialog.height = size.value.y;
+                editor.spriteDialog.percentX = 100.f;
+                editor.spriteDialog.percentY = 100.f;
+            }
+            editor.spriteDialog.open = true;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Scale everything to any size, nearest neighbour: every "
+                              "frame, every layer, shapes as shapes.");
+        }
         if (ImGui::BeginMenu("Enlarge")) {
             for (uint32_t factor : { 2u, 3u, 4u, 8u }) {
                 const std::string label = std::to_string(factor) + "x";
@@ -715,6 +729,113 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         changeCanvas(editor, canvas, [&](std::string* error) {
             return resizeCanvas(editor.doc, w, h, anchor, error);
         }, "Canvas resized");
+        dialog.open = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        dialog.open = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+// Scaling the whole sprite to any size, by pixels or by percent, with the
+// proportion kept unless unlocked.
+void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
+    Editor::SpriteSizeDialog& dialog = editor.spriteDialog;
+    if (!dialog.open) {
+        return;
+    }
+    ImGui::OpenPopup("Sprite size");
+    if (!ImGui::BeginPopupModal("Sprite size", &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    if (size.fail() || size.value.x <= 0 || size.value.y <= 0) {
+        ImGui::EndPopup();
+        return;
+    }
+    const float w0 = static_cast<float>(size.value.x);
+    const float h0 = static_cast<float>(size.value.y);
+    ImGui::TextDisabled("Now %d x %d", size.value.x, size.value.y);
+    ImGui::Checkbox("Keep the proportion", &dialog.lockRatio);
+
+    // Pixels and percent are two views of one choice: editing either sets the
+    // other, and a locked proportion carries each change across.
+    const auto fromPixels = [&](bool widthChanged) {
+        if (dialog.lockRatio) {
+            if (widthChanged) {
+                dialog.height = std::max(1, static_cast<int>(std::lround(dialog.width * h0 / w0)));
+            } else {
+                dialog.width = std::max(1, static_cast<int>(std::lround(dialog.height * w0 / h0)));
+            }
+        }
+        dialog.percentX = static_cast<float>(dialog.width) * 100.f / w0;
+        dialog.percentY = static_cast<float>(dialog.height) * 100.f / h0;
+    };
+    ImGui::SetNextItemWidth(120.f);
+    if (ImGui::InputInt("width", &dialog.width)) {
+        dialog.width = std::clamp(dialog.width, 1, static_cast<int>(kMaxCanvasDimension));
+        fromPixels(true);
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.f);
+    if (ImGui::InputInt("height", &dialog.height)) {
+        dialog.height = std::clamp(dialog.height, 1, static_cast<int>(kMaxCanvasDimension));
+        fromPixels(false);
+    }
+    const auto fromPercent = [&](bool across) {
+        if (dialog.lockRatio) {
+            if (across) {
+                dialog.percentY = dialog.percentX;
+            } else {
+                dialog.percentX = dialog.percentY;
+            }
+        }
+        dialog.width = std::clamp(static_cast<int>(std::lround(w0 * dialog.percentX / 100.f)), 1,
+                                  static_cast<int>(kMaxCanvasDimension));
+        dialog.height = std::clamp(static_cast<int>(std::lround(h0 * dialog.percentY / 100.f)), 1,
+                                   static_cast<int>(kMaxCanvasDimension));
+    };
+    ImGui::SetNextItemWidth(120.f);
+    if (ImGui::InputFloat("% across", &dialog.percentX, 25.f, 100.f, "%.1f")) {
+        dialog.percentX = std::clamp(dialog.percentX, 1.f, 10000.f);
+        fromPercent(true);
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.f);
+    if (ImGui::InputFloat("% down", &dialog.percentY, 25.f, 100.f, "%.1f")) {
+        dialog.percentY = std::clamp(dialog.percentY, 1.f, 10000.f);
+        fromPercent(false);
+    }
+    for (int percent : { 50, 200, 300, 400 }) {
+        const std::string label = std::to_string(percent) + "%";
+        if (ImGui::SmallButton(label.c_str())) {
+            dialog.percentX = static_cast<float>(percent);
+            dialog.percentY = static_cast<float>(percent);
+            fromPercent(true);
+        }
+        ImGui::SameLine();
+    }
+    ImGui::NewLine();
+
+    const bool whole = dialog.width % size.value.x == 0 && dialog.height % size.value.y == 0 &&
+                       dialog.width / size.value.x == dialog.height / size.value.y;
+    ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+    ImGui::TextWrapped(whole ? "A whole-number enlargement: every pixel becomes a block, "
+                               "exactly, and reducing again gives it back."
+                             : "Nearest neighbour: some rows and columns are doubled or "
+                               "dropped. Shapes are scaled as shapes, not as pixels.");
+    ImGui::PopStyleColor();
+
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    if (ImGui::Button("Resize", ImVec2(110.f, 0.f))) {
+        const uint32_t w = static_cast<uint32_t>(dialog.width);
+        const uint32_t h = static_cast<uint32_t>(dialog.height);
+        changeCanvas(editor, canvas, [&](std::string* error) {
+            return resizeSprite(editor.doc, w, h, error);
+        }, "Resized to " + std::to_string(w) + " x " + std::to_string(h));
         dialog.open = false;
         ImGui::CloseCurrentPopup();
     }
@@ -2486,6 +2607,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawSheetPanel(editor, window);
     drawAnimationPanel(editor, window);
     drawCanvasSizePanel(editor, canvas);
+    drawSpriteSizePanel(editor, canvas);
     drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);

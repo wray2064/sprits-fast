@@ -401,6 +401,69 @@ bool enlargeSprite(Document& doc, uint32_t factor, std::string* error) {
                  static_cast<int64_t>(size.y) * k, error);
 }
 
+namespace {
+
+int64_t floorDiv(int64_t a, int64_t b) {
+    return a >= 0 ? a / b : -((-a + b - 1) / b);
+}
+
+// The first new pixel whose centre falls at or past the old boundary `x`,
+// scaling `from` pixels to `to`: the least X with (X + 0.5) * from / to >= x.
+int32_t firstCentreAt(int64_t x, int64_t from, int64_t to) {
+    return static_cast<int32_t>(-floorDiv(-(2 * x * to - from), 2 * from));
+}
+
+} // namespace
+
+bool resizeSprite(Document& doc, uint32_t width, uint32_t height, std::string* error) {
+    const ls::Vec2i size = canvasSize(doc);
+    if (size.x <= 0 || size.y <= 0) {
+        if (error) { *error = "there is no canvas to resize"; }
+        return false;
+    }
+    const int64_t sw = size.x;
+    const int64_t sh = size.y;
+    const int64_t dw = width;
+    const int64_t dh = height;
+    if (dw == sw && dh == sh) {
+        if (error) { *error = "that is the size it already is"; }
+        return false;
+    }
+    Remap remap;
+    const float sx = static_cast<float>(dw) / static_cast<float>(sw);
+    const float sy = static_cast<float>(dh) / static_cast<float>(sh);
+    remap.lengthScale = std::sqrt(sx * sy);
+    // Row by row: an old row becomes the new rows whose centres fall in it,
+    // and each run in it becomes the new columns whose centres fall in it.
+    remap.pixels = [sw, sh, dw, dh](const ls::IntervalSet& set) {
+        ls::IntervalSet out;
+        const std::vector<ls::Interval>& runs = set.intervals;
+        size_t i = 0;
+        while (i < runs.size()) {
+            const int32_t y = runs[i].y;
+            size_t j = i;
+            while (j < runs.size() && runs[j].y == y) {
+                ++j;
+            }
+            const int32_t y0 = firstCentreAt(y, sh, dh);
+            const int32_t y1 = firstCentreAt(int64_t(y) + 1, sh, dh);
+            for (int32_t row = y0; row < y1; ++row) {
+                for (size_t k = i; k < j; ++k) {
+                    const int32_t x0 = firstCentreAt(runs[k].x0, sw, dw);
+                    const int32_t x1 = firstCentreAt(runs[k].x1, sw, dw);
+                    if (x0 < x1) {
+                        out.intervals.push_back({ row, x0, x1 });
+                    }
+                }
+            }
+            i = j;
+        }
+        return ls::geom::normalize(std::move(out));
+    };
+    remap.point = [sx, sy](ls::Vec2f p) { return ls::Vec2f{ p.x * sx, p.y * sy }; };
+    return apply(doc, "Resize sprite", remap, dw, dh, error);
+}
+
 bool reduceSprite(Document& doc, uint32_t factor, std::string* error) {
     if (factor < 2) {
         if (error) { *error = "reducing is by two or more"; }

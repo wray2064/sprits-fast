@@ -266,6 +266,17 @@ struct Editor {
         CanvasAnchor anchor = CanvasAnchor::Centre;
     } canvasDialog;
 
+    // The sprite size window: the size being chosen, in pixels or percent,
+    // and whether the two sides keep their proportion.
+    struct SpriteSizeDialog {
+        bool  open = false;
+        int   width = 32;
+        int   height = 32;
+        float percentX = 100.f;
+        float percentY = 100.f;
+        bool  lockRatio = true;
+    } spriteDialog;
+
     // The animation export, and whether its window is up. Like the sheet's,
     // kept here so the choices survive the window closing.
     bool              animationPanelOpen = false;

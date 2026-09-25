@@ -48,8 +48,9 @@ into Fast as a float, one element per colour, and a colour the palette has
 exactly comes in as that slot, so it recolours with the palette straight away.
 
 **The canvas** — canvas size with an anchor, crop to the selection, trim to
-what is drawn, enlarge or reduce by a whole number, and turn or flip the whole
-canvas -- every frame at once, one undo step each.
+what is drawn, enlarge or reduce by a whole number, resize to any size or
+percentage by nearest neighbour (shapes scaled as shapes), and turn or flip the
+whole canvas -- every frame at once, one undo step each.
 
 **Your keys, your defaults** — every shortcut is a named command, and
 *Edit > Preferences* rebinds any of them by pressing the new keys, up to four

@@ -57,6 +57,13 @@ bool enlargeSprite(Document& doc, uint32_t factor, std::string* error);
 // the only operation here that is.
 bool reduceSprite(Document& doc, uint32_t factor, std::string* error);
 
+// Resizes to any size, nearest neighbour: each new pixel takes the old pixel
+// its centre falls in. Growing by the same whole number both ways is
+// enlargeSprite, exactly; anything else drops or doubles some rows and
+// columns, which is what a nearest-neighbour resize is. Shapes are scaled as
+// shapes. Pixels off the canvas are carried along like the rest.
+bool resizeSprite(Document& doc, uint32_t width, uint32_t height, std::string* error);
+
 // The smallest rectangle holding everything any frame draws, or an empty one
 // for a document that draws nothing.
 ls::Rect2i contentBounds(Document& doc);

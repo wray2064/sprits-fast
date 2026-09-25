@@ -185,6 +185,33 @@ void testEnlargeIsExactAndReduceUndoesIt() {
     CHECK(picture(doc, doc.sprite()).pixels == before);
 }
 
+void testResizeToAnySize() {
+    Document doc;
+    PaintLayer layer;
+    REQUIRE(build(doc, &layer));
+    const std::vector<uint8_t> before = picture(doc, doc.sprite()).pixels;
+    std::string error;
+    // 5 x 3 to 10 x 6 is a doubling: the same as enlarging, exactly.
+    REQUIRE(resizeSprite(doc, 10, 6, &error));
+    CHECK(size(doc).x == 10 && size(doc).y == 6);
+    CHECK(same(at(doc, 3, 1), kRed) && at(doc, 4, 0).a == 0);
+    CHECK(same(at(doc, 9, 5), kBlue) && same(at(doc, 8, 4), kBlue));
+    // And back: every old pixel's centre lands on one of its block.
+    REQUIRE(resizeSprite(doc, 5, 3, &error));
+    CHECK(picture(doc, doc.sprite()).pixels == before);
+
+    // 160% across only: 5 x 3 becomes 8 x 3, every new pixel an old one's
+    // colour. New columns' centres, in old pixels: 0.31, 0.94, 1.56, 2.19,
+    // 2.81, 3.44, 4.06, 4.69 -- so red (old 0 and 1) covers 0..2, and blue
+    // (old 4) covers 6 and 7.
+    REQUIRE(resizeSprite(doc, 8, 3, &error));
+    CHECK(same(at(doc, 0, 0), kRed) && same(at(doc, 1, 0), kRed) && same(at(doc, 2, 0), kRed));
+    CHECK(at(doc, 3, 0).a == 0);
+    CHECK(same(at(doc, 6, 2), kBlue) && same(at(doc, 7, 2), kBlue) && at(doc, 5, 2).a == 0);
+    CHECK(!resizeSprite(doc, 8, 3, &error));      // no change is refused
+    CHECK(!resizeSprite(doc, 0, 3, &error));
+}
+
 void testShapesStayShapes() {
     Document doc;
     PaintLayer layer;
@@ -238,6 +265,7 @@ int main() {
     testCropAndTrim();
     testEnlargeIsExactAndReduceUndoesIt();
     testShapesStayShapes();
+    testResizeToAnySize();
     testEveryFrameAndOneUndo();
     if (failures == 0) {
         std::printf("canvas: all passed\n");

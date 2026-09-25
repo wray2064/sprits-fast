@@ -379,6 +379,15 @@ sprits_fast --demo-stroke
 5. Set the tile grid to 10 x 6 with offset 3, 1 and repeat. *Expect:* the
    same, on the new lines.
 
+### 4t. Sprite size
+
+1. *Sprite > Sprite size...*, 200%. *Expect:* 64 x 64 from 32 x 32, the
+   note says it is exact; reducing to 1/2 gives the original back.
+2. Unlock the proportion, width 150%, height 100%. *Expect:* every pixel is
+   one of the old colours; some columns doubled. A rectangle shape is still
+   a rectangle, wider.
+3. Undo. *Expect:* one step back to the old size for every frame.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
