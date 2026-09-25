@@ -105,7 +105,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Open a PNG/BMP/GIF/JPG as a new document (as pixels in inks by colour)
 - [x] Open an animated GIF as frames
 - [x] Export animated GIF
-- [~] Export animated PNG and WebP
+- [x] Export animated PNG and WebP
 - [x] Export frames as a numbered PNG sequence
 - [x] Import a sprite sheet (grid slicing) as frames
 - [x] Open `.aseprite`/`.ase` files **(the most important import for
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Lossless WebP, Fast's own VP8L encoder (app/webp): colour-indexing transform with 1/2/4/8-bit packing up to 256 colours, ARGB beyond; back-references to the previous pixel and the pixel above; canonical prefix codes with simple codes for tiny alphabets. Animated WebP (VP8X/ANIM/ANMF, no blending) in the animation export and batch (.webp, --animated); single frames through batch. Verified pixel-exact against libwebp via Pillow on 11 synthetic cases (1..5000 colours, partial alpha, 5000x2) and a GIF->lsprite->WebP round trip.
 - Sheet trim (panel checkbox, batch --trim): every cell cut to the union of what the frames draw, so cells still line up; Fast's manifest gains trim and source, Aseprite's JSON trimmed/spriteSourceSize/sourceSize. A sheet of nothing keeps the whole canvas. Checked end to end through batch export.
 - Light theme (Preferences > Look): paper and a darker amber; switching re-applies the style live, and a chequer and grid still at the old theme's defaults follow to the new one's (canvasDefaultsFor), while chosen colours stay. Saved as view.theme; --light for captures.
 - Isometric tile grid: View > Tile grid > Isometric draws 2:1 diamonds (width across, height down, with the offset); --isometric for captures.

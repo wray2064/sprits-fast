@@ -17,6 +17,7 @@
 //              file per step;
 //              with --animated an animated PNG
 //   .gif       the animation
+//   .webp      one frame, lossless; with --animated the animation
 //   .lsprite   the document itself -- which is how an .aseprite, a PNG or a GIF
 //              is converted into one
 //   .gpl .hex .pal .act   the palette

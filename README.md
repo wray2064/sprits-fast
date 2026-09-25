@@ -91,7 +91,11 @@ is never the file you are editing, and files that open from the command line.
 PNGs, GIFs (every frame), JPEGs and BMPs open as documents, their colours
 becoming the palette; a sprite sheet slices into frames. Out: PNG at
 whole-number scales, sprite sheets with a description beside them, and
-animations as GIF, animated PNG or a numbered PNG sequence.
+animations as GIF, animated PNG, lossless animated **WebP** or a numbered PNG
+sequence. The WebP encoder is Fast's own, written from the format's
+specification: a palette transform with packed indices for sprites of 256
+colours or fewer, and copies from the pixel before and the pixel above, which
+is where pixel art repeats itself.
 
 **Working from something** — import reference images that travel inside the
 document, placed over or under the canvas at any opacity; and a library of two
@@ -420,7 +424,8 @@ sprits_fast --export hero.aseprite --to hero.gif --scale 4 --cycle walk
 The output's extension says what is written: `.png` is one frame (`--frame N`),
 or with `--sheet` a sprite sheet and its manifest (`--border`, `--spacing`, `--trim`, and
 `--json hash` or `--json array` for Aseprite's JSON layouts), `--sequence` a file per step,
-`--animated` an animated PNG; `.gif` is the animation; `.lsprite` is the
+`--animated` an animated PNG; `.gif` is the animation; `.webp` is one frame,
+or with `--animated` the animation, lossless; `.lsprite` is the
 document itself, which is how an `.aseprite`, a PNG or a GIF is converted; and
 `.gpl`, `.hex`, `.pal` or `.act` is the palette. The input is anything Open
 takes. The exit code is 0 for success, and a failure says why.

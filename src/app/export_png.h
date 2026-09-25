@@ -64,6 +64,11 @@ bool exportSpriteToIndexedPng(Document& doc, ls::SpriteId sprite, const std::str
 // would be too large to allocate.
 ls::RasterBuffer magnifyRaster(const ls::RasterBuffer& source, uint32_t scale);
 
+// Compiles `sprite` at export quality, magnified by a whole number: the
+// picture every single-frame export writes, in whatever format.
+bool compileForExport(Document& doc, ls::SpriteId sprite, uint32_t scale,
+                      ls::RasterBuffer* out, std::string* error);
+
 // Compiles `sprite` at export quality and writes a PNG.
 //
 // Written atomically, like every other file Fast produces: a failure partway

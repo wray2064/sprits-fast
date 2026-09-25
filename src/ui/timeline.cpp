@@ -775,10 +775,10 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
     }
 
     theme::sectionHeader("FORMAT");
-    const char* formats[] = { "GIF", "Animated PNG", "PNG sequence" };
+    const char* formats[] = { "GIF", "Animated PNG", "PNG sequence", "WebP" };
     int format = static_cast<int>(settings.format);
     ImGui::SetNextItemWidth(160.f);
-    if (ImGui::Combo("##format", &format, formats, 3)) {
+    if (ImGui::Combo("##format", &format, formats, 4)) {
         settings.format = static_cast<AnimationFormat>(format);
     }
     ImGui::SameLine();
@@ -797,6 +797,9 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
         : settings.format == AnimationFormat::Apng
             ? "Every colour and every level of transparency, exactly. Browsers "
               "and most viewers play it; some older tools show the first frame."
+        : settings.format == AnimationFormat::Webp
+            ? "Lossless WebP: every colour and level of transparency, exactly, "
+              "and usually smaller than the PNG. Browsers and chat apps play it."
             : "One numbered PNG per step, for tools that assemble their own.");
     ImGui::PopStyleColor();
 

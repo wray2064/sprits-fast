@@ -421,6 +421,17 @@ sprits_fast --demo-stroke
 2. Batch: `sprits_fast --export in.lsprite --to out.png --sheet --trim`.
    *Expect:* the same.
 
+### 4x. WebP
+
+1. *Export animation*, format WebP, 2x. Open the file in a browser.
+   *Expect:* it plays with the holds and loops; transparency is kept.
+2. Batch: `sprits_fast --export in.lsprite --to out.webp --frame 2` and
+   `... --to anim.webp --animated`. *Expect:* one frame, and the animation.
+3. The encoder's own check, against libwebp: `fast_webp_tests --write DIR`
+   writes pictures of every kind beside their raw pixels; decoding each with
+   any WebP decoder (Pillow's is libwebp) must give the raw pixels back
+   exactly.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

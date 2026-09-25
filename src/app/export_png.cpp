@@ -105,6 +105,39 @@ bool encodeRasterToPng(const ls::RasterBuffer& raster, const ExportSettings& set
     return true;
 }
 
+bool compileForExport(Document& doc, ls::SpriteId sprite, uint32_t scale,
+                      ls::RasterBuffer* out, std::string* error) {
+    auto size = doc.engine().getCanvasSize(doc.id());
+    if (out == nullptr || size.fail() || size.value.x <= 0 || size.value.y <= 0) {
+        if (error) { *error = "this document has no canvas"; }
+        return false;
+    }
+    if (scale == 0 || scale > ExportSettings::kMaxScale) {
+        if (error) { *error = "that scale is outside 1x to 64x"; }
+        return false;
+    }
+    auto compiled = doc.engine().compileSprite(
+        sprite, compileProfile(ls::CompileProfileType::Export, static_cast<uint32_t>(size.value.x),
+                               static_cast<uint32_t>(size.value.y)));
+    if (compiled.fail()) {
+        if (error) {
+            *error = "the sprite could not be compiled: " +
+                     std::string(ls::lsErrorString(compiled.error));
+        }
+        return false;
+    }
+    if (scale == 1) {
+        *out = std::move(compiled.value.raster);
+        return true;
+    }
+    *out = magnifyRaster(compiled.value.raster, scale);
+    if (out->empty()) {
+        if (error) { *error = "that is too large to write at that scale"; }
+        return false;
+    }
+    return true;
+}
+
 bool exportSpriteToPng(Document& doc, ls::SpriteId sprite, const std::string& path,
                        const ExportSettings& settings, std::string* error) {
     auto size = doc.engine().getCanvasSize(doc.id());

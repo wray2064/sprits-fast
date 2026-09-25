@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/export_anim.h"
+#include "app/webp.h"
 
 #include "app/export_png.h"
 #include "app/file_io.h"
@@ -436,6 +437,7 @@ const char* animationExtension(AnimationFormat format) {
         case AnimationFormat::Gif:         return ".gif";
         case AnimationFormat::Apng:        return ".png";
         case AnimationFormat::PngSequence: return ".png";
+        case AnimationFormat::Webp:        return ".webp";
     }
     return ".gif";
 }
@@ -516,6 +518,8 @@ bool exportAnimation(Document& doc, const std::vector<Frame>& frames, const Cycl
     std::vector<uint8_t> bytes;
     const bool encoded = settings.format == AnimationFormat::Gif
         ? encodeGif(rasters, holds, loop, &bytes, &said, error)
+        : settings.format == AnimationFormat::Webp
+        ? encodeAnimatedWebp(rasters, holds, loop, &bytes, error)
         : encodeApng(rasters, holds, loop, &bytes, error);
     if (!encoded) {
         return false;

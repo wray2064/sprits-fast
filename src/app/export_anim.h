@@ -17,6 +17,9 @@
 //                 would be if it were designed now. Browsers play it.
 //   PNG sequence  one numbered file per step, for tools that assemble their
 //                 own.
+//   WebP          lossless and animated: every colour and level of alpha, like
+//                 the APNG, usually smaller, and what the web and chat apps
+//                 prefer now. Its encoder is app/webp.
 //
 // Every frame is compiled at export quality and scaled by whole-number pixel
 // duplication, exactly as a single-frame PNG export is, so a frame of the
@@ -35,7 +38,7 @@
 
 namespace fast {
 
-enum class AnimationFormat { Gif, Apng, PngSequence };
+enum class AnimationFormat { Gif, Apng, PngSequence, Webp };
 
 struct AnimationSettings {
     AnimationFormat format = AnimationFormat::Gif;

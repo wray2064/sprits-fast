@@ -11,6 +11,7 @@
 #include "app/image_io.h"
 #include "app/import_aseprite.h"
 #include "app/import_image.h"
+#include "app/webp.h"
 #include "app/palette_io.h"
 #include "app/sheet.h"
 
@@ -154,6 +155,7 @@ int runBatch(const BatchJob& job, std::string* message) {
 
     const std::string& out = job.output;
     const bool png = hasExtension(out, ".png");
+    const bool webp = hasExtension(out, ".webp");
     bool written = false;
     std::string what;
 
@@ -164,12 +166,14 @@ int runBatch(const BatchJob& job, std::string* message) {
                hasExtension(out, ".pal") || hasExtension(out, ".act")) {
         written = exportPaletteFile(doc, doc.sprite(), out, &error);
         what = "the palette";
-    } else if (hasExtension(out, ".gif") || (png && (job.animated || job.sequence))) {
+    } else if (hasExtension(out, ".gif") || (png && (job.animated || job.sequence)) ||
+               (webp && job.animated)) {
         AnimationSettings settings;
         settings.scale = job.scale;
         settings.format = hasExtension(out, ".gif") ? AnimationFormat::Gif
-                        : job.sequence ? AnimationFormat::PngSequence
-                                       : AnimationFormat::Apng;
+                        : webp                      ? AnimationFormat::Webp
+                        : job.sequence              ? AnimationFormat::PngSequence
+                                                    : AnimationFormat::Apng;
         AnimationReport report;
         written = exportAnimation(doc, frames, cycle, out, settings, &report, &error);
         what = std::to_string(report.frames) + " frame(s)";
@@ -196,8 +200,19 @@ int runBatch(const BatchJob& job, std::string* message) {
             ? exportSpriteToIndexedPng(doc, sprite, out, settings, nullptr, &error)
             : exportSpriteToPng(doc, sprite, out, settings, &error);
         what = "frame " + std::to_string(job.frame) + (job.indexed ? ", indexed" : "");
+    } else if (webp) {
+        if (job.frame < 1 || job.frame > static_cast<int>(frames.size())) {
+            return fail("there is no frame " + std::to_string(job.frame) + "; the document has " +
+                        std::to_string(frames.size()));
+        }
+        ls::RasterBuffer raster;
+        std::vector<uint8_t> bytes;
+        const ls::SpriteId sprite = frames[static_cast<size_t>(job.frame - 1)].sprite;
+        written = compileForExport(doc, sprite, job.scale, &raster, &error) &&
+                  encodeWebp(raster, &bytes, &error) && writeFileAtomic(out, bytes, &error);
+        what = "frame " + std::to_string(job.frame) + " as WebP";
     } else {
-        return fail("the output's extension says nothing Fast writes: use .png, .gif, "
+        return fail("the output's extension says nothing Fast writes: use .png, .gif, .webp, "
                     ".lsprite, or a palette's .gpl, .hex, .pal or .act");
     }
     if (!written) {

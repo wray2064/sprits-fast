@@ -128,7 +128,12 @@ void showAnimationDialog(FileState& state, SDL_Window* window, const Document& d
         { "PNG image", "png" },
         { "All files", "*" },
     };
+    static const SDL_DialogFileFilter webpFilters[] = {
+        { "WebP animation", "webp" },
+        { "All files", "*" },
+    };
     const bool gif = std::string(extension) == ".gif";
+    const bool webp = std::string(extension) == ".webp";
     const std::string suggestion = doc.path().empty()
                                  ? std::string()
                                  : withExtension(fileStem(doc.path()), extension);
@@ -137,7 +142,7 @@ void showAnimationDialog(FileState& state, SDL_Window* window, const Document& d
     const std::string start = location.empty() ? suggestion
                             : location + "/" + suggestion;
     SDL_ShowSaveFileDialog(onChosen, &state.dialog, window,
-                           gif ? gifFilters : pngFilters, 2,
+                           gif ? gifFilters : webp ? webpFilters : pngFilters, 2,
                            start.empty() ? nullptr : start.c_str());
 }
 
