@@ -151,10 +151,23 @@ In the user's settings directory: `recent.txt`, `library.txt`, `recovery/`.
 
 ---
 
-## 4. Completion against the specification
+## 4. Completion against the design
 
-`LIVESPRITE_ENGINE_SPEC.md` in the engine repo is the design document. Section
-by section:
+There are **two** design documents in the engine repo, and they are not the
+same thing:
+
+- **`Livesprite architecture.txt`** — 1,406 lines, the wider design. It defines
+  the engine in 18 capability sections, then the whole of **Pract**: its
+  philosophy, its four toolkits, and worked scenarios following a sword from
+  first stroke to exported sheet. This is the document that says what the
+  products *are*.
+- **`LIVESPRITE_ENGINE_SPEC.md`** — 333 lines, the implementation contract
+  distilled from it: structure, data model, pipeline, serialization, the build
+  order, the C++ conventions.
+
+Read the architecture first for intent, the spec for what the code must do.
+
+### Against the implementation contract, section by section
 
 | § | Requirement | State |
 |---|---|---|
@@ -179,6 +192,29 @@ Windows, Linux, macOS, plus a consume-the-installed-package job and a Python
 missing design: the C ABI does not expose layer groups (engine issue #4), and
 indexed PNG is still wanted.
 
+### Against the wider architecture
+
+Its 18 engine sections track the spec closely, at finer grain. Spot-checked
+rather than audited line by line — §12 spatial anchors (pivots, sockets,
+boundaries) and §13 raster resolution (all six sampling policies, every
+resolution control) are both fully present, and §1–11 are the same ground the
+spec covers. **Anyone continuing should read that document rather than trust
+this paragraph**; it is the one place the whole shape of the products is
+written down, and it has not been re-read in full recently.
+
+Where the architecture is unbuilt is **Pract**, entirely:
+
+| Pract toolkit | Purpose | State |
+|---|---|---|
+| References | Interpret source material — images, video, 3D, AI, palette and pose extraction, source overlays | Not started |
+| Canvas | Author sprite appearance | **This is what Fast is**, in a free, smaller form |
+| Animation | Author motion — timelines, puppets, IK | Not started; Fast has frames and cycles, which is not the same thing |
+| Arranger | Sheets, atlases, engine export | Not started; Fast has basic sheet export |
+
+That table is the honest summary of the whole project: **the engine is done,
+one of four toolkits exists as a free editor, and the paid product has not
+begun.**
+
 ### The editor against its own README
 
 Fast has no separate specification; its README's *Status* section is the claim.
@@ -197,14 +233,25 @@ some pixels at once.
 
 ## 5. Deviations and open decisions
 
-**References live in Fast, and the spec assigns a References Toolkit to
-Pract.** Section 9 reserves `ImportGLB`, `ScrubVideo`, `ExtractPose` and
-`ExtractPaletteFromPhoto` for Pract. What Fast gained is much smaller: import a
-still image, place it, fade it, draw from it. The rule the spec is actually
-protecting — that the *engine* must not contain it — is intact, since
-references are package entries the engine never interprets. But if Pract is
-meant to own references as a product boundary, this is the moment to say so,
-before more is built on it. **Unresolved; needs a decision.**
+**References live in Fast, and both design documents give references to
+Pract.** The spec's section 9 reserves `ImportGLB`, `ScrubVideo`, `ExtractPose`
+and `ExtractPaletteFromPhoto` for the Pract References Toolkit; the
+architecture document lists that toolkit's scope as images, video, 3D models,
+texture photos, AI references, palette extraction, pose extraction and — the
+exact phrase — **source overlays**. A reference image laid over the canvas is
+a source overlay.
+
+The rule both documents are really protecting holds: the *engine* knows
+nothing about it, since references are package entries it never interprets.
+And there is a defensible product split — Fast gets the trivial case, a still
+image you look at, while Pract gets *interpretation*: video, 3D, pose and
+palette extraction. That is a reasonable free-versus-paid line.
+
+But it was not a decision anyone made; it was a feature request answered
+literally. **Unresolved, and worth resolving before more is built on it**,
+because the same question is about to be asked of the sheet exporter (Arranger
+toolkit) and of frames and cycles (Animation toolkit) — Fast already has small
+versions of both.
 
 **A reference is embedded, not linked.** Deliberate: a linked reference breaks
 exactly when a half-finished drawing still needs it. Capped at 8 MB each and
@@ -282,6 +329,11 @@ test had dodged it by starting its clock at 1000.
 **The engine's snapshot does not carry Fast's package entries.** `Document`'s
 history entries carry them explicitly; without that, undoing a reference import
 would restore the artwork and leave the image behind.
+
+**Clickable file links only reach inside the working directory.** A session
+started in the engine repo cannot link to a file in the editor repo, and the
+link silently fails rather than erroring. Give a full path or a GitHub URL when
+crossing between the two.
 
 **Dear ImGui's SDL_Renderer backend owns the sampler** from 1.92.8 and
 re-applies linear filtering to every texture it binds, so setting a texture's
