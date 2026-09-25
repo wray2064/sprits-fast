@@ -71,6 +71,10 @@ public:
     Document(const Document&) = delete;
     Document& operator=(const Document&) = delete;
 
+    // Trades everything -- engine, history, path, package -- with another
+    // document. How a tab is put away and brought back.
+    void swap(Document& other) noexcept;
+
     // ---------------------------------------------------------------- life --
 
     // A new, empty document. Returns false only if the engine refuses the size.

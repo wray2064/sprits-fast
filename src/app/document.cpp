@@ -25,6 +25,25 @@ Document::Document() : engine_(ls::LSContext::create()) {
 }
 Document::~Document() = default;
 
+void Document::swap(Document& other) noexcept {
+    using std::swap;
+    swap(engine_, other.engine_);
+    swap(id_, other.id_);
+    swap(name_, other.name_);
+    swap(path_, other.path_);
+    swap(modified_, other.modified_);
+    swap(actionDepth_, other.actionDepth_);
+    swap(pending_, other.pending_);
+    swap(pendingCompanions_, other.pendingCompanions_);
+    swap(pendingLabel_, other.pendingLabel_);
+    swap(undoStack_, other.undoStack_);
+    swap(redoStack_, other.redoStack_);
+    swap(historyLimit_, other.historyLimit_);
+    swap(foreignEntries_, other.foreignEntries_);
+    swap(companions_, other.companions_);
+    swap(uiState_, other.uiState_);
+}
+
 // Lets go of the document this one is replacing.
 //
 // An editor that opens ten files should be holding one document, not ten. The

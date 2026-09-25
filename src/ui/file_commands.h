@@ -51,6 +51,7 @@ enum class PendingAction {
     OpenDialog,
     OpenPath,       // a recent entry or a dropped file, in pendingPath
     ImportSheet,    // the sheet waiting in the import window, sliced into frames
+    CloseTab,       // the document on screen, closed
     Quit,
 };
 

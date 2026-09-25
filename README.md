@@ -88,6 +88,11 @@ from or keep as slots.
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
 saves, a prompt before anything discards unsaved work, autosave to a copy that
 is never the file you are editing, and files that open from the command line.
+**Tabs**: every file opened or made goes in a tab beside the work rather than
+over it (a blank, untouched document is simply replaced), each with its own
+history, selection, view and autosave copy; `Ctrl+Tab` steps through them,
+`Ctrl+W` closes one, and quitting asks about each tab with unsaved work in
+turn. A file already open is shown, not opened twice.
 PNGs, GIFs (every frame), JPEGs and BMPs open as documents, their colours
 becoming the palette; a sprite sheet slices into frames. Out: PNG at
 whole-number scales, sprite sheets with a description beside them, and

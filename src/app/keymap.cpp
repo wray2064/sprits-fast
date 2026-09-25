@@ -131,6 +131,7 @@ const std::vector<CommandInfo>& commandList() {
         { "file.save", "Save", "File", { ctrl("S") } },
         { "file.save-as", "Save as", "File", { ctrl("S", true) } },
         { "file.library", "Library", "File", { ctrl("L") } },
+        { "file.close", "Close tab", "File", { ctrl("W") } },
         { "file.quit", "Quit", "File", { ctrl("Q") } },
         { "edit.undo", "Undo", "Edit", { ctrl("Z") }, true },
         { "edit.redo", "Redo", "Edit", { ctrl("Z", true), ctrl("Y") }, true },
@@ -162,6 +163,8 @@ const std::vector<CommandInfo>& commandList() {
         { "view.zoom-out", "Zoom out", "View", { key("["), ctrl("-") }, true },
         { "view.fit", "Fit to window", "View", { ctrl("0") } },
         { "view.snap", "Snap to grid", "View", { shift("S") } },
+        { "view.next-tab", "Next tab", "View", { ctrl("Tab") } },
+        { "view.previous-tab", "Previous tab", "View", { ctrl("Tab", true) } },
     };
     return list;
 }

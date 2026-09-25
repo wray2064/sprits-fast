@@ -28,6 +28,7 @@
 #include "ui/keys.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
+#include "ui/tabs.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
 #include "ui/panels.h"
@@ -78,7 +79,7 @@ void adoptImported(Editor& editor, CanvasView& canvas, const ImportReport& repor
                                       : ", kept as colours of their own"));
 }
 
-void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
+bool openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     std::string error;
     // A picture from another editor opens as a document of its own. It is
     // not added to the recent list's idea of "the file": saving asks where
@@ -87,10 +88,10 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
         ImportReport report;
         if (!openImageAsDocument(editor.doc, path, &report, &error)) {
             editor.say("Could not open " + fileName(path) + ": " + error);
-            return;
+            return false;
         }
         adoptImported(editor, canvas, report, fileName(path));
-        return;
+        return true;
     }
     // Aseprite's own files open as the work they are: layers, frames, tags
     // as cycles, the palette as the palette.
@@ -98,7 +99,7 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
         AsepriteReport report;
         if (!openAsepriteAsDocument(editor.doc, path, &report, &error)) {
             editor.say("Could not open " + fileName(path) + ": " + error);
-            return;
+            return false;
         }
         adoptImported(editor, canvas, report, fileName(path));
         std::string said = "Opened " + fileName(path) + ": " + std::to_string(report.frames) +
@@ -111,13 +112,13 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
             said += "; tilemap layers were left out";
         }
         editor.say(said);
-        return;
+        return true;
     }
     if (!editor.doc.open(path, &error)) {
         editor.say("Could not open " + fileName(path) + ": " + error);
         editor.files.recent.remove(path);
         editor.files.recent.save();
-        return;
+        return false;
     }
     editor.activeLayer = 0;
     forgetInteraction(editor);
@@ -169,6 +170,7 @@ void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     editor.files.recent.save();
     editor.say("Opened " + fileName(path) + ", " +
                std::to_string(editor.layers.size()) + " layer(s)");
+    return true;
 }
 
 bool saveTo(Editor& editor, const CanvasView& canvas, const std::string& path) {
@@ -217,23 +219,23 @@ bool saveOrAsk(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     return saveTo(editor, canvas, editor.doc.path());
 }
 
-void performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
+bool performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
                    PendingAction action, const std::string& path) {
     switch (action) {
-        case PendingAction::NewDocument:
-            newDocument(editor, editor.files.newDocument);
+        case PendingAction::NewDocument: {
+            const bool made = newDocument(editor, editor.files.newDocument);
             canvas.frames().clear();          // the old document's textures
             // Fit rather than a fixed zoom: a 128 canvas at 8x does not fit the
             // window, and starting half off-screen is a poor first impression.
             canvas.requestFit();
             canvas.invalidate();
-            break;
+            return made;
+        }
         case PendingAction::OpenDialog:
             showOpenDialog(editor.files, window, editor.doc);
-            break;
+            return true;
         case PendingAction::OpenPath:
-            openPath(editor, canvas, path);
-            break;
+            return openPath(editor, canvas, path);
         case PendingAction::ImportSheet: {
             Editor::SheetImport& sheet = editor.sheetImport;
             std::vector<ls::RasterBuffer> cells;
@@ -245,36 +247,95 @@ void performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
                                     std::vector<int>(cells.size(), sheet.holdMs),
                                     &report, &error)) {
                 editor.say("Could not import the sheet: " + error);
-                break;
+                return false;
             }
             const std::string from = fileName(sheet.path);
             sheet = Editor::SheetImport{};
             adoptImported(editor, canvas, report, from);
-            break;
+            return true;
         }
-        case PendingAction::Quit:
-            editor.quitRequested = true;
-            break;
+        case PendingAction::CloseTab:
+            closeActiveTab(editor, canvas);
+            return true;
+        case PendingAction::Quit: {
+            // This document is dealt with. Any other with unsaved work is
+            // asked about in its turn, shown while it is asked about.
+            if (modifiedOtherTab(editor) < 0) {
+                editor.quitRequested = true;
+                return true;
+            }
+            closeActiveTab(editor, canvas);
+            if (!editor.doc.modified()) {
+                const int next = modifiedOtherTab(editor);
+                if (next >= 0) {
+                    switchToTab(editor, canvas, static_cast<size_t>(next));
+                }
+            }
+            editor.files.pending = PendingAction::Quit;
+            editor.files.pendingPath.clear();
+            editor.files.askingToSave = editor.doc.modified();
+            if (!editor.files.askingToSave) {
+                editor.quitRequested = true;
+            }
+            return true;
+        }
         case PendingAction::None:
             break;
     }
+    return false;
 }
 
 } // namespace
 
-// Anything that would discard the document goes through here. With nothing to
-// lose it happens at once; otherwise the question is asked and the action
-// waits. Outside this file's anonymous namespace because the library panel
-// opens documents too, and must ask the same question.
+// Anything that would discard a document goes through here. Opening and
+// making documents never does any more: they open beside the work, in a tab
+// of their own -- unless what is on screen is a blank nobody has touched,
+// which they replace. Closing and quitting ask about unsaved work first.
+// Outside this file's anonymous namespace because the library panel opens
+// documents too.
 void fast::requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
                          PendingAction action, const std::string& path) {
-    if (!editor.doc.modified()) {
-        performAction(editor, canvas, window, action, path);
-        return;
+    switch (action) {
+        case PendingAction::OpenDialog:
+            showOpenDialog(editor.files, window, editor.doc);
+            return;
+        case PendingAction::OpenPath: {
+            // A file already open is shown, not opened twice.
+            for (size_t i = 0; i < tabCount(editor); ++i) {
+                const std::string& open = i == editor.activeTab ? editor.doc.path()
+                                                                : editor.tabs[i]->doc.path();
+                if (!open.empty() && open == path) {
+                    switchToTab(editor, canvas, i);
+                    editor.say(fileName(path) + " is already open");
+                    return;
+                }
+            }
+            [[fallthrough]];
+        }
+        case PendingAction::NewDocument:
+        case PendingAction::ImportSheet:
+            if (documentIsBlank(editor)) {
+                performAction(editor, canvas, window, action, path);
+                return;
+            }
+            openTab(editor, canvas);
+            if (!performAction(editor, canvas, window, action, path)) {
+                closeActiveTab(editor, canvas);
+            }
+            return;
+        case PendingAction::CloseTab:
+        case PendingAction::Quit:
+            if (!editor.doc.modified()) {
+                performAction(editor, canvas, window, action, path);
+                return;
+            }
+            editor.files.pending = action;
+            editor.files.pendingPath = path;
+            editor.files.askingToSave = true;
+            return;
+        case PendingAction::None:
+            return;
     }
-    editor.files.pending = action;
-    editor.files.pendingPath = path;
-    editor.files.askingToSave = true;
 }
 
 namespace {
@@ -391,6 +452,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.animationPanelOpen = true;
         }
         ImGui::Separator();
+        if (ImGui::MenuItem("Close tab", keysLabel(editor.keys, "file.close").c_str())) {
+            requestAction(editor, canvas, window, PendingAction::CloseTab);
+        }
         if (ImGui::MenuItem("Quit", keysLabel(editor.keys, "file.quit").c_str())) {
             requestAction(editor, canvas, window, PendingAction::Quit);
         }
@@ -1484,7 +1548,7 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
     }
 
     if (kind == DialogResult::Kind::Open) {
-        openPath(editor, canvas, path);
+        requestAction(editor, canvas, window, PendingAction::OpenPath, path);
         return;
     }
     if (kind == DialogResult::Kind::ImportSheet) {
@@ -2374,6 +2438,16 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         editor.libraryStale = editor.libraryStale || editor.libraryOpen;
     }
     if (fired("file.quit")) { requestAction(editor, canvas, window, PendingAction::Quit); }
+    if (fired("file.close")) { requestAction(editor, canvas, window, PendingAction::CloseTab); }
+    if (tabCount(editor) > 1) {
+        const size_t count = tabCount(editor);
+        if (fired("view.next-tab")) {
+            switchToTab(editor, canvas, (editor.activeTab + 1) % count);
+        }
+        if (fired("view.previous-tab")) {
+            switchToTab(editor, canvas, (editor.activeTab + count - 1) % count);
+        }
+    }
 
     // Editing.
     const bool undo = fired("edit.undo");
@@ -2549,6 +2623,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::Begin("##canvas", nullptr,
                  kPanel | ImGuiWindowFlags_NoTitleBar |
                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    drawTabBar(editor, canvas, window);
     ls::Vec2i hovered { -1, -1 };
     // While playing, the canvas shows the frame the clock says rather than the
     // frame being edited. Selection does not move with it -- stopping is what
@@ -2686,6 +2761,7 @@ struct Options {
     bool        preferencesKeys = false; // ... on its Keys tab
     bool        layerProperties = false; // the active layer's properties, tagged
     bool        paths = false;           // --paths: a polygon and a curve, handles showing
+    bool        tabs = false;            // --tabs: two more documents open beside the first
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2720,6 +2796,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--tabs") {
+            options.tabs = true;
         } else if (arg == "--paths") {
             options.paths = true;
         } else if (arg == "--layer-properties") {
@@ -3775,6 +3853,45 @@ int runSelfTest() {
         check(!fresh.doc.canUndo() && !fresh.doc.modified(), "a new document has nothing to undo");
     }
 
+    // Tabs: a second document opens beside the first rather than over it; each
+    // keeps its own pixels, layers, history and selection across a switch;
+    // closing one shows its neighbour; a blank untouched document is replaced
+    // rather than kept.
+    {
+        Editor tabbed;
+        CanvasView view(nullptr);
+        check(newDocument(tabbed, 16), "a first document");
+        initTabs(tabbed);
+        check(documentIsBlank(tabbed), "an untouched document is blank");
+        tabbed.doc.beginAction("Pencil");
+        paintPixels(tabbed.doc, *tabbed.active(), {{ 3, 3 }});
+        tabbed.doc.endAction();
+        tabbed.selection.mask = rectangleMask({ 1, 1 }, { 4, 4 });
+        check(!documentIsBlank(tabbed), "drawn on, it is not");
+
+        openTab(tabbed, view);
+        check(newDocument(tabbed, 8), "a second document in its own tab");
+        check(tabCount(tabbed) == 2 && tabbed.activeTab == 1, "two tabs, the new one showing");
+        check(tabbed.selection.empty() && !tabbed.doc.canUndo(), "with nothing of the first's");
+        auto size = tabbed.doc.engine().getCanvasSize(tabbed.doc.id());
+        check(size.ok() && size.value.x == 8, "its own canvas");
+
+        switchToTab(tabbed, view, 0);
+        size = tabbed.doc.engine().getCanvasSize(tabbed.doc.id());
+        check(tabbed.activeTab == 0 && size.ok() && size.value.x == 16, "back to the first");
+        check(!tabbed.selection.empty() && tabbed.doc.canUndo(), "its selection and history kept");
+        check(tabbed.active() != nullptr && tabbed.doc.modified(), "and its layers and changes");
+        check(tabModified(tabbed, 0) && !tabModified(tabbed, 1), "which tab has unsaved work");
+        check(modifiedOtherTab(tabbed) < 0, "no other tab has");
+
+        closeActiveTab(tabbed, view);
+        size = tabbed.doc.engine().getCanvasSize(tabbed.doc.id());
+        check(tabCount(tabbed) == 1 && size.ok() && size.value.x == 8, "closing shows the other");
+        closeActiveTab(tabbed, view);
+        check(tabCount(tabbed) == 1 && tabbed.active() != nullptr,
+              "closing the last leaves a new blank one");
+    }
+
     // A polygon and a curve placed point by point: each lands as an element
     // of its kind, is the active shape with a handle per point, and finishing
     // with too few points places nothing.
@@ -3924,6 +4041,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     canvas.requestFit();
+    initTabs(editor);
     if (!options.openPath.empty()) {
         openPath(editor, canvas, options.openPath);
     }
@@ -4033,6 +4151,19 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.tabs) {
+        // Two more, the second of them changed, and the middle one showing.
+        for (uint32_t size : { 24u, 48u }) {
+            openTab(editor, canvas);
+            newDocument(editor, size);
+            if (size == 48u) {
+                editor.doc.beginAction("Pencil");
+                paintPixels(editor.doc, *editor.active(), linePixels({ 4, 4 }, { 40, 30 }));
+                editor.doc.endAction();
+            }
+        }
+        switchToTab(editor, canvas, 1);
     }
     if (options.paths && editor.active() != nullptr) {
         editor.tool = Tool::Polygon;
@@ -4257,10 +4388,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Closing normally is the proof that nothing was lost, so the copy goes.
-    // Anything that stops the program without reaching this line -- a crash,
-    // a kill, the power -- leaves it, which is exactly the signal wanted.
-    editor.recovery.clear();
+    // Closing normally is the proof that nothing was lost, so the copies go --
+    // every tab's. Anything that stops the program without reaching this line
+    // -- a crash, a kill, the power -- leaves them, which is the signal wanted.
+    clearAllRecovery(editor);
 
     editor.files.dialog.destroy();
 

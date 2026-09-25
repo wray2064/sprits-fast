@@ -34,6 +34,7 @@
 #include "ui/file_commands.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -112,6 +113,38 @@ struct TimelineSettings {
     // answer different halves of it.
     int  selectedStep = 0;
     char cycleNameBuffer[64] = {};
+};
+
+// A document that is open but not on screen: everything the editor holds
+// about it, parked while another tab shows, and the view it was left at. The
+// id names the tab itself and stays with it (see tabs.h).
+struct DocumentTab {
+    uint32_t                 id = 0;
+    Document                 doc;
+    ls::SpriteId             sprite;
+    std::vector<PaintLayer>  layers;
+    int                      activeLayer = 0;
+    Selection                selection;
+    std::vector<ls::LayerId> selectedLayers;
+    ls::GroupId              activeGroup;
+    std::vector<uint64_t>    collapsedGroups;
+    ls::LayerId              clipboard;
+    TimelineSettings         timeline;
+    std::vector<Frame>       frames;
+    std::vector<Cycle>       cycles;
+    ls::OperationId          activeElement;
+    std::vector<Reference>   references;
+    std::string              activeReference;
+    PreviewSettings          preview;
+    RecoverySession          recovery;
+    int                      symmetryAxisX = -1;
+    int                      symmetryAxisY = -1;
+    ls::ColorRole            inkRole = ls::kColorRoleNone;
+    ls::ColorRole            backRole = ls::kColorRoleNone;
+    float                    zoom = 8.f;
+    float                    panX = 0.f;
+    float                    panY = 0.f;
+    bool                     fitPending = true;
 };
 
 struct Editor {
@@ -447,6 +480,12 @@ struct Editor {
 
     FileState   files;
     bool        quitRequested = false;
+
+    // The open documents, in tab order. The one on screen lives in the fields
+    // above; its slot here holds nothing but its id. See tabs.h.
+    std::vector<std::unique_ptr<DocumentTab>> tabs;
+    size_t      activeTab = 0;
+    uint32_t    nextTabId = 1;
     std::string lastTitle;
     std::string status = "Ready";
 

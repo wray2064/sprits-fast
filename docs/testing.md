@@ -450,6 +450,24 @@ sprits_fast --demo-stroke
    under the Move and shape tools. Rotate the canvas, save, reopen.
    *Expect:* polygon and curve still editable, in their new places.
 
+### 4z. Tabs
+
+1. Draw something, then *File > Open* another file. *Expect:* it opens in a
+   second tab; the first keeps its drawing, marked unsaved.
+2. Select in one tab, switch with `Ctrl+Tab`, undo there. *Expect:* each tab
+   has its own selection and history; switching back finds both as left,
+   zoom and pan included.
+3. Start the program, open a file at once. *Expect:* it replaces the blank
+   document rather than opening beside it.
+4. Open the same file again. *Expect:* its tab is shown; no second copy.
+5. `Ctrl+W` on a tab with changes. *Expect:* the save question; Cancel keeps
+   it, Discard closes it and shows its neighbour. Close the last tab.
+   *Expect:* a new blank document.
+6. Two tabs with changes, `Ctrl+Q`. *Expect:* asked about each in turn, each
+   shown while asked; Cancel stops the quit.
+7. Kill the program with changes in two tabs. *Expect:* next start offers two
+   recovered copies.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
