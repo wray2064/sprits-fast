@@ -226,6 +226,8 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     // Screen back to sprite pixels.
     const float localX = (io.MousePos.x - origin.x) / zoom_;
     const float localY = (io.MousePos.y - origin.y) / zoom_;
+    pointer_ = { static_cast<int32_t>(std::floor(localX)),
+                 static_cast<int32_t>(std::floor(localY)) };
     const bool inside = localX >= 0.f && localY >= 0.f &&
                         localX < static_cast<float>(textureWidth_) &&
                         localY < static_cast<float>(textureHeight_);

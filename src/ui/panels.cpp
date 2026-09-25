@@ -75,6 +75,19 @@ void drawToolbar(Editor& editor) {
           "Drag out an ellipse, editable afterwards in the same way." },
         { Tool::Line, theme::Icon::Line, "Line", "L",
           "Drag out a line. Both ends stay adjustable." },
+        { Tool::Select, theme::Icon::Marquee, "Select", "M",
+          "Drag a rectangle to select. Shift adds, Alt subtracts, both "
+          "intersect. Drag inside the selection to move what it holds." },
+        { Tool::SelectEllipse, theme::Icon::EllipseMarquee, "Select ellipse", "Shift+M",
+          "Drag an ellipse to select, with the same modifiers." },
+        { Tool::Lasso, theme::Icon::Lasso, "Lasso", "Q",
+          "Draw round what to select. The outline counts as well as the inside." },
+        { Tool::Wand, theme::Icon::Wand, "Magic wand", "W",
+          "Select what a fill would fill: the area of one colour, or every pixel "
+          "of it with Whole canvas." },
+        { Tool::Move, theme::Icon::Move, "Move", "V",
+          "Drag the selected pixels -- or, with nothing selected, the whole layer. "
+          "Shapes inside go along as shapes. Arrows nudge; Enter drops." },
     };
 
     for (const Entry& entry : kTools) {
@@ -231,6 +244,32 @@ void drawInkControls(Editor& editor);
 } // namespace
 
 void drawToolPanel(Editor& editor) {
+    if (isSelectionTool(editor.tool) || editor.tool == Tool::Move) {
+        theme::sectionHeader("SELECTION");
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        ImGui::TextWrapped("Shift adds, Alt subtracts, Shift+Alt intersects. Drag "
+                           "inside the selection to move what it holds; arrows "
+                           "nudge a pixel, Shift+arrows eight. Enter drops a move, "
+                           "Escape takes it back. Ctrl+C, Ctrl+X and Ctrl+V work on "
+                           "the selected pixels; Delete clears them.");
+        ImGui::PopStyleColor();
+        if (editor.tool == Tool::Wand) {
+            ImGui::Checkbox("Follow diagonals##wand", &editor.wand.diagonal);
+            ImGui::Checkbox("Whole canvas##wand", &editor.wand.global);
+            ImGui::SameLine();
+            theme::hint("Every pixel of the colour clicked, wherever it is, rather "
+                        "than only the area touching the click.");
+            ImGui::SetNextItemWidth(-1.f);
+            ImGui::SliderInt("##wandtolerance", &editor.wand.tolerance, 0, 64,
+                             "tolerance  %d");
+        }
+        if (!editor.selection.empty()) {
+            const ls::Rect2i box = editor.selection.bounds();
+            ImGui::Text("%d x %d at %d, %d", box.width(), box.height(), box.min.x, box.min.y);
+        }
+        ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    }
+
     if (editor.tool == Tool::Bucket) {
         theme::sectionHeader("FILL");
         ImGui::Checkbox("Follow diagonals", &editor.bucket.diagonal);

@@ -39,17 +39,20 @@ only output. A feature that bakes pixels to get done faster is not done.
       did), from the element list
 
 ### Selection
-- [ ] Rectangle marquee, ellipse marquee, lasso, polygon lasso, magic wand
+- [~] Rectangle marquee, ellipse marquee, lasso, polygon lasso, magic wand
       (contiguous and global, tolerance), select by colour
-- [ ] Add, subtract and intersect (Shift, Alt, Shift+Alt)
-- [ ] Select all, deselect, reselect, invert
-- [ ] Marching ants
-- [ ] Move the selected pixels (drag, arrow keys); it moves the authored
+      *(done: all but the polygon lasso; the wand's Whole canvas is select by
+      colour)*
+- [x] Add, subtract and intersect (Shift, Alt, Shift+Alt)
+- [x] Select all, deselect, reselect, invert
+- [x] Marching ants
+- [x] Move the selected pixels (drag, arrow keys); it moves the authored
       pixels, not a raster copy of them
-- [ ] Cut, copy, paste (in place, and as a new layer); paste into another frame
-- [ ] Delete clears the selected pixels on the active layer
-- [ ] Flip the selection horizontally and vertically, and rotate it 90/180
-- [ ] Tools clip to the selection while one exists
+- [~] Cut, copy, paste (in place, and as a new layer); paste into another frame
+      *(done: in place and into another frame; as a new layer is open)*
+- [x] Delete clears the selected pixels on the active layer
+- [x] Flip the selection horizontally and vertically, and rotate it 90/180
+- [x] Tools clip to the selection while one exists
 - [ ] Copy and paste images through the OS clipboard
 
 ### Canvas and sprite
@@ -165,5 +168,6 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — selections: marquee, ellipse, lasso, wand; add/subtract/intersect; move, nudge, flip, rotate, cut/copy/paste/delete; shapes ride along as shapes.
 - 2026-09-25 — many colours on one layer (inks), left/right colours with X, picker reads the slot, Enter plays and Space pans.
 - 2026-09-25 — audit written; parity work begins with many colours on one layer.

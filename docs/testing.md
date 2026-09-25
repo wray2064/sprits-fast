@@ -210,6 +210,32 @@ sprits_fast --demo-stroke
 6. Select the second line's row, press *= current* with a different colour
    chosen. *Expect:* the line changes colour and nothing else does.
 
+### 4i. Selections
+
+1. New document. Paint a few colours. `M`, drag a box over part of it.
+   *Expect:* marching ants; the Tool panel says the size.
+2. Drag inside the box. *Expect:* the pixels follow; where they pass over other
+   pixels, those are untouched after they pass. Press the arrows. *Expect:* a
+   pixel a press. Press Enter. *Expect:* the pixels land, replacing what was
+   under them. `Ctrl+Z` once. *Expect:* everything back as it was before the
+   drag, in one step.
+3. Drag again, then Escape. *Expect:* back where they started; nothing in the
+   Edit menu's Undo from it.
+4. `Ctrl+C`, then `Ctrl+V`. *Expect:* the move tool is in hand and the copy
+   floats over the original. Drag it away and click on an empty panel.
+   *Expect:* it drops; the original is still there.
+5. Draw a rectangle with `R`, then box it and a few pixels beside it with `M`
+   and drag. *Expect:* the rectangle travels as a rectangle -- select it in the
+   Element panel afterwards and its from/to have moved.
+6. Shift-drag a second box. *Expect:* the two join. Alt-drag across both.
+   *Expect:* a bite taken out. `Ctrl+Shift+I`. *Expect:* everything else.
+7. `W` on a region of one colour. *Expect:* exactly that area. Tick *Whole
+   canvas* and click again. *Expect:* every pixel of that colour.
+8. With a selection, pencil across its edge. *Expect:* only the inside is
+   painted. Bucket outside it. *Expect:* nothing happens outside.
+9. On the demo's *Layer 1* (it is rotated) try to move a selection. *Expect:*
+   the status line says the layer has a transform, and nothing moves.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

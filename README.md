@@ -23,6 +23,12 @@ with a size, a round or square shape, and the pixel-perfect rule that keeps a
 diagonal a line; pen tablets, with pressure driving the size and the eraser
 end erasing.
 
+**Selecting** — rectangle and ellipse marquees, a lasso and a magic wand, with
+Shift to add, Alt to subtract and both to intersect; marching ants; select all,
+deselect, reselect, invert; move the selected pixels by dragging or with the
+arrows, flip and rotate them, cut, copy, paste and delete -- and the pencil,
+eraser and bucket keep inside the selection while there is one.
+
 **Layers** — blend modes, opacity, groups that composite as one, clipping,
 locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row.
 One layer holds several elements: one per colour its pixels are painted in,
@@ -137,6 +143,36 @@ artwork.
 The pictures come from a thumbnail written into each document on save, read
 back through the package without opening the document -- so a folder of thirty
 sprites is thirty entry reads rather than thirty full loads.
+
+### Selecting, and moving what is selected
+
+`M` is the marquee (`Shift+M` the ellipse), `Q` the lasso, `W` the magic wand
+and `V` the move tool. Shift adds to the selection, Alt takes away from it, and
+both keep only the overlap. A click without a drag lets go.
+
+Drag inside a selection -- or anywhere, with the move tool -- and the pixels
+lift and follow the pointer; with nothing selected the move tool takes the
+whole layer. The arrows nudge a pixel, or eight with Shift. **Enter** drops
+them, a click anywhere else drops them, and **Escape** puts them back as if
+nothing happened. However long it was dragged and nudged for, a move is one
+undo step.
+
+What moves is the drawing, not a picture of it. The pixels of each colour
+leave that colour's region and float as an element of their own at the top of
+the layer -- a colour through a palette slot is still through the slot while it
+floats -- and dragging them over other pixels on the layer does not eat those
+pixels; only dropping does, the way it would in any editor. **A shape the
+selection wholly contains goes along as a shape**: its geometry is moved, so
+the rectangle is still a rectangle with a corner radius when it lands. `Shift+H`
+and `Shift+V` flip the selection, and the Edit menu turns it by quarter turns;
+the grid maps onto itself, so nothing is resampled.
+
+`Ctrl+C`, `Ctrl+X` and `Ctrl+V` copy, cut and paste the selected pixels, colour
+by colour, so a paste of pixels painted through a slot still follows the slot.
+With nothing selected they copy and paste the layer, as before. Delete clears
+the selected pixels. A layer with a transform on it refuses all of this: its
+pixels are not canvas pixels, and the only way to make them so would be to
+resample them.
 
 ### The brush, with a mouse or a pen
 

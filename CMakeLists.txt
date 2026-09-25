@@ -74,8 +74,10 @@ add_library(fast_core STATIC
     src/app/ink.cpp
     src/app/library.cpp
     src/app/reference.cpp
+    src/app/selection.cpp
     src/app/recovery.cpp
     src/app/export_png.cpp
+    src/app/floating.cpp
     src/app/file_io.cpp
     src/app/paint.cpp
     src/app/recent_files.cpp
@@ -128,6 +130,7 @@ if (FAST_BUILD_GUI)
         src/ui/editor.cpp
         src/ui/frame_cache.cpp
         src/ui/reference_cache.cpp
+        src/ui/selection_tools.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp
@@ -160,6 +163,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_ink_tests tests/ink_tests.cpp)
     target_link_libraries(fast_ink_tests PRIVATE fast_core)
     add_test(NAME fast_ink COMMAND fast_ink_tests)
+
+    add_executable(fast_selection_tests tests/selection_tests.cpp)
+    target_link_libraries(fast_selection_tests PRIVATE fast_core)
+    add_test(NAME fast_selection COMMAND fast_selection_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

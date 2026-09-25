@@ -19,6 +19,7 @@
 #include "app/sheet.h"
 #include "app/transform.h"
 #include "app/ui_state.h"
+#include "ui/selection_tools.h"
 #include "ui/editor.h"
 #include "ui/panels.h"
 #include "ui/theme.h"
@@ -318,6 +319,50 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             refreshInks(editor);
             canvas.invalidate();
         }
+        ImGui::Separator();
+        const bool selected = !editor.selection.empty();
+        if (ImGui::MenuItem("Cut", "Ctrl+X", false, selected)) { cutSelectionPixels(editor); }
+        if (ImGui::MenuItem("Copy", "Ctrl+C")) {
+            if (!copySelectionPixels(editor)) {
+                copyActiveLayer(editor);
+                editor.clipHoldsPixels = false;
+            }
+        }
+        if (ImGui::MenuItem("Paste", "Ctrl+V")) {
+            if (!pastePixels(editor)) {
+                pasteLayerHere(editor, canvas);
+            }
+        }
+        if (ImGui::MenuItem("Delete", "Del", false, selected)) { deleteSelectionPixels(editor); }
+        ImGui::Separator();
+        const bool movable = selected || editor.floating.active();
+        if (ImGui::MenuItem("Flip horizontally", "Shift+H", false, movable)) {
+            turnSelection(editor, FloatTurn::FlipHorizontal);
+        }
+        if (ImGui::MenuItem("Flip vertically", "Shift+V", false, movable)) {
+            turnSelection(editor, FloatTurn::FlipVertical);
+        }
+        if (ImGui::MenuItem("Rotate 90 clockwise", nullptr, false, movable)) {
+            turnSelection(editor, FloatTurn::Clockwise);
+        }
+        if (ImGui::MenuItem("Rotate 90 anticlockwise", nullptr, false, movable)) {
+            turnSelection(editor, FloatTurn::Anticlockwise);
+        }
+        if (ImGui::MenuItem("Rotate 180", nullptr, false, movable)) {
+            turnSelection(editor, FloatTurn::HalfTurn);
+        }
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Select")) {
+        if (ImGui::MenuItem("All", "Ctrl+A")) { selectAll(editor); }
+        if (ImGui::MenuItem("Deselect", "Ctrl+D", false, !editor.selection.empty())) {
+            deselect(editor);
+        }
+        if (ImGui::MenuItem("Reselect", nullptr, false, !editor.selection.previous.empty())) {
+            reselect(editor);
+        }
+        if (ImGui::MenuItem("Invert", "Ctrl+Shift+I")) { invertSelection(editor); }
         ImGui::EndMenu();
     }
 
@@ -713,7 +758,13 @@ bool pickInk(Editor& editor, CanvasView& canvas, ls::Vec2i pixel, Ink* out) {
 }
 
 void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i pixel) {
-    if (handleReferenceDrag(editor, canvas, overCanvas, pixel)) {
+    // Alt belongs to the selection tools -- it subtracts -- so with one in
+    // hand it does not also grab a reference.
+    if ((editor.draggingReference || !isSelectionTool(editor.tool)) &&
+        handleReferenceDrag(editor, canvas, overCanvas, pixel)) {
+        return;
+    }
+    if (handleSelectionInput(editor, canvas, overCanvas, pixel)) {
         return;
     }
     PaintLayer* layer = editor.active();
@@ -828,7 +879,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             InkStroke stroke;
             const bool filled = beginPaint(editor, *layer, right && !left, &stroke) &&
                                 bucketFill(editor.doc, editor.sprite, stroke, pixel,
-                                           editor.bucket);
+                                           editor.bucket,
+                                           editor.selection.empty() ? nullptr
+                                                                    : &editor.selection.mask);
             if (filled) {
                 pruneEmptyInks(editor.doc, layer->layer, stroke.target.fill);
                 editor.doc.endAction();
@@ -908,6 +961,12 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 ? brushStamp(pixel, size, editor.brush.round)
                 : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
         }
+        if (!editor.selection.empty()) {
+            run.erase(std::remove_if(run.begin(), run.end(), [&](ls::Vec2i at) {
+                          return !editor.selection.contains(at);
+                      }),
+                      run.end());
+        }
         if (!run.empty()) {
             strokeInk(editor.doc, editor.inkStroke, run);
             canvas.invalidate();
@@ -945,6 +1004,33 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         return;
     }
 
+    // The keys a selection or a float answers to come first; any other key
+    // drops a float before doing what it does, so a shortcut never acts on a
+    // document with pixels in the air.
+    if (handleSelectionKeys(editor)) {
+        return;
+    }
+    if (editor.floating.active()) {
+        bool other = false;
+        for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; ++key) {
+            const ImGuiKey named = static_cast<ImGuiKey>(key);
+            if (ImGui::IsKeyPressed(named, false) &&
+                !(named >= ImGuiKey_LeftCtrl && named <= ImGuiKey_RightSuper) &&
+                !(named >= ImGuiKey_ReservedForModCtrl && named <= ImGuiKey_ReservedForModSuper)) {
+                other = true;
+            }
+        }
+        if (other) {
+            // Undo while a move is up takes the move back, rather than
+            // dropping it and then undoing something older.
+            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false) && !io.KeyShift) {
+                cancelFloating(editor);
+                return;
+            }
+            settleFloating(editor);
+        }
+    }
+
     if (!io.KeyCtrl) {
         // Tool shortcuts, the letters every editor uses.
         if (ImGui::IsKeyPressed(ImGuiKey_B, false)) { editor.tool = Tool::Pencil; }
@@ -955,6 +1041,22 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.tool = Tool::Picker;
         }
         if (ImGui::IsKeyPressed(ImGuiKey_R, false)) { editor.tool = Tool::Rectangle; }
+        // The selection tools, on Aseprite's letters.
+        if (ImGui::IsKeyPressed(ImGuiKey_M, false)) {
+            editor.tool = io.KeyShift ? Tool::SelectEllipse : Tool::Select;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) { editor.tool = Tool::Lasso; }
+        if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { editor.tool = Tool::Wand; }
+        if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_H, false)) {
+            turnSelection(editor, FloatTurn::FlipHorizontal);
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+            if (io.KeyShift) {
+                turnSelection(editor, FloatTurn::FlipVertical);
+            } else {
+                editor.tool = Tool::Move;
+            }
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_U, false)) { editor.tool = Tool::Ellipse; }
         if (ImGui::IsKeyPressed(ImGuiKey_L, false)) { editor.tool = Tool::Line; }
         if (ImGui::IsKeyPressed(ImGuiKey_P, false)) {
@@ -1047,10 +1149,31 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         editor.libraryOpen = !editor.libraryOpen;
         editor.libraryStale = editor.libraryStale || editor.libraryOpen;
     }
+    // The selection, from the keyboard.
+    if (ImGui::IsKeyPressed(ImGuiKey_A, false)) { selectAll(editor); }
+    if (ImGui::IsKeyPressed(ImGuiKey_D, false) && !io.KeyShift) {
+        deselect(editor);
+        editor.say("Deselected");
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_I, false) && io.KeyShift) { invertSelection(editor); }
+    if (ImGui::IsKeyPressed(ImGuiKey_X, false)) { cutSelectionPixels(editor); }
+
+    // Copy and paste mean the selected pixels while there is a selection, and
+    // the layer otherwise -- the clipboard remembers which it holds.
+    if (ImGui::IsKeyPressed(ImGuiKey_C, false)) {
+        if (!copySelectionPixels(editor)) {
+            copyActiveLayer(editor);
+            editor.clipHoldsPixels = false;
+        }
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+        if (!pastePixels(editor)) {
+            pasteLayerHere(editor, canvas);
+        }
+    }
+
     // The stack, from the keyboard.
     if (ImGui::IsKeyPressed(ImGuiKey_J, false)) { duplicateActiveLayer(editor, canvas); }
-    if (ImGui::IsKeyPressed(ImGuiKey_C, false)) { copyActiveLayer(editor); }
-    if (ImGui::IsKeyPressed(ImGuiKey_V, false)) { pasteLayerHere(editor, canvas); }
     if (ImGui::IsKeyPressed(ImGuiKey_G, false)) {
         if (io.KeyShift) { ungroupActiveLayer(editor, canvas); }
         else             { groupSelectedLayers(editor, canvas); }
@@ -1181,6 +1304,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         },
         [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
             drawReferences(editor, canvas, draw, origin, zoom, false);
+            drawSelectionOverlay(editor, draw, origin, zoom);
         });
     editor.hovered = hovered;
 
@@ -1193,6 +1317,9 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // the person is not looking at.
     handleStroke(editor, canvas,
                  overCanvas && !overPreview && !editor.timeline.playing, hovered);
+    // For the next frame's question: was a click there on the artwork, or
+    // somewhere that should drop a float first?
+    editor.canvasHovered = overCanvas && !overPreview;
     ImGui::End();
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
@@ -1236,6 +1363,8 @@ struct Options {
     bool        expectIdle = false;
     std::string sheetPath;
     bool        showSheetPanel = false;
+    std::string select;                // --select x,y,w,h: a marquee, for a capture
+    std::string tool;                  // --tool name: the tool in hand, for a capture
     bool        play = false;            // start playback, for a headless run
     bool        library = false;         // open the library window
     uint32_t    autosaveSeconds = 0;     // override the interval, for testing
@@ -1268,6 +1397,12 @@ Options parseOptions(int argc, char** argv) {
             // Opens the export window so a headless capture can show it. Only
             // useful with --frames and --shot.
             options.showSheetPanel = true;
+        } else if (arg == "--select" && i + 1 < argc) {
+            // A rectangle selected at start, so a headless capture can show
+            // the marching ants and the tool options that go with them.
+            options.select = argv[++i];
+        } else if (arg == "--tool" && i + 1 < argc) {
+            options.tool = argv[++i];
         } else if (arg == "--expect-idle") {
             // Fails the run if the last frame compiled anything. Nothing is
             // changing by then, so a compile means something asked for a
@@ -1604,6 +1739,90 @@ int runSelfTest() {
             resyncLayers(editor);
             check(elementsOf(editor.doc, target).size() == before,
                   "and both colours' elements go with them");
+        }
+    }
+
+    // -------------------------------------------------------- selection --
+    //
+    // The commands the menu, the tools and the keys share: a move is one
+    // undo step however it was nudged; Escape puts it back; a shortcut drops
+    // it; copy and paste carry pixels, not a layer, while something is
+    // selected; select-all and invert are about the canvas.
+    {
+        PaintLayer* layer = editor.active();
+        check(layer != nullptr, "a layer to select on");
+        if (layer != nullptr) {
+            const ls::LayerId target = layer->layer;
+            setForegroundInk(editor, Ink{ ls::Color{ 9, 200, 9, 255 }, ls::kColorRoleNone });
+            InkStroke stroke;
+            editor.doc.beginAction("Pencil");
+            check(beginPaint(editor, *layer, false, &stroke) &&
+                  strokeInk(editor.doc, stroke, {{ 2, 2 }, { 3, 2 }}), "two pixels to move");
+            editor.doc.endAction();
+            resyncLayers(editor);
+            const std::string before = editor.doc.undoLabel();
+
+            editor.selection.mask = rectangleMask({ 2, 2 }, { 3, 2 });
+            check(nudgeSelection(editor, { 1, 0 }), "nudge lifts and moves");
+            check(nudgeSelection(editor, { 1, 0 }), "and again");
+            check(editor.floating.active() && editor.floating.offset.x == 2,
+                  "two nudges, one float, two pixels along");
+            check(editor.selection.contains({ 4, 2 }) && !editor.selection.contains({ 2, 2 }),
+                  "the ants follow");
+            settleFloating(editor);
+            check(!editor.floating.active(), "dropped");
+            check(editor.doc.undoLabel() == "Move", "a run of nudges is one Move");
+            check(editor.doc.undo(), "and one undo takes it back");
+            resyncLayers(editor);
+            check(editor.doc.undoLabel() == before, "to exactly before the move");
+
+            // Escape: nothing happened.
+            editor.selection.mask = rectangleMask({ 2, 2 }, { 3, 2 });
+            check(nudgeSelection(editor, { 0, 3 }), "lift for escape");
+            cancelFloating(editor);
+            check(!editor.floating.active() && editor.doc.undoLabel() == before,
+                  "Escape leaves no history entry");
+            check(editor.selection.contains({ 2, 2 }), "and the selection is where it was");
+
+            // Copy and paste carry pixels while something is selected.
+            check(copySelectionPixels(editor) && editor.clipHoldsPixels, "copy pixels");
+            check(pastePixels(editor) && editor.floating.active(), "paste floats them");
+            check(editor.tool == Tool::Move, "with the move tool in hand");
+            check(nudgeSelection(editor, { 0, 5 }), "place the paste");
+            settleFloating(editor);
+            check(editor.doc.undoLabel() == "Paste", "a paste is one Paste");
+            check(editor.doc.undo(), "undo the paste");
+            resyncLayers(editor);
+
+            // Delete clears; select-all and invert are canvas-wide.
+            editor.selection.mask = rectangleMask({ 2, 2 }, { 3, 2 });
+            check(deleteSelectionPixels(editor), "delete");
+            check(editor.doc.undoLabel() == "Delete", "one Delete");
+            check(editor.doc.undo(), "undo the delete");
+            resyncLayers(editor);
+            selectAll(editor);
+            check(ls::geom::pixelCount(editor.selection.mask) ==
+                  ls::geom::pixelCount(canvasBounds(editor)), "select all is the canvas");
+            invertSelection(editor);
+            check(editor.selection.empty(), "the inverse of everything is nothing");
+            editor.selection.mask = rectangleMask({ 0, 0 }, { 1, 1 });
+            deselect(editor);
+            check(editor.selection.empty(), "deselect");
+            reselect(editor);
+            check(ls::geom::pixelCount(editor.selection.mask) == 4, "reselect brings it back");
+            deselect(editor);
+
+            // A locked layer refuses to lift.
+            setLayerLocked(editor.doc, target, true);
+            editor.selection.mask = rectangleMask({ 2, 2 }, { 3, 2 });
+            check(!nudgeSelection(editor, { 1, 0 }) && !editor.floating.active(),
+                  "a locked layer's pixels stay put");
+            setLayerLocked(editor.doc, target, false);
+            deselect(editor);
+            editor.tool = Tool::Pencil;
+
+            check(editor.doc.undo(), "undo the two pixels");
+            resyncLayers(editor);
         }
     }
 
@@ -2251,6 +2470,40 @@ int main(int argc, char** argv) {
     // caller remembering to.
     resyncReferences(editor, canvas);
     editor.sheetPanelOpen = options.showSheetPanel;
+    if (!options.select.empty()) {
+        // x,y,w,h -- four numbers and three commas, or nothing is selected.
+        int values[4] = {};
+        const char* at = options.select.c_str();
+        int read = 0;
+        for (; read < 4; ++read) {
+            char* end = nullptr;
+            values[read] = static_cast<int>(std::strtol(at, &end, 10));
+            if (end == at) {
+                break;
+            }
+            at = (*end == ',') ? end + 1 : end;
+        }
+        if (read == 4 && values[2] > 0 && values[3] > 0) {
+            editor.selection.mask = rectangleMask(
+                { values[0], values[1] },
+                { values[0] + values[2] - 1, values[1] + values[3] - 1 });
+        }
+    }
+    if (!options.tool.empty()) {
+        struct Named { const char* name; Tool tool; };
+        const Named tools[] = {
+            { "pencil", Tool::Pencil }, { "eraser", Tool::Eraser }, { "bucket", Tool::Bucket },
+            { "picker", Tool::Picker }, { "rectangle", Tool::Rectangle },
+            { "ellipse", Tool::Ellipse }, { "line", Tool::Line }, { "select", Tool::Select },
+            { "select-ellipse", Tool::SelectEllipse }, { "lasso", Tool::Lasso },
+            { "wand", Tool::Wand }, { "move", Tool::Move },
+        };
+        for (const Named& named : tools) {
+            if (options.tool == named.name) {
+                editor.tool = named.tool;
+            }
+        }
+    }
     // The safety net, before anything can be drawn and lost. Autosave is
     // simply off when there is nowhere to write, rather than writing
     // somewhere the person would not think to look.
@@ -2376,6 +2629,14 @@ int main(int argc, char** argv) {
             }
         }
 
+        // A click anywhere off the artwork -- a panel, a menu, the strip --
+        // drops a float before whatever was clicked acts, so no other action
+        // ever lands inside the move's history entry.
+        if (editor.floating.active() && !editor.draggingFloat && !editor.canvasHovered &&
+            (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+             ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
+            settleFloating(editor);
+        }
         drawMenuBar(editor, canvas, window);
         handleShortcuts(editor, canvas, window);
         drawWindow(editor, canvas, window);

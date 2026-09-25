@@ -589,6 +589,13 @@ void forgetInteraction(Editor& editor) {
     editor.timeline.playing = false;
     editor.timeline.activeCycle = -1;
     editor.timeline.activeFrame = 0;
+    // The selection and a float were about the old document's pixels. A float
+    // cannot be up here in practice -- a click off the artwork drops it first
+    // -- but if it were, its action belonged to the document now gone.
+    editor.selection = Selection{};
+    editor.floating = Floating{};
+    editor.draggingFloat = false;
+    editor.selecting = false;
     // A shape or stroke cannot be in progress here: every path that replaces
     // the document stands aside while busy(). The tool itself is kept, as is
     // the colour -- those are the person's, not the document's.

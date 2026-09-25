@@ -13,6 +13,7 @@
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/element.h"
+#include "app/floating.h"
 #include "app/ink.h"
 #include "app/layers.h"
 #include "app/library.h"
@@ -21,6 +22,7 @@
 #include "app/reference.h"
 #include "app/palette.h"
 #include "app/shape.h"
+#include "app/selection.h"
 #include "app/sheet.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
@@ -30,7 +32,14 @@
 
 namespace fast {
 
-enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line };
+enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
+                  Select, SelectEllipse, Lasso, Wand, Move };
+
+// The tools that make a selection rather than a mark.
+inline bool isSelectionTool(Tool tool) {
+    return tool == Tool::Select || tool == Tool::SelectEllipse ||
+           tool == Tool::Lasso || tool == Tool::Wand;
+}
 
 // The corner preview.
 //
@@ -103,6 +112,28 @@ struct Editor {
     // one paints the background ink.
     InkStroke inkStroke;
     bool      strokeWithBack = false;
+
+    // The selection, and pixels on the move.
+    //
+    // A float holds a history action open from the lift until it is dropped,
+    // so a move is one undo step however long it was dragged and nudged for.
+    // It is dropped by Enter, by a click anywhere off the artwork, by any
+    // shortcut that is not about it, and by switching tools; Escape abandons
+    // it and puts the pixels back.
+    Selection        selection;
+    Floating         floating;
+    bool             draggingFloat = false;
+    ls::Vec2i        floatGrab { 0, 0 };        // the pixel the drag started on
+    ls::Vec2i        floatGrabOffset { 0, 0 };  // where the float was then
+    bool             selecting = false;         // a marquee or lasso mid-drag
+    SelectMode       selectMode = SelectMode::Replace;
+    ls::Vec2i        selectAnchor { 0, 0 };
+    std::vector<ls::Vec2i> lassoPoints;
+    ls::IntervalSet  selectPreview;             // the shape being dragged out
+    BucketSettings   wand;                      // the magic wand's own settings
+    PixelClip        pixelClip;
+    bool             clipHoldsPixels = false;   // the last copy was pixels, not a layer
+    bool             canvasHovered = false;     // last frame's, for a click elsewhere
 
     // A dithered element picked in the element list can be painted into as
     // itself, so the pencil lays down the dither rather than a flat colour.
@@ -251,7 +282,8 @@ struct Editor {
     // that has not been committed yet.
     bool busy() const {
         return stroking || recolouring || draggingTransform || draggingDither ||
-               draggingPalette || editingShape || draggingShape || draggingLayer;
+               draggingPalette || editingShape || draggingShape || draggingLayer ||
+               selecting || draggingFloat;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls
@@ -363,6 +395,41 @@ bool activeLayerLocked(Editor& editor);
 // every cached frame, because every frame without a palette of its own just
 // changed. Used by the panel's quick row and by the shortcut.
 void swapPalette(Editor& editor, CanvasView& canvas, ls::PaletteId palette);
+
+// --- the selection, as the tools, the menu and the shortcuts all drive it ------
+//
+// None touches ImGui, so the self-test can drive them.
+
+void selectAll(Editor& editor);
+void deselect(Editor& editor);        // drops a float first
+void reselect(Editor& editor);
+void invertSelection(Editor& editor);
+
+// Starts the selected pixels floating -- or, with nothing selected, everything
+// on the active layer -- and opens the history action the float holds. Says
+// why when it cannot: a locked layer, a transformed one, nothing there.
+bool liftSelection(Editor& editor, const char* label);
+
+// Drops the float into its layer and closes its action; or abandons it,
+// putting everything back as it was.
+void settleFloating(Editor& editor);
+void cancelFloating(Editor& editor);
+
+// Moves or turns the selected pixels, lifting them first if they are not
+// already floating. The float stays up afterwards, so a run of nudges is one
+// move.
+bool nudgeSelection(Editor& editor, ls::Vec2i by);
+bool turnSelection(Editor& editor, FloatTurn turn);
+
+// The clipboard, for pixels. Copy and cut need a selection; paste floats what
+// was copied where it came from, ready to be dragged into place.
+bool copySelectionPixels(Editor& editor);
+bool cutSelectionPixels(Editor& editor);
+bool deleteSelectionPixels(Editor& editor);
+bool pastePixels(Editor& editor);
+
+// The canvas's own bounds as a mask, for select-all and invert.
+ls::IntervalSet canvasBounds(Editor& editor);
 
 // Points the editor at a frame: clamps the index, re-adopts that frame's
 // layers, and puts the colour control on the layer that is now active.

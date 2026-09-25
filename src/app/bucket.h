@@ -53,8 +53,12 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
 // Floods from `seed` and lays the result down with a stroke's ink: into the
 // ink's element, and out of the layer's other colours, exactly as the pencil
 // does. Does not bracket an undo action: the caller decides what one action is.
+//
+// `within`, when given, is a canvas mask the fill stays inside: the selection,
+// which every tool respects while there is one.
 bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
-                ls::Vec2i seed, const BucketSettings& settings);
+                ls::Vec2i seed, const BucketSettings& settings,
+                const ls::IntervalSet* within = nullptr);
 
 // The same, into one particular element of the layer.
 bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,

@@ -305,6 +305,89 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        // The selection tools, drawn dashed: a dashed outline is what every
+        // editor has used for "selected" since MacPaint, and it separates
+        // these at a glance from the shape tools, which make the same
+        // outlines solid. Placeholders, like the rest -- see icons-needed.md.
+        case Icon::Marquee:
+        case Icon::EllipseMarquee: {
+            const float weight = std::max(1.5f, size * 0.075f);
+            const int dashes = 16;
+            for (int i = 0; i < dashes; i += 2) {
+                const float a = static_cast<float>(i) / dashes;
+                const float b = static_cast<float>(i + 1) / dashes;
+                if (icon == Icon::Marquee) {
+                    // Round the rectangle's perimeter, as a fraction of it.
+                    const auto along = [&](float t) {
+                        const float x0 = 0.16f, y0 = 0.24f, x1 = 0.84f, y1 = 0.76f;
+                        const float w = x1 - x0, h = y1 - y0, p = 2.f * (w + h);
+                        float d = t * p;
+                        if (d < w) { return s(x0 + d, y0); }
+                        d -= w;
+                        if (d < h) { return s(x1, y0 + d); }
+                        d -= h;
+                        if (d < w) { return s(x1 - d, y1); }
+                        d -= w;
+                        return s(x0, y1 - d);
+                    };
+                    draw->AddLine(along(a), along(b), colour, weight);
+                } else {
+                    const float ta = a * 6.2831853f;
+                    const float tb = b * 6.2831853f;
+                    const ImVec2 c = s(0.5f, 0.5f);
+                    const float rx = 0.34f * size, ry = 0.26f * size;
+                    draw->AddLine(ImVec2(c.x + rx * std::cos(ta), c.y + ry * std::sin(ta)),
+                                  ImVec2(c.x + rx * std::cos(tb), c.y + ry * std::sin(tb)),
+                                  colour, weight);
+                }
+            }
+            break;
+        }
+
+        case Icon::Lasso: {
+            // A loop with a tail: the rope, not the shape it makes.
+            const float weight = std::max(1.5f, size * 0.075f);
+            draw->PathClear();
+            for (int i = 0; i <= 20; ++i) {
+                const float t = 6.2831853f * static_cast<float>(i) / 20.f;
+                const ImVec2 c = s(0.52f, 0.40f);
+                draw->PathLineTo(ImVec2(c.x + 0.30f * size * std::cos(t),
+                                        c.y + 0.20f * size * std::sin(t)));
+            }
+            draw->PathStroke(colour, 0, weight);
+            draw->AddBezierCubic(s(0.36f, 0.56f), s(0.30f, 0.70f), s(0.42f, 0.78f),
+                                 s(0.30f, 0.88f), colour, weight, 12);
+            break;
+        }
+
+        case Icon::Wand: {
+            // A stick and a star at its tip.
+            const float weight = std::max(1.8f, size * 0.09f);
+            draw->AddLine(s(0.20f, 0.82f), s(0.60f, 0.42f), colour, weight);
+            const ImVec2 star = s(0.70f, 0.30f);
+            const float r = size * 0.16f;
+            for (int i = 0; i < 4; ++i) {
+                const float t = 0.7853982f * static_cast<float>(i * 2);
+                draw->AddLine(ImVec2(star.x - r * std::cos(t), star.y - r * std::sin(t)),
+                              ImVec2(star.x + r * std::cos(t), star.y + r * std::sin(t)),
+                              colour, std::max(1.3f, size * 0.06f));
+            }
+            break;
+        }
+
+        case Icon::Move: {
+            // Four arrows out from the middle.
+            const float weight = std::max(1.6f, size * 0.08f);
+            draw->AddLine(s(0.50f, 0.14f), s(0.50f, 0.86f), colour, weight);
+            draw->AddLine(s(0.14f, 0.50f), s(0.86f, 0.50f), colour, weight);
+            const float h = 0.12f;
+            draw->AddTriangleFilled(s(0.50f, 0.08f), s(0.50f - h, 0.22f), s(0.50f + h, 0.22f), colour);
+            draw->AddTriangleFilled(s(0.50f, 0.92f), s(0.50f - h, 0.78f), s(0.50f + h, 0.78f), colour);
+            draw->AddTriangleFilled(s(0.08f, 0.50f), s(0.22f, 0.50f - h), s(0.22f, 0.50f + h), colour);
+            draw->AddTriangleFilled(s(0.92f, 0.50f), s(0.78f, 0.50f - h), s(0.78f, 0.50f + h), colour);
+            break;
+        }
+
         case Icon::Eye:
         case Icon::EyeShut: {
             // Two arcs for the lid and a pupil; shut is the lower lid alone.

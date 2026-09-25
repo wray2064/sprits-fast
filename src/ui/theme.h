@@ -99,7 +99,8 @@ void sectionHeader(const char* label);
 // the interface without a second atlas -- it is also the only way to have them
 // pick up the accent colour when selected.
 
-enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line, Eye, EyeShut };
+enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line, Eye, EyeShut,
+                  Marquee, EllipseMarquee, Lasso, Wand, Move };
 
 // Draws `icon` inside a square of `size` at `at`, in `colour`.
 void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour);

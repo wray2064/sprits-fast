@@ -4,6 +4,7 @@
 #include "app/bucket.h"
 #include "app/transform.h"
 
+#include <algorithm>
 #include <cmath>
 #include <deque>
 #include <vector>
@@ -110,12 +111,19 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
 }
 
 bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
-                ls::Vec2i seed, const BucketSettings& settings) {
+                ls::Vec2i seed, const BucketSettings& settings,
+                const ls::IntervalSet* within) {
     if (!stroke.layer.valid()) {
         return false;
     }
 
-    const std::vector<ls::Vec2i> area = bucketArea(doc, sprite, seed, settings);
+    std::vector<ls::Vec2i> area = bucketArea(doc, sprite, seed, settings);
+    if (within != nullptr) {
+        area.erase(std::remove_if(area.begin(), area.end(), [&](ls::Vec2i pixel) {
+                       return !ls::geom::contains(*within, pixel);
+                   }),
+                   area.end());
+    }
     if (area.empty()) {
         return false;
     }

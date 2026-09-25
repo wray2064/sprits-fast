@@ -70,6 +70,12 @@ public:
               const Underlay& underlay = nullptr,
               const Underlay& overlay = nullptr);
 
+    // The pixel under the pointer as of the last draw, whether or not it is on
+    // the artwork. A marquee dragged past the edge, or a selection dragged
+    // half off the canvas, needs to know where the pointer went, not only
+    // that it left.
+    ls::Vec2i pointerPixel() const { return pointer_; }
+
     // How many pixels across the hover outline is: the brush, so what a click
     // would cover is what is outlined. 1 is the pixel under the pointer.
     void setHoverSize(int size) { hoverSize_ = size < 1 ? 1 : size; }
@@ -135,6 +141,7 @@ private:
     ReferenceCache  references_;
     ReferenceCache  libraryThumbs_;
     int           hoverSize_ = 1;
+    ls::Vec2i     pointer_ { -1, -1 };
 
     // The active frame, as of the last draw. Held so drawSample and the
     // eyedropper can read it without asking for anything.
