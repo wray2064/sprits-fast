@@ -36,6 +36,11 @@ struct ExportSettings {
     static constexpr uint32_t kMaxScale = 64;
 };
 
+// Whole-number magnification by duplicating pixels, never interpolating: at 4x
+// a pixel is exactly four identical pixels per side. Empty when the result
+// would be too large to allocate.
+ls::RasterBuffer magnifyRaster(const ls::RasterBuffer& source, uint32_t scale);
+
 // Compiles `sprite` at export quality and writes a PNG.
 //
 // Written atomically, like every other file Fast produces: a failure partway

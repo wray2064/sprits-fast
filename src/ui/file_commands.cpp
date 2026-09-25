@@ -13,6 +13,15 @@ const SDL_DialogFileFilter kFilters[] = {
     { "All files",      "*" },
 };
 
+// Open takes pictures as well as documents: a PNG or a GIF from another
+// editor opens as a document of its own, colours and frames and all.
+const SDL_DialogFileFilter kOpenFilters[] = {
+    { "Sprites and images", "lsprite;png;gif;jpg;jpeg;bmp" },
+    { "Sprit's sprite",     "lsprite" },
+    { "Images",             "png;gif;jpg;jpeg;bmp" },
+    { "All files",          "*" },
+};
+
 // SDL calls this when the user has chosen, which may be on another thread and
 // will certainly be after the frame that opened the dialog has gone. So it does
 // the least possible: record the answer, and let the main loop act on it.
@@ -47,8 +56,8 @@ void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc) {
     SDL_UnlockMutex(state.dialog.mutex);
 
     const std::string location = startingLocation(doc);
-    SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kFilters,
-                           static_cast<int>(SDL_arraysize(kFilters)),
+    SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kOpenFilters,
+                           static_cast<int>(SDL_arraysize(kOpenFilters)),
                            location.empty() ? nullptr : location.c_str(), false);
 }
 
@@ -86,6 +95,34 @@ void showExportDialog(FileState& state, SDL_Window* window, const Document& doc)
 
     SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, pngFilters,
                            static_cast<int>(SDL_arraysize(pngFilters)),
+                           start.empty() ? nullptr : start.c_str());
+}
+
+void showAnimationDialog(FileState& state, SDL_Window* window, const Document& doc,
+                         const char* extension) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportAnimation,
+                     false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    static const SDL_DialogFileFilter gifFilters[] = {
+        { "GIF animation", "gif" },
+        { "All files", "*" },
+    };
+    static const SDL_DialogFileFilter pngFilters[] = {
+        { "PNG image", "png" },
+        { "All files", "*" },
+    };
+    const bool gif = std::string(extension) == ".gif";
+    const std::string suggestion = doc.path().empty()
+                                 ? std::string()
+                                 : withExtension(fileStem(doc.path()), extension);
+    const std::string location = doc.path().empty() ? std::string()
+                                                    : directoryOf(doc.path());
+    const std::string start = location.empty() ? suggestion
+                            : location + "/" + suggestion;
+    SDL_ShowSaveFileDialog(onChosen, &state.dialog, window,
+                           gif ? gifFilters : pngFilters, 2,
                            start.empty() ? nullptr : start.c_str());
 }
 
@@ -135,6 +172,18 @@ const SDL_DialogFileFilter kImageFilters[] = {
 void showImportReferenceDialog(FileState& state, SDL_Window* window, const Document& doc) {
     SDL_LockMutex(state.dialog.mutex);
     state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportReference,
+                     false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+
+    const std::string location = startingLocation(doc);
+    SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kImageFilters,
+                           static_cast<int>(SDL_arraysize(kImageFilters)),
+                           location.empty() ? nullptr : location.c_str(), false);
+}
+
+void showImportSheetDialog(FileState& state, SDL_Window* window, const Document& doc) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportSheet,
                      false, false, {} };
     SDL_UnlockMutex(state.dialog.mutex);
 

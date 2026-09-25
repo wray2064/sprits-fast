@@ -50,6 +50,19 @@ bool imageInfo(const std::vector<uint8_t>& bytes, ImageInfo* out, std::string* e
 bool decodeImage(const std::vector<uint8_t>& bytes, ls::RasterBuffer* out,
                  std::string* error);
 
+// Every frame of an image: an animated GIF's frames with their holds in
+// milliseconds, or any other image as one frame. The frames of a GIF are
+// counted from its structure before any is decoded, and refused when all of
+// them together would pass kMaxAnimationPixels -- a small file can describe a
+// great many large frames, and the decoder allocates every one.
+constexpr uint64_t kMaxAnimationPixels = 64ull * 1024ull * 1024ull;
+bool decodeFrames(const std::vector<uint8_t>& bytes, std::vector<ls::RasterBuffer>* frames,
+                  std::vector<int>* holdsMs, std::string* error);
+
+// How many frames a GIF holds, by walking its blocks without decoding any.
+// Zero for bytes that are not a well-formed GIF.
+size_t countGifFrames(const std::vector<uint8_t>& bytes);
+
 // Encodes RGBA8 as PNG. References are stored in the document package, and a
 // JPEG re-encoded as PNG is both smaller to draw from and one format for the
 // package to carry.

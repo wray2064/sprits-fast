@@ -51,6 +51,18 @@ constexpr uint32_t    kThumbnailSize = 128;
 constexpr uint32_t kMaxCanvasDimension = 16384;
 constexpr uint64_t kMaxCanvasPixels    = 4096ull * 4096ull;
 
+// The profile every compile in Fast uses: the canvas, the strip, the
+// thumbnails, the bucket's view of the picture, and every file written.
+//
+// One place, because they must agree -- a bucket that floods a picture the
+// canvas does not show, or an export that differs from the screen in anything
+// but quality, is a bug nobody can see. Alpha is preserved: the engine's
+// default thresholds it, which is right for a sprite drawn in hard pixels and
+// wrong for an editor, where a layer at 40% over nothing has to look like 40%
+// and a half-transparent colour in an opened PNG has to stay one.
+ls::CompileProfile compileProfile(ls::CompileProfileType type, uint32_t width,
+                                  uint32_t height);
+
 class Document {
 public:
     Document();

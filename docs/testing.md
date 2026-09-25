@@ -236,6 +236,23 @@ sprits_fast --demo-stroke
 9. On the demo's *Layer 1* (it is rotated) try to move a selection. *Expect:*
    the status line says the layer has a transform, and nothing moves.
 
+### 4j. Pictures in and out
+
+1. Open a PNG made in another editor. *Expect:* one layer, the palette panel
+   showing the picture's colours, the Element panel one row per colour. Edit a
+   swatch. *Expect:* those pixels recolour.
+2. Open an animated GIF. *Expect:* the strip opens with one frame per GIF frame,
+   each with its hold; Play matches the GIF in a browser.
+3. *File -> Import sprite sheet* on a strip of frames. *Expect:* the cell size
+   guessed square, the frame count said; *Open as frames* asks about unsaved
+   work first.
+4. *File -> Export animation*, GIF, 4x, from a ping-pong cycle. Open the file in
+   a browser. *Expect:* it plays there and back without stalling on either end,
+   at four times the size, crisp.
+5. The same as Animated PNG with a layer at 50% opacity. *Expect:* the browser
+   shows the half-transparency; the GIF of the same thing does not, and the
+   status line said so when it was written.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

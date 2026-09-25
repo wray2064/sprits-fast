@@ -42,12 +42,7 @@ int opaqueCount(const RasterBuffer& raster) {
 }
 
 CompileProfile previewProfile(uint32_t size) {
-    CompileProfile profile;
-    profile.type = CompileProfileType::Preview;
-    profile.outputWidth = size;
-    profile.outputHeight = size;
-    profile.palette = PalettePolicy::Unconstrained;
-    return profile;
+    return fast::compileProfile(CompileProfileType::Preview, size, size);
 }
 
 } // namespace

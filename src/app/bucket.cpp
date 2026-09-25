@@ -47,11 +47,8 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
     }
 
     // What the user is looking at, which is what they are pointing at.
-    ls::CompileProfile profile;
-    profile.type = ls::CompileProfileType::Preview;
-    profile.outputWidth = static_cast<uint32_t>(width);
-    profile.outputHeight = static_cast<uint32_t>(height);
-    profile.palette = ls::PalettePolicy::Unconstrained;
+    const ls::CompileProfile profile = compileProfile(
+        ls::CompileProfileType::Preview, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 
     auto compiled = doc.engine().compileSprite(sprite, profile);
     if (compiled.fail()) {

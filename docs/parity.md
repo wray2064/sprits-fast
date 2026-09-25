@@ -102,12 +102,12 @@ only output. A feature that bakes pixels to get done faster is not done.
 ### Files
 - [x] `.lsprite` open/save, atomic, recent files, autosave and recovery
 - [x] PNG export at whole-number scales, sprite sheets with a manifest
-- [ ] Open a PNG/BMP/GIF/JPG as a new document (as pixels in inks by colour)
-- [ ] Open an animated GIF as frames
-- [ ] Export animated GIF
-- [ ] Export animated PNG and WebP
-- [ ] Export frames as a numbered PNG sequence
-- [ ] Import a sprite sheet (grid slicing) as frames
+- [x] Open a PNG/BMP/GIF/JPG as a new document (as pixels in inks by colour)
+- [x] Open an animated GIF as frames
+- [x] Export animated GIF
+- [~] Export animated PNG and WebP
+- [x] Export frames as a numbered PNG sequence
+- [x] Import a sprite sheet (grid slicing) as frames
 - [ ] Open `.aseprite`/`.ase` files **(the most important import for
       winning users over)**
 - [ ] Export sheet options: padding, trim, JSON hash/array like Aseprite's, by
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- 2026-09-25 — images open as documents (colours become the palette), GIF frames, sheet import; export GIF, APNG, PNG sequence; alpha preserved in every compile.
 - 2026-09-25 — selections: marquee, ellipse, lasso, wand; add/subtract/intersect; move, nudge, flip, rotate, cut/copy/paste/delete; shapes ride along as shapes.
 - 2026-09-25 — many colours on one layer (inks), left/right colours with X, picker reads the slot, Enter plays and Space pans.
 - 2026-09-25 — audit written; parity work begins with many colours on one layer.

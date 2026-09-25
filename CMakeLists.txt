@@ -71,11 +71,13 @@ add_library(fast_core STATIC
     src/app/element.cpp
     src/app/brush.cpp
     src/app/image_io.cpp
+    src/app/import_image.cpp
     src/app/ink.cpp
     src/app/library.cpp
     src/app/reference.cpp
     src/app/selection.cpp
     src/app/recovery.cpp
+    src/app/export_anim.cpp
     src/app/export_png.cpp
     src/app/floating.cpp
     src/app/file_io.cpp
@@ -167,6 +169,14 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_selection_tests tests/selection_tests.cpp)
     target_link_libraries(fast_selection_tests PRIVATE fast_core)
     add_test(NAME fast_selection COMMAND fast_selection_tests)
+
+    add_executable(fast_import_tests tests/import_tests.cpp)
+    target_link_libraries(fast_import_tests PRIVATE fast_core)
+    add_test(NAME fast_import COMMAND fast_import_tests)
+
+    add_executable(fast_anim_export_tests tests/anim_export_tests.cpp)
+    target_link_libraries(fast_anim_export_tests PRIVATE fast_core)
+    add_test(NAME fast_anim_export COMMAND fast_anim_export_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

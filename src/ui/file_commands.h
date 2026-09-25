@@ -31,7 +31,8 @@ class Document;
 struct DialogResult {
     enum class Kind { None, Open, SaveAs, ExportPng, ExportSheet,
                       ImportPalette, ExportPalette,
-                      ImportReference, ProjectFolder, ReferenceFolder };
+                      ImportReference, ProjectFolder, ReferenceFolder,
+                      ImportSheet, ExportAnimation };
 
     SDL_Mutex*  mutex = nullptr;
     Kind        kind = Kind::None;
@@ -49,6 +50,7 @@ enum class PendingAction {
     NewDocument,
     OpenDialog,
     OpenPath,       // a recent entry or a dropped file, in pendingPath
+    ImportSheet,    // the sheet waiting in the import window, sliced into frames
     Quit,
 };
 
@@ -71,12 +73,19 @@ void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showExportDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc);
+// Where an animation goes. `extension` is ".gif" or ".png", which decides
+// both the filter and the suggested name.
+void showAnimationDialog(FileState& state, SDL_Window* window, const Document& doc,
+                         const char* extension);
 // An image to draw from, and the two folders a library watches. The folder
 // dialogs ask for a directory rather than a file, which SDL has its own call
 // for -- picking "any file in the folder" and taking its parent is the trick
 // every program that lacks one resorts to, and it asks the person to think
 // about a file they do not care about.
 void showImportReferenceDialog(FileState& state, SDL_Window* window, const Document& doc);
+// A sprite sheet to slice into frames: the same images, a different question
+// afterwards.
+void showImportSheetDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showProjectFolderDialog(FileState& state, SDL_Window* window,
                              const std::string& startingAt);
 void showReferenceFolderDialog(FileState& state, SDL_Window* window,

@@ -50,6 +50,17 @@ void Document::releasePrevious(ls::DocumentId replacement) {
 
 // ------------------------------------------------------------------- life --
 
+ls::CompileProfile compileProfile(ls::CompileProfileType type, uint32_t width,
+                                  uint32_t height) {
+    ls::CompileProfile profile;
+    profile.type = type;
+    profile.outputWidth = width;
+    profile.outputHeight = height;
+    profile.palette = ls::PalettePolicy::Unconstrained;
+    profile.alpha = ls::AlphaPolicy::Preserve;
+    return profile;
+}
+
 bool Document::create(const std::string& name, uint32_t width, uint32_t height) {
     ls::DocumentDesc desc;
     desc.name = name;

@@ -647,6 +647,103 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
 
 // ---------------------------------------------------------------- the sheet --
 
+void drawAnimationPanel(Editor& editor, SDL_Window* window) {
+    if (!editor.animationPanelOpen) {
+        return;
+    }
+    const theme::Palette& c = theme::palette();
+    AnimationSettings& settings = editor.animation;
+
+    ImGui::OpenPopup("Export animation");
+    ImGui::SetNextWindowSize(ImVec2(430.f, 0.f), ImGuiCond_Appearing);
+    if (!ImGui::BeginPopupModal("Export animation", &editor.animationPanelOpen,
+                                ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+
+    theme::sectionHeader("FORMAT");
+    const char* formats[] = { "GIF", "Animated PNG", "PNG sequence" };
+    int format = static_cast<int>(settings.format);
+    ImGui::SetNextItemWidth(160.f);
+    if (ImGui::Combo("##format", &format, formats, 3)) {
+        settings.format = static_cast<AnimationFormat>(format);
+    }
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(110.f);
+    int scale = static_cast<int>(settings.scale);
+    if (ImGui::DragInt("##scale", &scale, 0.1f, 1,
+                       static_cast<int>(ExportSettings::kMaxScale), "%dx")) {
+        settings.scale = static_cast<uint32_t>(scale);
+    }
+    ImGui::PushStyleColor(ImGuiCol_Text, c.textDim);
+    ImGui::TextWrapped("%s",
+        settings.format == AnimationFormat::Gif
+            ? "Plays everywhere. 256 colours a frame and no partial "
+              "transparency: a frame with more colours is reduced, and you are "
+              "told when it is."
+        : settings.format == AnimationFormat::Apng
+            ? "Every colour and every level of transparency, exactly. Browsers "
+              "and most viewers play it; some older tools show the first frame."
+            : "One numbered PNG per step, for tools that assemble their own.");
+    ImGui::PopStyleColor();
+
+    // What plays. The selected cycle's steps in its loop mode -- ping-pong
+    // there and back, once without looping -- or every frame, looping.
+    const bool haveCycle = editor.timeline.activeCycle >= 0 &&
+                           editor.timeline.activeCycle <
+                               static_cast<int>(editor.cycles.size());
+    if (!haveCycle) {
+        editor.animationFromCycle = false;
+    }
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
+    theme::sectionHeader("WHAT PLAYS");
+    ImGui::BeginDisabled(!haveCycle);
+    if (ImGui::RadioButton("The selected cycle", editor.animationFromCycle)) {
+        editor.animationFromCycle = true;
+    }
+    ImGui::EndDisabled();
+    if (haveCycle) {
+        ImGui::SameLine();
+        const Cycle& cycle = editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)];
+        ImGui::TextColored(c.textDim, "(%s)", cycle.name.empty() ? "unnamed" : cycle.name.c_str());
+    }
+    if (ImGui::RadioButton("Every frame, in order", !editor.animationFromCycle)) {
+        editor.animationFromCycle = false;
+    }
+
+    const Cycle cycle = editor.animationFromCycle
+        ? activeCycle(editor) : everyFrame(static_cast<int>(editor.frames.size()));
+    const std::vector<int> steps = stepsToPlay(cycle);
+    int total = 0;
+    for (int step : steps) {
+        if (step >= 0 && step < static_cast<int>(editor.frames.size())) {
+            total += editor.frames[static_cast<size_t>(step)].durationMs;
+        }
+    }
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    ImGui::Separator();
+    ImGui::TextColored(c.textBright, "%d step(s), %d ms", static_cast<int>(steps.size()), total);
+    ImGui::SameLine();
+    ImGui::TextColored(c.textDim, "%s", cycle.loop == LoopMode::Once ? "-- plays once"
+                                                                      : "-- loops");
+
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
+    ImGui::BeginDisabled(steps.empty());
+    if (ImGui::Button("Choose a file...", ImVec2(150.f, 0.f))) {
+        showAnimationDialog(editor.files, window, editor.doc,
+                            animationExtension(settings.format));
+        editor.animationPanelOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        editor.animationPanelOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
 void drawSheetPanel(Editor& editor, SDL_Window* window) {
     if (!editor.sheetPanelOpen) {
         return;

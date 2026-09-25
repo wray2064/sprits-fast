@@ -70,11 +70,8 @@ bool updateThumbnail(Document& doc) {
         return false;
     }
 
-    ls::CompileProfile profile;
-    profile.type = ls::CompileProfileType::Export;
-    profile.outputWidth = static_cast<uint32_t>(size.value.x);
-    profile.outputHeight = static_cast<uint32_t>(size.value.y);
-    profile.palette = ls::PalettePolicy::Unconstrained;
+    const ls::CompileProfile profile = compileProfile(
+        ls::CompileProfileType::Export, static_cast<uint32_t>(size.value.x), static_cast<uint32_t>(size.value.y));
 
     // The first frame, which is the one a person thinks of as the sprite.
     auto compiled = doc.engine().compileSprite(info.value.sprites.front(), profile);

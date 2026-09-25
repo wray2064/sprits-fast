@@ -171,11 +171,9 @@ bool composeSheet(Document& doc, const std::vector<ls::SpriteId>& frames,
     }
 
     for (size_t i = 0; i < frames.size(); ++i) {
-        ls::CompileProfile profile;
-        profile.type = ls::CompileProfileType::Export;   // never what is on screen
-        profile.outputWidth = cellWidth;
-        profile.outputHeight = cellHeight;
-        profile.palette = ls::PalettePolicy::Unconstrained;
+        // Export, never what is on screen.
+        ls::CompileProfile profile =
+            compileProfile(ls::CompileProfileType::Export, cellWidth, cellHeight);
 
         // The default is the origin, so a cell is exactly what exporting this
         // frame on its own would have produced. Asking for the other thing --

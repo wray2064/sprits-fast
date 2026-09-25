@@ -13,6 +13,7 @@
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/element.h"
+#include "app/export_anim.h"
 #include "app/floating.h"
 #include "app/ink.h"
 #include "app/layers.h"
@@ -180,6 +181,24 @@ struct Editor {
     ls::PaletteId renamingPalette;
     char          paletteNameBuffer[64] = {};
     int   exportScale = 1;
+
+    // A sprite sheet chosen for import, waiting for its grid to be said. The
+    // picture is held decoded so the window can say how many frames each
+    // grid would make before anything is replaced.
+    struct SheetImport {
+        bool             open = false;
+        std::string      path;
+        ls::RasterBuffer picture;
+        int              cellWidth = 32;
+        int              cellHeight = 32;
+        int              holdMs = 100;
+    } sheetImport;
+
+    // The animation export, and whether its window is up. Like the sheet's,
+    // kept here so the choices survive the window closing.
+    bool              animationPanelOpen = false;
+    bool              animationFromCycle = true;
+    AnimationSettings animation;
 
     // The sheet export, and whether its window is up. Kept on the editor rather
     // than in the panel so the choices survive the dialog being opened and

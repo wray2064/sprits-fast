@@ -68,11 +68,8 @@ const FrameCache::Entry* FrameCache::entryForLayer(Document& doc, ls::SpriteId s
     }
     const uint32_t width  = static_cast<uint32_t>(size.value.x);
     const uint32_t height = static_cast<uint32_t>(size.value.y);
-    ls::CompileProfile profile;
-    profile.type = ls::CompileProfileType::Preview;
-    profile.outputWidth = width;
-    profile.outputHeight = height;
-    profile.palette = ls::PalettePolicy::Unconstrained;
+    const ls::CompileProfile profile =
+        compileProfile(ls::CompileProfileType::Preview, width, height);
 
     auto compiled = doc.engine().compileLayer(layer, profile);
     ++compilesThisFrame_;
@@ -137,11 +134,9 @@ FrameCache::Entry* FrameCache::compile(Document& doc, ls::SpriteId sprite, Entry
     const uint32_t width  = static_cast<uint32_t>(size.value.x);
     const uint32_t height = static_cast<uint32_t>(size.value.y);
 
-    ls::CompileProfile profile;
-    profile.type = ls::CompileProfileType::Preview;   // Export is for files
-    profile.outputWidth = width;
-    profile.outputHeight = height;
-    profile.palette = ls::PalettePolicy::Unconstrained;
+    // Preview; Export is for files.
+    const ls::CompileProfile profile =
+        compileProfile(ls::CompileProfileType::Preview, width, height);
 
     const auto started = std::chrono::steady_clock::now();
     auto compiled = doc.engine().compileSprite(sprite, profile);

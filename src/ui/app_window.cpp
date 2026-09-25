@@ -10,6 +10,7 @@
 // This is still the only part of Fast that knows what toolkit is in use.
 // Everything it does goes through fast_core, which knows nothing about windows.
 
+#include "app/import_image.h"
 #include "app/animation.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
@@ -30,6 +31,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -46,8 +48,41 @@ using namespace fast;
 // file, the command line. A file that will not open is dropped from the recent
 // list -- the only place that list is pruned, since a path missing because a
 // drive is unplugged should not vanish from the menu on its own.
+// A document that has just replaced the old one from somewhere other than its
+// own file -- an image, a sheet: everything held about the old document goes,
+// the view fits the new canvas, and the strip opens if there are frames.
+void adoptImported(Editor& editor, CanvasView& canvas, const ImportReport& report,
+                   const std::string& from) {
+    editor.activeLayer = 0;
+    forgetInteraction(editor);
+    canvas.referenceTextures().clear();
+    canvas.frames().clear();
+    resyncLayers(editor);
+    canvas.requestFit();
+    editor.timeline.visible = editor.frames.size() > 1;
+    resyncReferences(editor, canvas);
+    refreshInks(editor);
+    canvas.invalidate();
+    editor.say("Opened " + from + ": " + std::to_string(report.frames) + " frame(s), " +
+               std::to_string(report.colours) + " colour(s)" +
+               (report.throughPalette ? ", every one a palette slot"
+                                      : ", kept as colours of their own"));
+}
+
 void openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     std::string error;
+    // A picture from another editor opens as a document of its own. It is
+    // not added to the recent list's idea of "the file": saving asks where
+    // the .lsprite goes, so the image it came from is never written over.
+    if (looksLikeImageName(path)) {
+        ImportReport report;
+        if (!openImageAsDocument(editor.doc, path, &report, &error)) {
+            editor.say("Could not open " + fileName(path) + ": " + error);
+            return;
+        }
+        adoptImported(editor, canvas, report, fileName(path));
+        return;
+    }
     if (!editor.doc.open(path, &error)) {
         editor.say("Could not open " + fileName(path) + ": " + error);
         editor.files.recent.remove(path);
@@ -169,6 +204,24 @@ void performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
         case PendingAction::OpenPath:
             openPath(editor, canvas, path);
             break;
+        case PendingAction::ImportSheet: {
+            Editor::SheetImport& sheet = editor.sheetImport;
+            std::vector<ls::RasterBuffer> cells;
+            std::string error;
+            ImportReport report;
+            if (!sliceSheet(sheet.picture, static_cast<uint32_t>(sheet.cellWidth),
+                            static_cast<uint32_t>(sheet.cellHeight), &cells, &error) ||
+                !documentFromFrames(editor.doc, fileStem(sheet.path), cells,
+                                    std::vector<int>(cells.size(), sheet.holdMs),
+                                    &report, &error)) {
+                editor.say("Could not import the sheet: " + error);
+                break;
+            }
+            const std::string from = fileName(sheet.path);
+            sheet = Editor::SheetImport{};
+            adoptImported(editor, canvas, report, from);
+            break;
+        }
         case PendingAction::Quit:
             editor.quitRequested = true;
             break;
@@ -251,6 +304,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem("Import reference...")) {
             showImportReferenceDialog(editor.files, window, editor.doc);
         }
+        if (ImGui::MenuItem("Import sprite sheet...")) {
+            showImportSheetDialog(editor.files, window, editor.doc);
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Open...", "Ctrl+O")) {
             requestAction(editor, canvas, window, PendingAction::OpenDialog);
@@ -292,6 +348,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem("Export sheet...", nullptr, false,
                             !editor.frames.empty())) {
             editor.sheetPanelOpen = true;
+        }
+        if (ImGui::MenuItem("Export animation...", nullptr, false,
+                            !editor.frames.empty())) {
+            editor.animationPanelOpen = true;
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Quit", "Ctrl+Q")) {
@@ -378,6 +438,60 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
+}
+
+// The grid a sprite sheet is cut on. Numbers rather than a drawn grid on the
+// picture, because the numbers are what the person already knows -- "16 by 16"
+// -- and the frame count beside them says at once whether they are right.
+void drawSheetImportPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
+    Editor::SheetImport& sheet = editor.sheetImport;
+    if (!sheet.open) {
+        return;
+    }
+    ImGui::SetNextWindowSize(ImVec2(320.f, 0.f), ImGuiCond_Appearing);
+    bool open = true;
+    if (ImGui::Begin("Import sprite sheet", &open, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::TextUnformatted(fileName(sheet.path).c_str());
+        ImGui::TextDisabled("%u x %u", sheet.picture.width, sheet.picture.height);
+        ImGui::Dummy(ImVec2(0.f, 4.f));
+        ImGui::SetNextItemWidth(120.f);
+        ImGui::InputInt("cell width", &sheet.cellWidth);
+        ImGui::SetNextItemWidth(120.f);
+        ImGui::InputInt("cell height", &sheet.cellHeight);
+        ImGui::SetNextItemWidth(120.f);
+        ImGui::InputInt("hold (ms)", &sheet.holdMs, 10, 100);
+        sheet.cellWidth = std::max(1, sheet.cellWidth);
+        sheet.cellHeight = std::max(1, sheet.cellHeight);
+        sheet.holdMs = std::clamp(sheet.holdMs, kMinFrameMs, kMaxFrameMs);
+
+        std::vector<ls::RasterBuffer> cells;
+        std::string error;
+        const bool fits = sliceSheet(sheet.picture, static_cast<uint32_t>(sheet.cellWidth),
+                                     static_cast<uint32_t>(sheet.cellHeight), &cells, &error);
+        if (fits) {
+            const uint32_t columns = sheet.picture.width / static_cast<uint32_t>(sheet.cellWidth);
+            const uint32_t rows = sheet.picture.height / static_cast<uint32_t>(sheet.cellHeight);
+            ImGui::Text("%zu frame(s): %u across, %u down", cells.size(), columns, rows);
+            if (sheet.picture.width % static_cast<uint32_t>(sheet.cellWidth) != 0 ||
+                sheet.picture.height % static_cast<uint32_t>(sheet.cellHeight) != 0) {
+                ImGui::TextDisabled("The edge that does not make a whole cell is left out.");
+            }
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
+            ImGui::TextWrapped("%s", error.c_str());
+            ImGui::PopStyleColor();
+        }
+        ImGui::Dummy(ImVec2(0.f, 6.f));
+        ImGui::BeginDisabled(!fits);
+        if (ImGui::Button("Open as frames", ImVec2(-1.f, 0.f))) {
+            requestAction(editor, canvas, window, PendingAction::ImportSheet);
+        }
+        ImGui::EndDisabled();
+    }
+    ImGui::End();
+    if (!open) {
+        sheet = Editor::SheetImport{};
+    }
 }
 
 // What was found waiting from a session that did not end normally.
@@ -557,6 +671,32 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         openPath(editor, canvas, path);
         return;
     }
+    if (kind == DialogResult::Kind::ImportSheet) {
+        std::vector<uint8_t> bytes;
+        std::string error;
+        ls::RasterBuffer picture;
+        if (!readFile(path, bytes, &error) || !decodeImage(bytes, &picture, &error)) {
+            editor.say("Could not read " + fileName(path) + ": " + error);
+            return;
+        }
+        Editor::SheetImport& sheet = editor.sheetImport;
+        sheet.open = true;
+        sheet.path = path;
+        // A guess at the grid: square cells as tall as the sheet for a strip,
+        // as wide as it for a column, and otherwise the common 32.
+        const int w = static_cast<int>(picture.width);
+        const int h = static_cast<int>(picture.height);
+        if (w >= h && w % h == 0) {
+            sheet.cellWidth = sheet.cellHeight = h;
+        } else if (h > w && h % w == 0) {
+            sheet.cellWidth = sheet.cellHeight = w;
+        } else {
+            sheet.cellWidth = std::min(32, w);
+            sheet.cellHeight = std::min(32, h);
+        }
+        sheet.picture = std::move(picture);
+        return;
+    }
 
     if (kind == DialogResult::Kind::ExportPng) {
         ExportSettings settings;
@@ -638,6 +778,29 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         return;
     }
 
+    if (kind == DialogResult::Kind::ExportAnimation) {
+        const Cycle cycle = editor.animationFromCycle
+            ? activeCycle(editor) : everyFrame(static_cast<int>(editor.frames.size()));
+        const char* extension = animationExtension(editor.animation.format);
+        const std::string target = withExtension(path, extension);
+        AnimationReport report;
+        std::string error;
+        if (exportAnimation(editor.doc, editor.frames, cycle, target, editor.animation,
+                            &report, &error)) {
+            std::string said = "Wrote " + fileName(target) + ": " +
+                               std::to_string(report.frames) + " frame(s)";
+            if (report.reducedColours) {
+                said += "; a frame had more than 255 colours and was reduced";
+            }
+            if (report.droppedAlpha) {
+                said += "; partial transparency became all or nothing, as GIF requires";
+            }
+            editor.say(said);
+        } else {
+            editor.say("Animation failed: " + error);
+        }
+        return;
+    }
     if (kind == DialogResult::Kind::ExportSheet) {
         const std::vector<int> steps = sheetSteps(editor);
         std::string error;
@@ -1343,6 +1506,8 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::PopStyleColor();
 
     drawSheetPanel(editor, window);
+    drawAnimationPanel(editor, window);
+    drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);
     drawUnsavedPrompt(editor, canvas, window);
@@ -1849,11 +2014,8 @@ int runSelfTest() {
     // the selected frame may change.
     {
         const auto pixelsOf = [&](ls::SpriteId sprite) {
-            ls::CompileProfile profile;
-            profile.type = ls::CompileProfileType::Export;
-            profile.outputWidth = 16;
-            profile.outputHeight = 16;
-            profile.palette = ls::PalettePolicy::Unconstrained;
+            const ls::CompileProfile profile =
+                compileProfile(ls::CompileProfileType::Export, 16, 16);
             auto compiled = editor.doc.engine().compileSprite(sprite, profile);
             return compiled.ok() ? compiled.value.raster.pixels
                                  : std::vector<uint8_t>{};

@@ -45,9 +45,11 @@ one-key swap and a per-frame binding that gives colour cycling for nothing.
 
 **Files** — native Open and Save dialogs, recent files, drag-and-drop, atomic
 saves, a prompt before anything discards unsaved work, autosave to a copy that
-is never the file you are editing, PNG export at whole-number scales, sprite
-sheets with a description beside them, and files that open from the command
-line.
+is never the file you are editing, and files that open from the command line.
+PNGs, GIFs (every frame), JPEGs and BMPs open as documents, their colours
+becoming the palette; a sprite sheet slices into frames. Out: PNG at
+whole-number scales, sprite sheets with a description beside them, and
+animations as GIF, animated PNG or a numbered PNG sequence.
 
 **Working from something** — import reference images that travel inside the
 document, placed over or under the canvas at any opacity; and a library of two
@@ -255,6 +257,28 @@ a sprite drawn through slots -- the point of them. Both are treated as untrusted
 input: a stray line is skipped rather than failing the file, and a value outside
 0..255 is refused rather than clamped.
 
+### Bringing work in
+
+**Open** takes a PNG, a GIF, a JPEG or a BMP as readily as a `.lsprite`, and
+drag-and-drop does too. The picture is taken apart by colour: every distinct
+colour becomes a region of exactly its pixels with a fill that colours it, so
+what opens is a drawing, not a flattened picture to paint over. When the whole
+picture uses 256 colours or fewer -- which is to say, when it is pixel art --
+those colours **become the palette**, in the order they first appear, and every
+pixel paints through its slot: the first thing to do with a sprite from
+somewhere else is recolour it by editing a swatch. A picture with more colours
+keeps them as colours of their own; one with thousands is a photograph, and is
+refused with the suggestion to import it as a reference instead.
+
+An animated GIF opens as frames, each held for as long as the GIF said. **File
+-> Import sprite sheet** slices one image on a grid into frames, guessing the
+grid from the sheet's shape and saying how many frames each guess makes before
+anything is replaced. Transparency is kept as it was, including the partial
+kind.
+
+Saving an opened picture asks where the `.lsprite` goes: the image it came
+from is never written over by a save.
+
 ### Getting work out
 
 **File -> Export PNG** writes a picture at 1x through 16x. Scaling is pixel
@@ -263,6 +287,15 @@ per side, because anything else defeats the point of the format.
 
 Export compiles at `Export` quality rather than writing what is on screen, and
 leaves the document untouched -- exporting is not saving.
+
+**File -> Export animation** writes the selected cycle, in its loop mode, or
+every frame: as a **GIF**, which plays everywhere; as an **animated PNG**,
+which keeps every colour and every level of transparency exactly; or as a
+numbered **PNG sequence**. A GIF holds 256 colours a frame and no partial
+transparency, so a document that needs more gets a palette per frame, and one
+frame with more than any palette holds is reduced -- and the status line says
+so rather than letting it happen quietly. Every frame is byte-for-byte what
+exporting that frame alone would give, at the same whole-number scale.
 
 ### The thing to try first
 

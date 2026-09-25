@@ -56,6 +56,10 @@ ls::RasterBuffer magnify(const ls::RasterBuffer& source, uint32_t scale) {
 
 } // namespace
 
+ls::RasterBuffer magnifyRaster(const ls::RasterBuffer& source, uint32_t scale) {
+    return magnify(source, scale);
+}
+
 bool encodeRasterToPng(const ls::RasterBuffer& raster, const ExportSettings& settings,
                        std::vector<uint8_t>* out, std::string* error) {
     if (out == nullptr) {
@@ -109,11 +113,8 @@ bool exportSpriteToPng(Document& doc, ls::SpriteId sprite, const std::string& pa
 
     // Export quality, not what is on screen. Preview and Export are different
     // profiles on purpose.
-    ls::CompileProfile profile;
-    profile.type = ls::CompileProfileType::Export;
-    profile.outputWidth = static_cast<uint32_t>(size.value.x);
-    profile.outputHeight = static_cast<uint32_t>(size.value.y);
-    profile.palette = ls::PalettePolicy::Unconstrained;
+    const ls::CompileProfile profile = compileProfile(
+        ls::CompileProfileType::Export, static_cast<uint32_t>(size.value.x), static_cast<uint32_t>(size.value.y));
 
     auto compiled = doc.engine().compileSprite(sprite, profile);
     if (compiled.fail()) {
