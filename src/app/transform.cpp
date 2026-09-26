@@ -61,6 +61,10 @@ std::string TransformEntry::label() const {
                           axis == ls::MirrorAxis::X ? "horizontal"
                         : axis == ls::MirrorAxis::Y ? "vertical" : "both");
             break;
+        case TransformKind::Offset:
+            std::snprintf(buffer, sizeof(buffer), "Offset  %.0f, %.0f",
+                          static_cast<double>(delta.x), static_cast<double>(delta.y));
+            break;
     }
     return std::string(buffer);
 }
@@ -85,6 +89,14 @@ ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls:
     op.factor = factor;
     op.pivotFallback = pivot;
     op.sampling = sampling;
+    auto added = doc.engine().addOperation(layer, op);
+    return added.ok() ? added.value : ls::OperationId{};
+}
+
+ls::OperationId addOffset(Document& doc, ls::LayerId layer, ls::Vec2f delta) {
+    ls::TranslateOp op;
+    op.targetLayer = layer;
+    op.delta = delta;
     auto added = doc.engine().addOperation(layer, op);
     return added.ok() ? added.value : ls::OperationId{};
 }
@@ -122,12 +134,15 @@ std::vector<TransformEntry> listTransforms(Document& doc, ls::LayerId layer) {
         } else if (info.type == "MirrorOp") {
             entry.kind = TransformKind::Mirror;
             entry.axis = static_cast<ls::MirrorAxis>(intParam(doc, info.id, "axis", 0));
+        } else if (info.type == "TranslateOp") {
+            entry.kind = TransformKind::Offset;
+            entry.delta = vec2Param(doc, info.id, "delta", {0.f, 0.f});
         } else {
             continue;       // a fill, an outline, something else: not ours
         }
 
         entry.pivot = vec2Param(doc, info.id, "pivotFallback", {0.f, 0.f});
-        if (entry.kind != TransformKind::Mirror) {
+        if (entry.kind == TransformKind::Rotate || entry.kind == TransformKind::Scale) {
             entry.sampling = static_cast<ls::SamplingPolicy>(
                 intParam(doc, info.id, "sampling", static_cast<int>(ls::SamplingPolicy::Coverage)));
         }
@@ -158,6 +173,10 @@ bool setTransformPivot(Document& doc, ls::OperationId op, ls::Vec2f pivot) {
     return doc.engine()
         .setOperationParameter(op, "pivotFallback", ls::ParameterValue{pivot})
         .ok();
+}
+
+bool setOffsetDelta(Document& doc, ls::OperationId op, ls::Vec2f delta) {
+    return doc.engine().setOperationParameter(op, "delta", ls::ParameterValue{ delta }).ok();
 }
 
 bool setTransformSampling(Document& doc, ls::OperationId op, ls::SamplingPolicy sampling) {

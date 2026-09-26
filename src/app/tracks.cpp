@@ -4,8 +4,10 @@
 #include "app/tracks.h"
 
 #include "app/layers.h"
+#include "app/transform.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <map>
 #include <random>
@@ -561,6 +563,93 @@ bool syncLinks(Document& doc, ls::SpriteId master) {
         }
     }
     return changed;
+}
+
+bool tweenTransforms(Document& doc, const std::vector<ls::SpriteId>& frames,
+                     const std::string& key, TweenEasing easing, std::string* why) {
+    const auto fail = [&](const char* reason) {
+        if (why != nullptr) { *why = reason; }
+        return false;
+    };
+    if (frames.size() < 3) {
+        return fail("a tween needs a frame between its two keys");
+    }
+    const ls::LayerId first = layerOfTrack(doc, frames.front(), key);
+    const ls::LayerId last = layerOfTrack(doc, frames.back(), key);
+    if (!first.valid() || !last.valid()) {
+        return fail("the layer is not in both key frames");
+    }
+    const std::vector<TransformEntry> a = listTransforms(doc, first);
+    const std::vector<TransformEntry> b = listTransforms(doc, last);
+    if (a.empty()) {
+        return fail("the first key frame's layer has no transforms to tween");
+    }
+    if (a.size() != b.size()) {
+        return fail("the two key frames' layers have different transforms");
+    }
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (a[i].kind != b[i].kind) {
+            return fail("the two key frames' layers have different transforms");
+        }
+    }
+    const auto mix = [](float x, float y, float t) { return x + (y - x) * t; };
+    const auto mix2 = [&](ls::Vec2f x, ls::Vec2f y, float t) {
+        return ls::Vec2f{ mix(x.x, y.x, t), mix(x.y, y.y, t) };
+    };
+    for (size_t f = 1; f + 1 < frames.size(); ++f) {
+        const ls::LayerId layer = layerOfTrack(doc, frames[f], key);
+        if (!layer.valid()) {
+            continue;
+        }
+        float t = static_cast<float>(f) / static_cast<float>(frames.size() - 1);
+        if (easing == TweenEasing::EaseInOut) {
+            t = t * t * (3.f - 2.f * t);
+        }
+        // The keys' transforms, if this frame's are not the same kinds.
+        std::vector<TransformEntry> here = listTransforms(doc, layer);
+        bool same = here.size() == a.size();
+        for (size_t i = 0; same && i < a.size(); ++i) {
+            same = here[i].kind == a[i].kind;
+        }
+        if (!same) {
+            clearTransforms(doc, layer);
+            for (const TransformEntry& k : a) {
+                switch (k.kind) {
+                    case TransformKind::Rotate: addRotate(doc, layer, k.angleDegrees, k.pivot, k.sampling); break;
+                    case TransformKind::Scale:  addScale(doc, layer, k.factor, k.pivot, k.sampling); break;
+                    case TransformKind::Mirror: addMirror(doc, layer, k.axis, k.pivot); break;
+                    case TransformKind::Offset: addOffset(doc, layer, k.delta); break;
+                }
+            }
+            here = listTransforms(doc, layer);
+        }
+        for (size_t i = 0; i < a.size() && i < here.size(); ++i) {
+            const TransformEntry& x = a[i];
+            const TransformEntry& y = b[i];
+            switch (x.kind) {
+                case TransformKind::Rotate:
+                    setRotateAngle(doc, here[i].id, mix(x.angleDegrees, y.angleDegrees, t));
+                    break;
+                case TransformKind::Scale:
+                    setScaleFactor(doc, here[i].id, mix2(x.factor, y.factor, t));
+                    break;
+                case TransformKind::Offset:
+                    setOffsetDelta(doc, here[i].id,
+                                   { std::round(mix(x.delta.x, y.delta.x, t)),
+                                     std::round(mix(x.delta.y, y.delta.y, t)) });
+                    break;
+                case TransformKind::Mirror:
+                    break;
+            }
+            if (x.kind != TransformKind::Offset) {
+                setTransformPivot(doc, here[i].id, mix2(x.pivot, y.pivot, t));
+            }
+            if (x.kind == TransformKind::Rotate || x.kind == TransformKind::Scale) {
+                setTransformSampling(doc, here[i].id, x.sampling);
+            }
+        }
+    }
+    return true;
 }
 
 bool tracksOn(Document& doc) {

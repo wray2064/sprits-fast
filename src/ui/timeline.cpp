@@ -554,6 +554,46 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         ImGui::SetTooltip(ranged ? "Put the selected frames in the opposite order."
                                  : "Shift+click a second frame to select a run to reverse.");
     }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!ranged || last - first < 2 || !tracksOn(editor.doc) ||
+                         editor.active() == nullptr);
+    if (ImGui::Button("Tween")) {
+        ImGui::OpenPopup("##tween");
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("The selected layer's transforms, from the first frame of the run\n"
+                          "to the last, with every frame between getting the values in\n"
+                          "between: rotate, scale, offset and pivot. Give the two end\n"
+                          "frames the same transforms first. Shift+click selects a run.");
+    }
+    if (ImGui::BeginPopup("##tween")) {
+        const struct { TweenEasing easing; const char* name; } easings[] = {
+            { TweenEasing::Linear, "Linear" },
+            { TweenEasing::EaseInOut, "Ease in and out" },
+        };
+        for (const auto& e : easings) {
+            if (ImGui::Selectable(e.name)) {
+                std::vector<ls::SpriteId> run;
+                for (int i = first; i <= last; ++i) {
+                    run.push_back(editor.frames[static_cast<size_t>(i)].sprite);
+                }
+                const std::string key = trackKey(editor.doc, editor.active()->layer);
+                std::string why;
+                editor.doc.beginAction("Tween");
+                if (tweenTransforms(editor.doc, run, key, e.easing, &why)) {
+                    editor.doc.endAction();
+                    resyncFrames(editor);
+                    editor.say("Tweened frames " + std::to_string(first + 1) + " to " +
+                               std::to_string(last + 1));
+                } else {
+                    editor.doc.abandonAction();
+                    editor.say("No tween: " + why);
+                }
+            }
+        }
+        ImGui::EndPopup();
+    }
     ImGui::EndDisabled();
 
     // The duration of the frame being looked at. One number, on the frame it

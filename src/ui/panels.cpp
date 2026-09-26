@@ -2960,7 +2960,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     }();
 
     const float third = (ImGui::GetContentRegionAvail().x -
-                         theme::metrics().itemSpacing * 2.f) / 3.f;
+                         theme::metrics().itemSpacing * 3.f) / 4.f;
 
     if (ImGui::Button("Rotate", ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add rotate");
@@ -2981,6 +2981,17 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
         addMirror(editor.doc, layer->layer, ls::MirrorAxis::X, centre);
         editor.doc.endAction();
         canvas.invalidate();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Offset", ImVec2(third, 0.f))) {
+        editor.doc.beginAction("Add offset");
+        addOffset(editor.doc, layer->layer, {0.f, 0.f});
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Move what the layer draws by whole pixels, without "
+                          "touching the drawing -- the motion a tween moves.");
     }
 
     const std::vector<TransformEntry> transforms =
@@ -3024,10 +3035,18 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
                 changed = true;
             }
             bracketDrag(editor, editor.draggingTransform, "Scale");
+        } else if (entry.kind == TransformKind::Offset) {
+            float delta[2] = { entry.delta.x, entry.delta.y };
+            if (ImGui::DragFloat2("##delta", delta, 0.25f, -4096.f, 4096.f, "%.0f px")) {
+                setOffsetDelta(editor.doc, entry.id,
+                               { std::round(delta[0]), std::round(delta[1]) });
+                changed = true;
+            }
+            bracketDrag(editor, editor.draggingTransform, "Offset");
         } else {
             ImGui::TextDisabled("no parameters");
         }
-        if (entry.kind != TransformKind::Mirror) {
+        if (entry.kind == TransformKind::Rotate || entry.kind == TransformKind::Scale) {
             // How each pixel is picked: RotSprite for pixel art, or the
             // engine's general ones.
             const struct { ls::SamplingPolicy policy; const char* name; } kinds[] = {

@@ -30,7 +30,7 @@
 
 namespace fast {
 
-enum class TransformKind { Rotate, Scale, Mirror };
+enum class TransformKind { Rotate, Scale, Mirror, Offset };
 
 // One transform in a layer's stack, with whatever parameters its kind carries.
 struct TransformEntry {
@@ -40,6 +40,7 @@ struct TransformEntry {
     float           angleDegrees = 0.f;             // Rotate
     ls::Vec2f       factor { 1.f, 1.f };            // Scale
     ls::MirrorAxis  axis = ls::MirrorAxis::X;       // Mirror
+    ls::Vec2f       delta { 0.f, 0.f };             // Offset
     ls::Vec2f       pivot;
     // How a rotation or scale picks each pixel. RotSprite is the one made for
     // pixel art: clean diagonals, no colour the drawing did not have.
@@ -55,6 +56,8 @@ ls::OperationId addRotate(Document& doc, ls::LayerId layer, float degrees, ls::V
                           ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage);
 ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls::Vec2f pivot,
                          ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage);
+// Moves what the layer draws by `delta` pixels -- the motion of a tween.
+ls::OperationId addOffset(Document& doc, ls::LayerId layer, ls::Vec2f delta);
 ls::OperationId addMirror(Document& doc, ls::LayerId layer, ls::MirrorAxis axis,
                           ls::Vec2f pivot);
 
@@ -69,6 +72,7 @@ bool setRotateAngle(Document& doc, ls::OperationId op, float degrees);
 bool setScaleFactor(Document& doc, ls::OperationId op, ls::Vec2f factor);
 bool setTransformPivot(Document& doc, ls::OperationId op, ls::Vec2f pivot);
 bool setTransformSampling(Document& doc, ls::OperationId op, ls::SamplingPolicy sampling);
+bool setOffsetDelta(Document& doc, ls::OperationId op, ls::Vec2f delta);
 
 bool removeTransform(Document& doc, ls::LayerId layer, ls::OperationId op);
 bool clearTransforms(Document& doc, ls::LayerId layer);

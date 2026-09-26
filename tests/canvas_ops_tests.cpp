@@ -18,6 +18,7 @@
 #include "app/ink.h"
 #include "app/paint.h"
 #include "app/shape.h"
+#include "app/transform.h"
 
 #include <cstdio>
 #include <string>
@@ -258,8 +259,30 @@ void testEveryFrameAndOneUndo() {
 
 } // namespace
 
+// An offset turns and flips with the canvas: the picture is the same turned
+// picture, not the drawing turned and then moved the old way.
+void testAnOffsetTurnsWithTheCanvas() {
+    Document doc;
+    PaintLayer layer;
+    REQUIRE(build(doc, &layer));
+    addOffset(doc, layer.layer, { 1.f, 0.f });
+    CHECK(same(at(doc, 1, 0), kRed) && same(at(doc, 2, 0), kRed));
+    std::string error;
+    REQUIRE(rotateCanvas(doc, 1, &error));
+    CHECK(same(at(doc, 2, 1), kRed) && same(at(doc, 2, 2), kRed));
+    std::vector<TransformEntry> entries = listTransforms(doc, layer.layer);
+    REQUIRE(entries.size() == 1);
+    CHECK(entries[0].delta.x == 0.f && entries[0].delta.y == 1.f);
+    REQUIRE(rotateCanvas(doc, 3, &error));
+    REQUIRE(flipCanvas(doc, true, &error));
+    CHECK(same(at(doc, 3, 0), kRed) && same(at(doc, 2, 0), kRed));
+    entries = listTransforms(doc, layer.layer);
+    CHECK(entries.size() == 1 && entries[0].delta.x == -1.f && entries[0].delta.y == 0.f);
+}
+
 int main() {
     testQuarterTurns();
+    testAnOffsetTurnsWithTheCanvas();
     testFlips();
     testResizeKeepsWhatFallsOff();
     testCropAndTrim();

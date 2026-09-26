@@ -86,6 +86,19 @@ int linkCels(Document& doc, ls::LayerId layer, const std::vector<ls::SpriteId>& 
 // both come apart. Does not bracket an action.
 ls::LayerId unlinkCel(Document& doc, ls::LayerId layer);
 
+// ------------------------------------------------------------------ tweens --
+
+enum class TweenEasing { Linear, EaseInOut };
+
+// A track's transforms tweened across a run of frames, in order: the first
+// and last are the keys, and every frame between gets their transforms --
+// the same kinds in the same order -- with each value in between: angle,
+// scale, offset, pivot. Linear, or easing in and out. False, with the
+// reason, when the keys do not have the same transforms. Does not bracket an
+// action.
+bool tweenTransforms(Document& doc, const std::vector<ls::SpriteId>& frames,
+                     const std::string& key, TweenEasing easing, std::string* why);
+
 // Carries the elements of `master`'s linked layers to their links in other
 // frames. What the hook runs after syncTracks. Returns whether anything moved.
 bool syncLinks(Document& doc, ls::SpriteId master);

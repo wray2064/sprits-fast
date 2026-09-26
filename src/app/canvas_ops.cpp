@@ -219,6 +219,11 @@ void remapDocument(Document& doc, const Remap& remap) {
                 if (entry.kind == TransformKind::Rotate && remap.mirrors) {
                     setRotateAngle(doc, entry.id, -entry.angleDegrees);
                 }
+                if (entry.kind == TransformKind::Offset) {
+                    const ls::Vec2f zero = remap.point({ 0.f, 0.f });
+                    const ls::Vec2f moved = remap.point(entry.delta);
+                    setOffsetDelta(doc, entry.id, { moved.x - zero.x, moved.y - zero.y });
+                }
                 if (entry.kind == TransformKind::Scale && remap.swapsAxes) {
                     setScaleFactor(doc, entry.id, { entry.factor.y, entry.factor.x });
                 }

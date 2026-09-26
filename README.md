@@ -58,6 +58,11 @@ uses RotSprite -- the drawing enlarged 8x by Scale2x and sampled back -- so a
 ring stays a ring at 30 degrees, with no colour the drawing did not have; and
 *Select > Rotate freely* puts the selected pixels on a layer of their own with
 such a rotation, to turn and turn again.
+**Tweens**: give a layer the same transforms -- rotate, scale, an offset in
+whole pixels -- in two frames, Shift+click to select the run between them, and
+*Tween* fills every frame in between with the values in between, linear or
+eased in and out. Each in-between is still a live transform of the drawing, so
+a frame can be nudged by hand afterwards and nothing is resampled twice.
 **Adjust colours** -- hue, saturation, lightness, brightness, contrast and
 invert, for a layer, a frame or every frame -- changes the elements' own colours
 and, if asked, the palette slots they paint through. Nothing becomes pixels:

@@ -555,6 +555,17 @@ sprits_fast --demo-stroke
 2. Remove `lang/es.txt` beside the program and start. *Expect:* English, no
    error.
 
+### 4ah. Tweens
+
+1. A figure on its own layer; *+ Frame* four times. On frame 1, Transform
+   panel > *Rotate* and *Offset*, both left at zero. On frame 5, the same two,
+   rotate 180 and offset 18, 0.
+2. Click frame 1, Shift+click frame 5, *Tween > Ease in and out*. *Expect:*
+   frames 2 to 4 turn and move in between, the steps closer together at the
+   ends; onion skin shows the neighbours. One undo takes all three back.
+3. Give frame 5 a *Scale* instead and tween again. *Expect:* "No tween: the
+   two key frames' layers have different transforms"; nothing changes.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

@@ -17,7 +17,9 @@
 #include "app/layers.h"
 #include "app/paint.h"
 #include "app/tracks.h"
+#include "app/transform.h"
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -366,6 +368,45 @@ void testLinkedCelsShareTheirPixels() {
     CHECK(linkOf(s.doc, named(s.doc, frames(s.doc)[2], "body")).empty());
 }
 
+// A tween: the frames between two keys get the keys' transforms with every
+// value in between; a frame with none gets them; keys that differ refuse.
+void testATweenFillsTheFramesBetween() {
+    Scene s;
+    REQUIRE(s.build());
+    s.master = s.first;
+    REQUIRE(addFrame(s.doc, 1) == 2);
+    REQUIRE(addFrame(s.doc, 2) == 3);
+    const std::vector<ls::SpriteId> run = frames(s.doc);
+    REQUIRE(run.size() == 4);
+    const std::string key = trackKey(s.doc, named(s.doc, run[0], "body"));
+    const ls::LayerId a = named(s.doc, run[0], "body");
+    const ls::LayerId d = named(s.doc, run[3], "body");
+    addRotate(s.doc, a, 0.f, { 4.f, 4.f });
+    addOffset(s.doc, a, { 0.f, 0.f });
+    addRotate(s.doc, d, 90.f, { 4.f, 4.f });
+    addOffset(s.doc, d, { 6.f, -3.f });
+
+    std::string why;
+    REQUIRE(tweenTransforms(s.doc, run, key, TweenEasing::Linear, &why));
+    const std::vector<TransformEntry> b = listTransforms(s.doc, named(s.doc, run[1], "body"));
+    const std::vector<TransformEntry> c = listTransforms(s.doc, named(s.doc, run[2], "body"));
+    REQUIRE(b.size() == 2 && c.size() == 2);
+    CHECK(b[0].kind == TransformKind::Rotate && std::fabs(b[0].angleDegrees - 30.f) < 0.01f);
+    CHECK(std::fabs(c[0].angleDegrees - 60.f) < 0.01f);
+    CHECK(b[1].kind == TransformKind::Offset && b[1].delta.x == 2.f && b[1].delta.y == -1.f);
+    CHECK(c[1].delta.x == 4.f && c[1].delta.y == -2.f);
+
+    // Easing: slower at the ends.
+    REQUIRE(tweenTransforms(s.doc, run, key, TweenEasing::EaseInOut, &why));
+    const std::vector<TransformEntry> eased = listTransforms(s.doc, named(s.doc, run[1], "body"));
+    CHECK(eased[0].angleDegrees < 30.f && eased[0].angleDegrees > 10.f);
+
+    // Keys with different transforms refuse, and say so.
+    clearTransforms(s.doc, d);
+    addScale(s.doc, d, { 2.f, 2.f }, { 4.f, 4.f });
+    CHECK(!tweenTransforms(s.doc, run, key, TweenEasing::Linear, &why) && !why.empty());
+}
+
 } // namespace
 
 int main() {
@@ -379,6 +420,7 @@ int main() {
     testNothingUnkeyedIsLost();
     testAnOlderDocumentIsBroughtTogether();
     testLinkedCelsShareTheirPixels();
+    testATweenFillsTheFramesBetween();
     if (failures == 0) {
         std::printf("tracks: all passed\n");
         return 0;

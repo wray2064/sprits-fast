@@ -2965,6 +2965,7 @@ struct Options {
     bool        tabs = false;            // --tabs: two more documents open beside the first
     bool        adjust = false;          // --adjust: the colour window, hue turned
     bool        shadow = false;          // --shadow: the figure casts a shadow
+    bool        tween = false;           // --tween: a figure turned and moved across five frames
     bool        slices = false;          // --slices: two slices, the window open
     bool        rotsprite = false;       // --rotsprite: one sprite turned two ways, side by side
     std::string language;                // --language CODE: the interface in that language
@@ -3010,6 +3011,8 @@ Options parseOptions(int argc, char** argv) {
             options.slices = true;
         } else if (arg == "--shadow") {
             options.shadow = true;
+        } else if (arg == "--tween") {
+            options.tween = true;
         } else if (arg == "--adjust") {
             options.adjust = true;
         } else if (arg == "--tabs") {
@@ -4121,6 +4124,44 @@ int runSelfTest() {
               "and one undo takes both back");
     }
 
+    // Tweens through the editor: an offset keyed at 0 and 8 puts the middle
+    // frame's pixel halfway, and one undo takes it back.
+    {
+        Editor tweened;
+        check(newDocument(tweened, 16), "a document to tween");
+        PaintLayer ball;
+        tweened.doc.beginAction("Ball");
+        check(createPaintLayer(tweened.doc, tweened.sprite, "ball", ls::Color{ 220, 40, 40, 255 }, &ball),
+              "a layer to move");
+        paintPixels(tweened.doc, ball, {{ 2, 2 }});
+        tweened.doc.endAction();
+        check(duplicateFrame(tweened.doc, 0) == 1 && duplicateFrame(tweened.doc, 1) == 2,
+              "three frames");
+        resyncFrames(tweened);
+        const std::string key = trackKey(tweened.doc, ball.layer);
+        const ls::LayerId first = layerOfTrack(tweened.doc, tweened.frames[0].sprite, key);
+        const ls::LayerId last = layerOfTrack(tweened.doc, tweened.frames[2].sprite, key);
+        tweened.doc.beginAction("Keys");
+        addOffset(tweened.doc, first, { 0.f, 0.f });
+        addOffset(tweened.doc, last, { 8.f, 0.f });
+        tweened.doc.endAction();
+        std::vector<ls::SpriteId> run;
+        for (const Frame& f : tweened.frames) { run.push_back(f.sprite); }
+        tweened.doc.beginAction("Tween");
+        check(tweenTransforms(tweened.doc, run, key, TweenEasing::Linear, nullptr), "tween the run");
+        tweened.doc.endAction();
+        const auto redAt = [&](int x, int y) {
+            ls::RasterBuffer picture;
+            if (!compileForExport(tweened.doc, tweened.frames[1].sprite, 1, &picture, nullptr)) {
+                return false;
+            }
+            const uint8_t* px = picture.row(static_cast<uint32_t>(y)) + x * 4;
+            return px[0] > 150 && px[1] < 100 && px[3] > 200;
+        };
+        check(redAt(6, 2) && !redAt(2, 2), "the middle frame's pixel is halfway");
+        check(tweened.doc.undo() && redAt(2, 2), "and one undo puts it back");
+    }
+
     // Tabs: a second document opens beside the first rather than over it; each
     // keeps its own pixels, layers, history and selection across a switch;
     // closing one shows its neighbour; a blank untouched document is replaced
@@ -4465,6 +4506,42 @@ int main(int argc, char** argv) {
                       copy == 0 ? ls::SamplingPolicy::Coverage : ls::SamplingPolicy::RotSprite);
             editor.doc.endAction();
         }
+        resyncLayers(editor);
+    }
+    if (options.tween && editor.active() != nullptr) {
+        PaintLayer made;
+        editor.doc.beginAction("Figure");
+        createPaintLayer(editor.doc, editor.sprite, "arrow", ls::Color{ 240, 170, 60, 255 }, &made);
+        std::vector<ls::Vec2i> body;
+        for (int y = 12; y < 18; ++y) {
+            for (int x = 3; x < 7; ++x) { body.push_back({ x, y }); }
+        }
+        for (int x = 7; x < 11; ++x) { body.push_back({ x, 14 }); body.push_back({ x, 15 }); }
+        paintPixels(editor.doc, made, body);
+        editor.doc.endAction();
+        for (int i = 0; i < 4; ++i) {
+            duplicateFrame(editor.doc, i);
+        }
+        resyncFrames(editor);
+        const std::string key = trackKey(editor.doc, made.layer);
+        const ls::LayerId from = layerOfTrack(editor.doc, editor.frames.front().sprite, key);
+        const ls::LayerId to = layerOfTrack(editor.doc, editor.frames.back().sprite, key);
+        editor.doc.beginAction("Keys");
+        addRotate(editor.doc, from, 0.f, { 6.f, 15.f }, ls::SamplingPolicy::RotSprite);
+        addOffset(editor.doc, from, { 0.f, 0.f });
+        addRotate(editor.doc, to, 180.f, { 6.f, 15.f }, ls::SamplingPolicy::RotSprite);
+        addOffset(editor.doc, to, { 18.f, 0.f });
+        editor.doc.endAction();
+        std::vector<ls::SpriteId> run;
+        for (const Frame& f : editor.frames) { run.push_back(f.sprite); }
+        editor.doc.beginAction("Tween");
+        tweenTransforms(editor.doc, run, key, TweenEasing::EaseInOut, nullptr);
+        editor.doc.endAction();
+        resyncFrames(editor);
+        editor.timeline.rangeAnchor = 0;
+        selectFrame(editor, 2);
+        editor.timeline.visible = true;
+        editor.timeline.onion = true;
         resyncLayers(editor);
     }
     if (options.slices) {
