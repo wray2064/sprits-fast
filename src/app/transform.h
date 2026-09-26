@@ -41,6 +41,9 @@ struct TransformEntry {
     ls::Vec2f       factor { 1.f, 1.f };            // Scale
     ls::MirrorAxis  axis = ls::MirrorAxis::X;       // Mirror
     ls::Vec2f       pivot;
+    // How a rotation or scale picks each pixel. RotSprite is the one made for
+    // pixel art: clean diagonals, no colour the drawing did not have.
+    ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage;
 
     std::string label() const;
 };
@@ -48,8 +51,10 @@ struct TransformEntry {
 // Adding. Each appends to the layer, after the fill, because a transform acts on
 // what the layer has already resolved. None of these bracket an undo action: the
 // caller decides what one action is.
-ls::OperationId addRotate(Document& doc, ls::LayerId layer, float degrees, ls::Vec2f pivot);
-ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls::Vec2f pivot);
+ls::OperationId addRotate(Document& doc, ls::LayerId layer, float degrees, ls::Vec2f pivot,
+                          ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage);
+ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls::Vec2f pivot,
+                         ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage);
 ls::OperationId addMirror(Document& doc, ls::LayerId layer, ls::MirrorAxis axis,
                           ls::Vec2f pivot);
 
@@ -63,6 +68,7 @@ std::vector<TransformEntry> listTransforms(Document& doc, ls::LayerId layer);
 bool setRotateAngle(Document& doc, ls::OperationId op, float degrees);
 bool setScaleFactor(Document& doc, ls::OperationId op, ls::Vec2f factor);
 bool setTransformPivot(Document& doc, ls::OperationId op, ls::Vec2f pivot);
+bool setTransformSampling(Document& doc, ls::OperationId op, ls::SamplingPolicy sampling);
 
 bool removeTransform(Document& doc, ls::LayerId layer, ls::OperationId op);
 bool clearTransforms(Document& doc, ls::LayerId layer);

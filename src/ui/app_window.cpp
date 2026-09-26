@@ -536,6 +536,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem("Rotate 180", nullptr, false, movable)) {
             turnSelection(editor, FloatTurn::HalfTurn);
         }
+        if (ImGui::MenuItem("Rotate freely", nullptr, false, movable)) {
+            rotateSelectionFreely(editor);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Any angle, pixel-art style (RotSprite): the selection goes "
+                              "onto a layer of its own with a rotation the Transform panel "
+                              "turns, and can turn again whenever you like.");
+        }
         ImGui::EndMenu();
     }
 
@@ -2933,6 +2941,7 @@ struct Options {
     bool        adjust = false;          // --adjust: the colour window, hue turned
     bool        shadow = false;          // --shadow: the figure casts a shadow
     bool        slices = false;          // --slices: two slices, the window open
+    bool        rotsprite = false;       // --rotsprite: one sprite turned two ways, side by side
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2967,6 +2976,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--rotsprite") {
+            options.rotsprite = true;
         } else if (arg == "--slices") {
             options.slices = true;
         } else if (arg == "--shadow") {
@@ -4030,6 +4041,26 @@ int runSelfTest() {
         check(!fresh.doc.canUndo() && !fresh.doc.modified(), "a new document has nothing to undo");
     }
 
+    // Rotating a selection freely: its pixels on a layer of their own with a
+    // RotSprite rotation, the original layer without them, one undo step.
+    {
+        Editor turned;
+        check(newDocument(turned, 16), "a document to turn");
+        turned.doc.beginAction("Pencil");
+        paintPixels(turned.doc, *turned.active(), linePixels({ 2, 2 }, { 9, 2 }));
+        turned.doc.endAction();
+        const size_t before = turned.layers.size();
+        turned.selection.mask = rectangleMask({ 2, 2 }, { 9, 2 });
+        check(rotateSelectionFreely(turned), "rotate the selection freely");
+        check(turned.layers.size() == before + 1, "onto a layer of its own");
+        const std::vector<TransformEntry> spin = listTransforms(turned.doc, turned.active()->layer);
+        check(spin.size() == 1 && spin.front().sampling == ls::SamplingPolicy::RotSprite,
+              "with a RotSprite rotation");
+        check(turned.doc.undo(), "one undo");
+        resyncLayers(turned);
+        check(turned.layers.size() == before, "puts it back");
+    }
+
     // Tracks through the editor: a layer added in one frame is in the other,
     // and merging down merges in both, one undo step each.
     {
@@ -4362,6 +4393,48 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.rotsprite && editor.active() != nullptr) {
+        // A small figure drawn twice: the left turned by coverage, the right
+        // by RotSprite, both 30 degrees.
+        const char* rows[] = {
+            "...XXXX...",
+            "..XooooX..",
+            ".XooXXooX.",
+            ".XoX..XoX.",
+            ".XoX..XoX.",
+            ".XooXXooX.",
+            "..XooooX..",
+            "...XXXX...",
+        };
+        for (int copy = 0; copy < 2; ++copy) {
+            PaintLayer made;
+            editor.doc.beginAction("Figure");
+            createPaintLayer(editor.doc, editor.sprite, copy == 0 ? "coverage" : "rotsprite",
+                             ls::Color{ 30, 30, 40, 255 }, &made);
+            const int ox = copy == 0 ? 3 : 18;
+            std::vector<ls::Vec2i> dark;
+            std::vector<ls::Vec2i> light;
+            for (int y = 0; y < 8; ++y) {
+                for (int x = 0; x < 10; ++x) {
+                    const char c = rows[y][x];
+                    if (c == 'X') { dark.push_back({ ox + x, 12 + y }); }
+                    if (c == 'o') { light.push_back({ ox + x, 12 + y }); }
+                }
+            }
+            paintPixels(editor.doc, made, dark);
+            Ink amber;
+            amber.colour = { 240, 170, 60, 255 };
+            InkStroke stroke;
+            if (beginInkStroke(editor.doc, made.layer, amber, &stroke)) {
+                strokeInk(editor.doc, stroke, light);
+            }
+            addRotate(editor.doc, made.layer, 30.f,
+                      { static_cast<float>(ox) + 5.f, 16.f },
+                      copy == 0 ? ls::SamplingPolicy::Coverage : ls::SamplingPolicy::RotSprite);
+            editor.doc.endAction();
+        }
+        resyncLayers(editor);
     }
     if (options.slices) {
         Slice panel;

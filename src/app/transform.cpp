@@ -67,20 +67,24 @@ std::string TransformEntry::label() const {
 
 // ------------------------------------------------------------------ adding --
 
-ls::OperationId addRotate(Document& doc, ls::LayerId layer, float degrees, ls::Vec2f pivot) {
+ls::OperationId addRotate(Document& doc, ls::LayerId layer, float degrees, ls::Vec2f pivot,
+                          ls::SamplingPolicy sampling) {
     ls::RotateOp op;
     op.targetLayer = layer;
     op.angleDegrees = degrees;
     op.pivotFallback = pivot;
+    op.sampling = sampling;
     auto added = doc.engine().addOperation(layer, op);
     return added.ok() ? added.value : ls::OperationId{};
 }
 
-ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls::Vec2f pivot) {
+ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls::Vec2f pivot,
+                         ls::SamplingPolicy sampling) {
     ls::ScaleOp op;
     op.targetLayer = layer;
     op.factor = factor;
     op.pivotFallback = pivot;
+    op.sampling = sampling;
     auto added = doc.engine().addOperation(layer, op);
     return added.ok() ? added.value : ls::OperationId{};
 }
@@ -123,6 +127,10 @@ std::vector<TransformEntry> listTransforms(Document& doc, ls::LayerId layer) {
         }
 
         entry.pivot = vec2Param(doc, info.id, "pivotFallback", {0.f, 0.f});
+        if (entry.kind != TransformKind::Mirror) {
+            entry.sampling = static_cast<ls::SamplingPolicy>(
+                intParam(doc, info.id, "sampling", static_cast<int>(ls::SamplingPolicy::Coverage)));
+        }
         out.push_back(entry);
     }
     return out;
@@ -150,6 +158,11 @@ bool setTransformPivot(Document& doc, ls::OperationId op, ls::Vec2f pivot) {
     return doc.engine()
         .setOperationParameter(op, "pivotFallback", ls::ParameterValue{pivot})
         .ok();
+}
+
+bool setTransformSampling(Document& doc, ls::OperationId op, ls::SamplingPolicy sampling) {
+    return doc.engine().setOperationParameter(
+        op, "sampling", ls::ParameterValue{ static_cast<int64_t>(sampling) }).ok();
 }
 
 bool removeTransform(Document& doc, ls::LayerId layer, ls::OperationId op) {

@@ -149,7 +149,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Outline and drop shadow as effects **(better: live operations, not
       filters; the outline already is)**
 - [x] Slices (named rectangles, 9-slice) exported in the manifest
-- [ ] Pixel-art rotation (RotSprite-quality) for selections and layers
+- [x] Pixel-art rotation (RotSprite-quality) for selections and layers
 - [x] Minimap / navigator
 - [x] Guides and rulers
 - [x] Isometric grid
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- RotSprite: engine SamplingPolicy::RotSprite (3x Scale2x to 8x, then nearest; Majority past 512x512); the Transform panel's new rotations use it and every rotate/scale has a sampling combo; Select > Rotate freely lifts the selection onto its own layer with a RotSprite rotation about its middle, one undo step. Visual check: a ring turned 30 degrees stays a ring under RotSprite and breaks under coverage.
 - Rulers (pixel ticks at any zoom, pointer marked) and guides: dragged out of the rulers, moved by their markers, removed by dropping back on the ruler, one undo step each; kept as document metadata, turned and moved by canvas ops, and extra snap lines while snapping (Grid.linesX/linesY). View menu toggles and Clear guides.
 - Slices: slice tool (C) drags out, moves and resizes named rectangles; View > Slices names them and gives a nine-slice centre, pivot and colour; kept as document metadata (undoable, saved), moved by canvas ops; exported in Fast's manifest and Aseprite's meta.slices (bounds/center/pivot at the sheet's scale). app/slices with tests.
 - Drop shadow as a live operation (engine GenerateDropShadowOp): cast by the layer or the whole figure, offset/colour/slot/opacity, only where nothing else is, never part of the figure's silhouette; Element panel section; effects (outline, then shadow) kept after every mark and transform (keepEffectsLast on new paint, new shapes and in the commit hook), which also fixes an outline not tracing paint added after it.

@@ -6,6 +6,7 @@
 #include "app/clip_image.h"
 #include "app/grid_snap.h"
 #include "app/layers.h"
+#include "app/transform.h"
 #include "ui/os_clipboard.h"
 
 #include <SDL3/SDL.h>
@@ -190,6 +191,51 @@ bool copySelectionPixels(Editor& editor) {
     }
     editor.say("Copied " + std::to_string(ls::geom::pixelCount(editor.pixelClip.mask)) +
                " pixel(s)");
+    return true;
+}
+
+bool rotateSelectionFreely(Editor& editor) {
+    settleFloating(editor);
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr || editor.selection.empty()) {
+        return false;
+    }
+    if (!layerTakesSelections(editor.doc, layer->layer) || layerLocked(editor.doc, layer->layer)) {
+        editor.say("This layer cannot give up its pixels to a selection");
+        return false;
+    }
+    const ls::IntervalSet mask = editor.selection.mask;
+    const ls::Rect2i box = ls::geom::bounds(mask);
+    const ls::Vec2f centre { (static_cast<float>(box.min.x) + static_cast<float>(box.max.x)) * 0.5f,
+                             (static_cast<float>(box.min.y) + static_cast<float>(box.max.y)) * 0.5f };
+    PixelClip clip;
+    if (!copyPixels(editor.doc, layer->layer, mask, &clip)) {
+        editor.say("Nothing on this layer inside the selection");
+        return false;
+    }
+    editor.doc.beginAction("Rotate freely");
+    clearPixels(editor.doc, layer->layer, mask);
+    PaintLayer made;
+    if (!createPaintLayer(editor.doc, editor.activeSprite(), "Rotated", toColor(editor.color), &made)) {
+        editor.doc.abandonAction();
+        return false;
+    }
+    const int at = indexOfLayer(editor.doc, editor.activeSprite(), layer->layer);
+    if (at >= 0) {
+        moveLayer(editor.doc, made.layer, at + 1);
+    }
+    Floating floating;
+    if (!floatClip(editor.doc, made.layer, clip, &floating) || !dropFloating(editor.doc, floating)) {
+        editor.doc.abandonAction();
+        editor.say("Could not lift the selection onto a layer of its own");
+        return false;
+    }
+    addRotate(editor.doc, made.layer, 0.f, centre, ls::SamplingPolicy::RotSprite);
+    editor.doc.endAction();
+    resyncLayers(editor);
+    selectLayer(editor, made.layer);
+    deselect(editor);
+    editor.say("On a layer of its own with a rotation: drag its angle in the Transform panel");
     return true;
 }
 

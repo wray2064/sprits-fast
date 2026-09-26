@@ -699,6 +699,12 @@ bool cutSelectionPixels(Editor& editor);
 bool deleteSelectionPixels(Editor& editor);
 bool pastePixels(Editor& editor);
 
+// The selected pixels onto a layer of their own, just above, with a rotation
+// about the selection's middle that the Transform panel turns -- RotSprite,
+// so pixel art stays pixel art, and non-destructive, so the angle can change
+// for ever. One undo step.
+bool rotateSelectionFreely(Editor& editor);
+
 // When another program's image is the newest thing on the clipboard, makes it
 // the clip a paste will use, and says what it held in `note`. False when the
 // clip is Fast's own, or the clipboard holds no image.

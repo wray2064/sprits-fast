@@ -53,6 +53,11 @@ A copied image can also be pasted as a reference, to draw from.
 what is drawn, enlarge or reduce by a whole number, resize to any size or
 percentage by nearest neighbour (shapes scaled as shapes), and turn or flip the
 whole canvas -- every frame at once, one undo step each.
+**Rotation at any angle, pixel-art style**: a rotation in the Transform panel
+uses RotSprite -- the drawing enlarged 8x by Scale2x and sampled back -- so a
+ring stays a ring at 30 degrees, with no colour the drawing did not have; and
+*Select > Rotate freely* puts the selected pixels on a layer of their own with
+such a rotation, to turn and turn again.
 **Adjust colours** -- hue, saturation, lightness, brightness, contrast and
 invert, for a layer, a frame or every frame -- changes the elements' own colours
 and, if asked, the palette slots they paint through. Nothing becomes pixels:

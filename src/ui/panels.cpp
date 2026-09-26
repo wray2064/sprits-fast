@@ -2963,7 +2963,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
 
     if (ImGui::Button("Rotate", ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add rotate");
-        addRotate(editor.doc, layer->layer, 0.f, centre);
+        addRotate(editor.doc, layer->layer, 0.f, centre, ls::SamplingPolicy::RotSprite);
         editor.doc.endAction();
         canvas.invalidate();
     }
@@ -3025,6 +3025,32 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
             bracketDrag(editor, editor.draggingTransform, "Scale");
         } else {
             ImGui::TextDisabled("no parameters");
+        }
+        if (entry.kind != TransformKind::Mirror) {
+            // How each pixel is picked: RotSprite for pixel art, or the
+            // engine's general ones.
+            const struct { ls::SamplingPolicy policy; const char* name; } kinds[] = {
+                { ls::SamplingPolicy::RotSprite, "Pixel art (RotSprite)" },
+                { ls::SamplingPolicy::Coverage, "Coverage" },
+                { ls::SamplingPolicy::Majority, "Majority" },
+                { ls::SamplingPolicy::Center, "Nearest" },
+            };
+            const char* current = "Coverage";
+            for (const auto& k : kinds) {
+                if (k.policy == entry.sampling) { current = k.name; }
+            }
+            ImGui::SetNextItemWidth(-30.f);
+            if (ImGui::BeginCombo("##sampling", current)) {
+                for (const auto& k : kinds) {
+                    if (ImGui::Selectable(k.name, k.policy == entry.sampling)) {
+                        editor.doc.beginAction("Transform sampling");
+                        setTransformSampling(editor.doc, entry.id, k.policy);
+                        editor.doc.endAction();
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
         }
 
         ImGui::SameLine();

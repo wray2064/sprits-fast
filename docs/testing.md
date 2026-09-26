@@ -538,6 +538,15 @@ sprits_fast --demo-stroke
 4. Rotate the canvas. *Expect:* the guides turn with it. *View > Clear
    guides*, *View > Rulers* and *View > Guides* do what they say.
 
+### 4af. Rotating pixel art
+
+1. Transform panel > *Rotate*, drag to 30 degrees. *Expect:* clean diagonals,
+   no new colours; the sampling combo says *Pixel art (RotSprite)*. Switch it
+   to *Coverage* to compare, and back.
+2. Select part of a drawing, *Select > Rotate freely*. *Expect:* the pixels on
+   a new layer "Rotated" above, gone from the original, with a rotation at 0
+   degrees in the Transform panel; drag it. One undo puts everything back.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
