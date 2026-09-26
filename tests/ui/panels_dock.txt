@@ -27,6 +27,25 @@ wait 2
 expect docked elements 1
 expect missing Import image...
 
+# A panel closed and opened again comes back docked where it was: the
+# timeline under the canvas, the transform in the right column.
+key t
+wait 2
+expect docked timeline 1
+key t
+wait 2
+key t
+wait 2
+expect docked timeline 1
+click-on Window
+click-on Transform @1
+wait 2
+expect missing Rotate
+click-on Window
+click-on Transform @1
+wait 2
+expect docked transform 1
+
 # The picked element's properties are one panel: what it is, then its
 # controls, then the layer's shadow and outline, each folding away.
 expect item SHADOW
