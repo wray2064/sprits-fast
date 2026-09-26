@@ -13,6 +13,7 @@
 #include "app/palette_tools.h"
 #include "app/shape.h"
 #include "app/transform.h"
+#include "app/tracks.h"
 
 #include <algorithm>
 #include <cmath>
@@ -2091,6 +2092,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
             std::string label = props.name;
             if (props.locked) { label += "  [lock]"; }
             if (props.reference) { label += "  [ref]"; }
+            if (!linkOf(editor.doc, id).empty()) { label += "  [linked]"; }
             if (props.clipBase.valid()) { label += "  [clip]"; }
             if (props.blend != ls::BlendMode::Normal || props.opacity < 1.f) {
                 char detail[48];
@@ -2213,6 +2215,45 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 }
                 if (ImGui::MenuItem("Lock", nullptr, props.locked)) {
                     toggleActiveLayerLock(editor);
+                }
+                if (tracksOn(editor.doc) && editor.frames.size() > 1) {
+                    int first = 0;
+                    int last = 0;
+                    const bool ranged = frameRange(editor, &first, &last);
+                    const std::string linkLabel = ranged
+                        ? "Link in frames " + std::to_string(first + 1) + " to " +
+                              std::to_string(last + 1)
+                        : std::string("Link in every frame");
+                    if (ImGui::MenuItem(linkLabel.c_str())) {
+                        std::vector<ls::SpriteId> into;
+                        for (int f = ranged ? first : 0;
+                             f <= (ranged ? last : static_cast<int>(editor.frames.size()) - 1); ++f) {
+                            into.push_back(editor.frames[static_cast<size_t>(f)].sprite);
+                        }
+                        editor.doc.beginAction("Link cels");
+                        const int linked = linkCels(editor.doc, id, into);
+                        editor.doc.endAction();
+                        canvas.invalidate();
+                        editor.say(linked > 0
+                            ? "Linked in " + std::to_string(linked + 1) +
+                                  " frames: this frame's cel replaced theirs, and drawing on "
+                                  "one now draws on all"
+                            : std::string("Nothing to link"));
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("This layer in those frames becomes this frame's cel -- "
+                                          "what they held is replaced. Select a run in the "
+                                          "frame strip to choose which.");
+                    }
+                    if (!linkOf(editor.doc, id).empty() && ImGui::MenuItem("Unlink")) {
+                        editor.doc.beginAction("Unlink cel");
+                        const ls::LayerId own = unlinkCel(editor.doc, id);
+                        editor.doc.endAction();
+                        resyncLayers(editor);
+                        selectLayer(editor, own);
+                        canvas.invalidate();
+                        editor.say("This frame's cel is its own again");
+                    }
                 }
                 if (ImGui::MenuItem("Reference layer", nullptr, props.reference)) {
                     editor.doc.beginAction(props.reference ? "Not a reference" : "Reference layer");

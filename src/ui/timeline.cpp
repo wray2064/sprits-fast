@@ -16,6 +16,8 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 
+#include "app/tracks.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -485,6 +487,36 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Duplicate this frame, or the selected run  (Ctrl+Shift+D)\n"
                           "The copy owns its own drawing.");
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!tracksOn(editor.doc) || ranged);
+    if (ImGui::Button("+ Linked")) {
+        // A copy whose every layer is the same cel as the original's: drawing
+        // on either draws on both.
+        editor.doc.beginAction("Duplicate frame, linked");
+        const int source = timeline.activeFrame;
+        const int at = duplicateFrame(editor.doc, source);
+        if (at >= 0) {
+            const std::vector<Frame> frames = readFrames(editor.doc);
+            const ls::SpriteId from = frames[static_cast<size_t>(source)].sprite;
+            const ls::SpriteId copy = frames[static_cast<size_t>(at)].sprite;
+            for (ls::LayerId layer : layerOrder(editor.doc, from)) {
+                linkCels(editor.doc, layer, { copy });
+            }
+            editor.doc.endAction();
+            resyncFrames(editor);
+            selectFrame(editor, at);
+            editor.say("A linked copy: drawing on one draws on both");
+        } else {
+            editor.doc.abandonAction();
+            editor.say("Could not add a frame");
+        }
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Duplicate this frame with every layer linked to the original: "
+                          "the same cels, so a stroke on either lands on both. Unlink a "
+                          "layer from its row's menu.");
     }
     ImGui::SameLine();
     if (ImGui::Button("+ Empty")) {

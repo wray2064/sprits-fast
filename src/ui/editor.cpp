@@ -705,6 +705,7 @@ void attachTracks(Editor& editor) {
     Editor* owner = &editor;
     editor.doc.setBeforeCommit([owner](Document& doc) {
         syncTracks(doc, owner->activeSprite());
+        syncLinks(doc, owner->activeSprite());
     });
 }
 

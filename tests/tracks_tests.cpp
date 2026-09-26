@@ -12,6 +12,8 @@
 
 #include "app/animation.h"
 #include "app/document.h"
+#include "app/file_io.h"
+#include "app/ink.h"
 #include "app/layers.h"
 #include "app/paint.h"
 #include "app/tracks.h"
@@ -114,7 +116,10 @@ struct Scene {
         if (!paint(doc, second, "body", { 5, 5 })) { return false; }
         // Keyed once, as an editor does when it opens a document.
         syncTracks(doc, first);
-        doc.setBeforeCommit([this](Document& d) { syncTracks(d, master); });
+        doc.setBeforeCommit([this](Document& d) {
+            syncTracks(d, master);
+            syncLinks(d, master);
+        });
         return true;
     }
 
@@ -287,6 +292,80 @@ void testAnOlderDocumentIsBroughtTogether() {
           trackKey(doc, named(doc, second, "body")));
 }
 
+void testLinkedCelsShareTheirPixels() {
+    Scene s;
+    REQUIRE(s.build());
+    s.master = s.first;
+    const ls::LayerId body1 = named(s.doc, s.first, "body");
+    s.doc.beginAction("Link");
+    CHECK(linkCels(s.doc, body1, { s.second }) == 1);
+    s.doc.endAction();
+    ls::LayerId body2 = named(s.doc, s.second, "body");
+    CHECK(!linkOf(s.doc, body1).empty() && linkOf(s.doc, body1) == linkOf(s.doc, body2));
+    // The second frame's body is now the first's cel.
+    CHECK(draws(s.doc, body2, 1, 1) && !draws(s.doc, body2, 5, 5));
+
+    // A stroke in one lands in the other as it is drawn.
+    REQUIRE(paint(s.doc, s.first, "body", { 6, 2 }));
+    CHECK(draws(s.doc, body2, 6, 2));
+
+    // A colour new to the cel -- an element of its own -- follows as the
+    // action closes.
+    Ink green;
+    green.colour = { 40, 200, 60, 255 };
+    s.doc.beginAction("Pencil");
+    InkStroke stroke;
+    REQUIRE(beginInkStroke(s.doc, body1, green, &stroke));
+    REQUIRE(strokeInk(s.doc, stroke, { { 2, 6 } }));
+    s.doc.endAction();
+    CHECK(draws(s.doc, body2, 2, 6));
+
+    // Kept by a file.
+    std::string error;
+    const std::string path = "fast_tracks_linked.lsprite";
+    REQUIRE(s.doc.save(path, &error));
+    {
+        Document again;
+        REQUIRE(again.open(path, &error));
+        const std::vector<ls::SpriteId> both = frames(again);
+        REQUIRE(both.size() == 2);
+        const ls::LayerId a = named(again, both[0], "body");
+        const ls::LayerId b = named(again, both[1], "body");
+        CHECK(!linkOf(again, a).empty() && linkOf(again, a) == linkOf(again, b));
+        again.beginAction("Pencil");
+        std::vector<PaintLayer> layers;
+        REQUIRE(adoptPaintLayers(again, both[0], &layers));
+        for (PaintLayer& layer : layers) {
+            if (layer.layer == a) {
+                paintPixels(again, layer, { { 7, 1 } });
+            }
+        }
+        again.endAction();
+        CHECK(draws(again, b, 7, 1));                // still one cel
+    }
+    deleteFile(path);
+
+    // Unlinked, the second frame keeps what it showed and stops following.
+    s.master = s.second;
+    s.doc.beginAction("Unlink");
+    const ls::LayerId own = unlinkCel(s.doc, body2);
+    s.doc.endAction();
+    CHECK(own.valid() && linkOf(s.doc, own).empty());
+    CHECK(linkOf(s.doc, named(s.doc, s.first, "body")).empty());     // a link of one is none
+    CHECK(draws(s.doc, own, 6, 2) && draws(s.doc, own, 2, 6));
+    s.master = s.first;
+    REQUIRE(paint(s.doc, s.first, "body", { 7, 7 }));
+    CHECK(!draws(s.doc, named(s.doc, s.second, "body"), 7, 7));
+    CHECK(names(s.doc, s.second) == names(s.doc, s.first));
+
+    // A duplicated frame's copy of a linked cel is its own.
+    s.doc.beginAction("Link again");
+    linkCels(s.doc, named(s.doc, s.first, "body"), { s.second });
+    s.doc.endAction();
+    REQUIRE(duplicateFrame(s.doc, 1) == 2);
+    CHECK(linkOf(s.doc, named(s.doc, frames(s.doc)[2], "body")).empty());
+}
+
 } // namespace
 
 int main() {
@@ -299,6 +378,7 @@ int main() {
     testANewFrameHasEveryTrack();
     testNothingUnkeyedIsLost();
     testAnOlderDocumentIsBroughtTogether();
+    testLinkedCelsShareTheirPixels();
     if (failures == 0) {
         std::printf("tracks: all passed\n");
         return 0;

@@ -19,6 +19,7 @@ namespace {
 constexpr const char* kTracksOnKey = "fast.tracks";
 constexpr const char* kTrackKey = "fast.track";
 constexpr const char* kTrackFromKey = "fast.track.from";
+constexpr const char* kLinkKey = "fast.link";
 
 std::string meta(Document& doc, uint64_t entity, const char* key) {
     auto value = doc.engine().getMetadata(entity, key);
@@ -359,7 +360,208 @@ void claimTracks(Document& doc, ls::SpriteId master, const std::vector<ls::Sprit
     }
 }
 
+// --- linked cels ---------------------------------------------------------------
+
+bool isLayerOrSprite(const std::string& name) {
+    return name == "targetLayer" || name == "targetSprite";
+}
+
+std::string valueText(const ls::ParameterValue& value) {
+    char text[64];
+    if (const bool* b = std::get_if<bool>(&value)) { return *b ? "1" : "0"; }
+    if (const int64_t* i = std::get_if<int64_t>(&value)) { return std::to_string(*i); }
+    if (const float* f = std::get_if<float>(&value)) { return number(*f); }
+    if (const ls::Vec2f* v = std::get_if<ls::Vec2f>(&value)) {
+        return number(v->x) + "," + number(v->y);
+    }
+    if (const ls::Color* c = std::get_if<ls::Color>(&value)) {
+        std::snprintf(text, sizeof(text), "%u,%u,%u,%u", c->r, c->g, c->b, c->a);
+        return text;
+    }
+    if (const ls::Mat3f* m = std::get_if<ls::Mat3f>(&value)) {
+        std::string out;
+        for (float e : m->m) { out += number(e) + ","; }
+        return out;
+    }
+    if (const std::string* s = std::get_if<std::string>(&value)) { return *s; }
+    if (const uint64_t* h = std::get_if<uint64_t>(&value)) { return std::to_string(*h); }
+    return std::string();
+}
+
+// A layer's operations as text: type and every parameter but those naming
+// the layer or sprite itself -- the parts a linked cel must share.
+std::vector<std::string> operationsText(Document& doc, ls::LayerId layer) {
+    std::vector<std::string> out;
+    auto operations = doc.engine().getLayerOperations(layer);
+    if (operations.fail()) {
+        return out;
+    }
+    for (const ls::OperationInfo& op : operations.value) {
+        std::string text = op.type;
+        auto params = doc.engine().describeOperation(op.id);
+        if (params.ok()) {
+            for (const ls::ParameterInfo& param : params.value) {
+                if (isLayerOrSprite(param.name) || param.type == ls::ParameterType::Unsupported) {
+                    continue;
+                }
+                auto value = doc.engine().getOperationParameter(op.id, param.name);
+                text += '\x1f' + param.name + '=' + (value.ok() ? valueText(value.value) : "?");
+            }
+        }
+        // A point list the parameters cannot reach is still part of the op.
+        text += '\x1f' + op.summary;
+        out.push_back(text);
+    }
+    return out;
+}
+
+// Makes `to` draw what `from` draws, through operations of its own naming the
+// same regions and shapes. Anything naming a layer or a sprite is pointed at
+// `to`'s own.
+void shareOperations(Document& doc, ls::LayerId from, ls::LayerId to) {
+    ls::LSContext& engine = doc.engine();
+    auto existing = engine.getLayerOperations(to);
+    if (existing.ok()) {
+        for (const ls::OperationInfo& op : existing.value) {
+            engine.removeOperation(to, op.id);
+        }
+    }
+    auto source = engine.getLayerOperations(from);
+    auto fromInfo = engine.getLayerInfo(from);
+    auto toInfo = engine.getLayerInfo(to);
+    if (source.fail() || fromInfo.fail() || toInfo.fail()) {
+        return;
+    }
+    for (const ls::OperationInfo& op : source.value) {
+        auto operation = engine.getOperation(op.id);
+        if (operation.fail()) {
+            continue;
+        }
+        auto added = engine.addOperation(to, operation.value);
+        if (added.fail()) {
+            continue;
+        }
+        auto params = engine.describeOperation(added.value);
+        if (params.fail()) {
+            continue;
+        }
+        for (const ls::ParameterInfo& param : params.value) {
+            if (!isLayerOrSprite(param.name)) {
+                continue;
+            }
+            auto value = engine.getOperationParameter(added.value, param.name);
+            const uint64_t* handle = value.ok() ? std::get_if<uint64_t>(&value.value) : nullptr;
+            if (handle == nullptr) {
+                continue;
+            }
+            if (param.name == "targetLayer" && *handle == from.value) {
+                engine.setOperationParameter(added.value, param.name,
+                                             ls::ParameterValue{ static_cast<uint64_t>(to.value) });
+            } else if (param.name == "targetSprite" && *handle == fromInfo.value.sprite.value) {
+                engine.setOperationParameter(
+                    added.value, param.name,
+                    ls::ParameterValue{ static_cast<uint64_t>(toInfo.value.sprite.value) });
+            }
+        }
+    }
+}
+
 } // namespace
+
+std::string linkOf(Document& doc, ls::LayerId layer) {
+    return meta(doc, layer.value, kLinkKey);
+}
+
+int linkCels(Document& doc, ls::LayerId layer, const std::vector<ls::SpriteId>& frames) {
+    const std::string key = meta(doc, layer.value, kTrackKey);
+    auto info = doc.engine().getLayerInfo(layer);
+    if (key.empty() || info.fail()) {
+        return 0;
+    }
+    std::string link = meta(doc, layer.value, kLinkKey);
+    int linked = 0;
+    for (ls::SpriteId frame : frames) {
+        if (frame == info.value.sprite) {
+            continue;
+        }
+        const ls::LayerId other = layerOfTrack(doc, frame, key);
+        if (!other.valid()) {
+            continue;
+        }
+        if (link.empty()) {
+            link = newKey();
+            setMeta(doc, layer.value, kLinkKey, link);
+        }
+        setMeta(doc, other.value, kLinkKey, link);
+        shareOperations(doc, layer, other);
+        ++linked;
+    }
+    return linked;
+}
+
+ls::LayerId unlinkCel(Document& doc, ls::LayerId layer) {
+    ls::LSContext& engine = doc.engine();
+    const std::string link = meta(doc, layer.value, kLinkKey);
+    auto info = engine.getLayerInfo(layer);
+    if (link.empty() || info.fail()) {
+        return layer;
+    }
+    const ls::SpriteId sprite = info.value.sprite;
+    const int at = indexOfLayer(doc, sprite, layer);
+    // A copy is a deep one: its regions and shapes its own.
+    auto copy = engine.cloneLayer(layer, sprite, at);
+    if (copy.fail()) {
+        return layer;
+    }
+    setMeta(doc, copy.value.value, kLinkKey, std::string());
+    setMeta(doc, copy.value.value, kTrackKey, meta(doc, layer.value, kTrackKey));
+    // The shared regions are still the rest of the link's; deleting this
+    // layer's operations leaves them be.
+    engine.deleteLayer(layer);
+    // A link of one is no link.
+    std::vector<ls::LayerId> rest;
+    for (ls::SpriteId frame : framesOf(doc)) {
+        for (ls::LayerId other : layerOrder(doc, frame)) {
+            if (meta(doc, other.value, kLinkKey) == link) {
+                rest.push_back(other);
+            }
+        }
+    }
+    if (rest.size() == 1) {
+        setMeta(doc, rest.front().value, kLinkKey, std::string());
+    }
+    return copy.value;
+}
+
+bool syncLinks(Document& doc, ls::SpriteId master) {
+    const std::vector<ls::SpriteId> frames = framesOf(doc);
+    if (std::find(frames.begin(), frames.end(), master) == frames.end()) {
+        return false;
+    }
+    bool changed = false;
+    for (ls::LayerId layer : layerOrder(doc, master)) {
+        const std::string link = meta(doc, layer.value, kLinkKey);
+        if (link.empty()) {
+            continue;
+        }
+        const std::vector<std::string> wanted = operationsText(doc, layer);
+        for (ls::SpriteId frame : frames) {
+            if (frame == master) {
+                continue;
+            }
+            for (ls::LayerId other : layerOrder(doc, frame)) {
+                if (meta(doc, other.value, kLinkKey) != link) {
+                    continue;
+                }
+                if (operationsText(doc, other) != wanted) {
+                    shareOperations(doc, layer, other);
+                    changed = true;
+                }
+            }
+        }
+    }
+    return changed;
+}
 
 bool tracksOn(Document& doc) {
     return meta(doc, doc.id().value, kTracksOnKey) == "1";

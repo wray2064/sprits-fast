@@ -92,7 +92,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Playback, onion skin
 - [x] Onion skin settings: range, tint, show only within the cycle
 - [x] Reverse frames, and set the duration of a range of frames at once
-- [ ] Linked cels (the same layer content in several frames)
+- [x] Linked cels (the same layer content in several frames)
       **(better: a shared region, so editing one edits all)**
 - [x] Frame and cycle selection by range (Shift+click in the strip)
 - [x] Playback speed and a loop-section preview
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Linked cels: a track's cels in several frames can be one cel -- each frame's layer draws the same regions and shapes through operations of its own, so strokes land in every linked frame as drawn, and new colours, shapes and deletions follow as the action closes (syncLinks in the same hook). Link from a layer's row menu (every frame, or the selected run), '+ Linked' duplicates a frame with every cel linked, Unlink gives a cel a deep copy of its own; links survive saving; a duplicated frame's copies are unlinked.
 - Tracks (app/tracks): every layer and group carries a track key; a Document hook run as each action closes brings every frame's stack into line with the frame being edited (add, delete, order, groups, name, blend, opacity, visibility, lock, reference, tag, notes, clip) inside the same undo step, each frame keeping its own pixels; duplicate copies each frame's own cel, paste makes an empty track, merge down merges in every frame or none; a layer with no key is never deleted (matched by name or made a track). New documents and imports keep tracks; older files keep separate stacks until Sprite > Same layers in every frame adopts them by name. Lock, tag and notes changes are now undoable actions.
 - Reference layers (row menu or Layer properties): engine LayerType::Source now means compiled for previews, skipped by Export compiles and by the whole-sprite silhouette (engine setLayerType); so PNG, sheet, animation, batch and the thumbnail all leave it out. Undoable, saved with the file. Also: Fast and the engine link with /INCREMENTAL:NO after stale incremental links crashed a third of the test suites before main.
 - Tabs: New/Open/Import open beside the work (a blank untouched document is replaced; an already open file is shown); each tab parks its own document, layers, frames, selection, references, preview, autosave copy and view (DocumentTab, Document::swap); Ctrl+Tab/Ctrl+Shift+Tab switch, Ctrl+W closes (asks when unsaved), Quit asks for each modified tab in turn; every tab's recovery copy is cleared on a clean exit. Canvas caches cleared on switch; clip dithers paste as colours across tabs.

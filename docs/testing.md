@@ -484,7 +484,12 @@ sprits_fast --demo-stroke
    cel of it.
 5. Merge it down. *Expect:* merged in every frame; refused, with the reason,
    if any frame cannot merge -- and then nothing merged anywhere.
-6. Open a file saved before this (frames with their own layers). *Expect:*
+6. *+ Linked* on frame 1. *Expect:* frame 2 identical, its rows marked
+   `[linked]`. Draw on frame 2: the stroke appears on frame 1 as it is
+   drawn; a new colour appears on both when the stroke ends. Unlink a row
+   in frame 2 (its menu): it keeps what it showed and stops following.
+   Link a layer across a selected run from its row menu.
+7. Open a file saved before this (frames with their own layers). *Expect:*
    unchanged; *Sprite > Same layers in every frame* joins layers of the same
    name and adds the missing ones empty, losing nothing.
 

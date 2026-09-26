@@ -27,6 +27,7 @@
 #include "app/document.h"
 
 #include <string>
+#include <vector>
 
 namespace fast {
 
@@ -61,5 +62,32 @@ void adoptTracks(Document& doc, ls::SpriteId master);
 // The layers of the same track in another frame: `layer`'s counterpart in
 // `frame`, or null.
 ls::LayerId layerOfTrack(Document& doc, ls::SpriteId frame, const std::string& key);
+
+// ------------------------------------------------------------ linked cels --
+//
+// A track's cels in several frames can be one cel: the same pixels, drawn on
+// in any of those frames and changed in all of them. In a bitmap editor that
+// is a shared image. Here it is shared elements -- every frame's layer draws
+// the same regions and the same shapes, through operations of its own -- so a
+// stroke in one frame lands in every linked frame as it is drawn. A colour
+// added, a shape drawn, an element deleted in one is carried to the others as
+// the action closes, by the same hook that keeps the tracks in step.
+
+// The link a layer's cel belongs to, or empty.
+std::string linkOf(Document& doc, ls::LayerId layer);
+
+// Makes `layer`'s track in each of `frames` the same cel as `layer`'s: what
+// they held is replaced by what it holds. Frames without the track are
+// skipped. Does not bracket an action. Returns how many cels were linked.
+int linkCels(Document& doc, ls::LayerId layer, const std::vector<ls::SpriteId>& frames);
+
+// Gives a linked layer a cel of its own again -- a copy of what it showed --
+// and returns the layer that now holds it (a new id). The last two of a link
+// both come apart. Does not bracket an action.
+ls::LayerId unlinkCel(Document& doc, ls::LayerId layer);
+
+// Carries the elements of `master`'s linked layers to their links in other
+// frames. What the hook runs after syncTracks. Returns whether anything moved.
+bool syncLinks(Document& doc, ls::SpriteId master);
 
 } // namespace fast

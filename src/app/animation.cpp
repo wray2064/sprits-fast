@@ -261,6 +261,14 @@ int duplicateFrame(Document& doc, int index) {
         doc.abandonAction();
         return -1;
     }
+    // A copy is its own pixels: a linked cel's copy is not linked (see
+    // tracks.h -- linking is asked for).
+    auto cloned = doc.engine().getSpriteInfo(clone.value);
+    if (cloned.ok()) {
+        for (ls::LayerId layer : cloned.value.layers) {
+            doc.engine().clearMetadata(layer.value, "fast.link");
+        }
+    }
     const int at = insertFrameAfter(doc, index, clone.value, duration);
     if (at < 0) {
         doc.abandonAction();

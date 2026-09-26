@@ -76,7 +76,10 @@ plus any shapes drawn onto it.
 timeline: one added, deleted, moved, renamed, hidden, grouped or tagged in any
 frame is so in every frame, each frame keeping its own pixels of it; a
 duplicated layer copies each frame's own cel, and merging down merges in every
-frame. (Older files, whose frames each had their own layers, keep them until
+frame. **Linked cels** make a layer's cel in several frames one cel: a stroke in
+any lands in all of them as it is drawn, because the frames share the regions
+and shapes themselves -- *+ Linked* duplicates a frame that way, and a row's
+menu links or unlinks one layer. (Older files, whose frames each had their own layers, keep them until
 *Sprite > Same layers in every frame* joins them by name, losing nothing.) A
 frame strip with duplicate, delete and drag-to-reorder, a hold
 per frame, named cycles with their own loop mode, playback at any speed, and an
