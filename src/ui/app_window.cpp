@@ -41,6 +41,7 @@
 #include "ui/theme.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
 
@@ -2887,7 +2888,14 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // The preview goes on top of the canvas and takes its clicks first, so a
     // stroke is not started by someone reaching for a backdrop swatch.
     drawPreviewOverlay(editor, canvas);
-    const bool overPreview = ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive();
+    // A press on the canvas makes the window's own move ID the active one for
+    // the whole drag -- ImGui does that even for a window that cannot move --
+    // so only an item other than the window itself being held means the
+    // pointer belongs to something else. Counting the window's own ID stopped
+    // every drag after its first frame: a click painted, a drag did not.
+    const bool itemHeld = ImGui::IsAnyItemActive() &&
+                          ImGui::GetActiveID() != ImGui::GetCurrentWindow()->MoveId;
+    const bool overPreview = ImGui::IsAnyItemHovered() || itemHeld;
 
     // Drawing is refused while playing rather than silently landing on a frame
     // the person is not looking at.
@@ -2966,6 +2974,11 @@ struct Options {
     bool        adjust = false;          // --adjust: the colour window, hue turned
     bool        shadow = false;          // --shadow: the figure casts a shadow
     bool        tween = false;           // --tween: a figure turned and moved across five frames
+    // --drag X0,Y0,X1,Y1: a left-button drag between two canvas pixels, fed
+    // through ImGui's own input queue over several frames -- the path a real
+    // mouse takes -- so what a drag does can be captured and checked.
+    float       drag[4] = { -1.f, -1.f, -1.f, -1.f };
+    int         expectDrawn = -1;        // --expect-drawn N: fail unless N pixels are drawn
     bool        slices = false;          // --slices: two slices, the window open
     bool        rotsprite = false;       // --rotsprite: one sprite turned two ways, side by side
     std::string language;                // --language CODE: the interface in that language
@@ -3013,6 +3026,15 @@ Options parseOptions(int argc, char** argv) {
             options.shadow = true;
         } else if (arg == "--tween") {
             options.tween = true;
+        } else if (arg == "--expect-drawn" && i + 1 < argc) {
+            options.expectDrawn = std::atoi(argv[++i]);
+        } else if (arg == "--drag" && i + 1 < argc) {
+            const char* text = argv[++i];
+            for (float& value : options.drag) {
+                char* end = nullptr;
+                value = std::strtof(text, &end);
+                text = (*end == ',') ? end + 1 : end;
+            }
         } else if (arg == "--adjust") {
             options.adjust = true;
         } else if (arg == "--tabs") {
@@ -4729,6 +4751,33 @@ int main(int argc, char** argv) {
 
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
+        if (options.drag[0] >= 0.f) {
+            // Settle, press, move in steps, release -- after the backend has
+            // had its say, so these are the last word on the pointer.
+            constexpr int kPress = 5;
+            constexpr int kSteps = 12;
+            ImGuiIO& io = ImGui::GetIO();
+            // The middle of a canvas pixel, where the view last drew it.
+            const auto at = [&](float t) {
+                const ImVec2 origin = canvas.artworkOrigin();
+                const float x = options.drag[0] + (options.drag[2] - options.drag[0]) * t;
+                const float y = options.drag[1] + (options.drag[3] - options.drag[1]) * t;
+                return ImVec2(origin.x + (x + 0.5f) * canvas.zoom(),
+                              origin.y + (y + 0.5f) * canvas.zoom());
+            };
+            if (frame == kPress - 1) {
+                io.AddMousePosEvent(at(0.f).x, at(0.f).y);
+            } else if (frame == kPress) {
+                io.AddMousePosEvent(at(0.f).x, at(0.f).y);
+                io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+            } else if (frame > kPress && frame <= kPress + kSteps) {
+                const ImVec2 p = at(static_cast<float>(frame - kPress) / static_cast<float>(kSteps));
+                io.AddMousePosEvent(p.x, p.y);
+            } else if (frame == kPress + kSteps + 1) {
+                io.AddMousePosEvent(at(1.f).x, at(1.f).y);
+                io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+            }
+        }
         ImGui::NewFrame();
         canvas.frames().beginFrame();
         // Frames come and go through several doors -- the strip's delete, an
@@ -4813,6 +4862,22 @@ int main(int argc, char** argv) {
                                           : "off",
                         editor.recovery.intervalSeconds(),
                         editor.recovery.haveCopy() ? "written" : "not yet due");
+            if (options.expectDrawn >= 0) {
+                // What the drag left: every pixel of the frame with any alpha.
+                ls::RasterBuffer picture;
+                int drawn = 0;
+                if (compileForExport(editor.doc, editor.sprite, 1, &picture, nullptr)) {
+                    for (size_t i = 3; i < picture.pixels.size(); i += 4) {
+                        drawn += picture.pixels[i] != 0 ? 1 : 0;
+                    }
+                }
+                std::printf("drawn: %d pixel(s)\n", drawn);
+                if (drawn < options.expectDrawn) {
+                    std::printf("FAIL expected at least %d drawn pixels -- a drag across "
+                                "the canvas should paint all the way\n", options.expectDrawn);
+                    idleBroken = true;
+                }
+            }
             if (options.expectIdle && canvas.frames().compilesThisFrame() != 0) {
                 std::printf("FAIL a settled editor compiled %d time(s); every "
                             "frame on screen should already have a texture\n",

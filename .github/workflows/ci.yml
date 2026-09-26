@@ -112,3 +112,7 @@ jobs:
           # is walked by something other than its own unit tests.
           ./build/sprits_fast --frames 30 --demo-stroke --expect-idle --play --library --sheet "$RUNNER_TEMP/ci-sheet.png"
           ./build/sprits_fast --self-test
+          # A drag through ImGui's own input, the way a mouse gives it: the
+          # pencil must paint the whole diagonal, not only where it was pressed.
+          ./build/sprits_fast --frames 30 --tool pencil --drag 3,3,28,28 --expect-drawn 24
+          ./build/sprits_fast --frames 30 --tool spray --drag 3,3,28,28 --expect-drawn 40

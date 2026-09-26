@@ -74,6 +74,15 @@ program -- which is the argument for having them.
   the texture's nearest mode was ignored. The canvas now brackets its artwork
   with the backend's nearest callback. No automated test could see this; it
   came from looking at a `--shot`.
+- **A drag painted only where it was pressed.** Pencil, spray, eraser, shapes,
+  the marquee: a click worked and a drag did nothing after its first frame.
+  The corner preview counted "an item is active" as the pointer being on it,
+  and a press on the canvas makes the window's own move ID active for the
+  whole drag -- ImGui does that even for a window that cannot move. Every
+  test called the tools directly, so none went through ImGui's input; the
+  person using the program found it. `--drag X0,Y0,X1,Y1` now feeds a drag
+  through ImGui's own input queue, and CI checks with `--expect-drawn` that a
+  pencil and a spray drag paint the whole way.
 
 ## The script: at the window
 
