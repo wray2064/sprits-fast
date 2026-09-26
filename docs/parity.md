@@ -146,7 +146,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 ## Tier 2 — polish that users of the incumbents expect
 - [x] Adjustments: hue/saturation, brightness/contrast, invert, as
       operations or palette edits rather than baked pixels
-- [ ] Outline and drop shadow as effects **(better: live operations, not
+- [x] Outline and drop shadow as effects **(better: live operations, not
       filters; the outline already is)**
 - [ ] Slices (named rectangles, 9-slice) exported in the manifest
 - [ ] Pixel-art rotation (RotSprite-quality) for selections and layers
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Drop shadow as a live operation (engine GenerateDropShadowOp): cast by the layer or the whole figure, offset/colour/slot/opacity, only where nothing else is, never part of the figure's silhouette; Element panel section; effects (outline, then shadow) kept after every mark and transform (keepEffectsLast on new paint, new shapes and in the commit hook), which also fixes an outline not tracing paint added after it.
 - Adjust colours (Sprite menu): hue, saturation, lightness, brightness, contrast, invert over this layer, this frame or every frame; edits the elements' own colours (fills, strokes, outlines, both ends of a dither) and optionally the palette slots they paint through -- never pixels; applied from a recorded base so zero is exact; modal, one undo step, Cancel restores. app/adjust with tests.
 - Linked cels: a track's cels in several frames can be one cel -- each frame's layer draws the same regions and shapes through operations of its own, so strokes land in every linked frame as drawn, and new colours, shapes and deletions follow as the action closes (syncLinks in the same hook). Link from a layer's row menu (every frame, or the selected run), '+ Linked' duplicates a frame with every cel linked, Unlink gives a cel a deep copy of its own; links survive saving; a duplicated frame's copies are unlinked.
 - Tracks (app/tracks): every layer and group carries a track key; a Document hook run as each action closes brings every frame's stack into line with the frame being edited (add, delete, order, groups, name, blend, opacity, visibility, lock, reference, tag, notes, clip) inside the same undo step, each frame keeping its own pixels; duplicate copies each frame's own cel, paste makes an empty track, merge down merges in every frame or none; a layer with no key is never deleted (matched by name or made a track). New documents and imports keep tracks; older files keep separate stacks until Sprite > Same layers in every frame adopts them by name. Lock, tag and notes changes are now undoable actions.

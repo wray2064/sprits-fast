@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/ink.h"
+#include "app/shape.h"
 
 #include "app/element.h"
 #include "app/transform.h"
@@ -135,6 +136,8 @@ bool beginInkStroke(Document& doc, ls::LayerId layer, const Ink& ink, InkStroke*
         engine.deleteRegion(region.value);
         return false;
     }
+    // New paint is drawn before any outline or shadow, so they see it.
+    keepEffectsLast(doc, layer);
     out->target.layer = layer;
     out->target.fill = op.value;
     out->target.region = region.value;

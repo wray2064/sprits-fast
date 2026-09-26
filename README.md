@@ -582,6 +582,10 @@ what that layer draws, which is what one part of a character wants. **Whole
 sprite** draws one line round the figure however many layers it is built from --
 with no seam where two of them meet, and it follows whichever part moves.
 
+A **drop shadow** works the same way: cast by the layer or by the whole figure,
+offset, coloured and faded, worked out from the drawing as it is now, and
+falling only where nothing else is. Move the shape and the shadow comes.
+
 Thickness, inside or outside, and a colour that can be a value or a palette slot.
 A slot is the better answer when there is one: the outline then joins a palette
 swap instead of being the one thing left behind by it.

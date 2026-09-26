@@ -659,7 +659,71 @@ void testACurveThroughAnchors() {
     CHECK(compiled.value.raster.pixels == before);
 }
 
+// A drop shadow follows the shape it is cast by, reads back, stays after the
+// outline and after paint added later, and is kept by a file.
+void testADropShadowFollowsTheShape() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    fast::ShapeLayer shape;
+    REQUIRE(fast::createShapeLayer(canvas.doc, canvas.sprite, fast::ShapeKind::Rectangle,
+                                   box(4, 4, 8, 8), Color{ 220, 120, 60, 255 }, &shape));
+    fast::ShadowSettings settings;
+    settings.dx = 2;
+    settings.dy = 3;
+    settings.colour = Color{ 0, 0, 0, 255 };
+    settings.opacity = 1.f;
+    REQUIRE(fast::setShadow(canvas.doc, shape.paint, settings));
+    CHECK(fast::hasShadow(canvas.doc, shape.paint));
+    CHECK(canvas.at(9, 10).a == 255 && canvas.at(9, 10).r == 0);    // cast down and right
+    CHECK(canvas.at(5, 5).r == 220);                                // the shape, untouched
+    CHECK(canvas.at(3, 3).a == 0);
+
+    const fast::ShadowSettings back = fast::shadowOf(canvas.doc, shape.paint);
+    CHECK(back.dx == 2 && back.dy == 3 && back.opacity == 1.f);
+
+    // The shape moves; the shadow comes with it.
+    REQUIRE(fast::updateShape(canvas.doc, shape, box(14, 14, 18, 18)));
+    CHECK(canvas.at(19, 20).a == 255 && canvas.at(9, 10).a == 0);
+
+    // An outline added after is drawn before it; so is paint added later.
+    fast::OutlineSettings outline;
+    REQUIRE(fast::setOutline(canvas.doc, shape.paint, outline));
+    auto ops = canvas.doc.engine().getLayerOperations(shape.paint.layer);
+    REQUIRE(ops.ok() && !ops.value.empty());
+    CHECK(ops.value.back().type == "GenerateDropShadowOp");
+    fast::ShapeLayer more;
+    REQUIRE(fast::addShapeTo(canvas.doc, shape.paint.layer, fast::ShapeKind::Rectangle,
+                             box(24, 2, 26, 4), Color{ 90, 200, 90, 255 }, ls::kColorRoleNone,
+                             &more));
+    ops = canvas.doc.engine().getLayerOperations(shape.paint.layer);
+    REQUIRE(ops.ok());
+    CHECK(ops.value.back().type == "GenerateDropShadowOp");
+    CHECK(ops.value[ops.value.size() - 2].type == "GenerateSilhouetteOutlineOp");
+    CHECK(canvas.at(27, 6).a != 0);         // the new shape casts one too
+
+    std::string error;
+    const std::string path = "shape_shadow.lsprite";
+    const std::vector<uint8_t> before = canvas.pixels();
+    REQUIRE(canvas.doc.save(path, &error));
+    fast::Document again;
+    REQUIRE(again.open(path, &error));
+    fast::deleteFile(path);
+    std::vector<fast::PaintLayer> layers;
+    SpriteId sprite;
+    REQUIRE(fast::adoptPaintLayers(again, &sprite, &layers));
+    REQUIRE(!layers.empty());
+    CHECK(fast::hasShadow(again, layers.front()));
+    auto compiled = again.engine().compileSprite(sprite, profile());
+    REQUIRE(compiled.ok());
+    CHECK(compiled.value.raster.pixels == before);
+
+    REQUIRE(fast::removeShadow(canvas.doc, shape.paint));
+    CHECK(!fast::hasShadow(canvas.doc, shape.paint));
+    CHECK(canvas.at(19, 20).a == 0 || canvas.at(19, 20).r != 0);
+}
+
 int main() {
+    testADropShadowFollowsTheShape();
     testAPolygonIsItsCorners();
     testACurveThroughAnchors();
     testAnOutlinedShapeIsItsEdge();

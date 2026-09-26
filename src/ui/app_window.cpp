@@ -2906,6 +2906,7 @@ struct Options {
     bool        paths = false;           // --paths: a polygon and a curve, handles showing
     bool        tabs = false;            // --tabs: two more documents open beside the first
     bool        adjust = false;          // --adjust: the colour window, hue turned
+    bool        shadow = false;          // --shadow: the figure casts a shadow
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2940,6 +2941,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--shadow") {
+            options.shadow = true;
         } else if (arg == "--adjust") {
             options.adjust = true;
         } else if (arg == "--tabs") {
@@ -4330,6 +4333,16 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.shadow && editor.active() != nullptr) {
+        ShadowSettings settings;
+        settings.scope = OutlineScope::Sprite;
+        settings.dx = 2;
+        settings.dy = 2;
+        settings.opacity = 0.6f;
+        editor.doc.beginAction("Add shadow");
+        setShadow(editor.doc, *editor.active(), settings);
+        editor.doc.endAction();
     }
     if (options.adjust && editor.active() != nullptr) {
         editor.adjustDialog = Editor::AdjustDialog{};

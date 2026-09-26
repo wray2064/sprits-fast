@@ -332,6 +332,7 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
             doc.abandonAction();
             return false;
         }
+        keepEffectsLast(doc, layer);
         doc.endAction();
         out->paint.layer = layer;
         out->paint.fill = op.value;
@@ -391,6 +392,8 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
         out->paint.fill = op.value;
     }
 
+    // A new shape is drawn before any outline or shadow, so they see it.
+    keepEffectsLast(doc, layer);
     doc.endAction();
 
     out->geometry = geometry.value;
@@ -627,6 +630,126 @@ bool shapeOfLayer(Document& doc, const PaintLayer& layer, ShapeLayer* out) {
     return true;
 }
 
+// ------------------------------------------------------------------ effects --
+
+void keepEffectsLast(Document& doc, ls::LayerId layer) {
+    auto operations = doc.engine().getLayerOperations(layer);
+    if (operations.fail()) {
+        return;
+    }
+    std::vector<ls::OperationId> rest;
+    std::vector<ls::OperationId> outlines;
+    std::vector<ls::OperationId> shadows;
+    for (const ls::OperationInfo& op : operations.value) {
+        if (op.type == "GenerateSilhouetteOutlineOp") {
+            outlines.push_back(op.id);
+        } else if (op.type == "GenerateDropShadowOp") {
+            shadows.push_back(op.id);
+        } else {
+            rest.push_back(op.id);
+        }
+    }
+    std::vector<ls::OperationId> order = rest;
+    order.insert(order.end(), outlines.begin(), outlines.end());
+    order.insert(order.end(), shadows.begin(), shadows.end());
+    bool same = order.size() == operations.value.size();
+    for (size_t i = 0; same && i < order.size(); ++i) {
+        same = order[i] == operations.value[i].id;
+    }
+    if (!same) {
+        doc.engine().reorderOperations(layer, order);
+    }
+}
+
+namespace {
+
+ls::OperationId shadowOperation(Document& doc, const PaintLayer& layer) {
+    auto operations = doc.engine().getLayerOperations(layer.layer);
+    if (operations.fail()) {
+        return ls::OperationId{};
+    }
+    for (const ls::OperationInfo& op : operations.value) {
+        if (op.type == "GenerateDropShadowOp") {
+            return op.id;
+        }
+    }
+    return ls::OperationId{};
+}
+
+} // namespace
+
+bool hasShadow(Document& doc, const PaintLayer& layer) {
+    return shadowOperation(doc, layer).valid();
+}
+
+bool setShadow(Document& doc, const PaintLayer& layer, const ShadowSettings& settings) {
+    if (!layer.valid()) {
+        return false;
+    }
+    ls::LSContext& engine = doc.engine();
+    ls::SpriteId sprite;
+    if (settings.scope == OutlineScope::Sprite) {
+        auto info = engine.getLayerInfo(layer.layer);
+        if (info.fail() || !info.value.sprite.valid()) {
+            return false;
+        }
+        sprite = info.value.sprite;
+    }
+    const float dx = static_cast<float>(std::clamp(settings.dx, -kMaxShadowOffset, kMaxShadowOffset));
+    const float dy = static_cast<float>(std::clamp(settings.dy, -kMaxShadowOffset, kMaxShadowOffset));
+    const float opacity = std::clamp(settings.opacity, 0.f, 1.f);
+    const ls::OperationId existing = shadowOperation(doc, layer);
+    if (existing.valid()) {
+        bool ok = true;
+        ok = engine.setOperationParameter(existing, "targetSprite",
+                 ls::ParameterValue{ static_cast<uint64_t>(sprite.value) }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "offset",
+                 ls::ParameterValue{ ls::Vec2f{ dx, dy } }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "fallbackColor",
+                 ls::ParameterValue{ settings.colour }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "paletteRole",
+                 ls::ParameterValue{ static_cast<int64_t>(settings.role) }).ok() && ok;
+        ok = engine.setOperationParameter(existing, "opacity",
+                 ls::ParameterValue{ opacity }).ok() && ok;
+        return ok;
+    }
+    ls::GenerateDropShadowOp shadow;
+    shadow.targetSprite = sprite;
+    shadow.offset = { dx, dy };
+    shadow.fallbackColor = settings.colour;
+    shadow.paletteRole = settings.role;
+    shadow.opacity = opacity;
+    const bool added = engine.addOperation(layer.layer, shadow).ok();
+    keepEffectsLast(doc, layer.layer);
+    return added;
+}
+
+bool removeShadow(Document& doc, const PaintLayer& layer) {
+    const ls::OperationId op = shadowOperation(doc, layer);
+    return op.valid() && doc.engine().removeOperation(layer.layer, op).ok();
+}
+
+ShadowSettings shadowOf(Document& doc, const PaintLayer& layer) {
+    ShadowSettings settings;
+    const ls::OperationId op = shadowOperation(doc, layer);
+    if (!op.valid()) {
+        return settings;
+    }
+    auto operation = doc.engine().getOperation(op);
+    const auto* shadow = operation.ok() ? std::get_if<ls::GenerateDropShadowOp>(&operation.value)
+                                        : nullptr;
+    if (shadow == nullptr) {
+        return settings;
+    }
+    settings.scope = shadow->targetSprite.valid() ? OutlineScope::Sprite : OutlineScope::Layer;
+    settings.dx = static_cast<int>(std::lround(shadow->offset.x));
+    settings.dy = static_cast<int>(std::lround(shadow->offset.y));
+    settings.colour = shadow->fallbackColor;
+    settings.role = shadow->paletteRole;
+    settings.opacity = shadow->opacity;
+    return settings;
+}
+
 // ------------------------------------------------------------------ outline --
 
 bool hasOutline(Document& doc, const PaintLayer& layer) {
@@ -682,7 +805,9 @@ bool setOutline(Document& doc, const PaintLayer& layer, const OutlineSettings& s
     outline.side = settings.side;
     outline.fallbackColor = settings.colour;
     outline.paletteRole = settings.role;
-    return engine.addOperation(layer.layer, outline).ok();
+    const bool added = engine.addOperation(layer.layer, outline).ok();
+    keepEffectsLast(doc, layer.layer);
+    return added;
 }
 
 bool removeOutline(Document& doc, const PaintLayer& layer) {

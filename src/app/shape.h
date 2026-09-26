@@ -175,4 +175,33 @@ bool removeOutline(Document& doc, const PaintLayer& layer);
 // panel can show the controls it would create.
 OutlineSettings outlineOf(Document& doc, const PaintLayer& layer);
 
+// ------------------------------------------------------------------- shadow --
+//
+// A drop shadow as an operation, like the outline: what the layer draws -- or
+// the whole figure -- moved and in one colour, only where nothing else is,
+// resolved from the drawing as it is now. Move the shape and the shadow comes.
+
+struct ShadowSettings {
+    OutlineScope  scope = OutlineScope::Layer;
+    int           dx = 1;
+    int           dy = 1;
+    ls::Color     colour { 20, 22, 28, 255 };
+    ls::ColorRole role = ls::kColorRoleNone;
+    float         opacity = 0.5f;
+};
+
+// The furthest a shadow is offset, either way.
+constexpr int kMaxShadowOffset = 16;
+
+bool hasShadow(Document& doc, const PaintLayer& layer);
+bool setShadow(Document& doc, const PaintLayer& layer, const ShadowSettings& settings);
+bool removeShadow(Document& doc, const PaintLayer& layer);
+ShadowSettings shadowOf(Document& doc, const PaintLayer& layer);
+
+// Keeps a layer's effects -- its outline, then its shadow -- after everything
+// they are drawn from, whatever has been added to the layer since they were.
+// An effect sees what is drawn before it and nothing after. Does not bracket
+// an action.
+void keepEffectsLast(Document& doc, ls::LayerId layer);
+
 } // namespace fast

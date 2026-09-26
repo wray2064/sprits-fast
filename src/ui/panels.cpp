@@ -1599,6 +1599,64 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
     }
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    theme::sectionHeader("SHADOW");
+    {
+        bool shadowed = hasShadow(editor.doc, *layer);
+        if (ImGui::Checkbox("Drop shadow", &shadowed)) {
+            editor.doc.beginAction(shadowed ? "Add shadow" : "Remove shadow");
+            if (shadowed) {
+                setShadow(editor.doc, *layer, ShadowSettings{});
+            } else {
+                removeShadow(editor.doc, *layer);
+            }
+            editor.doc.endAction();
+            canvas.invalidate();
+        }
+        ImGui::SameLine();
+        theme::hint("Cast by whatever the layer draws -- or the whole figure -- and "
+                    "worked out as the sprite is drawn, so it follows the artwork. "
+                    "It falls only where nothing else is.");
+        if (shadowed) {
+            ShadowSettings settings = shadowOf(editor.doc, *layer);
+            bool changed = false;
+            const char* scopes[] = { "Cast by this layer", "Cast by the figure" };
+            int scope = static_cast<int>(settings.scope);
+            ImGui::SetNextItemWidth(-1.f);
+            if (ImGui::Combo("##shadowscope", &scope, scopes, 2)) {
+                settings.scope = static_cast<OutlineScope>(scope);
+                changed = true;
+            }
+            int offset[2] = { settings.dx, settings.dy };
+            ImGui::SetNextItemWidth(-60.f);
+            if (ImGui::SliderInt2("offset", offset, -kMaxShadowOffset, kMaxShadowOffset)) {
+                settings.dx = offset[0];
+                settings.dy = offset[1];
+                changed = true;
+            }
+            bracketDrag(editor, editor.editingShape, "Shadow offset");
+            float rgba[4];
+            fromColor(settings.colour, rgba);
+            if (ImGui::ColorEdit3("##shadowcolour", rgba, ImGuiColorEditFlags_NoInputs)) {
+                settings.colour = toColor(rgba);
+                settings.colour.a = 255;
+                settings.role = ls::kColorRoleNone;
+                changed = true;
+            }
+            bracketDrag(editor, editor.editingShape, "Shadow colour");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-60.f);
+            if (ImGui::SliderFloat("opacity##shadow", &settings.opacity, 0.f, 1.f, "%.2f")) {
+                changed = true;
+            }
+            bracketDrag(editor, editor.editingShape, "Shadow opacity");
+            if (changed) {
+                setShadow(editor.doc, *layer, settings);
+                canvas.invalidate();
+            }
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     theme::sectionHeader("OUTLINE");
 
     const bool wasOutlined = hasOutline(editor.doc, *layer);

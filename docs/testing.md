@@ -503,6 +503,17 @@ sprits_fast --demo-stroke
 3. Apply. *Expect:* one undo step; the Element panel still lists every
    element, a rectangle still a rectangle.
 
+### 4ac. Drop shadow
+
+1. A rectangle; Element panel > *Drop shadow*. *Expect:* a shadow down and
+   right, only where the rectangle is not. Offset, colour and opacity change
+   it live; each drag one undo step.
+2. Move the rectangle. *Expect:* the shadow follows. Draw new pixels on the
+   layer. *Expect:* they cast a shadow too. Add an outline. *Expect:* the
+   shadow is cast by the outlined shape.
+3. *Cast by the figure* on a bottom layer. *Expect:* one shadow for the whole
+   sprite, under every layer.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

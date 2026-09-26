@@ -704,6 +704,10 @@ void refreshLibrary(Editor& editor) {
 void attachTracks(Editor& editor) {
     Editor* owner = &editor;
     editor.doc.setBeforeCommit([owner](Document& doc) {
+        // Whatever the action added, a layer's effects stay after it.
+        for (ls::LayerId layer : layerOrder(doc, owner->activeSprite())) {
+            keepEffectsLast(doc, layer);
+        }
         syncTracks(doc, owner->activeSprite());
         syncLinks(doc, owner->activeSprite());
     });
