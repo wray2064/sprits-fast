@@ -5,12 +5,15 @@
 
 #include "app/clip_image.h"
 #include "app/grid_snap.h"
+#include "app/ink.h"
 #include "app/layers.h"
+#include "app/selection.h"
 #include "app/transform.h"
 #include "ui/os_clipboard.h"
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -374,6 +377,51 @@ bool deleteSelectionPixels(Editor& editor) {
     editor.doc.endAction();
     resyncLayers(editor);
     editor.say("Deleted the selected pixels; shapes are removed in the Element panel");
+    return true;
+}
+
+bool fillSelection(Editor& editor, bool stroke) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr || editor.selection.empty()) {
+        return false;
+    }
+    settleFloating(editor);
+    if (layerLocked(editor.doc, layer->layer)) {
+        editor.say("This layer is locked -- unlock it in the Layers panel");
+        return false;
+    }
+    if (!layerTakesSelections(editor.doc, layer->layer)) {
+        editor.say("This layer has a transform; remove it in the Transform panel "
+                   "to paint the selection onto it");
+        return false;
+    }
+    auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+    if (size.fail()) {
+        return false;
+    }
+    const uint32_t w = static_cast<uint32_t>(size.value.x);
+    const uint32_t h = static_cast<uint32_t>(size.value.y);
+    const ls::IntervalSet mask =
+        stroke ? modifySelection(editor.selection.mask, SelectionModify::Border,
+                                 std::max(1, editor.brush.size), editor.brush.round, w, h)
+               : clipToCanvas(editor.selection.mask, w, h);
+    if (mask.empty()) {
+        editor.say("Nothing selected on the canvas");
+        return false;
+    }
+    editor.doc.beginAction(stroke ? "Stroke selection" : "Fill selection");
+    InkStroke ink;
+    if (!beginInkStroke(editor.doc, layer->layer, foregroundInk(editor), &ink) ||
+        !strokeInk(editor.doc, ink, pixelsOf(mask))) {
+        editor.doc.abandonAction();
+        editor.say("Could not paint on this layer");
+        return false;
+    }
+    editor.doc.endAction();
+    resyncLayers(editor);
+    editor.say(stroke ? "Stroked the selection, " + std::to_string(std::max(1, editor.brush.size)) +
+                            " px inside its edge"
+                      : "Filled the selection");
     return true;
 }
 

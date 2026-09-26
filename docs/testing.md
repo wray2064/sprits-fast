@@ -575,6 +575,18 @@ sprits_fast --demo-stroke
 3. Give frame 5 a *Scale* instead and tween again. *Expect:* "No tween: the
    two key frames' layers have different transforms"; nothing changes.
 
+### 4ai. Modify, fill and stroke a selection
+
+1. Marquee a rectangle. *Select > Modify > Expand...*, 2, square. *Expect:* the
+   ants move out two pixels; corners stay square. *Contract...* 2 puts them
+   back; *Reselect* returns the one before each change.
+2. An ellipse selection, *Expand...* 3 with *Round corners*. *Expect:* still
+   round. *Border...* 1. *Expect:* only the ring of edge pixels is selected.
+3. *Edit > Fill selection*. *Expect:* the selection painted in the current
+   colour, one undo step. Brush size 2, *Edit > Stroke selection*. *Expect:* a
+   band two pixels wide just inside the edge. On a locked layer both refuse
+   and say why.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

@@ -366,8 +366,32 @@ void testTransformedLayersRefuse() {
 
 } // namespace
 
+// Select > Modify: a 4x4 square grown by one is 6x6 (square corners) or
+// loses its corners (round); shrunk by one it is 2x2; its border of one is
+// the twelve pixels round the edge; and growing stops at the canvas.
+void testModifyGrowsShrinksAndBorders() {
+    const ls::IntervalSet square = rectangleMask({ 4, 4 }, { 7, 7 });
+    const ls::IntervalSet grown = modifySelection(square, SelectionModify::Expand, 1, false, 16, 16);
+    CHECK(ls::geom::pixelCount(grown) == 36);
+    const ls::IntervalSet rounded = modifySelection(square, SelectionModify::Expand, 1, true, 16, 16);
+    CHECK(ls::geom::pixelCount(rounded) == 32);
+    CHECK(!ls::geom::contains(rounded, { 3, 3 }) && ls::geom::contains(rounded, { 3, 4 }));
+    const ls::IntervalSet shrunk = modifySelection(square, SelectionModify::Contract, 1, false, 16, 16);
+    CHECK(ls::geom::pixelCount(shrunk) == 4 && ls::geom::contains(shrunk, { 5, 5 }));
+    const ls::IntervalSet border = modifySelection(square, SelectionModify::Border, 1, false, 16, 16);
+    CHECK(ls::geom::pixelCount(border) == 12 && !ls::geom::contains(border, { 5, 5 }));
+    const ls::IntervalSet corner = modifySelection(rectangleMask({ 0, 0 }, { 1, 1 }),
+                                                   SelectionModify::Expand, 3, false, 16, 16);
+    CHECK(ls::geom::pixelCount(corner) == 25);
+    const ls::IntervalSet all = modifySelection(rectangleMask({ 0, 0 }, { 15, 15 }),
+                                                SelectionModify::Contract, 2, false, 16, 16);
+    CHECK(ls::geom::pixelCount(all) == 144);
+    CHECK(modifySelection(square, SelectionModify::Contract, 2, false, 16, 16).empty());
+}
+
 int main() {
     testMarqueeTakesBothCorners();
+    testModifyGrowsShrinksAndBorders();
     testEllipseIsSymmetric();
     testLassoTakesOutlineAndInside();
     testModifiersCombine();

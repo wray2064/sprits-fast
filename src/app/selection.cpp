@@ -211,6 +211,24 @@ ls::IntervalSet rotatedQuarter(const ls::IntervalSet& mask, ls::Rect2i within, b
     return fromPixels(turned);
 }
 
+ls::IntervalSet modifySelection(const ls::IntervalSet& mask, SelectionModify how, int pixels,
+                                bool round, uint32_t width, uint32_t height) {
+    const ls::IntervalSet on = clipToCanvas(mask, width, height);
+    if (pixels <= 0 || on.empty()) {
+        return on;
+    }
+    const float by = static_cast<float>(pixels);
+    switch (how) {
+        case SelectionModify::Expand:
+            return clipToCanvas(ls::geom::expand(on, by, !round), width, height);
+        case SelectionModify::Contract:
+            return ls::geom::contract(on, by, !round);
+        case SelectionModify::Border:
+            return ls::geom::subtractSets(on, ls::geom::contract(on, by, !round));
+    }
+    return on;
+}
+
 std::vector<ls::Vec2i> pixelsOf(const ls::IntervalSet& mask) {
     std::vector<ls::Vec2i> out;
     out.reserve(static_cast<size_t>(ls::geom::pixelCount(mask)));

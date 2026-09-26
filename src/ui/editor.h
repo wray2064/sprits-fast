@@ -331,6 +331,14 @@ struct Editor {
         bool  lockRatio = true;
     } spriteDialog;
 
+    // Select > Modify: which change, by how much, and square or round.
+    struct ModifyDialog {
+        bool            open = false;
+        SelectionModify how = SelectionModify::Expand;
+        int             pixels = 1;
+        bool            round = false;
+    } modifyDialog;
+
     // The animation export, and whether its window is up. Like the sheet's,
     // kept here so the choices survive the window closing.
     bool              animationPanelOpen = false;
@@ -702,6 +710,11 @@ bool turnSelection(Editor& editor, FloatTurn turn);
 bool copySelectionPixels(Editor& editor);
 bool cutSelectionPixels(Editor& editor);
 bool deleteSelectionPixels(Editor& editor);
+
+// Edit > Fill: the selected pixels of the active layer in the current colour.
+// Edit > Stroke: a band the brush's size wide just inside the selection's
+// edge, round if the brush is. One undo step; false with a reason said.
+bool fillSelection(Editor& editor, bool stroke);
 bool pastePixels(Editor& editor);
 
 // The selected pixels onto a layer of their own, just above, with a rotation

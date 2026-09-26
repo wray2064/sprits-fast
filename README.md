@@ -48,6 +48,10 @@ into a browser, a chat or another editor; an image copied anywhere else pastes
 into Fast as a float, one element per colour, and a colour the palette has
 exactly comes in as that slot, so it recolours with the palette straight away.
 A copied image can also be pasted as a reference, to draw from.
+*Select > Modify* grows, shrinks or borders the selection by any number of
+pixels, with square or round corners; *Edit > Fill selection* paints it in the
+current colour and *Stroke selection* paints a band the brush's width just
+inside its edge -- both as ordinary paint, one undo step each.
 
 **The canvas** — canvas size with an anchor, crop to the selection, trim to
 what is drawn, enlarge or reduce by a whole number, resize to any size or

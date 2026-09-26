@@ -141,6 +141,8 @@ const std::vector<CommandInfo>& commandList() {
         { "edit.paste", "Paste", "Edit", { ctrl("V") } },
         { "edit.paste-layer", "Paste as new layer", "Edit", { ctrl("V", true) } },
         { "edit.brush", "Brush from selection", "Edit", { ctrl("B") } },
+        { "edit.fill", "Fill the selection", "Edit", {} },
+        { "edit.stroke", "Stroke the selection", "Edit", {} },
         { "selection.flip-h", "Flip horizontally", "Edit", { shift("H") } },
         { "selection.flip-v", "Flip vertically", "Edit", { shift("V") } },
         { "select.all", "Select all", "Select", { ctrl("A") } },

@@ -517,6 +517,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             pasteReference(editor, canvas);
         }
         if (ImGui::MenuItem(tr("Delete"), "Del", false, selected)) { deleteSelectionPixels(editor); }
+        if (ImGui::MenuItem(tr("Fill selection"), keysLabel(editor.keys, "edit.fill").c_str(), false,
+                            selected)) {
+            fillSelection(editor, false);
+        }
+        if (ImGui::MenuItem(tr("Stroke selection"), keysLabel(editor.keys, "edit.stroke").c_str(), false,
+                            selected)) {
+            fillSelection(editor, true);
+        }
         if (ImGui::MenuItem(tr("Brush from selection"), keysLabel(editor.keys, "edit.brush").c_str(),
                             false, selected)) {
             brushFromSelection(editor);
@@ -683,6 +691,20 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             reselect(editor);
         }
         if (ImGui::MenuItem(tr("Invert"), "Ctrl+Shift+I")) { invertSelection(editor); }
+        if (ImGui::BeginMenu(tr("Modify"), !editor.selection.empty())) {
+            const struct { SelectionModify how; const char* name; } kinds[] = {
+                { SelectionModify::Expand, "Expand..." },
+                { SelectionModify::Contract, "Contract..." },
+                { SelectionModify::Border, "Border..." },
+            };
+            for (const auto& k : kinds) {
+                if (ImGui::MenuItem(tr(k.name))) {
+                    editor.modifyDialog.how = k.how;
+                    editor.modifyDialog.open = true;
+                }
+            }
+            ImGui::EndMenu();
+        }
         ImGui::EndMenu();
     }
 
@@ -981,6 +1003,56 @@ void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
     ImGui::SameLine();
     if (ImGui::Button("Cancel", ImVec2(90.f, 0.f)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         close(false);
+    }
+    ImGui::EndPopup();
+}
+
+// Select > Modify: grow, shrink or border the selection by a number of
+// pixels, square or round, previewed as the marching ants move.
+void drawModifyPanel(Editor& editor) {
+    Editor::ModifyDialog& dialog = editor.modifyDialog;
+    if (!dialog.open) {
+        return;
+    }
+    const char* title = dialog.how == SelectionModify::Expand ? "Expand the selection"
+                      : dialog.how == SelectionModify::Contract ? "Contract the selection"
+                                                                : "Border of the selection";
+    const std::string id = std::string(tr(title)) + "###modify";
+    ImGui::OpenPopup(id.c_str());
+    if (!ImGui::BeginPopupModal(id.c_str(), &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    ImGui::SetNextItemWidth(160.f);
+    if (ImGui::InputInt("pixels", &dialog.pixels)) {
+        dialog.pixels = std::clamp(dialog.pixels, 1, 256);
+    }
+    ImGui::Checkbox("Round corners", &dialog.round);
+    ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+    ImGui::TextWrapped(dialog.how == SelectionModify::Border
+                           ? "Keeps only a band this wide just inside the edge -- the "
+                             "pixels Edit > Stroke would paint."
+                           : "Square keeps a rectangle a rectangle; round keeps a circle "
+                             "a circle.");
+    ImGui::PopStyleColor();
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    if (ImGui::Button("OK", ImVec2(110.f, 0.f))) {
+        auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+        if (size.ok()) {
+            settleFloating(editor);
+            editor.selection.previous = editor.selection.mask;
+            editor.selection.mask = modifySelection(
+                editor.selection.mask, dialog.how, dialog.pixels, dialog.round,
+                static_cast<uint32_t>(size.value.x), static_cast<uint32_t>(size.value.y));
+            editor.say(editor.selection.empty() ? "Nothing left selected -- Reselect brings it back"
+                                                : "Selection changed; Reselect brings the old one back");
+        }
+        dialog.open = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+        dialog.open = false;
+        ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
 }
@@ -2660,6 +2732,8 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (fired("edit.paste")) { pasteCommand(editor, canvas, false); }
     if (fired("edit.paste-layer")) { pasteCommand(editor, canvas, true); }
     if (fired("edit.brush")) { brushFromSelection(editor); }
+    if (fired("edit.fill")) { fillSelection(editor, false); }
+    if (fired("edit.stroke")) { fillSelection(editor, true); }
     if (fired("selection.flip-h")) { turnSelection(editor, FloatTurn::FlipHorizontal); }
     if (fired("selection.flip-v")) { turnSelection(editor, FloatTurn::FlipVertical); }
     if (fired("select.all")) { selectAll(editor); }
@@ -2930,6 +3004,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawAnimationPanel(editor, window);
     drawCanvasSizePanel(editor, canvas);
     drawSpriteSizePanel(editor, canvas);
+    drawModifyPanel(editor);
     drawAdjustPanel(editor, canvas);
     drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);
@@ -4144,6 +4219,28 @@ int runSelfTest() {
               layerOrder(tracked.doc, two).size() == count - 1, "merging down merges in both");
         check(tracked.doc.undo() && layerOrder(tracked.doc, two).size() == count,
               "and one undo takes both back");
+    }
+
+    // Edit > Fill and Stroke: the selection painted in the current colour,
+    // and a stroke only round its edge; each one undo step.
+    {
+        Editor filled;
+        check(newDocument(filled, 16), "a document to fill");
+        filled.selection.mask = rectangleMask({ 2, 2 }, { 9, 9 });
+        filled.color[0] = 0.9f; filled.color[1] = 0.1f; filled.color[2] = 0.1f; filled.color[3] = 1.f;
+        filled.brush.size = 2;
+        check(fillSelection(filled, true), "stroke the selection");
+        const auto redAt = [&](int x, int y) {
+            ls::RasterBuffer picture;
+            if (!compileForExport(filled.doc, filled.sprite, 1, &picture, nullptr)) {
+                return false;
+            }
+            const uint8_t* px = picture.row(static_cast<uint32_t>(y)) + x * 4;
+            return px[0] > 200 && px[1] < 60 && px[3] > 200;
+        };
+        check(redAt(2, 2) && redAt(3, 5) && !redAt(4, 4) && !redAt(5, 5), "a band two wide inside the edge");
+        check(fillSelection(filled, false) && redAt(5, 5) && !redAt(10, 10), "filling paints the inside");
+        check(filled.doc.undo() && !redAt(5, 5) && redAt(2, 2), "one undo each");
     }
 
     // Tweens through the editor: an offset keyed at 0 and 8 puts the middle

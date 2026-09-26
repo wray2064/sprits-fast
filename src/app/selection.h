@@ -71,6 +71,15 @@ ls::IntervalSet flippedHorizontally(const ls::IntervalSet& mask, ls::Rect2i with
 ls::IntervalSet flippedVertically(const ls::IntervalSet& mask, ls::Rect2i within);
 ls::IntervalSet rotatedQuarter(const ls::IntervalSet& mask, ls::Rect2i within, bool clockwise);
 
+// Select > Modify: grown by `pixels`, shrunk by them, or only the band that
+// many pixels wide just inside the edge -- what a stroke of the selection
+// paints. Square corners, or round ones that keep a circle a circle. Clipped
+// to a `width` x `height` canvas; the canvas's edge counts as an edge, so a
+// whole-canvas selection shrinks from it.
+enum class SelectionModify { Expand, Contract, Border };
+ls::IntervalSet modifySelection(const ls::IntervalSet& mask, SelectionModify how, int pixels,
+                                bool round, uint32_t width, uint32_t height);
+
 // Every pixel of a mask, row by row.
 std::vector<ls::Vec2i> pixelsOf(const ls::IntervalSet& mask);
 

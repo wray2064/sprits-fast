@@ -162,12 +162,28 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Shapes on a curve that stay editable
 - [x] Per-frame transforms as tweens between key frames
 
+## Tier 4 — a second look at the incumbents
+Found by going back over Aseprite 1.3 and Pixelorama once the first three
+tiers were done.
+- [x] Select > Modify: expand, contract, border (square or round)
+- [x] Edit > Fill and Stroke the selection with the current colour
+- [ ] The eraser erases shapes too, as an operation: an erase region on the
+      layer that clears what is under it, with the shapes still live
+      (never baked -- pixels only exist at render)
+- [ ] Scale the selected pixels with handles, as a live scale transform
+- [ ] Tilemap layers: a tileset drawn once, a grid of tile references with
+      flips **(better: a tile is one region every placement draws, so editing
+      a tile edits every placement)**; Aseprite tilemaps imported
+- [ ] Per-cel opacity (Aseprite's cel properties)
+
 ---
 
 ## Log
 
 Newest first. One line per landed item, with the commit.
 
+- Drag painting fixed (2ff2946): the corner preview took any active ImGui item as the pointer being on it, and a press on the canvas activates the window's own move ID, so every drag stopped after its first frame. `--drag` feeds a drag through ImGui's input queue; CI checks a pencil and a spray drag with `--expect-drawn`.
+- Select > Modify (expand, contract, border by N pixels, square or round, over the engine's geom::expand/contract; Reselect undoes) and Edit > Fill selection / Stroke selection (current colour, the stroke a band the brush's width inside the edge, round with a round brush; one undo step; locked and transformed layers refuse). app/selection modifySelection with tests; keymap commands without default keys.
 - Tweens: an Offset transform (engine TranslateOp, whole pixels) beside Rotate/Scale/Mirror, moved by canvas ops; tweenTransforms fills a selected run of frames between two key frames whose track layer has the same transforms -- angle, scale, offset and pivot in between, linear or eased (smoothstep); missing in-between transforms are created, keys that differ refuse with a reason; one undo step. Timeline *Tween* button on a Shift+click run. Visual check: an arrow turned 180 and moved 18 across five frames.
 - Localisation: tr() over plain-text catalogues (assets/lang/<code>.txt, copied beside the program), a Language choice in Preferences applied at once and kept; menus, panel titles, section headings, tool names and Keys-tab command names go through it; Spanish catalogue ships (166 strings); docs/translating.md explains adding a language. Remaining English: buttons, field labels, tooltips, status messages.
 - RotSprite: engine SamplingPolicy::RotSprite (3x Scale2x to 8x, then nearest; Majority past 512x512); the Transform panel's new rotations use it and every rotate/scale has a sampling combo; Select > Rotate freely lifts the selection onto its own layer with a RotSprite rotation about its middle, one undo step. Visual check: a ring turned 30 degrees stays a ring under RotSprite and breaks under coverage.
