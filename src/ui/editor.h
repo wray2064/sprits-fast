@@ -241,6 +241,11 @@ struct Editor {
     bool  draggingLayer = false;     // the opacity slider in the layer panel
 
     int   renaming = -1;              // index of the layer being renamed, or -1
+    // A free scale's handle being dragged (0-7 round the box from the top
+    // left, 8 the box itself), where the box was, and where it was grabbed.
+    int        scaleHandle = -1;
+    ls::Rect2f scaleFrom;
+    ls::Vec2f  scaleGrab { 0.f, 0.f };
     // A name field just opened: it takes the keyboard on its first frame, so
     // what is typed next is the name rather than a string of shortcuts.
     bool  renameFocus = false;
@@ -552,7 +557,8 @@ struct Editor {
                draggingPalette || editingShape || draggingShape || draggingLayer ||
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
                adjustDialog.open || draggingSlice || editingSlice || draggingGuide >= 0 ||
-               selecting || draggingFloat || drawingContour || drawingGradient;
+               selecting || draggingFloat || drawingContour || drawingGradient ||
+               scaleHandle >= 0;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls
@@ -728,6 +734,18 @@ bool pastePixels(Editor& editor);
 // so pixel art stays pixel art, and non-destructive, so the angle can change
 // for ever. One undo step.
 bool rotateSelectionFreely(Editor& editor);
+
+// The selected pixels onto a layer of their own with a free scale (see
+// transform.h): eight handles round them with the move tool, dragged to any
+// size -- Shift keeps the proportion -- or dragged inside to move. One undo
+// step, and one for each drag after.
+bool scaleSelectionFreely(Editor& editor);
+
+// The handles of a freely scaled layer, with the move tool in hand: true when
+// the pointer is theirs this frame. And their drawing, over the canvas.
+bool handleFreeScale(Editor& editor, CanvasView& canvas, bool overCanvas);
+void drawFreeScaleOverlay(Editor& editor, CanvasView& canvas, ImDrawList* draw, ImVec2 origin,
+                          float zoom);
 
 // When another program's image is the newest thing on the clipboard, makes it
 // the clip a paste will use, and says what it held in `note`. False when the

@@ -128,7 +128,8 @@ bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, P
     return true;
 }
 
-bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask) {
+bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask,
+                 bool shapesToo) {
     if (mask.empty() || !layerTakesSelections(doc, layer)) {
         return false;
     }
@@ -144,7 +145,9 @@ bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask) 
         any = doc.engine().erasePixelsFromRegion(element.region, pixels).ok() || any;
     }
     // And the shapes lose them, through the erase: they stay shapes.
-    any = eraseFromShapes(doc, layer, pixels) || any;
+    if (shapesToo) {
+        any = eraseFromShapes(doc, layer, pixels) || any;
+    }
     if (any) {
         pruneEmptyInks(doc, layer);
     }

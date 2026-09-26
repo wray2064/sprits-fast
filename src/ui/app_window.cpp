@@ -555,6 +555,14 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "onto a layer of its own with a rotation the Transform panel "
                               "turns, and can turn again whenever you like.");
         }
+        if (ImGui::MenuItem(tr("Scale freely"), nullptr, false, movable)) {
+            scaleSelectionFreely(editor);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("The selection onto a layer of its own with handles to size "
+                              "it by, and move it by. The drawing is never resampled: any "
+                              "size can go back to the original exactly.");
+        }
         ImGui::EndMenu();
     }
 
@@ -2173,6 +2181,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
     // A shape's handles come before the tool: a press on one edits the
     // shape whatever the tool would have done there.
+    if (handleFreeScale(editor, canvas, overCanvas)) {
+        return;
+    }
     if (handleShapeHandles(editor, canvas, overCanvas)) {
         return;
     }
@@ -2948,6 +2959,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawSelectionOverlay(editor, draw, origin, zoom);
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
             drawShapeOverlay(editor, canvas, draw, origin, zoom);
+            drawFreeScaleOverlay(editor, canvas, draw, origin, zoom);
             drawSliceOverlay(editor, canvas, draw, origin, zoom);
             drawGuides(editor, canvas, draw, origin, zoom);
             if (editor.stroking && editor.brush.stabiliser > 0) {

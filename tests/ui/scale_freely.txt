@@ -1,0 +1,40 @@
+# Edit > Scale freely: a 4 x 4 block lifted onto a layer of its own, sized
+# by its handles -- twice as big, a proportion kept with Shift, moved by
+# dragging inside -- and each drag one undo step.
+tool pencil
+colour e08f40
+drag 4 4 7 4
+drag 4 5 7 5
+drag 4 6 7 6
+drag 4 7 7 7
+expect drawn 16 16
+tool select
+drag 4 4 7 7
+click-on Edit
+click-on Scale freely
+expect layers 2
+expect tool move
+expect drawn 16 16
+
+# The bottom-right handle, on the corner between pixels, dragged out 4.
+drag 7.5 7.5 11.5 11.5
+expect drawn 64 64
+expect pixel 11 11 e08f40
+expect pixel 12 12 empty
+key ctrl+z
+expect drawn 16 16
+key ctrl+y
+
+# The right edge alone: wider, not taller.
+drag 11.5 7.5 15.5 7.5
+expect drawn 96 96
+
+# Shift on the top-left corner: the proportion kept, 3 wide for every 2 tall.
+hold shift
+drag 3.5 3.5 1.5 1.5
+let shift
+expect pixel 1 2 e08f40
+
+# Inside: moved.
+drag 8 8 18 8
+expect pixel 4 4 empty

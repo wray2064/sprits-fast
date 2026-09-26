@@ -1605,7 +1605,7 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
     } else if (selected != nullptr && selected->kind == ElementKind::Erase) {
         theme::sectionHeader("ERASED");
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("What the eraser, Delete or Cut took from the shapes under "
+        ImGui::TextWrapped("What the eraser or Delete took from the shapes under "
                            "it. They are still shapes: this is a mask over them, kept "
                            "as pixels of its own, and it clears only what was drawn "
                            "before it. Remove it (x) and they come back whole.");

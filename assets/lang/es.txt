@@ -44,6 +44,7 @@ Rotate 90 clockwise = Girar 90 a la derecha
 Rotate 90 anticlockwise = Girar 90 a la izquierda
 Rotate 180 = Girar 180
 Rotate freely = Girar libremente
+Scale freely = Escalar libremente
 Sprite = Sprite
 Canvas size... = Tamaño del lienzo...
 Crop to selection = Recortar a la selección

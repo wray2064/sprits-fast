@@ -10,6 +10,7 @@
 #include "app/selection.h"
 #include "app/transform.h"
 #include "ui/os_clipboard.h"
+#include "ui/theme.h"
 
 #include <SDL3/SDL.h>
 
@@ -197,7 +198,13 @@ bool copySelectionPixels(Editor& editor) {
     return true;
 }
 
-bool rotateSelectionFreely(Editor& editor) {
+namespace {
+
+// The selected pixels onto a new layer just above, named `name`, inside an
+// action the caller closes. False, the action abandoned and the reason said,
+// when there is nothing to lift.
+bool liftOntoOwnLayer(Editor& editor, const char* action, const char* name, PaintLayer* made,
+                      ls::Rect2i* box) {
     settleFloating(editor);
     PaintLayer* layer = editor.active();
     if (layer == nullptr || editor.selection.empty()) {
@@ -208,31 +215,41 @@ bool rotateSelectionFreely(Editor& editor) {
         return false;
     }
     const ls::IntervalSet mask = editor.selection.mask;
-    const ls::Rect2i box = ls::geom::bounds(mask);
-    const ls::Vec2f centre { (static_cast<float>(box.min.x) + static_cast<float>(box.max.x)) * 0.5f,
-                             (static_cast<float>(box.min.y) + static_cast<float>(box.max.y)) * 0.5f };
+    *box = ls::geom::bounds(mask);
     PixelClip clip;
     if (!copyPixels(editor.doc, layer->layer, mask, &clip)) {
         editor.say("Nothing on this layer inside the selection");
         return false;
     }
-    editor.doc.beginAction("Rotate freely");
-    clearPixels(editor.doc, layer->layer, mask);
-    PaintLayer made;
-    if (!createPaintLayer(editor.doc, editor.activeSprite(), "Rotated", toColor(editor.color), &made)) {
+    editor.doc.beginAction(action);
+    clearPixels(editor.doc, layer->layer, mask, false);
+    if (!createPaintLayer(editor.doc, editor.activeSprite(), name, toColor(editor.color), made)) {
         editor.doc.abandonAction();
         return false;
     }
     const int at = indexOfLayer(editor.doc, editor.activeSprite(), layer->layer);
     if (at >= 0) {
-        moveLayer(editor.doc, made.layer, at + 1);
+        moveLayer(editor.doc, made->layer, at + 1);
     }
     Floating floating;
-    if (!floatClip(editor.doc, made.layer, clip, &floating) || !dropFloating(editor.doc, floating)) {
+    if (!floatClip(editor.doc, made->layer, clip, &floating) || !dropFloating(editor.doc, floating)) {
         editor.doc.abandonAction();
         editor.say("Could not lift the selection onto a layer of its own");
         return false;
     }
+    return true;
+}
+
+} // namespace
+
+bool rotateSelectionFreely(Editor& editor) {
+    PaintLayer made;
+    ls::Rect2i box;
+    if (!liftOntoOwnLayer(editor, "Rotate freely", "Rotated", &made, &box)) {
+        return false;
+    }
+    const ls::Vec2f centre { (static_cast<float>(box.min.x) + static_cast<float>(box.max.x)) * 0.5f,
+                             (static_cast<float>(box.min.y) + static_cast<float>(box.max.y)) * 0.5f };
     addRotate(editor.doc, made.layer, 0.f, centre, ls::SamplingPolicy::RotSprite);
     editor.doc.endAction();
     resyncLayers(editor);
@@ -240,6 +257,172 @@ bool rotateSelectionFreely(Editor& editor) {
     deselect(editor);
     editor.say("On a layer of its own with a rotation: drag its angle in the Transform panel");
     return true;
+}
+
+bool scaleSelectionFreely(Editor& editor) {
+    PaintLayer made;
+    ls::Rect2i box;
+    if (!liftOntoOwnLayer(editor, "Scale freely", "Scaled", &made, &box)) {
+        return false;
+    }
+    addFreeScale(editor.doc, made.layer);
+    editor.doc.endAction();
+    resyncLayers(editor);
+    selectLayer(editor, made.layer);
+    deselect(editor);
+    editor.tool = Tool::Move;
+    editor.say("On a layer of its own: drag a handle to size it, Shift to keep its proportion, "
+               "inside to move it");
+    return true;
+}
+
+namespace {
+
+// The eight handles round a box, clockwise from the top left.
+ls::Vec2f scaleHandleAt(const ls::Rect2f& b, int handle) {
+    const float mx = (b.min.x + b.max.x) * 0.5f;
+    const float my = (b.min.y + b.max.y) * 0.5f;
+    switch (handle) {
+        case 0: return { b.min.x, b.min.y };
+        case 1: return { mx, b.min.y };
+        case 2: return { b.max.x, b.min.y };
+        case 3: return { b.max.x, my };
+        case 4: return { b.max.x, b.max.y };
+        case 5: return { mx, b.max.y };
+        case 6: return { b.min.x, b.max.y };
+        default: return { b.min.x, my };
+    }
+}
+
+} // namespace
+
+bool handleFreeScale(Editor& editor, CanvasView& canvas, bool overCanvas) {
+    if (editor.tool != Tool::Move) {
+        return false;
+    }
+    PaintLayer* layer = editor.active();
+    FreeScale fs;
+    if (layer == nullptr || !readFreeScale(editor.doc, layer->layer, &fs)) {
+        if (editor.scaleHandle >= 0) {
+            editor.scaleHandle = -1;
+            editor.doc.endAction();
+        }
+        return false;
+    }
+    const ImGuiIO& io = ImGui::GetIO();
+    const ImVec2 origin = canvas.artworkOrigin();
+    const float zoom = canvas.zoom();
+    const auto onScreen = [&](ls::Vec2f p) {
+        return ImVec2(origin.x + p.x * zoom, origin.y + p.y * zoom);
+    };
+
+    if (editor.scaleHandle < 0) {
+        // The nearest handle within reach -- a little more than half a pixel
+        // at high zoom, never less than a fingertip's few screen pixels.
+        const float reach = std::max(7.f, zoom * 0.6f);
+        int hit = -1;
+        float best = reach * reach;
+        for (int h = 0; h < 8; ++h) {
+            const ImVec2 at = onScreen(scaleHandleAt(fs.box, h));
+            const float dx = at.x - io.MousePos.x;
+            const float dy = at.y - io.MousePos.y;
+            if (dx * dx + dy * dy <= best) {
+                best = dx * dx + dy * dy;
+                hit = h;
+            }
+        }
+        const ls::Vec2f exact = canvas.pointerExact();
+        if (hit < 0 && overCanvas && exact.x >= fs.box.min.x && exact.x < fs.box.max.x &&
+            exact.y >= fs.box.min.y && exact.y < fs.box.max.y) {
+            hit = 8;
+        }
+        if (hit < 0) {
+            return false;
+        }
+        const ImGuiMouseCursor cursors[] = {
+            ImGuiMouseCursor_ResizeNWSE, ImGuiMouseCursor_ResizeNS, ImGuiMouseCursor_ResizeNESW,
+            ImGuiMouseCursor_ResizeEW, ImGuiMouseCursor_ResizeNWSE, ImGuiMouseCursor_ResizeNS,
+            ImGuiMouseCursor_ResizeNESW, ImGuiMouseCursor_ResizeEW, ImGuiMouseCursor_ResizeAll,
+        };
+        ImGui::SetMouseCursor(cursors[hit]);
+        if (!ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsKeyDown(ImGuiKey_Space)) {
+            return hit < 8;         // a handle's hover is its own; inside, other tools may act
+        }
+        if (layerLocked(editor.doc, layer->layer)) {
+            editor.say("This layer is locked -- unlock it in the Layers panel");
+            return true;
+        }
+        editor.scaleHandle = hit;
+        editor.scaleFrom = fs.box;
+        editor.scaleGrab = exact;
+        editor.doc.beginAction(hit == 8 ? "Move" : "Scale");
+        return true;
+    }
+
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        const ls::Vec2f p = canvas.pointerExact();
+        const ls::Rect2f from = editor.scaleFrom;
+        ls::Rect2f b = from;
+        const int h = editor.scaleHandle;
+        if (h == 8) {
+            const float dx = std::round(p.x - editor.scaleGrab.x);
+            const float dy = std::round(p.y - editor.scaleGrab.y);
+            b = { { from.min.x + dx, from.min.y + dy }, { from.max.x + dx, from.max.y + dy } };
+        } else {
+            const float qx = std::round(p.x);
+            const float qy = std::round(p.y);
+            const bool left = h == 0 || h == 6 || h == 7;
+            const bool right = h == 2 || h == 3 || h == 4;
+            const bool top = h == 0 || h == 1 || h == 2;
+            const bool bottom = h == 4 || h == 5 || h == 6;
+            if (left) { b.min.x = std::min(qx, b.max.x - 1.f); }
+            if (right) { b.max.x = std::max(qx, b.min.x + 1.f); }
+            if (top) { b.min.y = std::min(qy, b.max.y - 1.f); }
+            if (bottom) { b.max.y = std::max(qy, b.min.y + 1.f); }
+            // Shift on a corner: the proportion it had, sized by whichever
+            // side was pulled further.
+            if (io.KeyShift && (left || right) && (top || bottom)) {
+                const float s = std::max(b.width() / from.width(), b.height() / from.height());
+                const float w = std::max(1.f, std::round(from.width() * s));
+                const float hgt = std::max(1.f, std::round(from.height() * s));
+                if (left) { b.min.x = b.max.x - w; } else { b.max.x = b.min.x + w; }
+                if (top) { b.min.y = b.max.y - hgt; } else { b.max.y = b.min.y + hgt; }
+            }
+        }
+        setFreeScaleBox(editor.doc, fs, b);
+        canvas.invalidate();
+        return true;
+    }
+
+    editor.scaleHandle = -1;
+    editor.doc.endAction();
+    editor.say("Now " + std::to_string(static_cast<int>(fs.box.width())) + " x " +
+               std::to_string(static_cast<int>(fs.box.height())) +
+               " -- the drawing is untouched, so any size can be undone to the original");
+    return true;
+}
+
+void drawFreeScaleOverlay(Editor& editor, CanvasView& canvas, ImDrawList* draw, ImVec2 origin,
+                          float zoom) {
+    (void)canvas;
+    PaintLayer* layer = editor.active();
+    FreeScale fs;
+    if (editor.tool != Tool::Move || layer == nullptr ||
+        !readFreeScale(editor.doc, layer->layer, &fs)) {
+        return;
+    }
+    const auto onScreen = [&](ls::Vec2f p) {
+        return ImVec2(origin.x + p.x * zoom, origin.y + p.y * zoom);
+    };
+    const ImU32 ink = ImGui::GetColorU32(theme::palette().accent);
+    draw->AddRect(onScreen(fs.box.min), onScreen(fs.box.max), IM_COL32(0, 0, 0, 160), 0.f, 0, 3.f);
+    draw->AddRect(onScreen(fs.box.min), onScreen(fs.box.max), ink, 0.f, 0, 1.f);
+    for (int h = 0; h < 8; ++h) {
+        const ImVec2 at = onScreen(scaleHandleAt(fs.box, h));
+        draw->AddRectFilled(ImVec2(at.x - 4.f, at.y - 4.f), ImVec2(at.x + 4.f, at.y + 4.f),
+                            IM_COL32(20, 20, 24, 255));
+        draw->AddRect(ImVec2(at.x - 4.f, at.y - 4.f), ImVec2(at.x + 4.f, at.y + 4.f), ink);
+    }
 }
 
 bool adoptSystemClipboard(Editor& editor, std::string* note) {
@@ -341,14 +524,28 @@ bool brushFromSelection(Editor& editor) {
     return true;
 }
 
+namespace {
+
+bool removeSelectionPixels(Editor& editor, bool shapesToo);
+
+} // namespace
+
 bool cutSelectionPixels(Editor& editor) {
     if (!copySelectionPixels(editor) || !editor.clipHoldsPixels) {
         return false;
     }
-    return deleteSelectionPixels(editor);
+    // What was copied is the pixels, so what goes is the pixels: a shape
+    // under the selection stays whole, as it stayed out of the clip.
+    return removeSelectionPixels(editor, false);
 }
 
 bool deleteSelectionPixels(Editor& editor) {
+    return removeSelectionPixels(editor, true);
+}
+
+namespace {
+
+bool removeSelectionPixels(Editor& editor, bool shapesToo) {
     PaintLayer* layer = editor.active();
     if (layer == nullptr || editor.selection.empty()) {
         return false;
@@ -368,17 +565,20 @@ bool deleteSelectionPixels(Editor& editor) {
         editor.say("This layer is locked -- unlock it in the Layers panel");
         return true;
     }
-    editor.doc.beginAction("Delete");
-    if (!clearPixels(editor.doc, layer->layer, editor.selection.mask)) {
+    editor.doc.beginAction(shapesToo ? "Delete" : "Cut");
+    if (!clearPixels(editor.doc, layer->layer, editor.selection.mask, shapesToo)) {
         editor.doc.abandonAction();
         editor.say("Nothing on this layer inside the selection");
         return true;
     }
     editor.doc.endAction();
     resyncLayers(editor);
-    editor.say("Deleted the selected pixels; shapes under them stay shapes, erased there");
+    editor.say(shapesToo ? "Deleted the selected pixels; shapes under them stay shapes, erased there"
+                         : "Cut the selected pixels; shapes are left whole");
     return true;
 }
+
+} // namespace
 
 bool fillSelection(Editor& editor, bool stroke) {
     PaintLayer* layer = editor.active();

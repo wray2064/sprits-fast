@@ -64,10 +64,13 @@ bool layerTakesSelections(Document& doc, ls::LayerId layer);
 // What `mask` covers on `layer`, colour by colour.
 bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out);
 
-// Removes what `mask` covers from every colour on `layer`. Shapes are left: a
-// rectangle with a hole cut in it is not a rectangle any more, and it is removed
-// from the element list rather than scratched at. Does not bracket an action.
-bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask);
+// Removes what `mask` covers from every colour on `layer` -- and, with
+// `shapesToo`, from its shapes, through an erase that leaves them shapes (see
+// ink.h). Cut and the commands that lift pixels onto a layer of their own
+// leave shapes be, since what they carry is the pixels, not the shapes. Does
+// not bracket an action.
+bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask,
+                 bool shapesToo = true);
 
 struct Floating {
     struct Piece {

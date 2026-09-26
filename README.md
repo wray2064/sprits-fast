@@ -52,8 +52,8 @@ A copied image can also be pasted as a reference, to draw from.
 from a rectangle, an ellipse or a line goes into an *Erased* element -- the
 engine's `ClearRegionOp`, a mask that clears what is drawn before it and
 nothing after -- so the shape keeps its handles, a shape drawn later is not
-erased, and removing the element brings everything back. Delete and Cut do
-the same, and a lifted shape carries its erased pixels with it. Nothing is
+erased, and removing the element brings everything back. Delete does the
+same, and a lifted shape carries its erased pixels with it. Nothing is
 ever baked to pixels while editing.
 *Select > Modify* grows, shrinks or borders the selection by any number of
 pixels, with square or round corners; *Edit > Fill selection* paints it in the
@@ -68,7 +68,10 @@ whole canvas -- every frame at once, one undo step each.
 uses RotSprite -- the drawing enlarged 8x by Scale2x and sampled back -- so a
 ring stays a ring at 30 degrees, with no colour the drawing did not have; and
 *Select > Rotate freely* puts the selected pixels on a layer of their own with
-such a rotation, to turn and turn again.
+such a rotation, to turn and turn again, and *Scale freely* does the same with
+eight handles round them to size them by -- Shift keeps the proportion,
+dragging inside moves them -- where the drawing is never resampled, so any
+size goes back to the original exactly.
 **Tweens**: give a layer the same transforms -- rotate, scale, an offset in
 whole pixels -- in two frames, Shift+click to select the run between them, and
 *Tween* fills every frame in between with the values in between, linear or

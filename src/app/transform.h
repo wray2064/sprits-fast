@@ -56,6 +56,31 @@ ls::OperationId addRotate(Document& doc, ls::LayerId layer, float degrees, ls::V
                           ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage);
 ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls::Vec2f pivot,
                          ls::SamplingPolicy sampling = ls::SamplingPolicy::Coverage);
+// ------------------------------------------------------------ free scale --
+//
+// A layer scaled by dragging its handles: its transforms are exactly a scale
+// and then an offset -- what Select > Scale freely makes. `drawn` is what the
+// layer draws, in its own pixels; `box` is where that lands on the canvas now.
+struct FreeScale {
+    ls::OperationId scale;
+    ls::OperationId offset;
+    ls::Rect2f      drawn;
+    ls::Rect2f      box;
+};
+
+// The layer's free scale. False when its transforms are anything else, or it
+// draws nothing.
+bool readFreeScale(Document& doc, ls::LayerId layer, FreeScale* out);
+
+// Gives a layer with no transforms a free scale at 1: a scale about the
+// top-left of what it draws, nearest sampling so a whole-number size repeats
+// each pixel exactly, and an offset of nothing. Does not bracket an action.
+bool addFreeScale(Document& doc, ls::LayerId layer);
+
+// Puts what the layer draws in `box`, in canvas pixels: the factor and offset
+// that do it. The drawing is not touched. Does not bracket an action.
+bool setFreeScaleBox(Document& doc, const FreeScale& scale, ls::Rect2f box);
+
 // Moves what the layer draws by `delta` pixels -- the motion of a tween.
 ls::OperationId addOffset(Document& doc, ls::LayerId layer, ls::Vec2f delta);
 ls::OperationId addMirror(Document& doc, ls::LayerId layer, ls::MirrorAxis axis,

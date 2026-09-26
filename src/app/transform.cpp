@@ -3,6 +3,8 @@
 
 #include "app/transform.h"
 
+#include "app/element.h"
+
 #include <cstdio>
 
 namespace fast {
@@ -91,6 +93,79 @@ ls::OperationId addScale(Document& doc, ls::LayerId layer, ls::Vec2f factor, ls:
     op.sampling = sampling;
     auto added = doc.engine().addOperation(layer, op);
     return added.ok() ? added.value : ls::OperationId{};
+}
+
+namespace {
+
+// What the layer draws, in its own pixels: every element but an erase.
+ls::Rect2f drawnBounds(Document& doc, ls::LayerId layer) {
+    ls::IntervalSet all;
+    for (const Element& element : elementsOf(doc, layer)) {
+        if (element.kind != ElementKind::Erase) {
+            all = ls::geom::unionSets(all, ls::geom::normalize(elementCoverage(doc, element)));
+        }
+    }
+    if (all.empty()) {
+        return {};
+    }
+    const ls::Rect2i box = ls::geom::bounds(all);
+    return { { static_cast<float>(box.min.x), static_cast<float>(box.min.y) },
+             { static_cast<float>(box.max.x), static_cast<float>(box.max.y) } };
+}
+
+} // namespace
+
+bool readFreeScale(Document& doc, ls::LayerId layer, FreeScale* out) {
+    const std::vector<TransformEntry> transforms = listTransforms(doc, layer);
+    if (transforms.size() != 2 || transforms[0].kind != TransformKind::Scale ||
+        transforms[1].kind != TransformKind::Offset) {
+        return false;
+    }
+    const ls::Rect2f drawn = drawnBounds(doc, layer);
+    if (drawn.empty()) {
+        return false;
+    }
+    const TransformEntry& scale = transforms[0];
+    const ls::Vec2f d = transforms[1].delta;
+    const auto place = [&](ls::Vec2f p) {
+        return ls::Vec2f{ scale.pivot.x + scale.factor.x * (p.x - scale.pivot.x) + d.x,
+                          scale.pivot.y + scale.factor.y * (p.y - scale.pivot.y) + d.y };
+    };
+    out->scale = scale.id;
+    out->offset = transforms[1].id;
+    out->drawn = drawn;
+    out->box = { place(drawn.min), place(drawn.max) };
+    return true;
+}
+
+bool addFreeScale(Document& doc, ls::LayerId layer) {
+    if (!listTransforms(doc, layer).empty()) {
+        return false;
+    }
+    const ls::Rect2f drawn = drawnBounds(doc, layer);
+    if (drawn.empty()) {
+        return false;
+    }
+    return addScale(doc, layer, { 1.f, 1.f }, drawn.min, ls::SamplingPolicy::Center).valid() &&
+           addOffset(doc, layer, { 0.f, 0.f }).valid();
+}
+
+bool setFreeScaleBox(Document& doc, const FreeScale& scale, ls::Rect2f box) {
+    const float w = scale.drawn.width();
+    const float h = scale.drawn.height();
+    if (w <= 0.f || h <= 0.f || box.width() <= 0.f || box.height() <= 0.f) {
+        return false;
+    }
+    auto pivotValue = doc.engine().getOperationParameter(scale.scale, "pivotFallback");
+    const ls::Vec2f* pivot = pivotValue.ok() ? std::get_if<ls::Vec2f>(&pivotValue.value) : nullptr;
+    const ls::Vec2f p = pivot != nullptr ? *pivot : scale.drawn.min;
+    const ls::Vec2f factor { box.width() / w, box.height() / h };
+    // Where the scale alone puts the drawing's corner; the offset takes it
+    // the rest of the way.
+    const ls::Vec2f corner { p.x + factor.x * (scale.drawn.min.x - p.x),
+                             p.y + factor.y * (scale.drawn.min.y - p.y) };
+    return setScaleFactor(doc, scale.scale, factor) &&
+           setOffsetDelta(doc, scale.offset, { box.min.x - corner.x, box.min.y - corner.y });
 }
 
 ls::OperationId addOffset(Document& doc, ls::LayerId layer, ls::Vec2f delta) {

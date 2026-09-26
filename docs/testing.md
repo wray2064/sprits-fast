@@ -651,6 +651,17 @@ sprits_fast --demo-stroke
 5. Merge down a layer whose shapes are erased onto another. *Expect:* refused,
    saying the erase would rub out the layer below too.
 
+### 4ak. Scaling freely
+
+1. Draw something, marquee it, *Edit > Scale freely*. *Expect:* it is on a
+   layer of its own called "Scaled", the move tool in hand, a box with eight
+   handles round it.
+2. Drag the bottom-right handle out. *Expect:* it grows with the pointer, the
+   top-left corner stays put, whole pixels at whole sizes. An edge handle
+   stretches one way only; Shift on a corner keeps the proportion. Drag inside
+   the box. *Expect:* it moves. Each drag is one undo step.
+3. Drag back to the original size. *Expect:* exactly the pixels drawn.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
