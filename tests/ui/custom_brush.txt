@@ -1,0 +1,21 @@
+# A custom brush: Ctrl+B takes what is selected, and the pencil then draws a
+# stroke whose tip is that shape, stamped at every pixel of the path.
+tool pencil
+colour e08f40
+click 2 2
+click 3 2
+click 2 3
+expect drawn 3 3
+
+tool select
+drag 2 2 3 3
+key ctrl+b
+key ctrl+d
+
+# Five pixels across with an L of three: two rows, the top one a pixel
+# longer -- eleven pixels, beside the three the brush was taken from. Its
+# colour is the one already on the layer, so it carries on in that run.
+tool pencil
+drag 10 10 14 10
+expect drawn 14 14
+expect elements Pixels 1

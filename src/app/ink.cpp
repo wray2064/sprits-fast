@@ -86,7 +86,8 @@ std::vector<ls::Vec2i> listOf(const ls::IntervalSet& set) {
 }
 
 bool sameBrush(const PenBrush& a, const PenBrush& b) {
-    return a.size == b.size && a.round == b.round && a.pixelPerfect == b.pixelPerfect;
+    return a.size == b.size && a.round == b.round && a.pixelPerfect == b.pixelPerfect &&
+           a.tip == b.tip;
 }
 
 // A line or a curve drawn as a path has no region to keep an erase: what the
@@ -173,7 +174,9 @@ bool beginInkStroke(Document& doc, ls::LayerId layer, const Ink& ink, InkStroke*
     return addRun(doc, layer, fill, &out->target);
 }
 
-bool beginElementStroke(Document& doc, const PaintLayer& element, InkStroke* out) {
+bool beginElementStroke(Document& doc, const PaintLayer& given, InkStroke* out) {
+    // A copy: `given` may be `out`'s own target, which is cleared next.
+    const PaintLayer element = given;
     if (out == nullptr || !element.valid()) {
         return false;
     }

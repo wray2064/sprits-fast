@@ -166,6 +166,14 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **A custom brush painted nothing.** Each colour of the brush began its
+  stroke by handing its own run to `beginElementStroke`, which cleared the
+  stroke -- and with it the run it had been handed -- before reading it, so
+  every stamp went nowhere. Only making the brush was ever checked. Found by
+  the first script that painted with one, `tests/ui/custom_brush.txt`; the
+  run is copied first now. The brush is also a stroke now rather than
+  stamps laid down as areas: each colour a path whose tip is that colour's
+  shape (the engine's `PenStroke::tip`), turned with the drawing.
 - **Renaming a layer by double-click typed shortcuts instead.** The name field
   took the keyboard only when its window was appearing, which after a
   double-click on a row it is not, so "Sky" picked three tools. A new name

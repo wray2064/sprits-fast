@@ -19,6 +19,7 @@
 #include "app/shape.h"
 
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -360,6 +361,32 @@ void testOneStrokeOneUndo() {
     CHECK(same(at(doc, 3, 3), kBlue));
 }
 
+// A custom brush's colour is a path whose tip is its shape: stamped at every
+// pixel the path walks, and still one mark.
+void testATippedStroke() {
+    Document doc;
+    REQUIRE(doc.create("tip", kSize, kSize));
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "body", kRed, &layer));
+    doc.beginAction("Brush");
+    InkStroke stroke;
+    REQUIRE(beginInkStroke(doc, layer.layer, literal(kBlue), &stroke));
+    PenBrush tipped;
+    ls::AreaDesc shape;
+    shape.contours = { { {0.f, 0.f}, {2.f, 0.f}, {2.f, 1.f}, {1.f, 1.f}, {1.f, 2.f}, {0.f, 2.f} } };
+    tipped.tip = std::make_shared<const ls::AreaDesc>(shape);
+    REQUIRE(strokeAlong(doc, stroke, 0, linePixels({ 2, 2 }, { 4, 2 }), tipped));
+    REQUIRE(strokeAlong(doc, stroke, 0, linePixels({ 4, 2 }, { 6, 2 }), tipped));
+    doc.endAction();
+    CHECK(same(at(doc, 2, 2), kBlue));
+    CHECK(same(at(doc, 7, 2), kBlue));
+    CHECK(same(at(doc, 6, 3), kBlue));
+    CHECK(at(doc, 7, 3).a == 0);
+    ls::StrokesDesc marks;
+    REQUIRE(readStrokes(doc, stroke.target.region, nullptr, &marks));
+    CHECK(marks.strokes.size() == 1 && !marks.strokes[0].tip.contours.empty());
+}
+
 void testThePickerReadsTheSlot() {
     Document doc;
     REQUIRE(doc.create("pick", kSize, kSize));
@@ -542,6 +569,7 @@ int main() {
     testPaintLandsOverAShape();
     testEraseTakesEveryColour();
     testOneStrokeOneUndo();
+    testATippedStroke();
     testEraseThroughAShape();
     testErasingPixelsOnlyMakesNoErase();
     testThePickerReadsTheSlot();

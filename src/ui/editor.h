@@ -39,6 +39,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <array>
 #include <vector>
 
 namespace fast {
@@ -219,6 +220,9 @@ struct Editor {
     bool                   customBrushOn = false;
     bool                   customBrushOwnColours = true;
     std::vector<InkStroke> brushStrokes;
+    // Each colour's shape as its stroke's tip, and its mirror images for
+    // symmetry: as drawn, across, down, both.
+    std::vector<std::array<std::shared_ptr<const ls::AreaDesc>, 4>> brushTips;
     bool             clipHoldsPixels = false;   // the last copy was pixels, not a layer
     // Whether copies go onto the system clipboard too, and pastes look there
     // for another program's image. Off for headless runs, which must not

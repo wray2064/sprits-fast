@@ -92,6 +92,11 @@ ls::PenStroke pathMark(const std::vector<ls::Vec2i>& centres, const PenBrush& br
     mark.size = static_cast<float>(std::max(1, brush.size));
     mark.round = brush.round;
     mark.pixelPerfect = brush.pixelPerfect;
+    if (brush.tip) {
+        mark.tip = *brush.tip;
+        mark.size = 1.f;
+        mark.pixelPerfect = false;
+    }
     mark.points.reserve(centres.size());
     for (ls::Vec2i p : centres) {
         mark.points.push_back({ static_cast<float>(p.x) + 0.5f, static_cast<float>(p.y) + 0.5f });

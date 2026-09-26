@@ -19,6 +19,7 @@
 #include "app/document.h"
 
 #include <string>
+#include <memory>
 #include <vector>
 
 namespace fast {
@@ -42,6 +43,10 @@ struct PenBrush {
     int  size = 1;
     bool round = false;
     bool pixelPerfect = true;     // at size 1: the corners of an L dropped
+    // A custom brush: its shape, stamped at every pixel of the path in place
+    // of the size and round (see ls::PenStroke::tip). One stroke goes on
+    // with the next piece only when it has the same one.
+    std::shared_ptr<const ls::AreaDesc> tip;
 };
 
 // What a region is made of. Pixels are what documents from before freehand

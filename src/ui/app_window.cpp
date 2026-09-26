@@ -2298,6 +2298,29 @@ void layDownDots(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> dots
     canvas.invalidate();
 }
 
+// A custom brush colour's shape, round the pixel it is stamped on, as a
+// stroke's tip -- and its mirror images, the copies symmetry paints: as
+// drawn, across, down, both.
+std::array<std::shared_ptr<const ls::AreaDesc>, 4> tipImages(const std::vector<ls::Vec2i>& offsets) {
+    ls::IntervalSet set;
+    for (ls::Vec2i p : offsets) {
+        set.intervals.push_back({ p.y, p.x, p.x + 1 });
+    }
+    const ls::AreaDesc drawn = ls::geom::traceArea(ls::geom::normalize(set));
+    std::array<std::shared_ptr<const ls::AreaDesc>, 4> out;
+    for (int image = 0; image < 4; ++image) {
+        ls::AreaDesc tip = drawn;
+        for (auto& contour : tip.contours) {
+            for (ls::Vec2f& q : contour) {
+                if ((image & 1) != 0) { q.x = 1.f - q.x; }
+                if ((image & 2) != 0) { q.y = 1.f - q.y; }
+            }
+        }
+        out[static_cast<size_t>(image)] = std::make_shared<const ls::AreaDesc>(std::move(tip));
+    }
+    return out;
+}
+
 // Whether the pencil is stamping a custom brush rather than its own.
 bool usingCustomBrush(const Editor& editor) {
     return editor.tool == Tool::Pencil && editor.customBrushOn && !editor.customBrush.empty() &&
@@ -2760,6 +2783,11 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             }
             for (InkStroke& made : editor.brushStrokes) {
                 beginElementStroke(editor.doc, made.target, &made);
+                keepStrokeToMode(editor.doc, editor.inkModeState, made);
+            }
+            editor.brushTips.clear();
+            for (const std::vector<ls::Vec2i>& shape : stampOf(editor.customBrush, { 0, 0 })) {
+                editor.brushTips.push_back(tipImages(shape));
             }
         }
         // Shift+click: a straight line from where the last stroke ended.
@@ -2796,8 +2824,35 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         brush.round = editor.brush.round;
         brush.pixelPerfect = perfect;
         std::vector<ls::Vec2i> run;
-        if (usingCustomBrush(editor)) {
-            // The brush stamped at every pixel of the path, colour by colour.
+        if (usingCustomBrush(editor) && !tiled && !editor.inkModeState.nothing) {
+            // Each colour of the brush a path whose tip is that colour's
+            // shape, stamped at every pixel it passes: a stroke that turns
+            // with the drawing, carrying on from the last piece.
+            const std::vector<ls::Vec2i> path =
+                editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{ pixel }
+                                       : linePixels(editor.lastPixel, pixel);
+            const Symmetry symmetry = symmetryNow(editor);
+            for (size_t k = 0; k < editor.brushStrokes.size() && k < editor.brushTips.size(); ++k) {
+                for (int image = 0; image < 4; ++image) {
+                    const bool across = (image & 1) != 0;
+                    const bool down = (image & 2) != 0;
+                    if ((across && !symmetry.across) || (down && !symmetry.down)) {
+                        continue;
+                    }
+                    std::vector<ls::Vec2i> centres = path;
+                    for (ls::Vec2i& p : centres) {
+                        if (across) { p.x = symmetry.axisX - 1 - p.x; }
+                        if (down)   { p.y = symmetry.axisY - 1 - p.y; }
+                    }
+                    PenBrush tipped;
+                    tipped.tip = editor.brushTips[k][static_cast<size_t>(image)];
+                    strokeAlong(editor.doc, editor.brushStrokes[k], image, centres, tipped);
+                }
+            }
+            canvas.invalidate();
+            editor.lastPixel = pixel;
+        } else if (usingCustomBrush(editor)) {
+            // Tiled, the stamps wrap round the edges pixel by pixel.
             const std::vector<ls::Vec2i> path =
                 editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{ pixel }
                                        : linePixels(editor.lastPixel, pixel);
@@ -2859,6 +2914,7 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         if (!editor.brushStrokes.empty()) {
             pruned += pruneEmptyInks(editor.doc, editor.inkStroke.layer);
             editor.brushStrokes.clear();
+            editor.brushTips.clear();
         }
         // Shading lays colours down through strokes of its own; a slot it
         // stepped every pixel out of goes the same way.
