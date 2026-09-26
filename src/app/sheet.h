@@ -30,6 +30,7 @@
 #include "app/animation.h"
 #include "app/document.h"
 #include "app/export_png.h"
+#include "app/slices.h"
 
 #include <cstdint>
 #include <string>
@@ -136,14 +137,16 @@ bool composeSheet(Document& doc, const std::vector<ls::SpriteId>& frames,
 std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frames,
                           const std::vector<int>& steps,
                           const std::vector<Cycle>& cycles,
-                          const std::string& imageName, uint32_t scale);
+                          const std::string& imageName, uint32_t scale,
+                          const std::vector<Slice>& slices = {});
 
 // The same, in the JSON Aseprite writes, so an importer built for Aseprite's
 // sheets reads Fast's. `hash` chooses frames keyed by name or listed in order.
 // It names Fast as the app that wrote it, not Aseprite.
 std::string asepriteManifest(const SheetPlan& plan, const std::vector<Frame>& frames,
                              const std::vector<int>& steps, const std::vector<Cycle>& cycles,
-                             const std::string& imageName, uint32_t scale, bool hash);
+                             const std::string& imageName, uint32_t scale, bool hash,
+                             const std::vector<Slice>& slices = {});
 
 // Compiles, composites and writes. The PNG is written atomically like every
 // other file here; the manifest follows it, and a failure to write the manifest

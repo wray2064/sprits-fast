@@ -275,10 +275,34 @@ bool composeSheet(Document& doc, const std::vector<ls::SpriteId>& frames,
     return true;
 }
 
+namespace {
+
+// A rectangle in the manifest's words, scaled.
+std::string rectJson(ls::Rect2i r, uint32_t scale, const char* w, const char* h) {
+    const int32_t k = static_cast<int32_t>(scale);
+    return "{ \"x\": " + std::to_string(r.min.x * k) + ", \"y\": " + std::to_string(r.min.y * k) +
+           ", \"" + w + "\": " + std::to_string(r.width() * k) + ", \"" + h + "\": " +
+           std::to_string(r.height() * k) + " }";
+}
+
+std::string pointJson(ls::Vec2i p, uint32_t scale) {
+    const int32_t k = static_cast<int32_t>(scale);
+    return "{ \"x\": " + std::to_string(p.x * k) + ", \"y\": " + std::to_string(p.y * k) + " }";
+}
+
+std::string hexColour(ls::Color c) {
+    char text[16];
+    std::snprintf(text, sizeof(text), "#%02x%02x%02xff", c.r, c.g, c.b);
+    return text;
+}
+
+} // namespace
+
 std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frames,
                           const std::vector<int>& steps,
                           const std::vector<Cycle>& cycles,
-                          const std::string& imageName, uint32_t scale) {
+                          const std::string& imageName, uint32_t scale,
+                          const std::vector<Slice>& slices) {
     std::string out;
     out.reserve(512 + steps.size() * 96);
 
@@ -347,13 +371,33 @@ std::string sheetManifest(const SheetPlan& plan, const std::vector<Frame>& frame
         out += "  ]";
     }
 
+    // Slices, in the canvas's pixels at the sheet's scale.
+    if (!slices.empty()) {
+        out += ",\n  \"slices\": [\n";
+        for (size_t i = 0; i < slices.size(); ++i) {
+            const Slice& s = slices[i];
+            out += "    { \"name\": " + quoted(s.name) + ", \"bounds\": " +
+                   rectJson(s.bounds, scale, "width", "height");
+            if (s.nine) {
+                out += ", \"center\": " + rectJson(s.centre, scale, "width", "height");
+            }
+            if (s.hasPivot) {
+                out += ", \"pivot\": " + pointJson(s.pivot, scale);
+            }
+            out += " }";
+            out += (i + 1 < slices.size()) ? ",\n" : "\n";
+        }
+        out += "  ]";
+    }
+
     out += "\n}\n";
     return out;
 }
 
 std::string asepriteManifest(const SheetPlan& plan, const std::vector<Frame>& frames,
                              const std::vector<int>& steps, const std::vector<Cycle>& cycles,
-                             const std::string& imageName, uint32_t scale, bool hash) {
+                             const std::string& imageName, uint32_t scale, bool hash,
+                             const std::vector<Slice>& slices) {
     // Frames are named "<image stem> <cell>", as Aseprite names them after
     // the file.
     std::string stem = imageName;
@@ -423,7 +467,24 @@ std::string asepriteManifest(const SheetPlan& plan, const std::vector<Frame>& fr
            std::to_string(plan.height) + " },\n";
     out += "  \"scale\": \"" + std::to_string(scale) + "\",\n";
     out += "  \"frameTags\": [" + (tags.empty() ? std::string() : "\n" + tags + "\n  ") + "],\n";
-    out += "  \"layers\": [],\n  \"slices\": []\n }\n}\n";
+    // Aseprite's slices: one key, from the first frame, as a slice that does
+    // not move through the animation.
+    std::string sliceText;
+    for (size_t i = 0; i < slices.size(); ++i) {
+        const Slice& s = slices[i];
+        sliceText += "   { \"name\": " + quoted(s.name) + ", \"color\": \"" + hexColour(s.colour) +
+                     "\", \"keys\": [{ \"frame\": 0, \"bounds\": " + rectJson(s.bounds, scale, "w", "h");
+        if (s.nine) {
+            sliceText += ", \"center\": " + rectJson(s.centre, scale, "w", "h");
+        }
+        if (s.hasPivot) {
+            sliceText += ", \"pivot\": " + pointJson(s.pivot, scale);
+        }
+        sliceText += " }] }";
+        sliceText += (i + 1 < slices.size()) ? ",\n" : "\n";
+    }
+    out += "  \"layers\": [],\n  \"slices\": [" +
+           (sliceText.empty() ? std::string() : "\n" + sliceText + "  ") + "]\n }\n}\n";
     return out;
 }
 
@@ -471,9 +532,10 @@ bool exportSheetToPng(Document& doc, const std::vector<Frame>& frames,
         const std::string name = fileName(path);
         const std::string json =
             settings.manifestFormat == SheetManifestFormat::Fast
-                ? sheetManifest(plan, frames, steps, cycles, name, settings.scale)
+                ? sheetManifest(plan, frames, steps, cycles, name, settings.scale, readSlices(doc))
                 : asepriteManifest(plan, frames, steps, cycles, name, settings.scale,
-                                   settings.manifestFormat == SheetManifestFormat::AsepriteHash);
+                                   settings.manifestFormat == SheetManifestFormat::AsepriteHash,
+                                   readSlices(doc));
         const std::vector<uint8_t> bytes(json.begin(), json.end());
 
         // Beside the image and named after it. A failure here is reported, but

@@ -148,7 +148,7 @@ only output. A feature that bakes pixels to get done faster is not done.
       operations or palette edits rather than baked pixels
 - [x] Outline and drop shadow as effects **(better: live operations, not
       filters; the outline already is)**
-- [ ] Slices (named rectangles, 9-slice) exported in the manifest
+- [x] Slices (named rectangles, 9-slice) exported in the manifest
 - [ ] Pixel-art rotation (RotSprite-quality) for selections and layers
 - [x] Minimap / navigator
 - [ ] Guides and rulers
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Slices: slice tool (C) drags out, moves and resizes named rectangles; View > Slices names them and gives a nine-slice centre, pivot and colour; kept as document metadata (undoable, saved), moved by canvas ops; exported in Fast's manifest and Aseprite's meta.slices (bounds/center/pivot at the sheet's scale). app/slices with tests.
 - Drop shadow as a live operation (engine GenerateDropShadowOp): cast by the layer or the whole figure, offset/colour/slot/opacity, only where nothing else is, never part of the figure's silhouette; Element panel section; effects (outline, then shadow) kept after every mark and transform (keepEffectsLast on new paint, new shapes and in the commit hook), which also fixes an outline not tracing paint added after it.
 - Adjust colours (Sprite menu): hue, saturation, lightness, brightness, contrast, invert over this layer, this frame or every frame; edits the elements' own colours (fills, strokes, outlines, both ends of a dither) and optionally the palette slots they paint through -- never pixels; applied from a recorded base so zero is exact; modal, one undo step, Cancel restores. app/adjust with tests.
 - Linked cels: a track's cels in several frames can be one cel -- each frame's layer draws the same regions and shapes through operations of its own, so strokes land in every linked frame as drawn, and new colours, shapes and deletions follow as the action closes (syncLinks in the same hook). Link from a layer's row menu (every frame, or the selected run), '+ Linked' duplicates a frame with every cel linked, Unlink gives a cel a deep copy of its own; links survive saving; a duplicated frame's copies are unlinked.

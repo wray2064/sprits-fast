@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/canvas_ops.h"
+#include "app/slices.h"
 
 #include "app/animation.h"
 #include "app/reference.h"
@@ -222,6 +223,35 @@ void remapDocument(Document& doc, const Remap& remap) {
                 }
             }
         }
+    }
+
+    // Slices go where the canvas takes them, corners and all.
+    std::vector<Slice> slices = readSlices(doc);
+    if (!slices.empty()) {
+        const auto box = [&](ls::Rect2i r) {
+            ls::Vec2f min, max;
+            mappedBox(remap, { static_cast<float>(r.min.x), static_cast<float>(r.min.y) },
+                      { static_cast<float>(r.max.x), static_cast<float>(r.max.y) }, &min, &max);
+            return ls::Rect2i{ { static_cast<int32_t>(std::lround(min.x)),
+                                 static_cast<int32_t>(std::lround(min.y)) },
+                               { static_cast<int32_t>(std::lround(max.x)),
+                                 static_cast<int32_t>(std::lround(max.y)) } };
+        };
+        for (Slice& slice : slices) {
+            const ls::Rect2i centre { { slice.bounds.min.x + slice.centre.min.x,
+                                        slice.bounds.min.y + slice.centre.min.y },
+                                      { slice.bounds.min.x + slice.centre.max.x,
+                                        slice.bounds.min.y + slice.centre.max.y } };
+            const ls::Vec2f pivot = remap.point({ static_cast<float>(slice.bounds.min.x + slice.pivot.x),
+                                                  static_cast<float>(slice.bounds.min.y + slice.pivot.y) });
+            slice.bounds = box(slice.bounds);
+            const ls::Rect2i movedCentre = box(centre);
+            slice.centre = { { movedCentre.min.x - slice.bounds.min.x, movedCentre.min.y - slice.bounds.min.y },
+                             { movedCentre.max.x - slice.bounds.min.x, movedCentre.max.y - slice.bounds.min.y } };
+            slice.pivot = { static_cast<int32_t>(std::lround(pivot.x)) - slice.bounds.min.x,
+                            static_cast<int32_t>(std::lround(pivot.y)) - slice.bounds.min.y };
+        }
+        writeSlices(doc, slices);
     }
 
     // References go where the canvas takes them; the picture itself is not

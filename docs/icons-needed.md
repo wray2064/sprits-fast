@@ -53,6 +53,7 @@ Added here as each tool is built; the placeholder is drawn in the meantime.
 | Curve (an S with a handle drawn out) | Toolbar | placeholder drawn |
 | Contour | Toolbar | placeholder drawn |
 | Polygon (a filled polygon, corners marked) | Toolbar | placeholder drawn |
+| Slice (a frame with a name tab) | Toolbar | placeholder drawn |
 | Shape handles: square anchor, round control point | Canvas | drawn; fine as they are |
 | Shading ink | Tool options | planned |
 | Symmetry: horizontal, vertical, both | Tool options / view | planned |

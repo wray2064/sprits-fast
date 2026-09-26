@@ -44,7 +44,7 @@ namespace fast {
 enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
                   Select, SelectEllipse, Lasso, Wand, Move,
                   Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso,
-                  Polygon, Curve };
+                  Polygon, Curve, Slice };
 
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
@@ -459,6 +459,18 @@ struct Editor {
     std::vector<ls::Vec2f> pathPoints;
     std::vector<ls::Vec2f> pathHandles;
 
+    // Slices (see app/slices.h): the one being edited, a drag of it -- a
+    // corner 0..3 or 4 for the whole -- and the slices window.
+    int         activeSlice = -1;
+    bool        draggingSlice = false;
+    bool        editingSlice = false;     // a field of the slices window mid-drag
+    int         sliceHandle = -1;
+    ls::Vec2i   sliceGrab { 0, 0 };
+    ls::Rect2i  sliceStart;
+    bool        slicesOpen = false;
+    char        sliceName[64] = {};
+    int         sliceNameLoaded = -1;
+
     // A handle of the active shape being dragged on the canvas: which one, and
     // the shape as it was when the drag began.
     int         draggingHandle = -1;
@@ -518,7 +530,7 @@ struct Editor {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
-               adjustDialog.open ||
+               adjustDialog.open || draggingSlice || editingSlice ||
                selecting || draggingFloat || drawingContour || drawingGradient;
     }
 

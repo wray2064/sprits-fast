@@ -96,6 +96,10 @@ void drawToolbar(Editor& editor) {
         { Tool::Polygon, theme::Icon::Polygon, "Polygon", "Shift+D",
           "Click corner after corner; Enter, a double-click or the first corner "
           "finishes it. It stays a polygon: drag its corners afterwards." },
+        { Tool::Slice, theme::Icon::Slice, "Slice", "C",
+          "Drag out a named rectangle for a game to read -- a button, a hitbox, a "
+          "panel to stretch by its middle. Drag inside to move it, a corner to "
+          "resize it; name it and give it a nine-slice centre in View > Slices." },
         { Tool::Curve, theme::Icon::Curve, "Curve", "Shift+L",
           "Click to place points, drag to pull out a point's handles; Enter or "
           "a double-click ends it, the first point closes it. It stays a curve: "

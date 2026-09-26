@@ -407,6 +407,17 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             break;
         }
 
+        case Icon::Slice: {
+            // A frame with a corner cut into a tab: a named piece of the
+            // canvas rather than a selection of it.
+            const float weight = std::max(1.4f, size * 0.07f);
+            draw->AddRect(s(0.16f, 0.26f), s(0.84f, 0.84f), colour, 0.f, 0, weight);
+            draw->AddRectFilled(s(0.16f, 0.14f), s(0.48f, 0.30f), colour);
+            draw->AddLine(s(0.38f, 0.26f), s(0.38f, 0.84f), colour, 1.f);
+            draw->AddLine(s(0.62f, 0.26f), s(0.62f, 0.84f), colour, 1.f);
+            break;
+        }
+
         case Icon::Curve: {
             // An S with one anchor's handle drawn out: a pen, not a brush.
             const float weight = std::max(1.6f, size * 0.08f);

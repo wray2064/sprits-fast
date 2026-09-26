@@ -543,6 +543,10 @@ bleeding one frame into the next. **Trim** cuts every cell to the smallest
 rectangle holding what any frame draws -- one rectangle for all, so the cells
 still line up -- and the manifest says where it was cut from, as Aseprite's
 `spriteSourceSize` does.
+**Slices** -- named rectangles drawn with the slice tool (`C`), each with an
+optional nine-slice centre and pivot -- go into both descriptions, Aseprite's
+`meta.slices` included, and move with the canvas when it is cropped, turned or
+resized.
 
 ### Shapes that stay shapes
 

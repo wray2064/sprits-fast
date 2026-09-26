@@ -14,6 +14,7 @@
 #include "app/import_aseprite.h"
 #include "app/palette_tools.h"
 #include "app/pixel_font.h"
+#include "app/slices.h"
 #include "app/tracks.h"
 #include "app/import_image.h"
 #include "app/animation.h"
@@ -29,6 +30,7 @@
 #include "ui/keys.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
+#include "ui/slice_tool.h"
 #include "ui/tabs.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
@@ -680,6 +682,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         bool grid = canvas.gridVisible();
         if (ImGui::MenuItem("Pixel grid", nullptr, &grid)) { canvas.setGridVisible(grid); }
+        if (ImGui::MenuItem("Slices...", nullptr, editor.slicesOpen)) {
+            editor.slicesOpen = !editor.slicesOpen;
+        }
         if (ImGui::MenuItem("Snap to grid", keysLabel(editor.keys, "view.snap").c_str(),
                             &editor.snapToGrid)) {
             if (editor.snapToGrid) {
@@ -2044,6 +2049,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     if (handleShapeHandles(editor, canvas, overCanvas)) {
         return;
     }
+    if (handleSliceInput(editor, canvas, overCanvas)) {
+        return;
+    }
     if (handleSelectionInput(editor, canvas, overCanvas, pixel)) {
         return;
     }
@@ -2504,6 +2512,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (handlePathKeys(editor, canvas)) {
         return;
     }
+    if (handleSliceKeys(editor)) {
+        return;
+    }
     if (handleSelectionKeys(editor)) {
         return;
     }
@@ -2551,6 +2562,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         { "tool.select-ellipse", Tool::SelectEllipse }, { "tool.lasso", Tool::Lasso },
         { "tool.polygon-lasso", Tool::PolygonLasso }, { "tool.wand", Tool::Wand },
         { "tool.polygon", Tool::Polygon }, { "tool.curve", Tool::Curve },
+        { "tool.slice", Tool::Slice },
         { "tool.move", Tool::Move }, { "tool.hand", Tool::Hand }, { "tool.zoom", Tool::Zoom },
     };
     for (const auto& entry : tools) {
@@ -2793,6 +2805,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawSelectionOverlay(editor, draw, origin, zoom);
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
             drawShapeOverlay(editor, canvas, draw, origin, zoom);
+            drawSliceOverlay(editor, canvas, draw, origin, zoom);
             if (editor.stroking && editor.brush.stabiliser > 0) {
                 const ls::Vec2f a = editor.stabiliser.at();
                 const ls::Vec2f b = canvas.pointerExact();
@@ -2871,6 +2884,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawHistoryPanel(editor, canvas);
     drawPreferencesPanel(editor, canvas);
     drawLayerPropertiesPanel(editor, canvas);
+    drawSlicesPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);
@@ -2907,6 +2921,7 @@ struct Options {
     bool        tabs = false;            // --tabs: two more documents open beside the first
     bool        adjust = false;          // --adjust: the colour window, hue turned
     bool        shadow = false;          // --shadow: the figure casts a shadow
+    bool        slices = false;          // --slices: two slices, the window open
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2941,6 +2956,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--slices") {
+            options.slices = true;
         } else if (arg == "--shadow") {
             options.shadow = true;
         } else if (arg == "--adjust") {
@@ -4287,6 +4304,7 @@ int main(int argc, char** argv) {
             { "gradient", Tool::Gradient }, { "text", Tool::Text },
             { "polygon-lasso", Tool::PolygonLasso },
             { "polygon", Tool::Polygon }, { "curve", Tool::Curve },
+            { "slice", Tool::Slice },
         };
         for (const Named& named : tools) {
             if (options.tool == named.name) {
@@ -4333,6 +4351,23 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.slices) {
+        Slice panel;
+        panel.name = "panel";
+        panel.bounds = { { 3, 3 }, { 15, 12 } };
+        panel.nine = true;
+        panel.centre = { { 3, 3 }, { 9, 6 } };
+        Slice hit;
+        hit.name = "hitbox";
+        hit.bounds = { { 12, 14 }, { 22, 30 } };
+        hit.hasPivot = true;
+        hit.pivot = { 5, 16 };
+        hit.colour = { 230, 90, 60, 255 };
+        writeSlices(editor.doc, { panel, hit });
+        editor.tool = Tool::Slice;
+        editor.activeSlice = 0;
+        editor.slicesOpen = true;
     }
     if (options.shadow && editor.active() != nullptr) {
         ShadowSettings settings;

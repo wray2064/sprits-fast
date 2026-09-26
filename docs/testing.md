@@ -514,6 +514,18 @@ sprits_fast --demo-stroke
 3. *Cast by the figure* on a bottom layer. *Expect:* one shadow for the whole
    sprite, under every layer.
 
+### 4ad. Slices
+
+1. Slice tool (`C`): drag a rectangle. *Expect:* "Slice 1", framed in blue
+   with its name. Drag inside it: it moves. Drag a corner: it resizes. Each
+   one undo step.
+2. *View > Slices...*: rename it, tick *Nine-slice centre* and *Pivot*.
+   *Expect:* the centre's lines and the pivot's ring on the canvas.
+3. Delete with the tool and `Delete`. Undo brings it back.
+4. Export a sheet with Aseprite JSON. *Expect:* `meta.slices` names it with
+   its bounds, centre and pivot at the sheet's scale.
+5. Rotate the canvas. *Expect:* the slice turns with it.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

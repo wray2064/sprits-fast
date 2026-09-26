@@ -106,6 +106,7 @@ add_library(fast_core STATIC
     src/app/webp.cpp
     src/app/tracks.cpp
     src/app/adjust.cpp
+    src/app/slices.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -162,6 +163,7 @@ if (FAST_BUILD_GUI)
         src/ui/os_clipboard.cpp
         src/ui/shape_tools.cpp
         src/ui/tabs.cpp
+        src/ui/slice_tool.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp
@@ -254,6 +256,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_adjust_tests tests/adjust_tests.cpp)
     target_link_libraries(fast_adjust_tests PRIVATE fast_core)
     add_test(NAME fast_adjust COMMAND fast_adjust_tests)
+
+    add_executable(fast_slices_tests tests/slices_tests.cpp)
+    target_link_libraries(fast_slices_tests PRIVATE fast_core)
+    add_test(NAME fast_slices COMMAND fast_slices_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)
