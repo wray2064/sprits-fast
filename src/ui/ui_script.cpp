@@ -10,6 +10,7 @@
 #include "app/layers.h"
 #include "app/slices.h"
 #include "ui/canvas_view.h"
+#include "ui/tabs.h"
 
 #include <imgui_internal.h>
 
@@ -602,6 +603,27 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         splitIndex(&label, &index);
         if (!findDrawn(label, index, &centre)) {
             failed("nothing called \"" + a[0] + "\" on screen");
+        }
+    } else if (step.text == "canvas" && a.size() == 2) {
+        auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+        if (size.fail() || size.value.x != std::atoi(a[0].c_str()) ||
+            size.value.y != std::atoi(a[1].c_str())) {
+            failed(size.ok() ? "the canvas is " + std::to_string(size.value.x) + " x " +
+                                   std::to_string(size.value.y)
+                             : std::string("no canvas"));
+        }
+    } else if (step.text == "tabs") {
+        const int count = static_cast<int>(tabCount(editor));
+        if (count != std::atoi(a[0].c_str())) {
+            failed(std::to_string(count) + " tabs");
+        }
+    } else if (step.text == "frame") {
+        if (editor.timeline.activeFrame + 1 != std::atoi(a[0].c_str())) {
+            failed("frame " + std::to_string(editor.timeline.activeFrame + 1) + " is showing");
+        }
+    } else if (step.text == "playing") {
+        if (editor.timeline.playing != (a[0] == "yes")) {
+            failed(editor.timeline.playing ? "it is playing" : "it is not playing");
         }
     } else if (step.text == "pointer" && a.size() == 2) {
         const ls::Vec2i at = canvas.pointerPixel();

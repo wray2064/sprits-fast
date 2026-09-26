@@ -1,0 +1,47 @@
+# The timeline by hand: frames made with + Frame, picked by clicking their
+# cells, a run selected with Shift+click and reversed, a frame dragged to a
+# new place, and playing and stopping.
+key t
+key ctrl+0
+tool pencil
+colour e08f40
+click 2 2
+click-on + Frame
+colour 3060d0
+click 4 4
+click-on + Frame
+colour 30d060
+click 6 6
+expect frames 3
+expect frame 3
+
+click-on cell @1
+expect frame 1
+expect pixel 4 4 empty
+click-on cell @2
+expect pixel 4 4 3060d0
+expect pixel 6 6 empty
+
+# Frames 1 to 3 reversed: the first cell now holds the green.
+click-on cell @1
+hold shift
+click-on cell @3
+let shift
+click-on Reverse
+click-on cell @1
+expect pixel 6 6 30d060
+key ctrl+z
+click-on cell @1
+expect pixel 6 6 empty
+
+# The last frame dragged to the front.
+drag-onto cell @3 => cell @1
+click-on cell @1
+expect pixel 6 6 30d060
+expect pixel 4 4 3060d0
+
+click-on Play
+wait 5
+expect playing yes
+click-on Stop
+expect playing no

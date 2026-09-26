@@ -1,0 +1,37 @@
+# The Element and Transform panels by their controls, and File > New.
+tool pencil
+colour e08f40
+drag 10 10 14 10
+expect drawn 5 5
+
+# An outline and a drop shadow, on and off again.
+click-on Outline
+expect drawn 12 30
+click-on Outline
+expect drawn 5 5
+click-on Drop shadow
+expect drawn 8 12
+click-on Drop shadow
+expect drawn 5 5
+
+# A rotation, its angle typed into the slider (Ctrl+click types a value).
+click-on Rotate
+hold ctrl
+click-on ##angle
+let ctrl
+key ctrl+a
+type 90
+key enter
+expect drawn 5 5
+expect pixel 12 10 empty
+key ctrl+z
+key ctrl+z
+expect pixel 12 10 e08f40
+
+# File > New: a 64 x 64 document, in a tab of its own.
+click-on File
+click-on New...
+click-on 64
+click-on Create
+expect canvas 64 64
+expect tabs 2
