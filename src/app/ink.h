@@ -136,34 +136,75 @@ int pruneEmptyInks(Document& doc, ls::LayerId layer, ls::OperationId keep = {});
 //               Once per pixel per stroke, so going over it again does not
 //               keep stepping.
 //
-// The filtered modes lay their pixels down as areas: what they paint is a
-// choice of pixels, not a path.
+// Every mode keeps the stroke a path. The filtered ones put it in a run
+// clipped to what the layer held when the stroke began (see
+// ls::LSContext::setRegionClip) -- where anything draws, where the second
+// colour shows, where each slot shows -- so what they paint stays a stroke,
+// and stays over what it painted, wherever the layer is turned. A selection
+// is a clip too: the stroke is kept inside it the same way.
 enum class InkMode { Simple, LockAlpha, Replace, Shading };
 
 struct InkModeState {
     InkMode         mode = InkMode::Simple;
     ls::LayerId     layer;
-    ls::IntervalSet allowed;      // LockAlpha and Replace: where painting may land
-    struct Held { ls::IntervalSet pixels; Ink ink; };
-    std::vector<Held> held;       // Shading: each colour's pixels, at the start
-    ls::IntervalSet shaded;       // Shading: pixels already stepped this stroke
-    std::vector<ls::ColorRole> ramp;          // Shading: the palette, in order
+    Ink             second;           // Replace: the colour it replaces
+    bool            forward = true;   // Shading: up the palette, or down
+    // What the layer held when the stroke began, in draw order: what a clip
+    // names, and -- its pixels then -- which slots a stroke passes over.
+    struct Under {
+        ls::RegionId    region;
+        ls::GeometryId  shape;        // a line or a curve, which has no region
+        Ink             ink;
+        bool            solid = false;
+        bool            erase = false;
+        ls::IntervalSet pixels;
+    };
+    std::vector<Under> under;
+    // The selection, when there is one, as a shape; each run kept inside it
+    // gets a copy of its own, so it goes when that run does.
+    bool            selected = false;
+    ls::AreaDesc    selection;
+    bool nothing = false;             // the mode allows nowhere: nothing is painted
+    // Shading: a run for each slot stepped from, and the stroke so far, laid
+    // again into a run made partway through it.
+    std::map<ls::ColorRole, InkStroke> strokes;
+    struct Piece {
+        enum class Kind { Path, Dots, Area } kind = Kind::Path;
+        int                    copy = 0;
+        std::vector<ls::Vec2i> points;
+        PenBrush               brush;
+    };
+    std::vector<Piece>         pieces;
+    std::vector<ls::ColorRole> ramp;          // the palette, in order
     std::vector<ls::Color>     rampColours;
-    std::map<ls::ColorRole, InkStroke> strokes;  // Shading: one per slot stepped to
 };
 
-// Captures what the mode needs from `layer` as the stroke starts. `second` is
-// the colour Replace replaces; `palette` is the palette in display order, for
-// Shading.
+// Captures what the mode needs from `layer` as the stroke starts, leaving out
+// `own`, the run the stroke paints into. `second` is the colour Replace
+// replaces; `palette` is the palette in display order, for Shading;
+// `selection`, in the layer's own space, keeps the stroke inside it.
 bool beginInkMode(Document& doc, ls::LayerId layer, InkMode mode, const Ink& second,
                   const std::vector<std::pair<ls::ColorRole, ls::Color>>& palette,
-                  InkModeState* out);
+                  InkModeState* out, ls::OperationId own = {},
+                  const ls::IntervalSet* selection = nullptr);
 
-// Lays `pixels` down as the mode says: Simple and the filters through
-// `stroke`, Shading through strokes of its own. `forward` is which way
-// Shading steps.
+// Keeps `stroke` to what the mode and the selection allow: its run clipped
+// so -- that run itself when it already is, or has nothing in it yet, and a
+// new run of its colour on top otherwise. Shading's runs are its own (see
+// shadeMark), which only take the selection from here.
+bool keepStrokeToMode(Document& doc, InkModeState& state, InkStroke& stroke);
+
+// Shading: a path, dots or an area stepped along the palette where it
+// passes -- for each slot it passes over, a run of the next slot (the one
+// before, going down) clipped to where that slot showed, each given the
+// whole stroke. Once per pixel per stroke, since the clips are of what showed
+// when it began.
+bool shadeMark(Document& doc, InkModeState& state, const InkModeState::Piece& piece);
+
+// Lays `pixels` down whole, as an area, as the mode says: into `stroke`'s
+// run, which keepStrokeToMode clipped, or for Shading through shadeMark.
 bool strokeInkMode(Document& doc, InkModeState& state, const InkStroke& stroke,
-                   const std::vector<ls::Vec2i>& pixels, bool forward);
+                   const std::vector<ls::Vec2i>& pixels);
 
 // The freehand elements of a layer that paint `ink`, for tests and the panel.
 std::vector<ls::OperationId> elementsWithInk(Document& doc, ls::LayerId layer, const Ink& ink);

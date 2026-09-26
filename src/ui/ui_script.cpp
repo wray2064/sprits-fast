@@ -72,6 +72,10 @@ void ImGuiTestEngineHook_ItemInfo(ImGuiContext*, ImGuiID id, const char* label,
 
 void ImGuiTestEngineHook_Log(ImGuiContext*, const char*, ...) {}
 
+void fast::nameForScripts(const char* label) {
+    ImGuiTestEngineHook_ItemInfo(ImGui::GetCurrentContext(), ImGui::GetItemID(), label, 0);
+}
+
 const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) { return nullptr; }
 
 namespace fast {

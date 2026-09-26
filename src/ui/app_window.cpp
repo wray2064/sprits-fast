@@ -2163,8 +2163,7 @@ void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, boo
     if (editor.inkStroke.erasing()) {
         strokeInk(editor.doc, editor.inkStroke, run);
     } else {
-        strokeInkMode(editor.doc, editor.inkModeState, editor.inkStroke, run,
-                      !editor.strokeWithBack);
+        strokeInkMode(editor.doc, editor.inkModeState, editor.inkStroke, run);
     }
     canvas.invalidate();
 }
@@ -2173,9 +2172,10 @@ void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, boo
 // the brush is stamped on, in order; they are laid down as a path -- a mark
 // that is drawn again wherever the layer is turned -- continuing the one the
 // drag began. Wrapped for tiled mode and mirrored for symmetry, each mirror
-// image a path of its own; split where the selection cuts it. What an ink
-// mode filters, and what goes into tiles, is a choice of pixels, and is laid
-// down as an area.
+// image a path of its own. Paint is kept to the selection and to what an ink
+// mode allows by its run's clip (see keepStrokeToMode); an eraser's path is
+// split where the selection cuts it. What goes into tiles is laid down as an
+// area.
 void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> centres,
                  const PenBrush& brush, bool tiled) {
     if (centres.empty()) {
@@ -2196,12 +2196,15 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
         }
         return out;
     };
+    const bool erasing = editor.inkStroke.erasing();
     const bool asPixels = editor.tileTarget.layer.valid() ||
-        (!editor.inkStroke.erasing() && editor.inkModeState.mode != InkMode::Simple) ||
-        (!editor.selection.empty() && brush.size > 1);
+        (erasing && !editor.selection.empty() && brush.size > 1);
     if (asPixels) {
         layDown(editor, canvas, stampsOf(centres), false);
         return;
+    }
+    if (!erasing && editor.inkModeState.nothing) {
+        return;                         // the mode allows nowhere
     }
     // Each mirror image, its centre placed so its stamp is the mirror of the
     // stamp: an even brush hangs right and down, so its mirror hangs from one
@@ -2228,13 +2231,22 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
         // selection: each part a path of its own.
         std::vector<ls::Vec2i> part;
         const auto flush = [&]() {
-            if (!part.empty()) {
-                strokeAlong(editor.doc, editor.inkStroke, static_cast<int>(image), part, brush);
-                part.clear();
+            if (part.empty()) {
+                return;
             }
+            if (!erasing && editor.inkModeState.mode == InkMode::Shading) {
+                InkModeState::Piece piece;
+                piece.copy = static_cast<int>(image);
+                piece.points = part;
+                piece.brush = brush;
+                shadeMark(editor.doc, editor.inkModeState, piece);
+            } else {
+                strokeAlong(editor.doc, editor.inkStroke, static_cast<int>(image), part, brush);
+            }
+            part.clear();
         };
         for (ls::Vec2i at : images[image]) {
-            if (!editor.selection.empty() && !editor.selection.contains(at)) {
+            if (erasing && !editor.selection.empty() && !editor.selection.contains(at)) {
                 flush();
                 closePaths(editor.inkStroke);
                 continue;
@@ -2253,10 +2265,12 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
 // A spray's dots, laid down as dots -- each where it fell, wherever the
 // layer is turned.
 void layDownDots(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> dots, bool tiled) {
-    if (editor.tileTarget.layer.valid() || editor.inkStroke.erasing() ||
-        editor.inkModeState.mode != InkMode::Simple) {
+    if (editor.tileTarget.layer.valid() || editor.inkStroke.erasing()) {
         layDown(editor, canvas, std::move(dots), tiled);
         return;
+    }
+    if (editor.inkModeState.nothing) {
+        return;                         // the mode allows nowhere
     }
     if (tiled) {
         for (ls::Vec2i& at : dots) {
@@ -2270,10 +2284,18 @@ void layDownDots(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> dots
                    }),
                    dots.end());
     }
-    if (!dots.empty()) {
-        sprayDots(editor.doc, editor.inkStroke, dots);
-        canvas.invalidate();
+    if (dots.empty()) {
+        return;
     }
+    if (editor.inkModeState.mode == InkMode::Shading) {
+        InkModeState::Piece piece;
+        piece.kind = InkModeState::Piece::Kind::Dots;
+        piece.points = dots;
+        shadeMark(editor.doc, editor.inkModeState, piece);
+    } else {
+        sprayDots(editor.doc, editor.inkStroke, dots);
+    }
+    canvas.invalidate();
 }
 
 // Whether the pencil is stamping a custom brush rather than its own.
@@ -2701,11 +2723,19 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             editor.inkStroke = InkStroke{};
             editor.inkModeState = InkModeState{};
         }
+        // Paint is kept inside the selection, and to what the ink mode
+        // allows, by a clip on its run: the stroke stays a path.
+        const ls::IntervalSet selected = editor.selection.empty() || erasing
+            ? ls::IntervalSet{}
+            : canvasAreaOnLayer(editor.doc, layer->layer, editor.selection.mask);
         const bool ready = intoTiles ||
             ((erasing ? beginEraseStroke(editor.doc, layer->layer, &editor.inkStroke)
                       : beginPaint(editor, *layer, back, &editor.inkStroke)) &&
              beginInkMode(editor.doc, layer->layer, erasing ? InkMode::Simple : editor.inkMode,
-                          other, paletteRamp(editor), &editor.inkModeState));
+                          other, paletteRamp(editor), &editor.inkModeState,
+                          editor.inkStroke.target.fill, &selected) &&
+             keepStrokeToMode(editor.doc, editor.inkModeState, editor.inkStroke));
+        editor.inkModeState.forward = !back;
         if (!ready) {
             editor.doc.abandonAction();
             editor.say("Nothing to draw on here");

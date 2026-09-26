@@ -155,6 +155,17 @@ program -- which is the argument for having them.
   the layer's own drawing as drawn, from the point clicked carried back, so
   the fill sits inside the outline and turns with it. `tests/ui/rotate_and_fill.txt`
   draws, turns and fills a blob.
+- **Ink modes, and wide strokes in a selection, laid pixels down as areas.**
+  Lock alpha, replace and shading chose pixels and stored them as an exact
+  area, and so did a brush wider than one pixel inside a selection: a line
+  drawn that way stopped being a line, and broke up when the layer was
+  turned. Each is now the pencil's path, in a run clipped to what it may
+  paint -- what the layer drew, where the other colour showed, where a slot
+  showed, the selection's shape -- read from those shapes wherever they are
+  turned. `tests/ui/ink_modes.txt` paints across a line in lock alpha and
+  replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
+  leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
+  gives a combo no label of its own.
 - **Renaming a layer by double-click typed shortcuts instead.** The name field
   took the keyboard only when its window was appearing, which after a
   double-click on a row it is not, so "Sky" picked three tools. A new name

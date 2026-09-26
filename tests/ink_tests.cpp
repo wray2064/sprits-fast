@@ -15,6 +15,7 @@
 #include "app/ink.h"
 #include "app/paint.h"
 #include "app/palette.h"
+#include "app/selection.h"
 #include "app/shape.h"
 
 #include <cstdio>
@@ -440,14 +441,21 @@ void testInkModes() {
     REQUIRE(paint(doc, layer.layer, mid, {{ 1, 1 }, { 2, 1 }}));
     REQUIRE(paint(doc, layer.layer, literal(kBlue), {{ 3, 1 }}));
 
+    // What a run is made of: one path, as the pencil drew it.
+    const auto onePath = [&](const InkStroke& stroke) {
+        ls::StrokesDesc marks;
+        return readStrokes(doc, stroke.target.region, nullptr, &marks) &&
+               marks.strokes.size() == 1 && marks.strokes[0].kind == ls::PenKind::Line;
+    };
+
     // Shading: forward steps a slot up the ramp, once per pixel per stroke;
     // a pixel with no slot, or nothing there, is left alone.
     doc.beginAction("Shade");
     InkModeState state;
     REQUIRE(beginInkMode(doc, layer.layer, InkMode::Shading, Ink{}, ramp, &state));
     InkStroke unused;
-    REQUIRE(strokeInkMode(doc, state, unused, {{ 1, 1 }, { 3, 1 }, { 5, 5 }}, true));
-    REQUIRE(strokeInkMode(doc, state, unused, {{ 1, 1 }}, true));      // again: no further
+    REQUIRE(strokeInkMode(doc, state, unused, {{ 1, 1 }, { 3, 1 }, { 5, 5 }}));
+    REQUIRE(strokeInkMode(doc, state, unused, {{ 1, 1 }}));      // again: no further
     doc.endAction();
     CHECK(same(at(doc, 1, 1), ls::Color{ 220, 0, 0, 255 }));
     CHECK(same(at(doc, 2, 1), ls::Color{ 120, 0, 0, 255 }));
@@ -457,25 +465,72 @@ void testInkModes() {
     top.role = 2;
     CHECK(elementsWithInk(doc, layer.layer, top).size() == 1);      // a slot, not a colour
 
-    // Lock alpha: only where the layer already draws.
+    // Shading along a path: the path is what is kept, clipped to where the
+    // slot showed, so it steps (2,1) and nothing it crosses on the way.
+    doc.beginAction("Shade along");
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::Shading, Ink{}, ramp, &state));
+    InkModeState::Piece along;
+    along.points = { { 2, 1 }, { 2, 2 }, { 2, 3 } };
+    REQUIRE(shadeMark(doc, state, along));
+    doc.endAction();
+    CHECK(same(at(doc, 2, 1), ls::Color{ 220, 0, 0, 255 }));
+    CHECK(at(doc, 2, 2).a == 0);
+    REQUIRE(state.strokes.size() == 1);
+    CHECK(onePath(state.strokes.begin()->second));
+
+    // Lock alpha: only where the layer already draws, and still a path.
     doc.beginAction("Lock alpha");
     InkStroke green;
     REQUIRE(beginInkStroke(doc, layer.layer, literal(kGreen), &green));
-    REQUIRE(beginInkMode(doc, layer.layer, InkMode::LockAlpha, Ink{}, ramp, &state));
-    REQUIRE(strokeInkMode(doc, state, green, {{ 2, 1 }, { 6, 6 }}, true));
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::LockAlpha, Ink{}, ramp, &state,
+                         green.target.fill));
+    REQUIRE(keepStrokeToMode(doc, state, green));
+    REQUIRE(strokeAlong(doc, green, 0, linePixels({ 1, 1 }, { 6, 6 }), PenBrush{}));
     doc.endAction();
-    CHECK(same(at(doc, 2, 1), kGreen));
+    CHECK(same(at(doc, 1, 1), kGreen));
+    CHECK(at(doc, 3, 3).a == 0);
     CHECK(at(doc, 6, 6).a == 0);
+    CHECK(onePath(green));
 
-    // Replace: only pixels of the second colour.
+    // Replace: only where the second colour shows.
     doc.beginAction("Replace");
     InkStroke red;
     REQUIRE(beginInkStroke(doc, layer.layer, literal(kRed), &red));
-    REQUIRE(beginInkMode(doc, layer.layer, InkMode::Replace, literal(kBlue), ramp, &state));
-    REQUIRE(strokeInkMode(doc, state, red, {{ 2, 1 }, { 3, 1 }}, true));
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::Replace, literal(kBlue), ramp, &state,
+                         red.target.fill));
+    REQUIRE(keepStrokeToMode(doc, state, red));
+    REQUIRE(strokeAlong(doc, red, 0, linePixels({ 1, 1 }, { 4, 1 }), PenBrush{}));
     doc.endAction();
     CHECK(same(at(doc, 3, 1), kRed));
-    CHECK(same(at(doc, 2, 1), kGreen));
+    CHECK(same(at(doc, 1, 1), kGreen));
+    CHECK(same(at(doc, 2, 1), ls::Color{ 220, 0, 0, 255 }));
+    CHECK(at(doc, 4, 1).a == 0);
+    CHECK(onePath(red));
+
+    // A selection keeps a wide stroke inside it, as a clip: the stroke is
+    // still one path, drawn only where the selection is.
+    doc.beginAction("Inside");
+    InkStroke inside;
+    REQUIRE(beginInkStroke(doc, layer.layer, literal(kGreen), &inside));
+    const ls::IntervalSet selection = rectangleMask({ 0, 8 }, { 3, 12 });
+    REQUIRE(beginInkMode(doc, layer.layer, InkMode::Simple, Ink{}, ramp, &state,
+                         inside.target.fill, &selection));
+    REQUIRE(keepStrokeToMode(doc, state, inside));
+    PenBrush wide;
+    wide.size = 3;
+    REQUIRE(strokeAlong(doc, inside, 0, linePixels({ 1, 10 }, { 8, 10 }), wide));
+    doc.endAction();
+    CHECK(same(at(doc, 3, 10), kGreen));
+    CHECK(same(at(doc, 3, 9), kGreen));
+    CHECK(at(doc, 4, 10).a == 0);
+    CHECK(at(doc, 8, 10).a == 0);
+    CHECK(onePath(inside));
+    // Removing the run takes its copy of the selection with it.
+    auto clip = doc.engine().getRegionClip(inside.target.region);
+    REQUIRE(clip.ok() && clip.value.size() == 1);
+    const ls::GeometryId kept = clip.value[0].geometry;
+    deleteRegionAndShapes(doc, inside.target.region);
+    CHECK(doc.engine().getArea(kept).fail());
 }
 
 } // namespace

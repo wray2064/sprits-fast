@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
+#include <set>
 
 namespace fast {
 
@@ -369,55 +371,36 @@ int pruneEmptyInks(Document& doc, ls::LayerId layer, ls::OperationId keep) {
 
 bool beginInkMode(Document& doc, ls::LayerId layer, InkMode mode, const Ink& second,
                   const std::vector<std::pair<ls::ColorRole, ls::Color>>& palette,
-                  InkModeState* out) {
+                  InkModeState* out, ls::OperationId own, const ls::IntervalSet* selection) {
     if (out == nullptr) {
         return false;
     }
     *out = InkModeState{};
     out->mode = mode;
     out->layer = layer;
+    out->second = second;
+    if (selection != nullptr && !selection->empty()) {
+        out->selected = true;
+        out->selection = ls::geom::traceArea(*selection);
+    }
     if (mode == InkMode::Simple) {
         return true;
     }
-    // In draw order, so what is on top of a pixel is what answers for it.
     for (const Element& element : elementsOf(doc, layer)) {
-        const ls::IntervalSet pixels = elementCoverage(doc, element);
-        if (pixels.empty()) {
+        if (element.fill == own) {
             continue;
         }
-        // An erase takes its pixels out of what is drawn before it.
-        if (element.kind == ElementKind::Erase) {
-            out->allowed = ls::geom::subtractSets(out->allowed, pixels);
-            for (InkModeState::Held& held : out->held) {
-                held.pixels = ls::geom::subtractSets(held.pixels, pixels);
-            }
+        InkModeState::Under under;
+        under.region = element.region;
+        under.shape = element.region.valid() ? ls::GeometryId{} : element.geometry;
+        if (!under.region.valid() && !under.shape.valid()) {
             continue;
         }
-        Ink ink;
-        const bool solid = (element.kind == ElementKind::Paint ||
-                            element.kind == ElementKind::Fill) &&
-                           inkOfElement(doc, element.fill, &ink);
-        switch (mode) {
-            case InkMode::LockAlpha:
-                // Where anything on the layer draws -- shapes too, since a
-                // shape's pixels are the layer's pixels to the eye.
-                out->allowed = ls::geom::unionSets(out->allowed, pixels);
-                break;
-            case InkMode::Replace:
-                // Only where the second colour is what shows.
-                out->allowed = ls::geom::subtractSets(out->allowed, pixels);
-                if (solid && ink == second) {
-                    out->allowed = ls::geom::unionSets(out->allowed, pixels);
-                }
-                break;
-            case InkMode::Shading:
-                // Everything is held, so a pixel under a shape answers as the
-                // shape -- which has no slot, and is left alone.
-                out->held.push_back({ pixels, solid ? ink : Ink{ {0, 0, 0, 0}, ls::kColorRoleNone } });
-                break;
-            case InkMode::Simple:
-                break;
-        }
+        under.erase = element.kind == ElementKind::Erase;
+        under.solid = (element.kind == ElementKind::Paint || element.kind == ElementKind::Fill) &&
+                      inkOfElement(doc, element.fill, &under.ink);
+        under.pixels = elementCoverage(doc, element);
+        out->under.push_back(std::move(under));
     }
     for (const auto& [role, colour] : palette) {
         out->ramp.push_back(role);
@@ -426,68 +409,235 @@ bool beginInkMode(Document& doc, ls::LayerId layer, InkMode mode, const Ink& sec
     return true;
 }
 
-bool strokeInkMode(Document& doc, InkModeState& state, const InkStroke& stroke,
-                   const std::vector<ls::Vec2i>& pixels, bool forward) {
-    if (state.mode == InkMode::Simple) {
-        return strokeInk(doc, stroke, pixels);
+namespace {
+
+// A term of a clip for something the layer held.
+ls::RegionClipTerm termOf(const InkModeState::Under& under, ls::ClipOp op) {
+    ls::RegionClipTerm term;
+    term.region = under.region;
+    term.geometry = under.shape;
+    term.op = op;
+    return term;
+}
+
+// Where `showing` is what shows, from what the layer held: added where it
+// draws, taken away where anything drawn over it does. False when it shows
+// nowhere.
+bool clipWhereShowing(const InkModeState& state,
+                      const std::function<bool(const InkModeState::Under&)>& showing,
+                      std::vector<ls::RegionClipTerm>* out) {
+    bool any = false;
+    for (const InkModeState::Under& under : state.under) {
+        if (!under.erase && showing(under)) {
+            out->push_back(termOf(under, ls::ClipOp::Add));
+            any = true;
+        } else if (any) {
+            out->push_back(termOf(under, ls::ClipOp::Remove));   // before the first, nothing to take
+        }
     }
-    if (state.mode == InkMode::LockAlpha || state.mode == InkMode::Replace) {
-        std::vector<ls::Vec2i> kept;
-        kept.reserve(pixels.size());
-        for (ls::Vec2i p : pixels) {
-            if (ls::geom::contains(state.allowed, p)) {
-                kept.push_back(p);
+    return any;
+}
+
+// Whether a run's clip is `terms`, then inside `within` when that is given.
+bool sameClip(Document& doc, const std::vector<ls::RegionClipTerm>& current,
+              const std::vector<ls::RegionClipTerm>& terms, const ls::AreaDesc* within) {
+    if (current.size() != terms.size() + (within != nullptr ? 1u : 0u) ||
+        !std::equal(terms.begin(), terms.end(), current.begin())) {
+        return false;
+    }
+    if (within == nullptr) {
+        return true;
+    }
+    auto area = doc.engine().getArea(current.back().geometry);
+    if (current.back().op != ls::ClipOp::Within || area.fail() ||
+        area.value.contours.size() != within->contours.size()) {
+        return false;
+    }
+    for (size_t c = 0; c < within->contours.size(); ++c) {
+        const std::vector<ls::Vec2f>& a = area.value.contours[c];
+        const std::vector<ls::Vec2f>& b = within->contours[c];
+        if (a.size() != b.size() ||
+            !std::equal(a.begin(), a.end(), b.begin(), [](ls::Vec2f p, ls::Vec2f q) {
+                return p.x == q.x && p.y == q.y;
+            })) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// `terms`, then a Within term for a copy of `within` when that is given.
+bool withSelection(Document& doc, std::vector<ls::RegionClipTerm>* terms,
+                   const ls::AreaDesc* within) {
+    if (within == nullptr) {
+        return true;
+    }
+    auto area = doc.engine().createArea(doc.id(), *within);
+    if (area.fail()) {
+        return false;
+    }
+    ls::RegionClipTerm term;
+    term.geometry = area.value;
+    term.op = ls::ClipOp::Within;
+    terms->push_back(term);
+    return true;
+}
+
+// `stroke`'s run clipped to `terms` and `within`: the run itself when it is
+// already, or has nothing in it, and otherwise a new run of its colour on top.
+bool clipRun(Document& doc, InkStroke& stroke, std::vector<ls::RegionClipTerm> terms,
+             const ls::AreaDesc* within) {
+    ls::LSContext& engine = doc.engine();
+    auto current = engine.getRegionClip(stroke.target.region);
+    if (current.ok() && sameClip(doc, current.value, terms, within)) {
+        return true;
+    }
+    ls::StrokesDesc marks;
+    const bool empty = current.ok() && current.value.empty() &&
+                       readStrokes(doc, stroke.target.region, nullptr, &marks) &&
+                       marks.strokes.empty();
+    if (!empty) {
+        auto rule = engine.getOperation(stroke.target.fill);
+        if (rule.fail() || !addRun(doc, stroke.layer, rule.value, &stroke.target)) {
+            return false;
+        }
+    }
+    for (InkStroke::Open& open : stroke.open) {
+        open.index = -1;
+    }
+    return withSelection(doc, &terms, within) &&
+           engine.setRegionClip(stroke.target.region, terms).ok();
+}
+
+// The whole of a piece of a stroke, laid into `stroke`.
+bool layPiece(Document& doc, InkStroke& stroke, const InkModeState::Piece& piece) {
+    switch (piece.kind) {
+        case InkModeState::Piece::Kind::Path:
+            return strokeAlong(doc, stroke, piece.copy, piece.points, piece.brush);
+        case InkModeState::Piece::Kind::Dots:
+            return sprayDots(doc, stroke, piece.points);
+        case InkModeState::Piece::Kind::Area:
+            return strokeInk(doc, stroke, piece.points);
+    }
+    return false;
+}
+
+} // namespace
+
+bool keepStrokeToMode(Document& doc, InkModeState& state, InkStroke& stroke) {
+    if (stroke.erasing() || state.mode == InkMode::Shading) {
+        return true;
+    }
+    std::vector<ls::RegionClipTerm> clip;
+    if (state.mode == InkMode::LockAlpha) {
+        // Wherever anything on the layer draws -- shapes too, since a shape's
+        // pixels are the layer's pixels to the eye -- less what is erased.
+        bool any = false;
+        for (const InkModeState::Under& under : state.under) {
+            if (under.erase) {
+                if (any) {
+                    clip.push_back(termOf(under, ls::ClipOp::Remove));
+                }
+            } else {
+                clip.push_back(termOf(under, ls::ClipOp::Add));
+                any = true;
             }
         }
-        return kept.empty() || strokeInk(doc, stroke, kept);
+        state.nothing = !any;
+    } else if (state.mode == InkMode::Replace) {
+        const Ink second = state.second;
+        state.nothing = !clipWhereShowing(state, [&second](const InkModeState::Under& under) {
+            return under.solid && under.ink == second;
+        }, &clip);
     }
+    if (state.nothing || (clip.empty() && !state.selected)) {
+        return true;
+    }
+    return clipRun(doc, stroke, clip, state.selected ? &state.selection : nullptr);
+}
 
-    // Shading: each pixel once, to the slot beside its own.
-    std::map<ls::ColorRole, std::vector<ls::Vec2i>> byTarget;
-    for (ls::Vec2i p : pixels) {
-        if (ls::geom::contains(state.shaded, p)) {
+bool shadeMark(Document& doc, InkModeState& state, const InkModeState::Piece& piece) {
+    // Which slots the piece passes over, as they showed when the stroke began:
+    // the topmost of what the layer held, at each pixel it covers.
+    std::vector<ls::Vec2i> covers = piece.points;
+    if (piece.kind == InkModeState::Piece::Kind::Path) {
+        covers.clear();
+        for (const ls::Interval& run : markPixels(pathMark(piece.points, piece.brush)).intervals) {
+            for (int32_t x = run.x0; x < run.x1; ++x) {
+                covers.push_back({ x, run.y });
+            }
+        }
+    }
+    std::set<ls::ColorRole> passed;
+    for (ls::Vec2i p : covers) {
+        const InkModeState::Under* top = nullptr;
+        for (const InkModeState::Under& under : state.under) {
+            if (ls::geom::contains(under.pixels, p)) {
+                top = &under;
+            }
+        }
+        if (top != nullptr && !top->erase && top->solid && top->ink.usesSlot()) {
+            passed.insert(top->ink.role);
+        }
+    }
+    bool ok = true;
+    for (ls::ColorRole from : passed) {
+        if (state.strokes.count(from) != 0) {
             continue;
         }
-        const Ink* was = nullptr;
-        for (const InkModeState::Held& held : state.held) {
-            if (ls::geom::contains(held.pixels, p)) {
-                was = &held.ink;
-            }
-        }
-        if (was == nullptr || !was->usesSlot()) {
-            continue;                   // empty, or a colour with no slot to step from
-        }
-        const auto at = std::find(state.ramp.begin(), state.ramp.end(), was->role);
+        const auto at = std::find(state.ramp.begin(), state.ramp.end(), from);
         if (at == state.ramp.end()) {
             continue;
         }
         const long long index = at - state.ramp.begin();
-        const long long next = forward ? index + 1 : index - 1;
+        const long long next = state.forward ? index + 1 : index - 1;
         if (next < 0 || next >= static_cast<long long>(state.ramp.size())) {
             continue;                   // already at the end of the ramp
         }
-        byTarget[state.ramp[static_cast<size_t>(next)]].push_back(p);
-        state.shaded.intervals.push_back({ p.y, p.x, p.x + 1 });
-    }
-    state.shaded = ls::geom::normalize(std::move(state.shaded));
-    bool ok = true;
-    for (const auto& [role, targets] : byTarget) {
-        auto found = state.strokes.find(role);
-        if (found == state.strokes.end()) {
-            Ink ink;
-            ink.role = role;
-            const auto at = std::find(state.ramp.begin(), state.ramp.end(), role);
-            ink.colour = state.rampColours[static_cast<size_t>(at - state.ramp.begin())];
-            InkStroke made;
-            if (!beginInkStroke(doc, state.layer, ink, &made)) {
-                ok = false;
-                continue;
-            }
-            found = state.strokes.emplace(role, made).first;
+        // A run of the next slot, clipped to where this one showed, and
+        // given what the stroke has laid so far.
+        ls::FillSolidOp fill;
+        fill.paletteRole = state.ramp[static_cast<size_t>(next)];
+        fill.fallbackColor = state.rampColours[static_cast<size_t>(next)];
+        InkStroke made;
+        made.layer = state.layer;
+        std::vector<ls::RegionClipTerm> clip;
+        if (!addRun(doc, state.layer, fill, &made.target) ||
+            !clipWhereShowing(state, [from](const InkModeState::Under& under) {
+                return under.solid && under.ink.usesSlot() && under.ink.role == from;
+            }, &clip)) {
+            ok = false;
+            continue;
         }
-        ok = strokeInk(doc, found->second, targets) && ok;
+        if (!withSelection(doc, &clip, state.selected ? &state.selection : nullptr) ||
+            doc.engine().setRegionClip(made.target.region, clip).fail()) {
+            ok = false;
+            continue;
+        }
+        for (const InkModeState::Piece& before : state.pieces) {
+            layPiece(doc, made, before);
+        }
+        state.strokes.emplace(from, made);
+    }
+    state.pieces.push_back(piece);
+    for (auto& [from, stroke] : state.strokes) {
+        ok = layPiece(doc, stroke, piece) && ok;
     }
     return ok;
+}
+
+bool strokeInkMode(Document& doc, InkModeState& state, const InkStroke& stroke,
+                   const std::vector<ls::Vec2i>& pixels) {
+    if (state.nothing) {
+        return true;
+    }
+    if (state.mode == InkMode::Shading) {
+        InkModeState::Piece piece;
+        piece.kind = InkModeState::Piece::Kind::Area;
+        piece.points = pixels;
+        return shadeMark(doc, state, piece);
+    }
+    return strokeInk(doc, stroke, pixels);
 }
 
 bool inkAt(Document& doc, ls::SpriteId sprite, ls::Vec2i pixel, Ink* out) {

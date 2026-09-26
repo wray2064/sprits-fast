@@ -173,7 +173,17 @@ void deleteRegionAndShapes(Document& doc, ls::RegionId region) {
     ls::LSContext& engine = doc.engine();
     auto source = engine.getRegionSourceGeometry(region);
     auto erase = engine.getRegionErase(region);
+    // The shapes it was kept inside are its own; what else it was clipped to
+    // is other elements, which stay.
+    auto clip = engine.getRegionClip(region);
     engine.deleteRegion(region);
+    if (clip.ok()) {
+        for (const ls::RegionClipTerm& term : clip.value) {
+            if (term.op == ls::ClipOp::Within && term.geometry.valid()) {
+                engine.deleteGeometry(term.geometry);
+            }
+        }
+    }
     if (source.ok() && source.value.valid()) {
         engine.deleteGeometry(source.value);
     }

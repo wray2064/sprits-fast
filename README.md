@@ -24,7 +24,8 @@ Early, but it is a real editor.
 and rectangle, ellipse and line tools, with a hand and a zoom tool, all with
 keyboard shortcuts; four inks for the pencil and spray -- simple, lock alpha,
 replace colour, and **shading**, which steps each pixel to the neighbouring
-palette slot, so a shaded area still follows the palette; any number of colours on one
+palette slot, so a shaded area still follows the palette -- each still a
+stroke, kept to what it may paint, so it turns with the drawing; any number of colours on one
 layer, with a second colour on the right button and `X` to swap them; a brush
 with a size, a round or square shape, and the pixel-perfect rule that keeps a
 diagonal a line; pen tablets, with pressure driving the size and the eraser

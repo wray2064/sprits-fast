@@ -6,6 +6,7 @@
 #include "ui/os_clipboard.h"
 #include "ui/theme.h"
 #include "ui/tile_tools.h"
+#include "ui/ui_script.h"
 
 #include "app/reference.h"
 #include "app/library.h"
@@ -331,6 +332,7 @@ void drawToolPanel(Editor& editor) {
         if (ImGui::Combo("##inkmode", &mode, modes, 4)) {
             editor.inkMode = static_cast<InkMode>(mode);
         }
+        nameForScripts("Ink mode");
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
         ImGui::TextWrapped("%s",
             editor.inkMode == InkMode::Simple

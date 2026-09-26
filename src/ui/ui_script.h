@@ -61,6 +61,10 @@ namespace fast {
 
 class CanvasView;
 
+// Gives the widget just drawn a label a script can find it by, for the ones
+// ImGui does not name -- a combo -- so `click-on Ink mode` opens it.
+void nameForScripts(const char* label);
+
 class UiScript {
 public:
     // Reads and parses a script. False, with the line that is wrong, when it

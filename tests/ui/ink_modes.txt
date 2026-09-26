@@ -1,0 +1,26 @@
+# Ink modes, through the INK list in the Tool panel. Each keeps the pencil's
+# stroke a path, clipped to what it may paint: lock alpha only where the
+# layer draws, replace only where the other button's colour shows.
+tool pencil
+colour e08f40
+drag 4 4 12 4
+expect pixel 8 4 e08f40
+
+# Lock alpha: a line across the first paints only where it crosses it.
+click-on Ink mode
+click-on Lock alpha
+colour 3060c0
+drag 8 1 8 8
+expect pixel 8 4 3060c0
+expect pixel 8 2 empty
+expect pixel 8 6 empty
+expect pixel 4 4 e08f40
+
+# Replace: with the right button, the second colour goes only where the
+# first shows -- the one blue pixel -- and nowhere else along the drag.
+click-on Ink mode
+click-on Replace colour
+drag 2 4 14 4 right
+expect pixel 8 4 1a1a1f
+expect pixel 6 4 e08f40
+expect pixel 13 4 empty
