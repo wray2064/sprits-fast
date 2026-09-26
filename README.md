@@ -66,7 +66,9 @@ make Fast odd, never broken.
 **Layers** — blend modes, opacity, groups that composite as one, clipping,
 locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row;
 a properties window per layer with a colour tag that stripes its row and notes
-kept with it.
+kept with it; and **reference layers** -- a sketch or a guide drawn like any
+layer and shown on the canvas, but left out of every export and of the outline
+round the whole figure.
 One layer holds several elements: one per colour its pixels are painted in,
 plus any shapes drawn onto it.
 

@@ -2090,6 +2090,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
 
             std::string label = props.name;
             if (props.locked) { label += "  [lock]"; }
+            if (props.reference) { label += "  [ref]"; }
             if (props.clipBase.valid()) { label += "  [clip]"; }
             if (props.blend != ls::BlendMode::Normal || props.opacity < 1.f) {
                 char detail[48];
@@ -2213,6 +2214,19 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 if (ImGui::MenuItem("Lock", nullptr, props.locked)) {
                     toggleActiveLayerLock(editor);
                 }
+                if (ImGui::MenuItem("Reference layer", nullptr, props.reference)) {
+                    editor.doc.beginAction(props.reference ? "Not a reference" : "Reference layer");
+                    setReferenceLayer(editor.doc, id, !props.reference);
+                    editor.doc.endAction();
+                    canvas.invalidate();
+                    editor.say(props.reference ? "Exported again"
+                                               : "A reference now: drawn on the canvas, left out of every export");
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("For a sketch or a guide to draw over: shown here, never "
+                                      "in a PNG, a sheet, an animation or the outline round "
+                                      "the figure.");
+                }
                 if (ImGui::MenuItem("Rename")) {
                     editor.renaming = listIndex;
                     std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
@@ -2327,6 +2341,17 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     if (ImGui::Checkbox("Locked", &locked)) {
         setLayerLocked(editor.doc, id, locked);
         editor.doc.markModified();
+    }
+    bool reference = props.reference;
+    if (ImGui::Checkbox("Reference -- never exported", &reference)) {
+        editor.doc.beginAction(reference ? "Reference layer" : "Not a reference");
+        setReferenceLayer(editor.doc, id, reference);
+        editor.doc.endAction();
+        canvas.invalidate();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Drawn on the canvas like any layer, left out of every export "
+                          "and of the outline round the whole figure.");
     }
 
     theme::sectionHeader("TAG");

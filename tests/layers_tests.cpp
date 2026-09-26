@@ -348,6 +348,41 @@ void testALockIsKeptAndSurvivesASave() {
     CHECK(!layerLocked(again, order[2]));
 }
 
+// --- reference layers -----------------------------------------------------------
+
+// Drawn on the canvas, left out of an export -- and out of a file exported
+// from it -- and still a reference after a save.
+void testAReferenceLayerIsNotExported() {
+    Stack s;
+    REQUIRE(s.build());
+    // The top layer covers everything; as a reference it stops showing in an
+    // export, and the middle one shows through.
+    CHECK(s.at(3, 3).b == 100);
+    REQUIRE(setReferenceLayer(s.doc, s.top.layer, true));
+    CHECK(isReferenceLayer(s.doc, s.top.layer));
+    LayerProps props;
+    REQUIRE(readLayerProps(s.doc, s.top.layer, &props));
+    CHECK(props.reference);
+    CHECK(s.at(3, 3).g == 100 && s.at(3, 3).b == 0);
+
+    ls::CompileProfile preview = compileProfile(ls::CompileProfileType::Preview, kSize, kSize);
+    auto shown = s.doc.engine().compileSprite(s.sprite, preview);
+    REQUIRE(shown.ok());
+    CHECK(ls::readPixel(shown.value.raster, 3, 3).b == 100);   // the canvas still shows it
+
+    std::string error;
+    const std::string path = "fast_layers_reference.lsprite";
+    REQUIRE(s.doc.save(path, &error));
+    Document again;
+    REQUIRE(again.open(path, &error));
+    deleteFile(path);
+    const std::vector<ls::LayerId> order = layerOrder(again, again.sprite());
+    REQUIRE(order.size() == 3);
+    CHECK(isReferenceLayer(again, order[2]) && !isReferenceLayer(again, order[1]));
+    REQUIRE(setReferenceLayer(again, order[2], false));
+    CHECK(!isReferenceLayer(again, order[2]));
+}
+
 // --- tag and notes --------------------------------------------------------------
 
 void testATagAndNotesAreKept() {
@@ -471,6 +506,7 @@ void testMergeDownKeepsThePictureAndTheElements() {
 }
 
 int main() {
+    testAReferenceLayerIsNotExported();
     testATagAndNotesAreKept();
     testBlendAndOpacityChangeThePicture();
     testMovingALayerMovesWhatDrawsOverWhat();

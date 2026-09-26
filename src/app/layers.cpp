@@ -76,6 +76,7 @@ bool readLayerProps(Document& doc, ls::LayerId layer, LayerProps* out) {
     props.group = info.value.parentId;
     props.locked = layerLocked(doc, layer);
     props.tagged = layerTag(doc, layer, &props.tag);
+    props.reference = info.value.type == ls::LayerType::Source;
     props.notes = layerNotes(doc, layer);
     if (info.value.hasClip) {
         // The engine says only that there is one; which layer it is has to be
@@ -118,6 +119,16 @@ bool setLayerLocked(Document& doc, ls::LayerId layer, bool locked) {
     }
     doc.engine().clearMetadata(layer.value, kLayerLockedKey);
     return true;
+}
+
+bool isReferenceLayer(Document& doc, ls::LayerId layer) {
+    auto info = doc.engine().getLayerInfo(layer);
+    return info.ok() && info.value.type == ls::LayerType::Source;
+}
+
+bool setReferenceLayer(Document& doc, ls::LayerId layer, bool reference) {
+    return doc.engine().setLayerType(layer, reference ? ls::LayerType::Source
+                                                      : ls::LayerType::Drawing).ok();
 }
 
 bool layerTag(Document& doc, ls::LayerId layer, ls::Color* out) {

@@ -133,7 +133,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Merge down, done as grouping: the README's rule holds
 - [x] Layer properties dialog (name, blend, opacity)
 - [x] Show or hide all others (Alt+click the eye)
-- [ ] A reference layer that exports nothing (a reference already covers
+- [x] A reference layer that exports nothing (a reference already covers
       most of this)
 
 ### Editing
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Reference layers (row menu or Layer properties): engine LayerType::Source now means compiled for previews, skipped by Export compiles and by the whole-sprite silhouette (engine setLayerType); so PNG, sheet, animation, batch and the thumbnail all leave it out. Undoable, saved with the file. Also: Fast and the engine link with /INCREMENTAL:NO after stale incremental links crashed a third of the test suites before main.
 - Tabs: New/Open/Import open beside the work (a blank untouched document is replaced; an already open file is shown); each tab parks its own document, layers, frames, selection, references, preview, autosave copy and view (DocumentTab, Document::swap); Ctrl+Tab/Ctrl+Shift+Tab switch, Ctrl+W closes (asks when unsaved), Quit asks for each modified tab in turn; every tab's recovery copy is cleared on a clean exit. Canvas caches cleared on switch; clip dithers paste as colours across tabs.
 - Polygon (Shift+D) and Curve (Shift+L) tools placing shapes point by point (pen-style handles for curves); both stay geometry (engine getPolygon/getCurve added), survive saves, canvas ops, selection moves and turns. On-canvas handles for every shape kind while it is the active element (Move or a shape tool): drag corners, ends, polygon corners, curve anchors (carrying their controls) and control points, one undo step each, snapped when snapping. Open curves pixel-perfect (engine: ordered walk without L-corners); closed curves filled.
 - Lossless WebP, Fast's own VP8L encoder (app/webp): colour-indexing transform with 1/2/4/8-bit packing up to 256 colours, ARGB beyond; back-references to the previous pixel and the pixel above; canonical prefix codes with simple codes for tiny alphabets. Animated WebP (VP8X/ANIM/ANMF, no blending) in the animation export and batch (.webp, --animated); single frames through batch. Verified pixel-exact against libwebp via Pillow on 11 synthetic cases (1..5000 colours, partial alpha, 5000x2) and a GIF->lsprite->WebP round trip.

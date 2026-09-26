@@ -45,6 +45,7 @@ struct LayerProps {
     bool          tagged = false;
     ls::Color     tag;          // the row's colour, when tagged
     std::string   notes;
+    bool          reference = false;    // drawn from, never exported
 };
 
 bool readLayerProps(Document& doc, ls::LayerId layer, LayerProps* out);
@@ -59,6 +60,13 @@ bool renameLayer(Document& doc, ls::LayerId layer, const std::string& name);
 // one that has to refuse. Locking changes no pixel, so it is not an action.
 bool layerLocked(Document& doc, ls::LayerId layer);
 bool setLayerLocked(Document& doc, ls::LayerId layer, bool locked);
+
+// A reference layer: drawn on like any other and shown on the canvas, but
+// left out of every export -- PNGs, sheets, animations, the thumbnail -- and
+// out of the outline that traces the whole figure. For a sketch, a
+// construction line, a grid to draw over. Brackets no action.
+bool isReferenceLayer(Document& doc, ls::LayerId layer);
+bool setReferenceLayer(Document& doc, ls::LayerId layer, bool reference);
 
 // A colour to find a layer by in a long stack, and notes about it -- what
 // Aseprite calls user data. Metadata like the lock, and like it neither

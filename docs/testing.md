@@ -373,6 +373,10 @@ sprits_fast --demo-stroke
    undo step and the Layers panel follows.
 3. Save, reopen. *Expect:* tag and notes are still there. *none* clears the
    tag; emptying the notes removes the `*`.
+4. Right-click a layer > *Reference layer*. *Expect:* `[ref]` on its row, the
+   canvas unchanged. Export a PNG, a sheet and a GIF. *Expect:* the layer is
+   in none of them. A whole-sprite outline no longer goes round it. Undo
+   takes it back to an ordinary layer.
 
 ### 4s. Snap to grid
 
