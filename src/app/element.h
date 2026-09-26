@@ -33,7 +33,9 @@ namespace fast {
 // Text is an element of its own: pixels rebuilt from words kept on its
 // region (see text.h). Like a shape, it is an object on the layer rather than
 // a colour the pencil paints into.
-enum class ElementKind { Paint, Rectangle, Ellipse, Line, Text, Polygon, Curve };
+// Erase: what the eraser took from the shapes under it (see ink.h) -- a mask
+// over them, kept as pixels of its own, so the shapes stay shapes.
+enum class ElementKind { Paint, Rectangle, Ellipse, Line, Text, Polygon, Curve, Erase };
 
 const char* elementKindName(ElementKind kind);
 
@@ -46,7 +48,8 @@ struct Element {
 
     bool valid() const { return fill.valid(); }
     // Anything that is an object on the layer rather than loose pixels: the
-    // shapes, and text.
+    // shapes, text, and an erase -- each changes what is under it, so fresh
+    // paint has to go above it to show.
     bool isShape() const { return kind != ElementKind::Paint; }
     bool isGeometry() const {
         return kind == ElementKind::Rectangle || kind == ElementKind::Ellipse ||
@@ -57,6 +60,10 @@ struct Element {
 
 // Every element of a layer, in draw order.
 std::vector<Element> elementsOf(Document& doc, ls::LayerId layer);
+
+// The pixels an element covers, in its layer's own space: a region's own, or
+// for a line or a curve the box around it.
+ls::IntervalSet elementCoverage(Document& doc, const Element& element);
 
 // The element the panel is editing as a shape.
 ShapeLayer shapeOfElement(ls::LayerId layer, const Element& element);

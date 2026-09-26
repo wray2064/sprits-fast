@@ -4,6 +4,7 @@
 #include "app/floating.h"
 
 #include "app/element.h"
+#include "app/ink.h"
 #include "app/selection.h"
 #include "app/transform.h"
 
@@ -142,6 +143,8 @@ bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask) 
         }
         any = doc.engine().erasePixelsFromRegion(element.region, pixels).ok() || any;
     }
+    // And the shapes lose them, through the erase: they stay shapes.
+    any = eraseFromShapes(doc, layer, pixels) || any;
     if (any) {
         pruneEmptyInks(doc, layer);
     }
@@ -186,10 +189,60 @@ bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, F
         return false;
     }
 
+    // The erased pixels over the shapes that go along. They leave the layer's
+    // erase -- unless a shape that stays is under them too, which keeps its
+    // hole -- and ride with the float in an erase of their own.
+    ls::IntervalSet travelling;
+    if (!shapes.empty()) {
+        ls::IntervalSet moving;
+        ls::IntervalSet staying;
+        for (const Element& element : elementsOf(doc, layer)) {
+            if (element.kind == ElementKind::Paint || element.kind == ElementKind::Erase) {
+                continue;
+            }
+            bool taken = false;
+            for (const Floating::Shape& s : shapes) {
+                taken = taken || s.shape.paint.fill == element.fill;
+            }
+            const ls::IntervalSet cover = ls::geom::normalize(elementCoverage(doc, element));
+            (taken ? moving : staying) = ls::geom::unionSets(taken ? moving : staying, cover);
+        }
+        for (const Element& element : elementsOf(doc, layer)) {
+            if (element.kind != ElementKind::Erase) {
+                continue;
+            }
+            const ls::IntervalSet inside = ls::geom::intersectSets(
+                ls::geom::intersectSets(regionPixels(doc, element.region), mask), moving);
+            if (inside.empty()) {
+                continue;
+            }
+            travelling = ls::geom::unionSets(travelling, inside);
+            const ls::IntervalSet leaves = ls::geom::subtractSets(inside, staying);
+            if (!leaves.empty()) {
+                doc.engine().erasePixelsFromRegion(element.region, pixelsOf(leaves));
+            }
+        }
+    }
+
     Floating floating;
     floating.layer = layer;
     floating.originalMask = mask;
     floating.shapes = std::move(shapes);
+    if (!travelling.empty()) {
+        // After everything the layer draws and before the pieces, which hold
+        // no erased pixels to begin with.
+        auto region = doc.engine().createRegionFromIntervals(doc.id(), travelling);
+        if (region.ok()) {
+            ls::ClearRegionOp clear;
+            clear.targetRegion = region.value;
+            auto op = doc.engine().addOperation(layer, clear);
+            if (op.ok()) {
+                floating.erase = { op.value, region.value, travelling };
+            } else {
+                doc.engine().deleteRegion(region.value);
+            }
+        }
+    }
     // Out of the layer first, then into pieces at the top: the pieces are
     // added after, so they draw over everything the layer holds.
     for (const Element& element : elementsOf(doc, layer)) {
@@ -245,6 +298,10 @@ bool moveFloating(Document& doc, Floating& floating, ls::Vec2i offset) {
         ok = doc.engine().setRegionIntervals(piece.region,
                                              translated(piece.original, offset)).ok() && ok;
     }
+    if (floating.erase.region.valid()) {
+        ok = doc.engine().setRegionIntervals(floating.erase.region,
+                                             translated(floating.erase.original, offset)).ok() && ok;
+    }
     const ls::Vec2f by { static_cast<float>(offset.x), static_cast<float>(offset.y) };
     for (const Floating::Shape& taken : floating.shapes) {
         ShapeParams moved = taken.original;
@@ -275,6 +332,7 @@ bool turnFloating(Document& doc, Floating& floating, FloatTurn turn) {
     for (Floating::Piece& piece : floating.pieces) {
         piece.original = apply(piece.original);
     }
+    floating.erase.original = apply(floating.erase.original);
     // A shape's corners, turned the same way. Corners sit between pixels, so
     // the mirror of a corner at x is at min + max - x, where a pixel's is one
     // less: a rectangle over pixels 2..4 lands over the pixels the pieces do.
@@ -322,6 +380,11 @@ bool dropFloating(Document& doc, Floating& floating) {
         const ls::IntervalSet kept = ls::geom::intersectSets(regionPixels(doc, piece.region), canvas);
         engine.setRegionIntervals(piece.region, kept);
         landed = ls::geom::unionSets(landed, kept);
+    }
+    if (floating.erase.region.valid()) {
+        engine.setRegionIntervals(floating.erase.region,
+                                  ls::geom::intersectSets(regionPixels(doc, floating.erase.region),
+                                                          canvas));
     }
 
     // Where it lands, the layer's own colours give way -- a pixel has one

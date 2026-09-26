@@ -116,3 +116,6 @@ jobs:
           # pencil must paint the whole diagonal, not only where it was pressed.
           ./build/sprits_fast --frames 30 --tool pencil --drag 3,3,28,28 --expect-drawn 24
           ./build/sprits_fast --frames 30 --tool spray --drag 3,3,28,28 --expect-drawn 40
+          # The eraser across a rectangle: it takes the diagonal out of the
+          # shape (576 pixels) without the shape stopping being one.
+          ./build/sprits_fast --frames 30 --rectangle 4,4,28,28 --tool eraser --drag 3,3,28,28 --expect-drawn 500 --expect-at-most 560

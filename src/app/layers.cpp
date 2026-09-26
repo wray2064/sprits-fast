@@ -334,12 +334,26 @@ ls::LayerId mergeDown(Document& doc, ls::LayerId upper, std::string* why) {
         for (const ls::OperationInfo& op : operations.value) {
             const std::string& type = op.type;
             if (type != "FillSolidOp" && type != "FillDitherOp" && type != "StrokePolylineOp" &&
-                type != "StrokeRegionBoundaryOp" && type != "StrokePixelPathOp") {
+                type != "StrokeRegionBoundaryOp" && type != "StrokePixelPathOp" &&
+                type != "ClearRegionOp") {
                 return true;
             }
         }
         return false;
     };
+    // An erase below is fine -- what comes down lands after it. One above
+    // would, after the merge, rub out the lower layer's drawing as well.
+    {
+        auto operations = engine.getLayerOperations(upper);
+        if (operations.ok()) {
+            for (const ls::OperationInfo& op : operations.value) {
+                if (op.type == "ClearRegionOp") {
+                    return refuse("the layer above has shapes partly erased, and the erase "
+                                  "would then rub out the layer below too");
+                }
+            }
+        }
+    }
     if (wholeLayerRules(upper) || wholeLayerRules(lower)) {
         return refuse("a transform or an outline on one of the layers would then act on "
                       "both; remove it first");

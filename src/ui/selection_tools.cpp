@@ -376,7 +376,7 @@ bool deleteSelectionPixels(Editor& editor) {
     }
     editor.doc.endAction();
     resyncLayers(editor);
-    editor.say("Deleted the selected pixels; shapes are removed in the Element panel");
+    editor.say("Deleted the selected pixels; shapes under them stay shapes, erased there");
     return true;
 }
 

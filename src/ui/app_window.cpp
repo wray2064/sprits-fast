@@ -3054,6 +3054,8 @@ struct Options {
     // mouse takes -- so what a drag does can be captured and checked.
     float       drag[4] = { -1.f, -1.f, -1.f, -1.f };
     int         expectDrawn = -1;        // --expect-drawn N: fail unless N pixels are drawn
+    int         expectAtMost = -1;       // --expect-at-most N: fail if more than N are
+    float       rectangle[4] = { -1.f, -1.f, -1.f, -1.f };  // --rectangle X0,Y0,X1,Y1: a shape to start with
     bool        slices = false;          // --slices: two slices, the window open
     bool        rotsprite = false;       // --rotsprite: one sprite turned two ways, side by side
     std::string language;                // --language CODE: the interface in that language
@@ -3103,6 +3105,15 @@ Options parseOptions(int argc, char** argv) {
             options.tween = true;
         } else if (arg == "--expect-drawn" && i + 1 < argc) {
             options.expectDrawn = std::atoi(argv[++i]);
+        } else if (arg == "--expect-at-most" && i + 1 < argc) {
+            options.expectAtMost = std::atoi(argv[++i]);
+        } else if (arg == "--rectangle" && i + 1 < argc) {
+            const char* text = argv[++i];
+            for (float& value : options.rectangle) {
+                char* end = nullptr;
+                value = std::strtof(text, &end);
+                text = (*end == ',') ? end + 1 : end;
+            }
         } else if (arg == "--drag" && i + 1 < argc) {
             const char* text = argv[++i];
             for (float& value : options.drag) {
@@ -4627,6 +4638,17 @@ int main(int argc, char** argv) {
         }
         resyncLayers(editor);
     }
+    if (options.rectangle[0] >= 0.f && editor.active() != nullptr) {
+        ShapeParams params;
+        params.from = { options.rectangle[0], options.rectangle[1] };
+        params.to = { options.rectangle[2], options.rectangle[3] };
+        ShapeLayer made;
+        editor.doc.beginAction("Rectangle");
+        addShapeElement(editor.doc, editor.active()->layer, ShapeKind::Rectangle, params,
+                        foregroundInk(editor), &made);
+        editor.doc.endAction();
+        resyncLayers(editor);
+    }
     if (options.tween && editor.active() != nullptr) {
         PaintLayer made;
         editor.doc.beginAction("Figure");
@@ -4969,6 +4991,11 @@ int main(int argc, char** argv) {
                     }
                 }
                 std::printf("drawn: %d pixel(s)\n", drawn);
+                if (options.expectAtMost >= 0 && drawn > options.expectAtMost) {
+                    std::printf("FAIL expected at most %d drawn pixels -- the eraser should "
+                                "have taken some\n", options.expectAtMost);
+                    idleBroken = true;
+                }
                 if (drawn < options.expectDrawn) {
                     std::printf("FAIL expected at least %d drawn pixels -- a drag across "
                                 "the canvas should paint all the way\n", options.expectDrawn);

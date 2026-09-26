@@ -64,6 +64,10 @@ struct InkStroke {
     ls::LayerId               layer;
     PaintLayer                target;
     std::vector<ls::RegionId> others;
+    // Erasing only: where the shapes' pixels go (see eraseFromShapes), and
+    // what the shapes cover, so pixels with no shape under them are not kept.
+    ls::RegionId              shapesErase;
+    ls::IntervalSet           shapeCover;
     bool erasing() const { return !target.region.valid(); }
 };
 
@@ -77,10 +81,24 @@ bool beginInkStroke(Document& doc, ls::LayerId layer, const Ink& ink, InkStroke*
 // it -- a dithered element picked in the element list paints dither.
 bool beginElementStroke(Document& doc, const PaintLayer& element, InkStroke* out);
 
-// Starts erasing: every freehand element on the layer loses the pixels.
-// Shapes are left alone -- they are removed from the element list, not
-// scratched at, or they would stop being shapes.
+// Starts erasing: every freehand element on the layer loses the pixels, and
+// the shapes lose them through an erase -- a mask over them (see
+// eraseFromShapes) -- so they stay shapes that can still be edited.
 bool beginEraseStroke(Document& doc, ls::LayerId layer, InkStroke* out);
+
+// What the layer's shapes cover, in its own space.
+ls::IntervalSet shapeCoverage(Document& doc, ls::LayerId layer);
+
+// The erase that takes pixels from the layer's shapes: its topmost one with
+// no shape above it, or a new one after everything the layer draws -- so a
+// shape drawn after an erase is not erased by it. Invalid when the layer has
+// no shapes. Does not bracket an action.
+ls::RegionId shapesEraseOf(Document& doc, ls::LayerId layer);
+
+// Takes `pixels` out of the layer's shapes without baking them: the pixels
+// join the erase, which clears what is drawn before it and nothing after.
+// False when no shape is under any of them. Does not bracket an action.
+bool eraseFromShapes(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels);
 
 // Lays pixels down, in the layer's own space.
 bool strokeInk(Document& doc, const InkStroke& stroke, const std::vector<ls::Vec2i>& pixels);

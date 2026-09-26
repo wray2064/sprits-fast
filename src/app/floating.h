@@ -81,9 +81,18 @@ struct Floating {
         ShapeLayer  shape;
         ShapeParams original;
     };
+    // What was erased from the shapes that go along goes with them, as an
+    // erase of its own that moves with the pieces -- so a rectangle with a
+    // corner rubbed out lands with the corner still rubbed out.
+    struct Erase {
+        ls::OperationId clear;
+        ls::RegionId    region;
+        ls::IntervalSet original;
+    };
     ls::LayerId        layer;
     std::vector<Piece> pieces;
     std::vector<Shape> shapes;
+    Erase              erase;
     ls::IntervalSet    originalMask;
     ls::Vec2i          offset { 0, 0 };
 

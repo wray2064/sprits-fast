@@ -1208,6 +1208,9 @@ namespace {
 // What an element looks like, for its row: the slot's colour when it paints
 // through one, its own otherwise, and the middle of the ramp for a dither.
 ImU32 elementChip(Editor& editor, ls::LayerId layer, const Element& element) {
+    if (element.kind == ElementKind::Erase) {
+        return ImGui::GetColorU32(theme::palette().textDim);
+    }
     PaintLayer as;
     as.layer = layer;
     as.fill = element.fill;
@@ -1218,6 +1221,11 @@ ImU32 elementChip(Editor& editor, ls::LayerId layer, const Element& element) {
 
 std::string elementLabel(Editor& editor, const Element& element) {
     std::string label = elementKindName(element.kind);
+    if (element.kind == ElementKind::Erase) {
+        auto pixels = editor.doc.engine().getRegionIntervals(element.region);
+        return label + "  " +
+               std::to_string(pixels.ok() ? ls::geom::pixelCount(pixels.value) : 0) + " px";
+    }
     if (element.kind != ElementKind::Paint) {
         return element.outlined ? label + "  outline" : label;
     }
@@ -1594,6 +1602,14 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
                                   "when it has one.");
             }
         }
+    } else if (selected != nullptr && selected->kind == ElementKind::Erase) {
+        theme::sectionHeader("ERASED");
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+        ImGui::TextWrapped("What the eraser, Delete or Cut took from the shapes under "
+                           "it. They are still shapes: this is a mask over them, kept "
+                           "as pixels of its own, and it clears only what was drawn "
+                           "before it. Remove it (x) and they come back whole.");
+        ImGui::PopStyleColor();
     } else if (selected != nullptr && selected->kind == ElementKind::Paint) {
         PaintLayer target;
         target.layer = layer->layer;

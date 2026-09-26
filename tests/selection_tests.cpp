@@ -195,6 +195,44 @@ void testLiftFloatsWithoutEating() {
     CHECK(!doc.canUndo());
 }
 
+// A rectangle with a corner erased, lifted and moved: it lands with the
+// corner still erased, and the place it left is empty; Delete over a shape
+// erases it without it stopping being a shape.
+void testErasedShapesMoveWithTheirHoles() {
+    Document doc;
+    REQUIRE(doc.create("holes", kSize, kSize));
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "box", kRed, &layer));
+    ShapeParams params;
+    params.from = { 1, 1 };
+    params.to = { 4, 4 };
+    ShapeLayer rect;
+    REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, params, kBlue,
+                       ls::kColorRoleNone, &rect));
+    doc.beginAction("Delete");
+    REQUIRE(clearPixels(doc, layer.layer, rectangleMask({ 1, 1 }, { 1, 1 })));
+    doc.endAction();
+    CHECK(at(doc, 1, 1).a == 0 && same(at(doc, 2, 1), kBlue));
+
+    doc.beginAction("Move");
+    Floating floating;
+    REQUIRE(liftPixels(doc, layer.layer, rectangleMask({ 0, 0 }, { 5, 5 }), &floating));
+    REQUIRE(floating.shapes.size() == 1);
+    REQUIRE(moveFloating(doc, floating, { 6, 0 }));
+    REQUIRE(dropFloating(doc, floating));
+    doc.endAction();
+    CHECK(at(doc, 7, 1).a == 0);                   // the hole came along
+    CHECK(same(at(doc, 8, 1), kBlue));
+    CHECK(at(doc, 2, 1).a == 0);                   // and nothing stayed behind
+    bool stillShape = false;
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        stillShape = stillShape || element.kind == ElementKind::Rectangle;
+    }
+    CHECK(stillShape);
+    REQUIRE(doc.undo());
+    CHECK(at(doc, 1, 1).a == 0 && same(at(doc, 2, 1), kBlue));
+}
+
 void testDropClipsToTheCanvas() {
     Document doc;
     REQUIRE(doc.create("edge", kSize, kSize));
@@ -289,12 +327,25 @@ void testClearLeavesShapes() {
     REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, params, kBlue,
                        ls::kColorRoleNone, &rect));
 
+    // Delete takes the rectangle's pixels too -- through an erase, so it is
+    // still a rectangle, and removing the erase brings it back whole.
     doc.beginAction("Delete");
-    REQUIRE(clearPixels(doc, layer.layer, rectangleMask({ 0, 0 }, { 15, 15 })));
+    REQUIRE(clearPixels(doc, layer.layer, rectangleMask({ 0, 0 }, { 9, 15 })));
     doc.endAction();
     CHECK(at(doc, 1, 1).a == 0);
     CHECK(at(doc, 3, 1).a == 0);
-    CHECK(same(at(doc, 10, 10), kBlue));        // the rectangle is still a rectangle
+    CHECK(at(doc, 9, 9).a == 0);
+    CHECK(same(at(doc, 10, 10), kBlue));
+    Element erase;
+    bool stillShape = false;
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        stillShape = stillShape || element.kind == ElementKind::Rectangle;
+        if (element.kind == ElementKind::Erase) { erase = element; }
+    }
+    CHECK(stillShape);
+    REQUIRE(erase.valid());
+    REQUIRE(removeElement(doc, layer.layer, erase));
+    CHECK(same(at(doc, 9, 9), kBlue));
 }
 
 void testAShapeInsideGoesAlongAsAShape() {
@@ -399,6 +450,7 @@ int main() {
     testOutlineClosesAroundAMask();
     testLiftFloatsWithoutEating();
     testDropClipsToTheCanvas();
+    testErasedShapesMoveWithTheirHoles();
     testTurnInPlace();
     testCopyPasteLeavesTheOriginal();
     testClearLeavesShapes();

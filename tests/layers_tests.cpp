@@ -12,7 +12,9 @@
 #include "app/animation.h"
 #include "app/document.h"
 #include "app/file_io.h"
+#include "app/ink.h"
 #include "app/layers.h"
+#include "app/shape.h"
 #include "app/paint.h"
 
 #include <cstdio>
@@ -505,8 +507,45 @@ void testMergeDownKeepsThePictureAndTheElements() {
     CHECK(!mergeDown(s.doc, s.top.layer, &why).valid());
 }
 
+// An erase on the layer below merges -- what comes down lands after it -- and
+// the picture holds; one on the layer above is refused, since it would rub
+// out the lower layer's drawing too.
+void testMergeDownAndErasedShapes() {
+    Stack s;
+    REQUIRE(s.build());
+    ShapeParams params;
+    params.from = { 2, 2 };
+    params.to = { 6, 6 };
+    ShapeLayer lower;
+    REQUIRE(addShapeTo(s.doc, s.middle.layer, ShapeKind::Rectangle, params,
+                       ls::Color{ 200, 200, 0, 255 }, ls::kColorRoleNone, &lower));
+    s.doc.beginAction("Erase");
+    REQUIRE(eraseFromShapes(s.doc, s.middle.layer, {{ 3, 3 }}));
+    s.doc.endAction();
+    s.doc.beginAction("Hide top");
+    REQUIRE(setLayerOpacity(s.doc, s.top.layer, 0.f));
+    s.doc.endAction();
+    const ls::Color before = s.at(3, 3);
+    std::string why;
+    REQUIRE(mergeDown(s.doc, s.top.layer, &why).valid());
+    const ls::Color after = s.at(3, 3);
+    CHECK(after.r == before.r && after.g == before.g && after.b == before.b);
+    REQUIRE(s.doc.undo());
+
+    ShapeLayer upper;
+    REQUIRE(addShapeTo(s.doc, s.top.layer, ShapeKind::Rectangle, params,
+                       ls::Color{ 0, 200, 200, 255 }, ls::kColorRoleNone, &upper));
+    s.doc.beginAction("Erase");
+    REQUIRE(eraseFromShapes(s.doc, s.top.layer, {{ 4, 4 }}));
+    s.doc.endAction();
+    why.clear();
+    CHECK(!mergeDown(s.doc, s.top.layer, &why).valid());
+    CHECK(why.find("erase") != std::string::npos);
+}
+
 int main() {
     testAReferenceLayerIsNotExported();
+    testMergeDownAndErasedShapes();
     testATagAndNotesAreKept();
     testBlendAndOpacityChangeThePicture();
     testMovingALayerMovesWhatDrawsOverWhat();

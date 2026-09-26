@@ -48,6 +48,13 @@ into a browser, a chat or another editor; an image copied anywhere else pastes
 into Fast as a float, one element per colour, and a colour the palette has
 exactly comes in as that slot, so it recolours with the palette straight away.
 A copied image can also be pasted as a reference, to draw from.
+**The eraser works on shapes too, without flattening them**: what it takes
+from a rectangle, an ellipse or a line goes into an *Erased* element -- the
+engine's `ClearRegionOp`, a mask that clears what is drawn before it and
+nothing after -- so the shape keeps its handles, a shape drawn later is not
+erased, and removing the element brings everything back. Delete and Cut do
+the same, and a lifted shape carries its erased pixels with it. Nothing is
+ever baked to pixels while editing.
 *Select > Modify* grows, shrinks or borders the selection by any number of
 pixels, with square or round corners; *Edit > Fill selection* paints it in the
 current colour and *Stroke selection* paints a band the brush's width just

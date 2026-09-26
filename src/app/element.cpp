@@ -5,6 +5,8 @@
 
 #include "app/palette.h"
 
+#include <algorithm>
+
 namespace fast {
 namespace {
 
@@ -25,7 +27,7 @@ uint64_t handleParam(Document& doc, ls::OperationId op, const char* name) {
 bool isElementOp(const ls::OperationInfo& op) {
     return op.type == "FillSolidOp" || op.type == "FillDitherOp" ||
            op.type == "StrokePolylineOp" || op.type == "StrokeRegionBoundaryOp" ||
-           op.type == "StrokePixelPathOp";
+           op.type == "StrokePixelPathOp" || op.type == "ClearRegionOp";
 }
 
 } // namespace
@@ -39,6 +41,7 @@ const char* elementKindName(ElementKind kind) {
         case ElementKind::Text:      return "Text";
         case ElementKind::Polygon:   return "Polygon";
         case ElementKind::Curve:     return "Curve";
+        case ElementKind::Erase:     return "Erased";
     }
     return "Element";
 }
@@ -72,6 +75,11 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
         if (!element.region.valid()) {
             continue;
         }
+        if (op.type == "ClearRegionOp") {
+            element.kind = ElementKind::Erase;
+            out.push_back(element);
+            continue;
+        }
         element.outlined = op.type == "StrokeRegionBoundaryOp";
         // A region still tied to the geometry it was built from is a shape;
         // one that is not -- authored, or a shape edited by hand -- is pixels.
@@ -91,6 +99,26 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
         out.push_back(element);
     }
     return out;
+}
+
+ls::IntervalSet elementCoverage(Document& doc, const Element& element) {
+    ls::LSContext& engine = doc.engine();
+    if (element.region.valid()) {
+        auto pixels = engine.getRegionIntervals(element.region);
+        return pixels.ok() ? pixels.value : ls::IntervalSet{};
+    }
+    if (element.geometry.valid()) {
+        auto bounds = engine.getGeometryBounds(element.geometry);
+        if (bounds.ok() && !bounds.value.pixelBounds.empty()) {
+            const ls::Rect2i box = bounds.value.pixelBounds;
+            ls::IntervalSet out;
+            for (int32_t y = box.min.y; y < box.max.y; ++y) {
+                out.intervals.push_back({ y, box.min.x, box.max.x });
+            }
+            return out;
+        }
+    }
+    return {};
 }
 
 ShapeLayer shapeOfElement(ls::LayerId layer, const Element& element) {
@@ -114,7 +142,10 @@ namespace {
 void colourOf(Document& doc, ls::LayerId layer, ls::Color* colour, ls::ColorRole* role) {
     *colour = ls::Color{ 200, 200, 200, 255 };
     *role = ls::kColorRoleNone;
-    const std::vector<Element> elements = elementsOf(doc, layer);
+    std::vector<Element> elements = elementsOf(doc, layer);
+    elements.erase(std::remove_if(elements.begin(), elements.end(),
+                                  [](const Element& e) { return e.kind == ElementKind::Erase; }),
+                   elements.end());
     if (elements.empty()) {
         return;
     }
@@ -201,9 +232,10 @@ bool removeElement(Document& doc, ls::LayerId layer, const Element& element) {
 bool setElementsColor(Document& doc, ls::LayerId layer, ls::Color colour) {
     bool ok = true;
     for (const Element& element : elementsOf(doc, layer)) {
-        // A dithered element's colours live on its ramp, not the operation.
+        // A dithered element's colours live on its ramp, not the operation;
+        // an erase has none.
         auto info = doc.engine().getOperationInfo(element.fill);
-        if (info.ok() && info.value.type == "FillDitherOp") {
+        if ((info.ok() && info.value.type == "FillDitherOp") || element.kind == ElementKind::Erase) {
             continue;
         }
         ok = doc.engine().setOperationParameter(element.fill, "fallbackColor",
@@ -215,6 +247,9 @@ bool setElementsColor(Document& doc, ls::LayerId layer, ls::Color colour) {
 bool setElementsRole(Document& doc, ls::LayerId layer, ls::ColorRole role) {
     bool ok = true;
     for (const Element& element : elementsOf(doc, layer)) {
+        if (element.kind == ElementKind::Erase) {
+            continue;
+        }
         ok = doc.engine().setOperationParameter(element.fill, "paletteRole",
                  ls::ParameterValue{static_cast<int64_t>(role)}).ok() && ok;
     }

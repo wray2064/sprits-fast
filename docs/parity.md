@@ -167,9 +167,10 @@ Found by going back over Aseprite 1.3 and Pixelorama once the first three
 tiers were done.
 - [x] Select > Modify: expand, contract, border (square or round)
 - [x] Edit > Fill and Stroke the selection with the current colour
-- [ ] The eraser erases shapes too, as an operation: an erase region on the
+- [x] The eraser erases shapes too, as an operation: an erase region on the
       layer that clears what is under it, with the shapes still live
-      (never baked -- pixels only exist at render)
+      (never baked -- pixels only exist at render) **(better: Aseprite has no
+      shapes to keep)**
 - [ ] Scale the selected pixels with handles, as a live scale transform
 - [ ] Tilemap layers: a tileset drawn once, a grid of tile references with
       flips **(better: a tile is one region every placement draws, so editing
@@ -182,6 +183,7 @@ tiers were done.
 
 Newest first. One line per landed item, with the commit.
 
+- Erasing shapes: engine ClearRegionOp (clears what the layer drew before it, nothing after; 41 op types). Fast lists it as an *Erased* element; the eraser, Delete and Cut add the pixels a shape covers to the layer's topmost erase with no shape above it (a new one after everything drawn otherwise), so shapes stay editable, later shapes are not erased, fresh paint goes above it, and removing it un-erases. A lifted shape carries its erased pixels in an erase of its own; merge down refuses an erase on the upper layer; lock-alpha and the picker see erased pixels as empty. CI drags an eraser across a rectangle through ImGui's input. Also fixed on the way: a new colour on a rotated layer was drawn unrotated (operations are now kept as marks, transforms, outline, shadow), and a stroke on an offset layer landed shifted.
 - Drag painting fixed (2ff2946): the corner preview took any active ImGui item as the pointer being on it, and a press on the canvas activates the window's own move ID, so every drag stopped after its first frame. `--drag` feeds a drag through ImGui's input queue; CI checks a pencil and a spray drag with `--expect-drawn`.
 - Select > Modify (expand, contract, border by N pixels, square or round, over the engine's geom::expand/contract; Reselect undoes) and Edit > Fill selection / Stroke selection (current colour, the stroke a band the brush's width inside the edge, round with a round brush; one undo step; locked and transformed layers refuse). app/selection modifySelection with tests; keymap commands without default keys.
 - Tweens: an Offset transform (engine TranslateOp, whole pixels) beside Rotate/Scale/Mirror, moved by canvas ops; tweenTransforms fills a selected run of frames between two key frames whose track layer has the same transforms -- angle, scale, offset and pivot in between, linear or eased (smoothstep); missing in-between transforms are created, keys that differ refuse with a reason; one undo step. Timeline *Tween* button on a Shift+click run. Visual check: an arrow turned 180 and moved 18 across five frames.

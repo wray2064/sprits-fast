@@ -229,6 +229,101 @@ void testEraseTakesEveryColour() {
     CHECK(!elementsOf(doc, layer.layer).empty());
 }
 
+// The eraser on a shape: the rectangle loses the pixels and stays a
+// rectangle -- widen it and the erased patch is still erased; paint over the
+// patch shows; a shape drawn afterwards is not erased; removing the erase
+// gives the rectangle back whole; and one stroke is one undo step.
+void testEraseThroughAShape() {
+    Document doc;
+    REQUIRE(doc.create("erase-shape", kSize, kSize));
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "box", kBlue, &layer));
+    ShapeParams params;
+    params.from = { 2, 2 };
+    params.to = { 10, 10 };
+    ShapeLayer rect;
+    REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, params, kBlue,
+                       ls::kColorRoleNone, &rect));
+    doc.clearHistory();
+    REQUIRE(same(at(doc, 4, 4), kBlue));
+
+    REQUIRE(erase(doc, layer.layer, {{ 4, 4 }, { 5, 4 }, { 14, 14 }}));
+    CHECK(at(doc, 4, 4).a == 0 && at(doc, 5, 4).a == 0);
+    CHECK(same(at(doc, 6, 4), kBlue));
+    size_t erases = 0;
+    size_t rectangles = 0;
+    ls::RegionId erased;
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        if (element.kind == ElementKind::Erase) { ++erases; erased = element.region; }
+        rectangles += element.kind == ElementKind::Rectangle ? 1u : 0u;
+    }
+    CHECK(erases == 1 && rectangles == 1);
+    // Only pixels a shape covered are kept: (14, 14) had nothing under it.
+    auto kept = doc.engine().getRegionIntervals(erased);
+    CHECK(kept.ok() && ls::geom::pixelCount(kept.value) == 2);
+
+    // Still a rectangle: made wider, it is wider, with the patch still gone.
+    ShapeParams wider = params;
+    wider.to = { 13, 10 };
+    doc.beginAction("Resize");
+    REQUIRE(updateShape(doc, rect, wider));
+    doc.endAction();
+    CHECK(same(at(doc, 12, 4), kBlue) && at(doc, 4, 4).a == 0);
+
+    // Paint over the patch shows, above the erase.
+    REQUIRE(paint(doc, layer.layer, literal(kRed), {{ 4, 4 }}));
+    CHECK(same(at(doc, 4, 4), kRed) && at(doc, 5, 4).a == 0);
+
+    // A shape drawn after the erase is whole, and erasing again reaches it
+    // through an erase of its own, above it.
+    ShapeParams small;
+    small.from = { 5, 3 };
+    small.to = { 7, 5 };
+    ShapeLayer later;
+    REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, small, kGreen,
+                       ls::kColorRoleNone, &later));
+    CHECK(same(at(doc, 5, 4), kGreen));
+    REQUIRE(erase(doc, layer.layer, {{ 6, 4 }}));
+    CHECK(at(doc, 6, 4).a == 0 && same(at(doc, 5, 4), kGreen));
+    erases = 0;
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        erases += element.kind == ElementKind::Erase ? 1u : 0u;
+    }
+    CHECK(erases == 2);
+    REQUIRE(doc.undo());
+    CHECK(same(at(doc, 6, 4), kGreen));
+
+    // The picker finds nothing where the rectangle was rubbed out.
+    Ink picked;
+    CHECK(!inkAt(doc, doc.sprite(), { 3, 3 }, &picked) || !same(picked.colour, kBlue) ||
+          at(doc, 3, 3).a != 0);
+
+    // Removing the erase gives the rectangle back whole.
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        if (element.kind == ElementKind::Erase) {
+            REQUIRE(removeElement(doc, layer.layer, element));
+            break;
+        }
+    }
+    CHECK(same(at(doc, 5, 4), kGreen));
+    CHECK(same(at(doc, 3, 3), kBlue));
+}
+
+// Erasing where no shape is keeps no erase at all: a layer of pixels stays
+// a layer of pixels.
+void testErasingPixelsOnlyMakesNoErase() {
+    Document doc;
+    REQUIRE(doc.create("pixels", kSize, kSize));
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "body", kRed, &layer));
+    REQUIRE(paint(doc, layer.layer, literal(kRed), {{ 1, 1 }, { 2, 1 }}));
+    REQUIRE(erase(doc, layer.layer, {{ 1, 1 }}));
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        CHECK(element.kind != ElementKind::Erase);
+    }
+    CHECK(at(doc, 1, 1).a == 0 && same(at(doc, 2, 1), kRed));
+}
+
 void testOneStrokeOneUndo() {
     Document doc;
     REQUIRE(doc.create("undo", kSize, kSize));
@@ -376,6 +471,8 @@ int main() {
     testPaintLandsOverAShape();
     testEraseTakesEveryColour();
     testOneStrokeOneUndo();
+    testEraseThroughAShape();
+    testErasingPixelsOnlyMakesNoErase();
     testThePickerReadsTheSlot();
     testColoursSurviveAFile();
     testInkModes();

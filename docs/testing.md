@@ -587,6 +587,23 @@ sprits_fast --demo-stroke
    band two pixels wide just inside the edge. On a locked layer both refuse
    and say why.
 
+### 4aj. Erasing shapes
+
+1. Draw a filled rectangle; the eraser across it. *Expect:* the stroke comes
+   out of the rectangle; the Element panel lists *Erased  N px* above a
+   *Rectangle* that still has its corners to drag. Drag a corner outward.
+   *Expect:* it grows; the erased stroke is still erased.
+2. Paint over the erased stroke. *Expect:* the paint shows. Draw an ellipse
+   across it. *Expect:* the ellipse is whole -- an erase clears only what was
+   drawn before it.
+3. Select the *Erased* row and remove it (x). *Expect:* the rectangle is whole
+   again. Undo brings the erase back.
+4. Marquee part of a shape, Delete. *Expect:* that part goes, the shape stays
+   a shape. Marquee around a whole erased rectangle and drag it. *Expect:* it
+   lands with its erased part still erased, and nothing is left behind.
+5. Merge down a layer whose shapes are erased onto another. *Expect:* refused,
+   saying the erase would rub out the layer below too.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
