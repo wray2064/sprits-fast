@@ -131,7 +131,7 @@ endif()
 target_link_libraries(fast_core PUBLIC livesprite::livesprite)
 
 if (MSVC)
-    target_compile_options(fast_core PRIVATE /W4 /WX)
+    target_compile_options(fast_core PRIVATE /W4 /WX /we4062)
 else()
     target_compile_options(fast_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
@@ -179,7 +179,7 @@ if (FAST_BUILD_GUI)
                 ${CMAKE_CURRENT_SOURCE_DIR}/assets/lang $<TARGET_FILE_DIR:sprits_fast>/lang)
 
     if (MSVC)
-        target_compile_options(sprits_fast PRIVATE /W4 /WX)
+        target_compile_options(sprits_fast PRIVATE /W4 /WX /we4062)
         # WIN32 above hides the console for a released build; during development
         # the printf diagnostics on start-up failure are worth more than that.
         set_target_properties(sprits_fast PROPERTIES

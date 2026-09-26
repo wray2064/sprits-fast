@@ -14,6 +14,7 @@
 #include "app/paint.h"
 #include "app/transform.h"
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -251,6 +252,21 @@ void testDrawingThroughATransformLandsWhereClicked() {
     CHECK(readPixel(compiled.value.raster, clicked.x, clicked.y).a != 0);
 }
 
+// An offset too: a click lands where it was made, not where the drawing is.
+void testDrawingThroughAnOffsetLandsWhereClicked() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    REQUIRE(fast::addOffset(canvas.doc, canvas.paint.layer, {6.f, -2.f}).valid());
+    Vec2f mapped;
+    REQUIRE(fast::mapCanvasPointToLayer(canvas.doc, canvas.paint.layer, {20.f, 9.f}, &mapped));
+    CHECK(std::fabs(mapped.x - 14.f) < 0.001f && std::fabs(mapped.y - 11.f) < 0.001f);
+    fast::paintPixels(canvas.doc, canvas.paint,
+                      {{static_cast<int32_t>(mapped.x + 0.5f), static_cast<int32_t>(mapped.y + 0.5f)}});
+    auto compiled = canvas.doc.engine().compileSprite(canvas.sprite, profile());
+    REQUIRE(compiled.ok());
+    CHECK(readPixel(compiled.value.raster, 20, 9).a != 0);
+}
+
 // A scale of zero has no inverse, and saying so beats drawing in the wrong place.
 void testAnUninvertibleTransformIsReported() {
     Canvas canvas;
@@ -337,6 +353,7 @@ int main() {
     testQuarterTurnsPreserveEveryPixel();
     testScaleAndMirrorAreEditableToo();
     testDrawingThroughATransformLandsWhereClicked();
+    testDrawingThroughAnOffsetLandsWhereClicked();
     testAnUninvertibleTransformIsReported();
     testTransformsSurviveAFileRoundTrip();
     testTransformsAreUndoable();

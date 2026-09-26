@@ -217,6 +217,9 @@ ls::Mat3f layerTransform(Document& doc, ls::LayerId layer) {
                     entry.axis == ls::MirrorAxis::Y ? 1.f : -1.f,
                     entry.axis == ls::MirrorAxis::X ? 1.f : -1.f });
                 break;
+            case TransformKind::Offset:
+                step = ls::Mat3f::translation(entry.delta);
+                break;
         }
         composed = ls::Mat3f::aroundPivot(step, entry.pivot).mul(composed);
     }
