@@ -166,6 +166,13 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **A fill on its own layer lost its outline when turned.** The bucket's fill
+  was found again only against what its own layer drew, so over an outline
+  on another layer it fell back to its stored area and ran over the turned
+  line. It now names what closes it in, on any layer, as its walls.
+  `tests/turning_tests.cpp` fills a blob outlined on the layer below and
+  turns both layers through every angle; without the walls every angle
+  broke open.
 - **An imported picture broke up when turned.** Each colour came in as one
   exact area, so a one-pixel outline was an area one pixel wide, which a
   turn cuts into dashes -- and the fill beside it, a separate area, ran over
