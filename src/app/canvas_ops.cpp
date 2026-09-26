@@ -382,7 +382,8 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
                                            std::to_string(text.scale));
                     }
                 }
-                for (const char* name : { "polyline", "path" }) {
+                // A line and what was erased from it move together.
+                for (const char* name : { "polyline", "path", "erase" }) {
                     if (const uint64_t line = handle(doc, op.id, name); line != 0) {
                         ls::GeometryId id;
                         id.value = line;

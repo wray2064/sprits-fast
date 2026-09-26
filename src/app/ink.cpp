@@ -90,34 +90,57 @@ bool sameBrush(const PenBrush& a, const PenBrush& b) {
            a.tip == b.tip;
 }
 
-// A line or a curve drawn as a path has no region to keep an erase: what the
-// eraser takes from those goes into an erase of the layer's own, a clear laid
-// over what is drawn before it -- kept as strokes, so it moves with them.
-ls::RegionId pathShapesEraseOf(Document& doc, ls::LayerId layer) {
-    const std::vector<Element> all = elementsOf(doc, layer);
-    // The topmost erase, unless something was drawn after it: that one would
-    // then be under the erase, and moving the erase above it would cut into
-    // it whatever was erased before.
-    if (!all.empty() && all.back().kind == ElementKind::Erase &&
-        readStrokes(doc, all.back().region, nullptr, nullptr)) {
-        return all.back().region;
+// The erase field of a line or a curve's operation, or null for anything else.
+ls::GeometryId* eraseFieldOf(ls::Operation& op) {
+    if (auto* line = std::get_if<ls::StrokePolylineOp>(&op)) {
+        return &line->erase;
     }
+    if (auto* curve = std::get_if<ls::StrokeCurveOp>(&op)) {
+        return &curve->erase;
+    }
+    if (auto* path = std::get_if<ls::StrokePixelPathOp>(&op)) {
+        return &path->erase;
+    }
+    return nullptr;
+}
+
+// A line or a curve keeps what was erased from it as strokes of its own (see
+// the engine's StrokePolylineOp::erase): it stays a line, the gap turns with
+// it, and nothing else on the layer loses anything to it.
+bool eraseFromPath(Document& doc, const Element& element, const ls::PenStroke& eraser) {
     ls::LSContext& engine = doc.engine();
-    const ls::RegionId region = createFreehandRegion(doc);
-    if (!region.valid()) {
-        return ls::RegionId{};
+    auto op = engine.getOperation(element.fill);
+    ls::GeometryId* erase = op.ok() ? eraseFieldOf(op.value) : nullptr;
+    if (erase == nullptr) {
+        return false;
     }
-    ls::ClearRegionOp clear;
-    clear.targetRegion = region;
-    if (engine.addOperation(layer, clear).fail()) {
-        deleteRegionAndShapes(doc, region);
-        return ls::RegionId{};
+    ls::PenStroke rub = eraser;
+    rub.erase = false;
+    if (erase->valid()) {
+        auto held = engine.getStrokes(*erase);
+        if (held.fail()) {
+            return false;
+        }
+        held.value.strokes.push_back(std::move(rub));
+        return engine.updateStrokes(*erase, held.value).ok();
     }
-    keepEffectsLast(doc, layer);
-    return region;
+    ls::StrokesDesc marks;
+    marks.strokes.push_back(std::move(rub));
+    auto made = engine.createStrokes(doc.id(), marks);
+    if (made.fail()) {
+        return false;
+    }
+    *erase = made.value;
+    return engine.updateOperation(element.fill, op.value).ok();
 }
 
 } // namespace
+
+ls::GeometryId pathEraseOf(Document& doc, ls::OperationId fill) {
+    auto op = doc.engine().getOperation(fill);
+    ls::GeometryId* erase = op.ok() ? eraseFieldOf(op.value) : nullptr;
+    return erase == nullptr ? ls::GeometryId{} : *erase;
+}
 
 bool inkOfElement(Document& doc, ls::OperationId fill, Ink* out) {
     if (out == nullptr || !isSolid(doc, fill)) {
@@ -210,29 +233,18 @@ bool eraseFromLayer(Document& doc, ls::LayerId layer, const ls::PenStroke& erase
         return false;
     }
     bool any = false;
-    bool pathShapeUnder = false;
     for (const Element& element : elementsOf(doc, layer)) {
         if (element.kind == ElementKind::Erase) {
             continue;
         }
         if (!element.region.valid()) {
-            // A line or a curve: its pixels, to see whether the eraser is on it.
-            pathShapeUnder = pathShapeUnder ||
-                !ls::geom::intersectSets(elementCoverage(doc, element), pixels).empty();
+            // A line or a curve: the eraser's mark kept on the line itself.
+            if (!ls::geom::intersectSets(elementCoverage(doc, element), pixels).empty()) {
+                any = eraseFromPath(doc, element, eraser) || any;
+            }
             continue;
         }
         any = eraseFromRegion(doc, element.region, eraser, pixels) || any;
-    }
-    if (pathShapeUnder) {
-        const ls::RegionId erase = pathShapesEraseOf(doc, layer);
-        ls::GeometryId geometry;
-        ls::StrokesDesc desc;
-        if (erase.valid() && readStrokes(doc, erase, &geometry, &desc)) {
-            ls::PenStroke rub = eraser;
-            rub.erase = false;
-            desc.strokes.push_back(std::move(rub));
-            any = doc.engine().updateStrokes(geometry, desc).ok() || any;
-        }
     }
     return any;
 }

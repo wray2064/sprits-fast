@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/element.h"
+#include "app/ink.h"
 
 #include "app/palette.h"
 
@@ -220,6 +221,8 @@ bool removeElement(Document& doc, ls::LayerId layer, const Element& element) {
         return false;
     }
     doc.beginAction(std::string("Remove ") + elementKindName(element.kind));
+    const ls::GeometryId erased = element.region.valid() ? ls::GeometryId{}
+                                                         : pathEraseOf(doc, element.fill);
     if (doc.engine().removeOperation(layer, element.fill).fail()) {
         doc.abandonAction();
         return false;
@@ -231,6 +234,9 @@ bool removeElement(Document& doc, ls::LayerId layer, const Element& element) {
         deleteRegionAndShapes(doc, element.region);
     } else if (element.geometry.valid()) {
         doc.engine().deleteGeometry(element.geometry);
+    }
+    if (erased.valid()) {
+        doc.engine().deleteGeometry(erased);
     }
     doc.endAction();
     return true;

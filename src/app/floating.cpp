@@ -258,14 +258,20 @@ bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, F
         taken.shape = shapeOfElement(layer, element);
         if (readShapeParams(doc, taken.shape, &taken.original)) {
             shapes.push_back(taken);
-            // Its erase is its own, and goes with it.
+            // Its erase is its own, and goes with it -- a shape's, or a line's.
+            ls::GeometryId erased;
             if (element.region.valid()) {
                 auto erase = doc.engine().getRegionErase(element.region);
-                if (erase.ok() && erase.value.valid()) {
-                    auto marks = doc.engine().getStrokes(erase.value);
-                    if (marks.ok()) {
-                        erases.push_back({ erase.value, marks.value });
-                    }
+                if (erase.ok()) {
+                    erased = erase.value;
+                }
+            } else {
+                erased = pathEraseOf(doc, element.fill);
+            }
+            if (erased.valid()) {
+                auto marks = doc.engine().getStrokes(erased);
+                if (marks.ok()) {
+                    erases.push_back({ erased, marks.value });
                 }
             }
         }

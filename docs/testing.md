@@ -166,6 +166,13 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **Erasing a line cleared whatever was under it.** A line or a curve had no
+  region to keep an erase, so the eraser laid a clear over everything the
+  layer had drawn before it, which stayed put when the line moved and
+  stopped the layer merging down. The line keeps the eraser's mark as its
+  own erase now. `tests/ink_tests.cpp` erases a line, lifts it and moves it
+  with its gap, and removes it with its erase; the merge-down test merges an
+  erased line.
 - **A fill on its own layer lost its outline when turned.** The bucket's fill
   was found again only against what its own layer drew, so over an outline
   on another layer it fell back to its stored area and ran over the turned

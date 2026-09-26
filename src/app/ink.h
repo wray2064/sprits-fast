@@ -104,8 +104,14 @@ void closePaths(InkStroke& stroke);
 // of a custom brush -- or, erasing, takes them away.
 bool strokeInk(Document& doc, const InkStroke& stroke, const std::vector<ls::Vec2i>& pixels);
 
+// What was erased from a line or a curve element (see the engine's
+// StrokePolylineOp::erase): strokes of its own, which go where it goes. Null
+// when nothing has been, or for anything else.
+ls::GeometryId pathEraseOf(Document& doc, ls::OperationId fill);
+
 // Takes `pixels` from everything on `layer` that draws them, each keeping what
-// it is made of (see eraseFromRegion); `eraser` is the mark that took them.
+// it is made of (see eraseFromRegion) -- a line or a curve the eraser's mark
+// as its own erase; `eraser` is the mark that took them.
 bool eraseFromLayer(Document& doc, ls::LayerId layer, const ls::PenStroke& eraser,
                     const ls::IntervalSet& pixels);
 

@@ -556,7 +556,7 @@ void testMergeDownAndErasedShapes() {
     CHECK(merged.r == holed.r && merged.g == holed.g && merged.b == holed.b);
     REQUIRE(s.doc.undo());
 
-    // A line erased on the layer above is refused.
+    // So does a line: what was erased from it is its own.
     ShapeParams across;
     across.from = { 1, 8 };
     across.to = { 9, 8 };
@@ -566,9 +566,12 @@ void testMergeDownAndErasedShapes() {
     s.doc.beginAction("Erase");
     REQUIRE(rubOut(s.doc, s.top.layer, { 5, 8 }));
     s.doc.endAction();
+    const ls::Color gap = s.at(5, 8);
+    const ls::Color kept = s.at(3, 8);
     why.clear();
-    CHECK(!mergeDown(s.doc, s.top.layer, &why).valid());
-    CHECK(why.find("erase") != std::string::npos);
+    REQUIRE(mergeDown(s.doc, s.top.layer, &why).valid());
+    CHECK(s.at(5, 8).r == gap.r && s.at(5, 8).g == gap.g && s.at(5, 8).b == gap.b);
+    CHECK(s.at(3, 8).r == kept.r && s.at(3, 8).g == kept.g && s.at(3, 8).b == kept.b);
 }
 
 int main() {

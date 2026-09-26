@@ -12,6 +12,7 @@
 #include "app/document.h"
 #include "app/element.h"
 #include "app/file_io.h"
+#include "app/floating.h"
 #include "app/ink.h"
 #include "app/paint.h"
 #include "app/palette.h"
@@ -361,6 +362,54 @@ void testOneStrokeOneUndo() {
     CHECK(same(at(doc, 3, 3), kBlue));
 }
 
+// Erasing a line takes it from the line alone: no erase of the layer's, the
+// gap is the line's own and moves with it, and it goes when the line does.
+void testErasingALineTakesOnlyTheLine() {
+    Document doc;
+    REQUIRE(doc.create("line", kSize, kSize));
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "body", kRed, &layer));
+    REQUIRE(paint(doc, layer.layer, literal(kBlue), {{ 1, 14 }}));   // something else on it
+    ShapeParams params;
+    params.from = { 2, 5 };
+    params.to = { 12, 5 };
+    ShapeLayer line;
+    REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Line, params, kGreen, ls::kColorRoleNone, &line));
+    CHECK(same(at(doc, 7, 5), kGreen));
+
+    doc.beginAction("Eraser");
+    InkStroke eraser;
+    REQUIRE(beginEraseStroke(doc, layer.layer, &eraser));
+    REQUIRE(strokeAlong(doc, eraser, 0, { { 7, 5 } }, PenBrush{}));
+    doc.endAction();
+    CHECK(at(doc, 7, 5).a == 0);
+    CHECK(same(at(doc, 6, 5), kGreen) && same(at(doc, 8, 5), kGreen));
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        CHECK(element.kind != ElementKind::Erase);
+    }
+    const ls::GeometryId erased = pathEraseOf(doc, line.paint.fill);
+    CHECK(erased.valid());
+
+    // Lifted and moved down, the gap comes along and nothing stays behind.
+    doc.beginAction("Move");
+    Floating floating;
+    REQUIRE(liftPixels(doc, layer.layer, rectangleMask({ 0, 3 }, { 14, 7 }), &floating));
+    REQUIRE(moveFloating(doc, floating, { 0, 4 }));
+    REQUIRE(dropFloating(doc, floating));
+    doc.endAction();
+    CHECK(at(doc, 7, 9).a == 0);
+    CHECK(same(at(doc, 6, 9), kGreen) && same(at(doc, 8, 9), kGreen));
+    CHECK(at(doc, 6, 5).a == 0);
+
+    // Removed, the line takes its erase with it.
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        if (element.kind == ElementKind::Line) {
+            REQUIRE(removeElement(doc, layer.layer, element));
+        }
+    }
+    CHECK(doc.engine().getStrokes(erased).fail());
+}
+
 // A custom brush's colour is a path whose tip is its shape: stamped at every
 // pixel the path walks, and still one mark.
 void testATippedStroke() {
@@ -570,6 +619,7 @@ int main() {
     testEraseTakesEveryColour();
     testOneStrokeOneUndo();
     testATippedStroke();
+    testErasingALineTakesOnlyTheLine();
     testEraseThroughAShape();
     testErasingPixelsOnlyMakesNoErase();
     testThePickerReadsTheSlot();
