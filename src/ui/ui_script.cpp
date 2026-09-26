@@ -15,6 +15,7 @@
 #include <imgui_internal.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
