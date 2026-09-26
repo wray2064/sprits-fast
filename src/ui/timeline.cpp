@@ -294,7 +294,7 @@ void drawStepRow(Editor& editor) {
             break;
         }
 
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+        if (ImGui::BeginDragDropSource()) {
             ImGui::SetDragDropPayload("step", &i, sizeof(int));
             ImGui::Text("Step %d", i + 1);
             ImGui::EndDragDropSource();
@@ -722,7 +722,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         // Dragging a frame onto another reorders them. The cycles that name
         // them are renumbered with it, so a cycle still plays the same
         // pictures in the same order afterwards.
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+        if (ImGui::BeginDragDropSource()) {
             ImGui::SetDragDropPayload("frame", &i, sizeof(int));
             ImGui::Text("Frame %d", i + 1);
             ImGui::EndDragDropSource();

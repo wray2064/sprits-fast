@@ -121,6 +121,15 @@ program -- which is the argument for having them.
   frame were one step, and a trackpad's stream of small scrolls made a step
   on every frame of the gesture. The wheel's movement now adds up, and each
   whole notch is a step.
+- **Renaming a layer by double-click typed shortcuts instead.** The name field
+  took the keyboard only when its window was appearing, which after a
+  double-click on a row it is not, so "Sky" picked three tools. A new name
+  field now takes the keyboard on its first frame, for layers and groups alike.
+- **Dragging a layer or a frame moved the rows it was aimed at.** The drags
+  were told not to show their preview as a tooltip, so the preview -- the
+  name and a line of help -- was laid out inside the list instead, and every
+  row below the dragged one jumped down as the drag began. The preview is a
+  tooltip again, in the layer list, the frame strip and the cycle's steps.
 
 ## The script: at the window
 

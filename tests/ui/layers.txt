@@ -1,0 +1,35 @@
+# The Layers panel by hand: a second layer drawn over the first, hidden and
+# shown by its eye, moved under the first by dragging its row, renamed by a
+# double-click, and duplicated from its row's menu.
+tool pencil
+colour e08f40
+click 5 5
+click-on Add
+expect layers 2
+colour 3060d0
+click 5 5
+expect pixel 5 5 3060d0
+
+# The eyes, bottom row first as the panel draws them top down: Layer 2 is
+# drawn first.
+click-on ##visible @1
+expect pixel 5 5 e08f40
+click-on ##visible @1
+expect pixel 5 5 3060d0
+
+# Dragged below Layer 1, the blue goes under the orange.
+drag-onto Layer 2 => Layer 1
+expect pixel 5 5 e08f40
+key ctrl+z
+expect pixel 5 5 3060d0
+
+# A double-click renames; the row's menu duplicates.
+double-click-on Layer 1
+key ctrl+a
+type Sky
+key enter
+expect item Sky
+right-click-on Sky
+click-on Duplicate
+expect layers 3
+expect item Sky copy

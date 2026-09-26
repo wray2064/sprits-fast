@@ -241,6 +241,9 @@ struct Editor {
     bool  draggingLayer = false;     // the opacity slider in the layer panel
 
     int   renaming = -1;              // index of the layer being renamed, or -1
+    // A name field just opened: it takes the keyboard on its first frame, so
+    // what is typed next is the name rather than a string of shortcuts.
+    bool  renameFocus = false;
     char  renameBuffer[64] = {};
 
     // The layer properties window: which layer, and its name and notes as

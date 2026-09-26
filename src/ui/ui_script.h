@@ -17,7 +17,10 @@
 //     press / release [right]     a button, where the pointer is
 //     click 3 4 [right]
 //     click-on + Frame            a widget by its label, as the last frame drew it:
-//                                 a button, a menu, a menu item, a checkbox
+//                                 a button, a menu, a menu item, a checkbox;
+//                                 LABEL @2 is the second of several so called
+//     right-click-on Layer 1 / double-click-on Layer 1
+//     drag-onto Layer 2 => Layer 1   press on one widget, let go on another
 //     expect item Tween           a widget with that label was drawn
 //     drag 3 3 20 20 [steps] [right]
 //     drag-screen 40 0 [steps] [middle|right]  a drag by screen pixels from where
@@ -76,6 +79,8 @@ private:
                     Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
+        int         index = 0;             // Widget: which of several, from 1; 0 the last drawn
+        int         skip = 0;              // Widget: the steps after it that need it found
         bool        down = false;
         ImGuiKey    key = ImGuiKey_None;
         std::string text;                  // Text, Tool, Shot; Expect's what

@@ -2032,6 +2032,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 ImGui::SameLine();
                 if (editor.renamingGroup == openGroup) {
                     ImGui::SetNextItemWidth(-1.f);
+                    if (editor.renameFocus) {
+                        ImGui::SetKeyboardFocusHere();
+                        editor.renameFocus = false;
+                    }
                     if (ImGui::InputText("##grename", editor.groupNameBuffer,
                                          sizeof(editor.groupNameBuffer),
                                          ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -2055,6 +2059,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                     }
                     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                         editor.renamingGroup = openGroup;
+                        editor.renameFocus = true;
                         std::snprintf(editor.groupNameBuffer, sizeof(editor.groupNameBuffer),
                                       "%s", group.name.c_str());
                     }
@@ -2077,6 +2082,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                             ungroupActiveLayer(editor, canvas);
                         }
                         if (ImGui::MenuItem(tr("Rename"))) {
+                            editor.renameFocus = true;
                             editor.renamingGroup = openGroup;
                             std::snprintf(editor.groupNameBuffer, sizeof(editor.groupNameBuffer),
                                           "%s", group.name.c_str());
@@ -2131,8 +2137,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         const bool drawable = listIndex >= 0;
         if (editor.renaming == listIndex && drawable) {
             ImGui::SetNextItemWidth(-1.f);
-            if (ImGui::IsWindowAppearing() || ImGui::IsItemDeactivated()) {
+            if (editor.renameFocus) {
                 ImGui::SetKeyboardFocusHere();
+                editor.renameFocus = false;
             }
             if (ImGui::InputText("##rename", editor.renameBuffer,
                                  sizeof(editor.renameBuffer),
@@ -2194,10 +2201,11 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
             if (drawable && ImGui::IsItemHovered() &&
                 ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 editor.renaming = listIndex;
+                editor.renameFocus = true;
                 std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
                               "%s", props.name.c_str());
             }
-            if (drawable && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoPreviewTooltip)) {
+            if (drawable && ImGui::BeginDragDropSource()) {
                 const uint64_t handle = id.value;
                 ImGui::SetDragDropPayload("layer", &handle, sizeof(handle));
                 ImGui::TextUnformatted(props.name.c_str());
@@ -2349,6 +2357,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 }
                 if (ImGui::MenuItem(tr("Rename"))) {
                     editor.renaming = listIndex;
+                    editor.renameFocus = true;
                     std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
                                   "%s", props.name.c_str());
                 }

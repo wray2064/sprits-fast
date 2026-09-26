@@ -30,15 +30,18 @@ struct DrawnItem {
     ImGuiID     id = 0;
     ImRect      box;
     std::string label;
+    bool        shown = true;    // its middle inside its window's clip: not scrolled away
 };
 std::vector<DrawnItem> gDrawing;     // this frame's, as they are added
 std::vector<DrawnItem> gDrawn;       // the last whole frame's
 
 } // namespace
 
-void ImGuiTestEngineHook_ItemAdd(ImGuiContext*, ImGuiID id, const ImRect& bb,
+void ImGuiTestEngineHook_ItemAdd(ImGuiContext* ctx, ImGuiID id, const ImRect& bb,
                                  const ImGuiLastItemData*) {
-    gDrawing.push_back({ id, bb, std::string() });
+    const bool shown = ctx == nullptr || ctx->CurrentWindow == nullptr ||
+                       ctx->CurrentWindow->ClipRect.Contains(bb.GetCenter());
+    gDrawing.push_back({ id, bb, std::string(), shown });
 }
 
 void ImGuiTestEngineHook_ItemInfo(ImGuiContext*, ImGuiID id, const char* label,
@@ -65,16 +68,39 @@ std::string shownLabel(const std::string& label) {
     return hashes == std::string::npos ? label : label.substr(0, hashes);
 }
 
-// Where the last frame drew a widget with this label, the topmost last.
-bool findDrawn(const std::string& label, ImVec2* centre) {
-    for (size_t i = gDrawn.size(); i-- > 0;) {
-        const DrawnItem& item = gDrawn[i];
-        if (!item.label.empty() && (shownLabel(item.label) == label || item.label == label)) {
-            *centre = item.box.GetCenter();
-            return true;
+// Where the last frame drew a widget with this label: the `index`th of them
+// in drawing order, or with 0 the last drawn, which is the topmost.
+bool findDrawn(const std::string& label, int index, ImVec2* centre) {
+    int seen = 0;
+    const DrawnItem* found = nullptr;
+    for (const DrawnItem& item : gDrawn) {
+        if (item.shown && !item.label.empty() &&
+            (shownLabel(item.label) == label || item.label == label)) {
+            found = &item;
+            if (++seen == index) {
+                break;
+            }
         }
     }
-    return false;
+    if (found == nullptr || (index > 0 && seen != index)) {
+        return false;
+    }
+    *centre = found->box.GetCenter();
+    return true;
+}
+
+// "Layer 1 @2": the label, and which of several.
+void splitIndex(std::string* label, int* index) {
+    *index = 0;
+    while (!label->empty() && label->back() == ' ') { label->pop_back(); }
+    const size_t at = label->rfind(" @");
+    if (at != std::string::npos && at + 2 < label->size()) {
+        const std::string n = label->substr(at + 2);
+        if (n.find_first_not_of("0123456789") == std::string::npos) {
+            *index = std::atoi(n.c_str());
+            label->erase(at);
+        }
+    }
 }
 
 std::vector<std::string> words(const std::string& line) {
@@ -296,12 +322,38 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         for (size_t i = keys.size(); i-- > 0;) {
             Step s; s.kind = Step::Key; s.key = keys[i]; s.down = false; add(s);
         }
-    } else if (verb == "click-on" && w.size() >= 2) {
-        Step at; at.kind = Step::Widget; at.text = line.substr(line.find("click-on") + 9);
-        while (!at.text.empty() && at.text.back() == ' ') { at.text.pop_back(); }
+    } else if ((verb == "click-on" || verb == "right-click-on" || verb == "double-click-on") &&
+               w.size() >= 2) {
+        Step at; at.kind = Step::Widget; at.text = line.substr(line.find(verb) + verb.size() + 1);
+        splitIndex(&at.text, &at.index);
+        const int clicks = verb == "double-click-on" ? 2 : 1;
+        at.skip = clicks * 2;
         add(at);
+        for (int c = 0; c < clicks; ++c) {
+            Step down; down.kind = Step::Button; down.down = true;
+            down.button = verb == "right-click-on" ? ImGuiMouseButton_Right : ImGuiMouseButton_Left;
+            add(down);
+            Step up = down; up.down = false; add(up);
+        }
+    } else if (verb == "drag-onto" && line.find("=>") != std::string::npos) {
+        const std::string rest = line.substr(line.find(verb) + verb.size() + 1);
+        const size_t arrow = rest.find("=>");
+        Step from; from.kind = Step::Widget; from.text = rest.substr(0, arrow);
+        splitIndex(&from.text, &from.index);
+        Step onto; onto.kind = Step::Widget; onto.text = rest.substr(arrow + 2);
+        while (!onto.text.empty() && onto.text.front() == ' ') { onto.text.erase(0, 1); }
+        splitIndex(&onto.text, &onto.index);
+        from.skip = 6;
+        add(from);
         Step down; down.kind = Step::Button; down.button = ImGuiMouseButton_Left; down.down = true;
         add(down);
+        // Far enough to count as a drag before heading for the target.
+        Step nudge; nudge.kind = Step::ScreenMove; nudge.x = 0.f; nudge.y = 4.f;
+        add(nudge);
+        add(nudge);
+        onto.skip = 2;
+        add(onto);
+        Step settle; settle.kind = Step::Wait; add(settle);
         Step up = down; up.down = false; add(up);
     } else if (verb == "type" && w.size() >= 2) {
         Step s; s.kind = Step::Text; s.text = line.substr(line.find("type") + 5); add(s);
@@ -401,7 +453,7 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 return;
             case Step::Widget: {
                 ImVec2 centre;
-                if (!findDrawn(step.text, &centre)) {
+                if (!findDrawn(step.text, step.index, &centre)) {
                     // A window opened by the last click may take a frame or
                     // two to be drawn: wait for it, as a person would.
                     if (++waitedFor_ < 30) {
@@ -413,8 +465,8 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                                 step.text.c_str());
                     ++failures_;
                     ++checks_;
-                    // Its press and release have nothing to land on.
-                    next_ += 2;
+                    // What would have acted on it has nothing to act on.
+                    next_ += static_cast<size_t>(step.skip);
                     return;
                 }
                 waitedFor_ = 0;
@@ -545,7 +597,10 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         }
     } else if (step.text == "item") {
         ImVec2 centre;
-        if (!findDrawn(a[0], &centre)) {
+        std::string label = a[0];
+        int index = 0;
+        splitIndex(&label, &index);
+        if (!findDrawn(label, index, &centre)) {
             failed("nothing called \"" + a[0] + "\" on screen");
         }
     } else if (step.text == "pointer" && a.size() == 2) {
