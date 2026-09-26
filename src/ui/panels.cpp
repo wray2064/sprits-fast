@@ -1228,12 +1228,13 @@ std::string elementLabel(Editor& editor, const Element& element) {
         return label + "  " +
                std::to_string(pixels.ok() ? ls::geom::pixelCount(pixels.value) : 0) + " px";
     }
-    if (element.kind != ElementKind::Paint) {
+    if (element.kind != ElementKind::Paint && element.kind != ElementKind::Fill) {
         return element.outlined ? label + "  outline" : label;
     }
     Ink ink;
     if (!inkOfElement(editor.doc, element.fill, &ink)) {
-        return "Dither";
+        // A fill coloured by a dither is what the gradient tool makes.
+        return element.kind == ElementKind::Fill ? "Gradient" : "Dither";
     }
     if (ink.usesSlot()) {
         return label + "  slot " + std::to_string(ink.role);
