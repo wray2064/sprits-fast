@@ -2339,8 +2339,9 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     ImGui::SameLine();
     bool locked = props.locked;
     if (ImGui::Checkbox("Locked", &locked)) {
+        editor.doc.beginAction(locked ? "Lock layer" : "Unlock layer");
         setLayerLocked(editor.doc, id, locked);
-        editor.doc.markModified();
+        editor.doc.endAction();
     }
     bool reference = props.reference;
     if (ImGui::Checkbox("Reference -- never exported", &reference)) {
@@ -2359,8 +2360,9 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     {
         const bool none = !props.tagged;
         if (ImGui::RadioButton("none", none) && !none) {
+            editor.doc.beginAction("Untag layer");
             setLayerTag(editor.doc, id, nullptr);
-            editor.doc.markModified();
+            editor.doc.endAction();
         }
         for (const TagChoice& choice : kTagChoices) {
             ImGui::SameLine();
@@ -2375,8 +2377,9 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
             }
             if (ImGui::ColorButton(choice.name, colour, ImGuiColorEditFlags_NoTooltip,
                                    ImVec2(18.f, 18.f))) {
+                editor.doc.beginAction("Tag layer");
                 setLayerTag(editor.doc, id, &choice.colour);
-                editor.doc.markModified();
+                editor.doc.endAction();
             }
             if (chosen) {
                 ImGui::PopStyleColor();
@@ -2394,8 +2397,9 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
             const ls::Color tag{ static_cast<uint8_t>(custom[0] * 255.f + 0.5f),
                                  static_cast<uint8_t>(custom[1] * 255.f + 0.5f),
                                  static_cast<uint8_t>(custom[2] * 255.f + 0.5f), 255 };
+            editor.doc.beginAction("Tag layer");
             setLayerTag(editor.doc, id, &tag);
-            editor.doc.markModified();
+            editor.doc.endAction();
         }
     }
 
@@ -2403,8 +2407,9 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     ImGui::InputTextMultiline("##notes", editor.propertiesNotes, sizeof(editor.propertiesNotes),
                               ImVec2(-1.f, 90.f));
     if (ImGui::IsItemDeactivatedAfterEdit() && props.notes != editor.propertiesNotes) {
+        editor.doc.beginAction("Layer notes");
         setLayerNotes(editor.doc, id, editor.propertiesNotes);
-        editor.doc.markModified();
+        editor.doc.endAction();
     }
     ImGui::TextDisabled("Kept with the layer, shown when its tag is hovered.");
     ImGui::End();

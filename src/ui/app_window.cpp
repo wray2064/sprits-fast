@@ -14,6 +14,7 @@
 #include "app/import_aseprite.h"
 #include "app/palette_tools.h"
 #include "app/pixel_font.h"
+#include "app/tracks.h"
 #include "app/import_image.h"
 #include "app/animation.h"
 #include "app/export_png.h"
@@ -68,6 +69,7 @@ void adoptImported(Editor& editor, CanvasView& canvas, const ImportReport& repor
     canvas.referenceTextures().clear();
     canvas.frames().clear();
     resyncLayers(editor);
+    keyTracks(editor);
     canvas.requestFit();
     editor.timeline.visible = editor.frames.size() > 1;
     resyncReferences(editor, canvas);
@@ -168,6 +170,7 @@ bool openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
     canvas.invalidate();
     editor.files.recent.add(path);
     editor.files.recent.save();
+    keyTracks(editor);
     editor.say("Opened " + fileName(path) + ", " +
                std::to_string(editor.layers.size()) + " layer(s)");
     return true;
@@ -557,6 +560,30 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "frame draws.");
         }
         ImGui::Separator();
+        {
+            bool together = tracksOn(editor.doc);
+            if (ImGui::MenuItem("Same layers in every frame", nullptr, &together)) {
+                editor.doc.beginAction(together ? "Layers in every frame"
+                                                : "Layers frame by frame");
+                if (together) {
+                    adoptTracks(editor.doc, editor.activeSprite());
+                } else {
+                    setTracksOn(editor.doc, false);
+                }
+                editor.doc.endAction();
+                resyncLayers(editor);
+                canvas.invalidate();
+                editor.say(together ? "A layer added, moved, renamed or hidden in one frame now is "
+                                      "in all of them; each keeps its own pixels"
+                                    : "Each frame's layers are its own again");
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("On: layers run through the whole animation, as in "
+                                  "Aseprite -- each frame holds its own pixels of each. "
+                                  "Turning it on for an older file matches layers by name "
+                                  "and loses nothing.");
+            }
+        }
         if (ImGui::MenuItem("Sprite size...")) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
             if (size.ok()) {
@@ -3853,6 +3880,38 @@ int runSelfTest() {
         check(!fresh.doc.canUndo() && !fresh.doc.modified(), "a new document has nothing to undo");
     }
 
+    // Tracks through the editor: a layer added in one frame is in the other,
+    // and merging down merges in both, one undo step each.
+    {
+        Editor tracked;
+        CanvasView view(nullptr);
+        check(newDocument(tracked, 8), "a document for tracks");
+        check(tracksOn(tracked.doc), "a new document keeps its frames' layers in step");
+        check(addEmptyFrame(tracked, 0) == 1, "a second frame");
+        resyncFrames(tracked);
+        const ls::SpriteId one = tracked.frames[0].sprite;
+        const ls::SpriteId two = tracked.frames[1].sprite;
+        check(layerOrder(tracked.doc, one).size() == layerOrder(tracked.doc, two).size(),
+              "a new frame has every layer");
+        PaintLayer cape;
+        tracked.doc.beginAction("Add layer");
+        check(createPaintLayer(tracked.doc, one, "cape", ls::Color{ 90, 200, 90, 255 }, &cape),
+              "a layer in the first frame");
+        tracked.doc.endAction();
+        const size_t count = layerOrder(tracked.doc, one).size();
+        check(layerOrder(tracked.doc, two).size() == count, "is in the second too");
+        check(!trackKey(tracked.doc, cape.layer).empty() &&
+              layerOfTrack(tracked.doc, two, trackKey(tracked.doc, cape.layer)).valid(),
+              "as the same track");
+        resyncLayers(tracked);
+        selectLayer(tracked, cape.layer);
+        mergeActiveLayerDown(tracked, view);
+        check(layerOrder(tracked.doc, one).size() == count - 1 &&
+              layerOrder(tracked.doc, two).size() == count - 1, "merging down merges in both");
+        check(tracked.doc.undo() && layerOrder(tracked.doc, two).size() == count,
+              "and one undo takes both back");
+    }
+
     // Tabs: a second document opens beside the first rather than over it; each
     // keeps its own pixels, layers, history and selection across a switch;
     // closing one shows its neighbour; a blank untouched document is replaced
@@ -4042,6 +4101,7 @@ int main(int argc, char** argv) {
     }
     canvas.requestFit();
     initTabs(editor);
+    attachTracks(editor);
     if (!options.openPath.empty()) {
         openPath(editor, canvas, options.openPath);
     }

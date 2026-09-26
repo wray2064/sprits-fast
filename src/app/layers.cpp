@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/layers.h"
+#include "app/tracks.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -258,6 +259,9 @@ ls::LayerId duplicateLayer(Document& doc, ls::LayerId layer) {
         setLayerLocked(doc, made.value, true);
     }
     doc.endAction();
+    // A new track, each frame's cel of it a copy of that frame's cel of
+    // the original (see tracks.h).
+    markTrackCopy(doc, made.value, layer);
     return made.value;
 }
 
@@ -278,6 +282,9 @@ ls::LayerId pasteLayer(Document& doc, ls::LayerId source, ls::SpriteId into, int
         }
     }
     doc.endAction();
+    // A new track: in the frame it was pasted into, what was copied; in
+    // the others, empty.
+    markNewTrack(doc, made.value);
     return made.value;
 }
 

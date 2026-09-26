@@ -72,7 +72,13 @@ round the whole figure.
 One layer holds several elements: one per colour its pixels are painted in,
 plus any shapes drawn onto it.
 
-**Animation** — a frame strip with duplicate, delete and drag-to-reorder, a hold
+**Animation** — layers that run through the whole animation, as in Aseprite's
+timeline: one added, deleted, moved, renamed, hidden, grouped or tagged in any
+frame is so in every frame, each frame keeping its own pixels of it; a
+duplicated layer copies each frame's own cel, and merging down merges in every
+frame. (Older files, whose frames each had their own layers, keep them until
+*Sprite > Same layers in every frame* joins them by name, losing nothing.) A
+frame strip with duplicate, delete and drag-to-reorder, a hold
 per frame, named cycles with their own loop mode, playback at any speed, and an
 onion skin with its range, tints, and neighbours taken from the cycle. Shift+click
 selects a run of frames to duplicate, delete, reverse or give one hold, and Play

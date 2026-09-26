@@ -104,6 +104,7 @@ add_library(fast_core STATIC
     src/app/clip_image.cpp
     src/app/grid_snap.cpp
     src/app/webp.cpp
+    src/app/tracks.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -244,6 +245,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_webp_tests tests/webp_tests.cpp)
     target_link_libraries(fast_webp_tests PRIVATE fast_core)
     add_test(NAME fast_webp COMMAND fast_webp_tests)
+
+    add_executable(fast_tracks_tests tests/tracks_tests.cpp)
+    target_link_libraries(fast_tracks_tests PRIVATE fast_core)
+    add_test(NAME fast_tracks COMMAND fast_tracks_tests)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

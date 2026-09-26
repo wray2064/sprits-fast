@@ -8,6 +8,7 @@
 #include "app/file_io.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
+#include "app/tracks.h"
 
 #include <algorithm>
 
@@ -415,7 +416,31 @@ void mergeActiveLayerDown(Editor& editor, CanvasView& canvas) {
         return;
     }
     std::string why;
-    const ls::LayerId into = mergeDown(editor.doc, layer->layer, &why);
+    ls::LayerId into;
+    const std::string key = trackKey(editor.doc, layer->layer);
+    if (tracksOn(editor.doc) && !key.empty() && editor.frames.size() > 1) {
+        // The same two tracks merge in every frame, or in none.
+        editor.doc.beginAction("Merge down");
+        const ls::SpriteId here = editor.activeSprite();
+        for (const Frame& frame : editor.frames) {
+            const ls::LayerId upper = layerOfTrack(editor.doc, frame.sprite, key);
+            if (!upper.valid()) {
+                continue;
+            }
+            const ls::LayerId merged = mergeDown(editor.doc, upper, &why);
+            if (!merged.valid()) {
+                editor.doc.abandonAction();
+                editor.say("Cannot merge down in every frame: " + why);
+                return;
+            }
+            if (frame.sprite == here) {
+                into = merged;
+            }
+        }
+        editor.doc.endAction();
+    } else {
+        into = mergeDown(editor.doc, layer->layer, &why);
+    }
     if (!into.valid()) {
         editor.say("Cannot merge down: " + why);
         return;
@@ -611,9 +636,9 @@ void toggleActiveLayerLock(Editor& editor) {
         return;
     }
     const bool locked = !layerLocked(editor.doc, layer->layer);
+    editor.doc.beginAction(locked ? "Lock layer" : "Unlock layer");
     setLayerLocked(editor.doc, layer->layer, locked);
-    // Not an undo step, but kept in the file, so the file has changed.
-    editor.doc.markModified();
+    editor.doc.endAction();
     editor.say(locked ? "Locked -- tools leave this layer alone" : "Unlocked");
 }
 
@@ -676,6 +701,20 @@ void refreshLibrary(Editor& editor) {
     editor.libraryStale = false;
 }
 
+void attachTracks(Editor& editor) {
+    Editor* owner = &editor;
+    editor.doc.setBeforeCommit([owner](Document& doc) {
+        syncTracks(doc, owner->activeSprite());
+    });
+}
+
+void keyTracks(Editor& editor) {
+    if (tracksOn(editor.doc)) {
+        syncTracks(editor.doc, editor.activeSprite());
+        resyncLayers(editor);
+    }
+}
+
 void forgetInteraction(Editor& editor) {
     editor.renaming = -1;
     editor.renamingGroup = ls::GroupId{};
@@ -718,6 +757,7 @@ bool newDocument(Editor& editor, const FileState::NewDocument& spec) {
     if (!editor.doc.create("untitled", spec.width, spec.height)) {
         return false;
     }
+    attachTracks(editor);
     editor.layers.clear();
     editor.activeLayer = 0;
     forgetInteraction(editor);

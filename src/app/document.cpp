@@ -103,6 +103,9 @@ bool Document::create(const std::string& name, uint32_t width, uint32_t height) 
     // leaves the editor holding what it had.
     releasePrevious(created.value);
     id_ = created.value;
+    // A new document keeps its frames' layers in step (see tracks.h); files
+    // from before that open as they were made.
+    engine_->setMetadata(id_.value, "fast.tracks", "1");
     name_ = name;
     path_.clear();
     modified_ = false;
@@ -302,7 +305,15 @@ void Document::beginAction(const std::string& label) {
 }
 
 void Document::endAction() {
-    if (actionDepth_ == 0 || --actionDepth_ > 0) {
+    if (actionDepth_ == 0) {
+        return;
+    }
+    if (actionDepth_ == 1 && beforeCommit_ && !inBeforeCommit_ && pending_.valid()) {
+        inBeforeCommit_ = true;
+        beforeCommit_(*this);
+        inBeforeCommit_ = false;
+    }
+    if (--actionDepth_ > 0) {
         return;
     }
     if (!pending_.valid()) {

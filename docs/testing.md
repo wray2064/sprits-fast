@@ -472,6 +472,22 @@ sprits_fast --demo-stroke
 7. Kill the program with changes in two tabs. *Expect:* next start offers two
    recovered copies.
 
+### 4aa. Layers in every frame
+
+1. A new document, three frames. Add a layer in frame 2. *Expect:* frames 1
+   and 3 have it too, empty, in the same place.
+2. Rename it in frame 3, hide it, tag it, drag it to the bottom. *Expect:*
+   the same in frames 1 and 2. One `Ctrl+Z` takes each change back
+   everywhere.
+3. Draw on it in frame 1 only. *Expect:* frames 2 and 3 unchanged.
+4. Duplicate it in frame 1. *Expect:* every frame gets a copy of its own
+   cel of it.
+5. Merge it down. *Expect:* merged in every frame; refused, with the reason,
+   if any frame cannot merge -- and then nothing merged anywhere.
+6. Open a file saved before this (frames with their own layers). *Expect:*
+   unchanged; *Sprite > Same layers in every frame* joins layers of the same
+   name and adds the missing ones empty, losing nothing.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

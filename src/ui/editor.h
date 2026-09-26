@@ -568,6 +568,12 @@ bool newDocument(Editor& editor, const FileState::NewDocument& spec);
 // now sits at that index.
 void forgetInteraction(Editor& editor);
 
+// Keeps the frames' layers in step (see tracks.h): the hook that does it after
+// every action, set once on the editor's document; and the keying a document
+// gets when it is opened or made, so its first change is already in step.
+void attachTracks(Editor& editor);
+void keyTracks(Editor& editor);
+
 // A blank frame after `index`, with one layer in the current colour so it can
 // be drawn on at once. A sprite with no layers is a frame the pencil does
 // nothing to, silently -- the document makes its first frame with a layer for

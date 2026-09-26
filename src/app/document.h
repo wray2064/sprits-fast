@@ -14,6 +14,7 @@
 #include <livesprite/livesprite.h>
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -152,6 +153,13 @@ public:
     void endAction();
     void abandonAction();
 
+    // Called when the outermost action is about to close -- still open, so
+    // whatever the hook changes is part of the same undo step. Not called for
+    // an abandoned action, and not re-entered by actions the hook makes. It
+    // stays with this object when documents are swapped: it belongs to the
+    // editor showing whichever document is here.
+    void setBeforeCommit(std::function<void(Document&)> hook) { beforeCommit_ = std::move(hook); }
+
     bool undo();
     bool redo();
     bool canUndo() const { return !undoStack_.empty(); }
@@ -231,6 +239,9 @@ private:
     std::vector<ls::PackageEntry> foreignEntries_;
     std::vector<ls::PackageEntry> companions_;
     std::string                   uiState_;
+
+    std::function<void(Document&)> beforeCommit_;
+    bool                           inBeforeCommit_ = false;
 };
 
 } // namespace fast

@@ -96,7 +96,7 @@ only output. A feature that bakes pixels to get done faster is not done.
       **(better: a shared region, so editing one edits all)**
 - [x] Frame and cycle selection by range (Shift+click in the strip)
 - [x] Playback speed and a loop-section preview
-- [ ] Layers the same across frames (a layer added to one frame appears in
+- [x] Layers the same across frames (a layer added to one frame appears in
       all of them, as in Aseprite's timeline grid)
 
 ### Files
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Tracks (app/tracks): every layer and group carries a track key; a Document hook run as each action closes brings every frame's stack into line with the frame being edited (add, delete, order, groups, name, blend, opacity, visibility, lock, reference, tag, notes, clip) inside the same undo step, each frame keeping its own pixels; duplicate copies each frame's own cel, paste makes an empty track, merge down merges in every frame or none; a layer with no key is never deleted (matched by name or made a track). New documents and imports keep tracks; older files keep separate stacks until Sprite > Same layers in every frame adopts them by name. Lock, tag and notes changes are now undoable actions.
 - Reference layers (row menu or Layer properties): engine LayerType::Source now means compiled for previews, skipped by Export compiles and by the whole-sprite silhouette (engine setLayerType); so PNG, sheet, animation, batch and the thumbnail all leave it out. Undoable, saved with the file. Also: Fast and the engine link with /INCREMENTAL:NO after stale incremental links crashed a third of the test suites before main.
 - Tabs: New/Open/Import open beside the work (a blank untouched document is replaced; an already open file is shown); each tab parks its own document, layers, frames, selection, references, preview, autosave copy and view (DocumentTab, Document::swap); Ctrl+Tab/Ctrl+Shift+Tab switch, Ctrl+W closes (asks when unsaved), Quit asks for each modified tab in turn; every tab's recovery copy is cleared on a clean exit. Canvas caches cleared on switch; clip dithers paste as colours across tabs.
 - Polygon (Shift+D) and Curve (Shift+L) tools placing shapes point by point (pen-style handles for curves); both stay geometry (engine getPolygon/getCurve added), survive saves, canvas ops, selection moves and turns. On-canvas handles for every shape kind while it is the active element (Move or a shape tool): drag corners, ends, polygon corners, curve anchors (carrying their controls) and control points, one undo step each, snapped when snapping. Open curves pixel-perfect (engine: ordered walk without L-corners); closed curves filled.
