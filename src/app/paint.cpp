@@ -6,6 +6,7 @@
 #include "app/element.h"
 
 #include <algorithm>
+#include <map>
 #include <cmath>
 #include <cstdlib>
 
@@ -179,6 +180,82 @@ void deleteRegionAndShapes(Document& doc, ls::RegionId region) {
     if (erase.ok() && erase.value.valid()) {
         engine.deleteGeometry(erase.value);
     }
+}
+
+int upgradePixelRegions(Document& doc) {
+    ls::LSContext& engine = doc.engine();
+    auto info = engine.getDocumentInfo(doc.id());
+    if (info.fail()) {
+        return 0;
+    }
+    std::map<uint64_t, ls::RegionId> made;
+    for (ls::SpriteId sprite : info.value.sprites) {
+        auto spriteInfo = engine.getSpriteInfo(sprite);
+        if (spriteInfo.fail()) {
+            continue;
+        }
+        for (ls::LayerId layer : spriteInfo.value.layers) {
+            auto operations = engine.getLayerOperations(layer);
+            if (operations.fail()) {
+                continue;
+            }
+            for (const ls::OperationInfo& op : operations.value) {
+                auto handle = engine.getOperationParameter(op.id, "targetRegion");
+                const uint64_t* value = handle.ok() ? std::get_if<uint64_t>(&handle.value) : nullptr;
+                if (value == nullptr || *value == 0) {
+                    continue;
+                }
+                ls::RegionId old;
+                old.value = *value;
+                auto found = made.find(old.value);
+                if (found == made.end()) {
+                    if (regionMadeOf(doc, old) != RegionMade::Pixels) {
+                        continue;
+                    }
+                    auto pixels = engine.getRegionIntervals(old);
+                    if (pixels.fail()) {
+                        continue;
+                    }
+                    ls::RegionId shaped;
+                    if (engine.getMetadata(old.value, "fast.text").ok()) {
+                        auto area = engine.createArea(doc.id(), ls::geom::traceArea(pixels.value));
+                        auto region = area.ok() ? engine.createRegionFromGeometry(area.value)
+                                                : ls::Result<ls::RegionId>::err(ls::LSError::InvalidId);
+                        if (region.ok()) {
+                            shaped = region.value;
+                        }
+                    } else {
+                        shaped = createFreehandRegion(doc, pixels.value);
+                    }
+                    if (!shaped.valid()) {
+                        continue;
+                    }
+                    auto role = engine.getRegionPaletteRole(old);
+                    if (role.ok() && role.value != ls::kColorRoleNone) {
+                        engine.bindRegionToPaletteRole(shaped, role.value);
+                    }
+                    auto keys = engine.metadataKeys(old.value);
+                    if (keys.ok()) {
+                        for (const std::string& key : keys.value) {
+                            auto note = engine.getMetadata(old.value, key);
+                            if (note.ok()) {
+                                engine.setMetadata(shaped.value, key, note.value);
+                            }
+                        }
+                    }
+                    found = made.emplace(old.value, shaped).first;
+                }
+                engine.setOperationParameter(op.id, "targetRegion",
+                    ls::ParameterValue{ static_cast<uint64_t>(found->second.value) });
+            }
+        }
+    }
+    for (const auto& [old, shaped] : made) {
+        ls::RegionId gone;
+        gone.value = old;
+        engine.deleteRegion(gone);
+    }
+    return static_cast<int>(made.size());
 }
 
 bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& name,

@@ -4999,6 +4999,20 @@ int main(int argc, char** argv) {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            // While a script drives the window, only the script's input
+            // counts: the desktop's own mouse, keys and focus changes -- a
+            // person working in another window -- would otherwise land in
+            // the middle of a run, and the same script would pass or fail
+            // depending on where the pointer happened to be.
+            const bool fromThePerson =
+                (event.type >= SDL_EVENT_KEY_DOWN && event.type < SDL_EVENT_JOYSTICK_AXIS_MOTION) ||
+                event.type == SDL_EVENT_WINDOW_FOCUS_GAINED ||
+                event.type == SDL_EVENT_WINDOW_FOCUS_LOST ||
+                event.type == SDL_EVENT_WINDOW_MOUSE_ENTER ||
+                event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE;
+            if (script.active() && fromThePerson) {
+                continue;
+            }
             ImGui_ImplSDL3_ProcessEvent(&event);
 
             if (event.type == SDL_EVENT_QUIT) {

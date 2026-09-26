@@ -121,6 +121,11 @@ program -- which is the argument for having them.
   frame were one step, and a trackpad's stream of small scrolls made a step
   on every frame of the gesture. The wheel's movement now adds up, and each
   whole notch is a step.
+- **UI scripts failed at random on a desktop someone was using.** A scripted
+  window still took the machine's real mouse, keys and focus changes, so a
+  pointer passing over it or a click in another window landed mid-run, and a
+  different handful of scripts failed each time. While a script runs, only
+  its own input reaches the interface now.
 - **A gradient on a turned layer landed somewhere else, and deleting it took
   the drawing with it** (found by hand). The gradient worked out its area on
   the screen and stored it in the layer, which turned it a second time, and

@@ -82,6 +82,14 @@ bool eraseFromRegion(Document& doc, ls::RegionId region, const ls::PenStroke& er
 // from it. For an element that is going away.
 void deleteRegionAndShapes(Document& doc, ls::RegionId region);
 
+// Makes every region a document still holds as pixels a shape: a freehand
+// run whose one mark is those pixels laid down as an area (text, an area of
+// its own), with the region's slot and notes carried over. The picture does
+// not change; what changes is that the drawing now moves and turns as
+// shapes do. Called on opening a document from before freehand marks were
+// kept as strokes. Returns how many regions it made shapes of.
+int upgradePixelRegions(Document& doc);
+
 // Adds a layer to `sprite` that can be drawn on. Brackets its own undo action.
 bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& name,
                       ls::Color color, PaintLayer* out);

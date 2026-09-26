@@ -282,9 +282,44 @@ void testAnErasedLineStaysCut() {
     }
 }
 
+// A document from before: its drawing a region of pixels. Opened, it is the
+// same picture, made of shapes -- and turns like one.
+void testAnOldDrawingOpensAsShapes() {
+    Document doc;
+    REQUIRE(doc.create("old", kSize, kSize));
+    ls::LSContext& engine = doc.engine();
+    auto layer = engine.createLayer(doc.sprite(), { "old" });
+    REQUIRE(layer.ok());
+    ls::IntervalSet ring;
+    for (ls::Vec2i p : linePixels({ 10, 10 }, { 40, 10 })) {
+        ring.intervals.push_back({ p.y, p.x, p.x + 1 });
+    }
+    auto region = engine.createRegionFromIntervals(doc.id(), ls::geom::normalize(ring));
+    REQUIRE(region.ok());
+    ls::FillSolidOp fill;
+    fill.targetRegion = region.value;
+    fill.fallbackColor = kOutline;
+    REQUIRE(engine.addOperation(layer.value, fill).ok());
+    const ls::RasterBuffer before = picture(doc);
+    std::string error;
+    REQUIRE(doc.save("turning_old.lsprite", &error));
+
+    Document opened;
+    REQUIRE(opened.open("turning_old.lsprite", &error));
+    std::remove("turning_old.lsprite");
+    CHECK(picture(opened).pixels == before.pixels);
+    auto info = opened.engine().getSpriteInfo(opened.sprite());
+    REQUIRE(info.ok() && info.value.layers.size() == 1);
+    const std::vector<Element> elements = elementsOf(opened, info.value.layers.front());
+    REQUIRE(elements.size() == 1);
+    CHECK(regionMadeOf(opened, elements.front().region) == RegionMade::Strokes);
+    CHECK(!opened.modified());
+}
+
 } // namespace
 
 int main() {
+    testAnOldDrawingOpensAsShapes();
     testPencilBucketTurnGradient();
     testAnErasedLineStaysCut();
     if (failures == 0) {
