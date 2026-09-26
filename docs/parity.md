@@ -144,7 +144,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Several documents open at once (tabs)
 
 ## Tier 2 — polish that users of the incumbents expect
-- [ ] Adjustments: hue/saturation, brightness/contrast, invert, as
+- [x] Adjustments: hue/saturation, brightness/contrast, invert, as
       operations or palette edits rather than baked pixels
 - [ ] Outline and drop shadow as effects **(better: live operations, not
       filters; the outline already is)**
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Adjust colours (Sprite menu): hue, saturation, lightness, brightness, contrast, invert over this layer, this frame or every frame; edits the elements' own colours (fills, strokes, outlines, both ends of a dither) and optionally the palette slots they paint through -- never pixels; applied from a recorded base so zero is exact; modal, one undo step, Cancel restores. app/adjust with tests.
 - Linked cels: a track's cels in several frames can be one cel -- each frame's layer draws the same regions and shapes through operations of its own, so strokes land in every linked frame as drawn, and new colours, shapes and deletions follow as the action closes (syncLinks in the same hook). Link from a layer's row menu (every frame, or the selected run), '+ Linked' duplicates a frame with every cel linked, Unlink gives a cel a deep copy of its own; links survive saving; a duplicated frame's copies are unlinked.
 - Tracks (app/tracks): every layer and group carries a track key; a Document hook run as each action closes brings every frame's stack into line with the frame being edited (add, delete, order, groups, name, blend, opacity, visibility, lock, reference, tag, notes, clip) inside the same undo step, each frame keeping its own pixels; duplicate copies each frame's own cel, paste makes an empty track, merge down merges in every frame or none; a layer with no key is never deleted (matched by name or made a track). New documents and imports keep tracks; older files keep separate stacks until Sprite > Same layers in every frame adopts them by name. Lock, tag and notes changes are now undoable actions.
 - Reference layers (row menu or Layer properties): engine LayerType::Source now means compiled for previews, skipped by Export compiles and by the whole-sprite silhouette (engine setLayerType); so PNG, sheet, animation, batch and the thumbnail all leave it out. Undoable, saved with the file. Also: Fast and the engine link with /INCREMENTAL:NO after stale incremental links crashed a third of the test suites before main.

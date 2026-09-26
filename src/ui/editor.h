@@ -8,6 +8,7 @@
 // talk about it: which tool, which layer, what a drag is currently doing. If
 // something here could be asked of the document instead, it should be.
 
+#include "app/adjust.h"
 #include "app/animation.h"
 #include "app/brush.h"
 #include "app/canvas_ops.h"
@@ -305,6 +306,20 @@ struct Editor {
         CanvasAnchor anchor = CanvasAnchor::Centre;
     } canvasDialog;
 
+    // The colour adjustment window. It holds one history action open from
+    // opening to Apply or Cancel, and every change is made from the colours
+    // recorded when the layers it covers were chosen.
+    struct AdjustDialog {
+        bool         open = false;
+        int          scope = 0;          // 0 this layer, 1 this frame, 2 every frame
+        bool         slots = false;      // palette slots too
+        ColourAdjust adjust;
+        AdjustBase   base;
+        bool         read = false;       // the base has been read for...
+        int          readScope = -1;     // ...this scope,
+        bool         readSlots = false;  // ...with or without slots
+    } adjustDialog;
+
     // The sprite size window: the size being chosen, in pixels or percent,
     // and whether the two sides keep their proportion.
     struct SpriteSizeDialog {
@@ -503,6 +518,7 @@ struct Editor {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
+               adjustDialog.open ||
                selecting || draggingFloat || drawingContour || drawingGradient;
     }
 

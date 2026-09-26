@@ -584,6 +584,16 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                                   "and loses nothing.");
             }
         }
+        if (ImGui::MenuItem("Adjust colours...", nullptr, false, editor.active() != nullptr)) {
+            editor.adjustDialog = Editor::AdjustDialog{};
+            editor.adjustDialog.open = true;
+            editor.doc.beginAction("Adjust colours");
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Hue, saturation, lightness, brightness, contrast, invert -- "
+                              "of the elements' own colours and, if asked, the palette "
+                              "slots they paint through. Nothing is turned into pixels.");
+        }
         if (ImGui::MenuItem("Sprite size...")) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
             if (size.ok()) {
@@ -842,6 +852,111 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
     if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
         dialog.open = false;
         ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+// The layers an adjustment covers.
+std::vector<ls::LayerId> adjustLayers(Editor& editor, int scope) {
+    std::vector<ls::LayerId> layers;
+    if (scope == 0) {
+        for (ls::LayerId layer : editor.selectedLayers) {
+            layers.push_back(layer);
+        }
+        if (layers.empty() && editor.active() != nullptr) {
+            layers.push_back(editor.active()->layer);
+        }
+        return layers;
+    }
+    if (scope == 1) {
+        return layerOrder(editor.doc, editor.activeSprite());
+    }
+    for (const Frame& frame : editor.frames) {
+        for (ls::LayerId layer : layerOrder(editor.doc, frame.sprite)) {
+            layers.push_back(layer);
+        }
+    }
+    return layers;
+}
+
+void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
+    Editor::AdjustDialog& dialog = editor.adjustDialog;
+    if (!dialog.open) {
+        return;
+    }
+    // What it covers is read once, then again whenever the choice changes --
+    // the old choice put back first, so nothing is adjusted twice.
+    if (!dialog.read || dialog.readScope != dialog.scope || dialog.readSlots != dialog.slots) {
+        if (dialog.read) {
+            applyAdjust(editor.doc, dialog.base, ColourAdjust{});
+        }
+        dialog.base = adjustBase(editor.doc, adjustLayers(editor, dialog.scope), dialog.slots);
+        applyAdjust(editor.doc, dialog.base, dialog.adjust);
+        dialog.read = true;
+        dialog.readScope = dialog.scope;
+        dialog.readSlots = dialog.slots;
+        canvas.invalidate();
+    }
+    ImGui::OpenPopup("Adjust colours");
+    ImGui::SetNextWindowSize(ImVec2(380.f, 0.f), ImGuiCond_Appearing);
+    if (!ImGui::BeginPopupModal("Adjust colours", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    const char* scopes[] = { "This layer", "Every layer of this frame", "Every frame" };
+    ImGui::SetNextItemWidth(220.f);
+    ImGui::Combo("covers", &dialog.scope, scopes, 3);
+    ImGui::Checkbox("Palette slots too", &dialog.slots);
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("The slots these layers paint through change as well -- and so "
+                          "does everything else that paints through them.");
+    }
+    ImGui::TextDisabled("%zu colour(s)%s", dialog.base.sites.size() + dialog.base.slots.size(),
+                        dialog.base.slots.empty() ? "" : ", slots included");
+
+    ColourAdjust& a = dialog.adjust;
+    bool changed = false;
+    ImGui::SetNextItemWidth(260.f);
+    changed |= ImGui::SliderFloat("hue", &a.hue, -180.f, 180.f, "%.0f deg");
+    ImGui::SetNextItemWidth(260.f);
+    changed |= ImGui::SliderFloat("saturation", &a.saturation, -1.f, 1.f, "%.2f");
+    ImGui::SetNextItemWidth(260.f);
+    changed |= ImGui::SliderFloat("lightness", &a.lightness, -1.f, 1.f, "%.2f");
+    ImGui::SetNextItemWidth(260.f);
+    changed |= ImGui::SliderFloat("brightness", &a.brightness, -1.f, 1.f, "%.2f");
+    ImGui::SetNextItemWidth(260.f);
+    changed |= ImGui::SliderFloat("contrast", &a.contrast, -1.f, 1.f, "%.2f");
+    changed |= ImGui::Checkbox("Invert", &a.invert);
+    if (changed) {
+        applyAdjust(editor.doc, dialog.base, a);
+        canvas.invalidate();
+    }
+
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    const auto close = [&](bool keep) {
+        if (keep) {
+            editor.doc.endAction();
+        } else {
+            editor.doc.abandonAction();
+        }
+        dialog.open = false;
+        dialog.read = false;
+        refreshInks(editor);
+        canvas.invalidate();
+        ImGui::CloseCurrentPopup();
+    };
+    if (ImGui::Button("Apply", ImVec2(100.f, 0.f))) {
+        close(true);
+        editor.say("Adjusted; every element is still what it was");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reset", ImVec2(80.f, 0.f))) {
+        a = ColourAdjust{};
+        applyAdjust(editor.doc, dialog.base, a);
+        canvas.invalidate();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        close(false);
     }
     ImGui::EndPopup();
 }
@@ -2750,6 +2865,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawAnimationPanel(editor, window);
     drawCanvasSizePanel(editor, canvas);
     drawSpriteSizePanel(editor, canvas);
+    drawAdjustPanel(editor, canvas);
     drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);
@@ -2789,6 +2905,7 @@ struct Options {
     bool        layerProperties = false; // the active layer's properties, tagged
     bool        paths = false;           // --paths: a polygon and a curve, handles showing
     bool        tabs = false;            // --tabs: two more documents open beside the first
+    bool        adjust = false;          // --adjust: the colour window, hue turned
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2823,6 +2940,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--adjust") {
+            options.adjust = true;
         } else if (arg == "--tabs") {
             options.tabs = true;
         } else if (arg == "--paths") {
@@ -4211,6 +4330,15 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (options.adjust && editor.active() != nullptr) {
+        editor.adjustDialog = Editor::AdjustDialog{};
+        editor.adjustDialog.open = true;
+        editor.adjustDialog.scope = 2;
+        editor.adjustDialog.slots = true;
+        editor.adjustDialog.adjust.hue = 150.f;
+        editor.adjustDialog.adjust.contrast = 0.2f;
+        editor.doc.beginAction("Adjust colours");
     }
     if (options.tabs) {
         // Two more, the second of them changed, and the middle one showing.

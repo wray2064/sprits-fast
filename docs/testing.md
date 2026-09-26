@@ -493,6 +493,16 @@ sprits_fast --demo-stroke
    unchanged; *Sprite > Same layers in every frame* joins layers of the same
    name and adds the missing ones empty, losing nothing.
 
+### 4ab. Adjust colours
+
+1. *Sprite > Adjust colours...*, this layer, hue 120. *Expect:* the layer's
+   own colours turn on the canvas as the slider moves; slot colours do not.
+   Tick *Palette slots too*: they turn as well, and the palette with them.
+2. Every frame, invert. *Expect:* every frame inverted. Reset: exactly as
+   before. Cancel: nothing changed, nothing to undo.
+3. Apply. *Expect:* one undo step; the Element panel still lists every
+   element, a rectangle still a rectangle.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

@@ -52,6 +52,11 @@ A copied image can also be pasted as a reference, to draw from.
 what is drawn, enlarge or reduce by a whole number, resize to any size or
 percentage by nearest neighbour (shapes scaled as shapes), and turn or flip the
 whole canvas -- every frame at once, one undo step each.
+**Adjust colours** -- hue, saturation, lightness, brightness, contrast and
+invert, for a layer, a frame or every frame -- changes the elements' own colours
+and, if asked, the palette slots they paint through. Nothing becomes pixels:
+every element is still what it was, and cancelling puts back exactly what was
+there.
 
 **Your keys, your defaults** — every shortcut is a named command, and
 *Edit > Preferences* rebinds any of them by pressing the new keys, up to four
