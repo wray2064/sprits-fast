@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/bucket.h"
+#include "app/element.h"
 #include "app/shape.h"
 #include "app/transform.h"
 
@@ -85,6 +86,51 @@ std::vector<ls::Vec2i> flood(const ls::RasterBuffer& raster, ls::Vec2i seed,
 }
 
 } // namespace
+
+std::vector<ls::RegionClipTerm> wallsAround(Document& doc, ls::SpriteId sprite, ls::LayerId layer,
+                                            const ls::IntervalSet& area) {
+    std::vector<ls::RegionClipTerm> walls;
+    const ls::IntervalSet ring = ls::geom::subtractSets(ls::geom::expand(area, 1.f, true), area);
+    if (ring.empty()) {
+        return walls;
+    }
+    ls::LSContext& engine = doc.engine();
+    // Its own layer; and, where it is not turned, the layers drawn with it
+    // that are not turned either, whose drawing lies where it shows.
+    std::vector<ls::LayerId> layers { layer };
+    if (listTransforms(doc, layer).empty()) {
+        auto info = engine.getSpriteInfo(sprite);
+        if (info.ok()) {
+            for (ls::LayerId other : info.value.layers) {
+                auto shown = engine.getLayerInfo(other);
+                if (other != layer && shown.ok() && shown.value.visible &&
+                    listTransforms(doc, other).empty()) {
+                    layers.push_back(other);
+                }
+            }
+        }
+    }
+    for (ls::LayerId each : layers) {
+        for (const Element& element : elementsOf(doc, each)) {
+            if (element.kind == ElementKind::Erase) {
+                continue;
+            }
+            if (ls::geom::intersectSets(elementCoverage(doc, element), ring).empty()) {
+                continue;
+            }
+            ls::RegionClipTerm wall;
+            if (element.region.valid()) {
+                wall.region = element.region;
+            } else if (element.geometry.valid()) {
+                wall.geometry = element.geometry;
+            } else {
+                continue;
+            }
+            walls.push_back(wall);
+        }
+    }
+    return walls;
+}
 
 std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i seed,
                                   const BucketSettings& settings) {
@@ -196,6 +242,7 @@ bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
         face.seed = ls::geom::deepestPoint(area);
         face.tolerance = settings.tolerance;
         face.diagonal = settings.diagonal;
+        face.walls = wallsAround(doc, sprite, stroke.layer, area);
         shape = engine.createFace(doc.id(), face);
     }
     if (shape.fail()) {

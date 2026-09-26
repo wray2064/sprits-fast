@@ -57,12 +57,19 @@ ls::IntervalSet bucketAreaOnLayer(Document& doc, ls::SpriteId sprite, ls::LayerI
                                   ls::Vec2i seed, const BucketSettings& settings,
                                   const ls::IntervalSet* within = nullptr);
 
+// What closes a filled `area` of `layer` in: every element whose pixels
+// touch its edge from outside, on its own layer and, where it is not turned,
+// on the layers drawn with it that are not turned either. A fill names them
+// as its walls (see the engine's FaceDesc::walls).
+std::vector<ls::RegionClipTerm> wallsAround(Document& doc, ls::SpriteId sprite, ls::LayerId layer,
+                                            const ls::IntervalSet& area);
+
 // Floods from `seed` and makes the result a fill of its own on the stroke's
 // layer, on top, coloured the way the stroke paints. The fill is a face (see
 // the engine's FaceDesc): exactly what the flood found where it was made, and
-// found again against the line round it wherever the layer is turned -- so
-// it never runs out through a turned outline and never leaves a gap along
-// it. Covers what is under it rather than cutting it away. Does not bracket
+// found again between the lines round it -- on its layer or another --
+// wherever the layer is turned, so it never runs out through a turned
+// outline and never leaves a gap along it. Covers what is under it rather than cutting it away. Does not bracket
 // an undo action: the caller decides what one action is.
 //
 // `within`, when given, is a canvas mask the fill stays inside: the selection,

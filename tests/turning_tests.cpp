@@ -378,9 +378,57 @@ void testAnImportedOutlineTurns() {
     }
 }
 
+// A bucket fill on a layer of its own, bounded by an outline on the layer
+// under it: the fill names the outline as a wall, so with both layers turned
+// alike it meets the outline at every angle, as a fill on the outline's own
+// layer does.
+void testAFillMeetsAnOutlineOnAnotherLayer() {
+    Document doc;
+    REQUIRE(doc.create("two layers", kSize, kSize));
+    PaintLayer lines;
+    PaintLayer colour;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "lines", kOutline, &lines));
+    REQUIRE(drawBlob(doc, lines.layer));
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "colour", kFill, &colour));
+    doc.beginAction("Fill");
+    InkStroke stroke;
+    Ink ink;
+    ink.colour = kFill;
+    REQUIRE(beginInkStroke(doc, colour.layer, ink, &stroke));
+    REQUIRE(bucketFill(doc, doc.sprite(), stroke, { 32, 30 }, BucketSettings{}));
+    doc.endAction();
+    const Look drawn = look(picture(doc));
+    CHECK(drawn.leaked == 0 && drawn.bare == 0);
+
+    const ls::OperationId turnLines = addRotate(doc, lines.layer, 3.f, { 32.f, 32.f },
+                                                ls::SamplingPolicy::RotSprite);
+    const ls::OperationId turnColour = addRotate(doc, colour.layer, 3.f, { 32.f, 32.f },
+                                                 ls::SamplingPolicy::RotSprite);
+    REQUIRE(turnLines.valid() && turnColour.valid());
+    int leaked = 0;
+    int bare = 0;
+    int empty = 0;
+    for (int angle = 3; angle < 360; angle += 7) {
+        REQUIRE(setRotateAngle(doc, turnLines, static_cast<float>(angle)));
+        REQUIRE(setRotateAngle(doc, turnColour, static_cast<float>(angle)));
+        const Look turned = look(picture(doc));
+        leaked += turned.leaked;
+        bare += turned.bare;
+        empty += turned.inside < 400 ? 1 : 0;
+    }
+    CHECK(leaked == 0);
+    CHECK(bare == 0);
+    CHECK(empty == 0);
+    if (leaked != 0 || bare != 0 || empty != 0) {
+        std::printf("    two layers, turned: %d pixels leaked, %d bare inside, %d angles broken open\n",
+                    leaked, bare, empty);
+    }
+}
+
 } // namespace
 
 int main() {
+    testAFillMeetsAnOutlineOnAnotherLayer();
     testAnImportedOutlineTurns();
     testAnOldDrawingOpensAsShapes();
     testPencilBucketTurnGradient();
