@@ -1,0 +1,37 @@
+# A blob drawn with the pencil, turned in the Transform panel, then filled
+# with the bucket: the outline stays closed, the fill stays inside it and has
+# no holes, and the canvas outside stays empty.
+tool pencil
+colour e08f40
+drag 10 6 16 5 6
+drag 16 5 20 9 6
+drag 20 9 25 8 6
+drag 25 8 27 13 6
+drag 27 13 22 16 6
+drag 22 16 26 21 6
+drag 26 21 21 25 6
+drag 21 25 16 22 6
+drag 16 22 11 26 6
+drag 11 26 7 21 6
+drag 7 21 9 16 6
+drag 9 16 5 11 6
+drag 5 11 10 6 6
+expect drawn 60 90
+
+click-on Rotate
+hold ctrl
+click-on ##angle
+let ctrl
+key ctrl+a
+type 23
+key enter
+wait 2
+
+colour 1e3f60
+tool bucket
+click 16 15
+expect pixel 16 15 1e3f60
+expect pixel 1 1 empty
+expect pixel 30 30 empty
+expect pixel 1 30 empty
+expect drawn 250 450

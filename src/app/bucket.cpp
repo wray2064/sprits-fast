@@ -29,6 +29,60 @@ bool within(ls::Color a, ls::Color b, int tolerance) {
            std::abs(db) <= tolerance && std::abs(da) <= tolerance;
 }
 
+// The flood over one picture, from `seed`.
+std::vector<ls::Vec2i> flood(const ls::RasterBuffer& raster, ls::Vec2i seed,
+                             const BucketSettings& settings) {
+    std::vector<ls::Vec2i> filled;
+    const int32_t width = static_cast<int32_t>(raster.width);
+    const int32_t height = static_cast<int32_t>(raster.height);
+    if (seed.x < 0 || seed.y < 0 || seed.x >= width || seed.y >= height) {
+        return filled;
+    }
+    const ls::Color wanted = ls::readPixel(raster, seed.x, seed.y);
+    if (settings.global) {
+        for (int32_t y = 0; y < height; ++y) {
+            for (int32_t x = 0; x < width; ++x) {
+                if (within(ls::readPixel(raster, x, y), wanted, settings.tolerance)) {
+                    filled.push_back({x, y});
+                }
+            }
+        }
+        return filled;
+    }
+    // Breadth-first rather than recursive: a flood of a large canvas would
+    // otherwise be limited by the call stack, and 4096x4096 is 16 million deep
+    // in the worst case.
+    std::vector<uint8_t> seen(static_cast<size_t>(width) * height, 0);
+    std::deque<ls::Vec2i> queue;
+    queue.push_back(seed);
+    seen[static_cast<size_t>(seed.y) * width + seed.x] = 1;
+    static const ls::Vec2i kOrthogonal[4] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
+    static const ls::Vec2i kDiagonal[4]   = { {1,1}, {1,-1}, {-1,1}, {-1,-1} };
+    while (!queue.empty()) {
+        const ls::Vec2i at = queue.front();
+        queue.pop_front();
+        if (!within(ls::readPixel(raster, at.x, at.y), wanted, settings.tolerance)) {
+            continue;
+        }
+        filled.push_back(at);
+        const int neighbours = settings.diagonal ? 8 : 4;
+        for (int i = 0; i < neighbours; ++i) {
+            const ls::Vec2i step = i < 4 ? kOrthogonal[i] : kDiagonal[i - 4];
+            const ls::Vec2i next { at.x + step.x, at.y + step.y };
+            if (next.x < 0 || next.y < 0 || next.x >= width || next.y >= height) {
+                continue;
+            }
+            uint8_t& visited = seen[static_cast<size_t>(next.y) * width + next.x];
+            if (visited) {
+                continue;
+            }
+            visited = 1;
+            queue.push_back(next);
+        }
+    }
+    return filled;
+}
+
 } // namespace
 
 std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i seed,
@@ -54,57 +108,7 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
     if (compiled.fail()) {
         return filled;
     }
-    const ls::RasterBuffer& raster = compiled.value.raster;
-    const ls::Color wanted = ls::readPixel(raster, seed.x, seed.y);
-
-    if (settings.global) {
-        // Every matching pixel, connected or not.
-        for (int32_t y = 0; y < height; ++y) {
-            for (int32_t x = 0; x < width; ++x) {
-                if (within(ls::readPixel(raster, x, y), wanted, settings.tolerance)) {
-                    filled.push_back({x, y});
-                }
-            }
-        }
-        return filled;
-    }
-
-    // Breadth-first rather than recursive: a flood of a large canvas would
-    // otherwise be limited by the call stack, and 4096x4096 is 16 million deep
-    // in the worst case.
-    std::vector<uint8_t> seen(static_cast<size_t>(width) * height, 0);
-    std::deque<ls::Vec2i> queue;
-    queue.push_back(seed);
-    seen[static_cast<size_t>(seed.y) * width + seed.x] = 1;
-
-    static const ls::Vec2i kOrthogonal[4] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
-    static const ls::Vec2i kDiagonal[4]   = { {1,1}, {1,-1}, {-1,1}, {-1,-1} };
-
-    while (!queue.empty()) {
-        const ls::Vec2i at = queue.front();
-        queue.pop_front();
-
-        if (!within(ls::readPixel(raster, at.x, at.y), wanted, settings.tolerance)) {
-            continue;
-        }
-        filled.push_back(at);
-
-        const int neighbours = settings.diagonal ? 8 : 4;
-        for (int i = 0; i < neighbours; ++i) {
-            const ls::Vec2i step = i < 4 ? kOrthogonal[i] : kDiagonal[i - 4];
-            const ls::Vec2i next { at.x + step.x, at.y + step.y };
-            if (next.x < 0 || next.y < 0 || next.x >= width || next.y >= height) {
-                continue;
-            }
-            uint8_t& visited = seen[static_cast<size_t>(next.y) * width + next.x];
-            if (visited) {
-                continue;
-            }
-            visited = 1;
-            queue.push_back(next);
-        }
-    }
-    return filled;
+    return flood(compiled.value.raster, seed, settings);
 }
 
 bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
@@ -112,6 +116,49 @@ bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
                 const ls::IntervalSet* within) {
     if (!stroke.layer.valid()) {
         return false;
+    }
+
+    // A layer that is turned or scaled is flooded in its own space, over its
+    // own drawing as drawn, from the point clicked carried back: the fill then
+    // sits inside the outline as it was drawn and turns with it exactly. The
+    // canvas's picture would be the wrong thing to flood -- a turned outline
+    // can show gaps a fill runs out through -- and carrying a flooded canvas
+    // area back pixel by pixel leaves holes, since a turn does not map pixels
+    // one to one.
+    if (!listTransforms(doc, stroke.layer).empty()) {
+        auto size = doc.engine().getCanvasSize(doc.id());
+        ls::Vec2f mapped;
+        if (size.fail() ||
+            !mapCanvasPointToLayer(doc, stroke.layer,
+                                   { static_cast<float>(seed.x), static_cast<float>(seed.y) },
+                                   &mapped)) {
+            return false;
+        }
+        ls::CompileProfile profile = compileProfile(ls::CompileProfileType::Preview,
+                                                    static_cast<uint32_t>(size.value.x),
+                                                    static_cast<uint32_t>(size.value.y));
+        profile.resolveTransforms = false;
+        auto drawn = doc.engine().compileLayer(stroke.layer, profile);
+        if (drawn.fail()) {
+            return false;
+        }
+        std::vector<ls::Vec2i> area = flood(
+            drawn.value.raster,
+            { static_cast<int32_t>(std::floor(mapped.x + 0.5f)),
+              static_cast<int32_t>(std::floor(mapped.y + 0.5f)) },
+            settings);
+        if (within != nullptr) {
+            const ls::Mat3f toCanvas = layerTransform(doc, stroke.layer);
+            area.erase(std::remove_if(area.begin(), area.end(), [&](ls::Vec2i pixel) {
+                           const ls::Vec2f at = toCanvas.transformPoint(
+                               { static_cast<float>(pixel.x) + 0.5f, static_cast<float>(pixel.y) + 0.5f });
+                           return !ls::geom::contains(*within,
+                               { static_cast<int32_t>(std::floor(at.x)),
+                                 static_cast<int32_t>(std::floor(at.y)) });
+                       }),
+                       area.end());
+        }
+        return !area.empty() && strokeInk(doc, stroke, area);
     }
 
     std::vector<ls::Vec2i> area = bucketArea(doc, sprite, seed, settings);

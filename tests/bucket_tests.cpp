@@ -171,6 +171,30 @@ void testFillingThroughATransform() {
     CHECK(readPixel(compiled.value.raster, 0, 0).a == 0);
 }
 
+// At an angle that is no quarter turn, the fill is the inside of the box as
+// drawn -- exactly, no holes, nothing outside -- so it turns with the box.
+void testFillingThroughAnyTurn() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    canvas.drawBox();
+    const OperationId turn = fast::addRotate(canvas.doc, canvas.paint.layer, 30.f,
+                                             {kSize * 0.5f, kSize * 0.5f},
+                                             SamplingPolicy::RotSprite);
+    REQUIRE(turn.valid());
+    REQUIRE(fast::bucketFill(canvas.doc, canvas.sprite, canvas.paint, {8, 8}, {}));
+    REQUIRE(fast::setRotateAngle(canvas.doc, turn, 0.f));
+    CHECK(canvas.opaque() == 28 + 36);
+    CompileProfile p;
+    p.type = CompileProfileType::Export;
+    p.outputWidth = kSize;
+    p.outputHeight = kSize;
+    p.palette = PalettePolicy::Unconstrained;
+    auto compiled = canvas.doc.engine().compileSprite(canvas.sprite, p);
+    REQUIRE(compiled.ok());
+    CHECK(readPixel(compiled.value.raster, 5, 5).a != 0 && readPixel(compiled.value.raster, 10, 10).a != 0);
+    CHECK(readPixel(compiled.value.raster, 3, 3).a == 0 && readPixel(compiled.value.raster, 12, 12).a == 0);
+}
+
 void testAwkwardSeeds() {
     Canvas canvas;
     REQUIRE(canvas.build());
@@ -210,6 +234,7 @@ int main() {
     testDiagonalsAreWallsByDefault();
     testGlobalFillIgnoresConnection();
     testFillingThroughATransform();
+    testFillingThroughAnyTurn();
     testAwkwardSeeds();
     testABucketIsOneUndo();
 

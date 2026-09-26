@@ -121,6 +121,17 @@ program -- which is the argument for having them.
   frame were one step, and a trackpad's stream of small scrolls made a step
   on every frame of the gesture. The wheel's movement now adds up, and each
   whole notch is a step.
+- **A turned outline had gaps, and filling it afterwards went wrong** (found by
+  hand). RotSprite takes one sample for each pixel it draws and a line one
+  pixel wide can slip between two, so a hand-drawn blob turned came out open
+  -- over a fill, the fill showed through. The engine now joins every two
+  touching pixels of a thin line that land apart. And the bucket on a turned
+  layer flooded the canvas's picture, gaps and all, then carried the area
+  back into the layer pixel by pixel, which a turn does not do one to one:
+  the fill leaked, was full of holes and left the corners bare. It now floods
+  the layer's own drawing as drawn, from the point clicked carried back, so
+  the fill sits inside the outline and turns with it. `tests/ui/rotate_and_fill.txt`
+  draws, turns and fills a blob.
 - **Renaming a layer by double-click typed shortcuts instead.** The name field
   took the keyboard only when its window was appearing, which after a
   double-click on a row it is not, so "Sky" picked three tools. A new name
