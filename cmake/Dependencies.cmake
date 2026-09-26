@@ -66,6 +66,11 @@ target_include_directories(imgui PUBLIC
 
 target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
 
+# The test engine's hooks, which the UI scripts (src/ui/ui_script.cpp) use to
+# find a widget by its label. They are called only while a script turns them
+# on, so an ordinary run pays nothing for them.
+target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_TEST_ENGINE)
+
 # Third-party code is not held to our warning settings; ours is.
 if (MSVC)
     target_compile_options(imgui PRIVATE /w)

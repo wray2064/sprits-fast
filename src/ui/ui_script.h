@@ -16,6 +16,9 @@
 //     move 3 4                    the pointer to the middle of canvas pixel (3, 4)
 //     press / release [right]     a button, where the pointer is
 //     click 3 4 [right]
+//     click-on + Frame            a widget by its label, as the last frame drew it:
+//                                 a button, a menu, a menu item, a checkbox
+//     expect item Tween           a widget with that label was drawn
 //     drag 3 3 20 20 [steps] [right]
 //     hold shift|ctrl|alt|space   a key held down until `let`
 //     let shift|ctrl|alt|space
@@ -65,8 +68,8 @@ public:
 
 private:
     struct Step {
-        enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot } kind = Wait;
-        float       x = 0.f, y = 0.f;      // Pos: canvas pixels
+        enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget } kind = Wait;
+        float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         bool        down = false;
         ImGuiKey    key = ImGuiKey_None;
@@ -86,7 +89,9 @@ private:
     int         checks_ = 0;
     int         warmup_ = 3;               // frames for the view to fit first
     bool        pointerSet_ = false;
-    float       pointerX_ = 0.f, pointerY_ = 0.f;   // canvas pixels
+    float       pointerX_ = 0.f, pointerY_ = 0.f;   // canvas pixels, or the window's
+    bool        pointerOnWindow_ = false;           // after a click-on: window coordinates
+    int         waitedFor_ = 0;                     // frames a click-on has waited for its widget
     std::string shot_;
     std::string path_;
 };

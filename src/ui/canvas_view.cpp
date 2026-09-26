@@ -42,6 +42,7 @@ ls::Vec2i CanvasView::wrap(ls::Vec2i pixel) const {
 }
 
 void CanvasView::setZoom(float zoom) {
+    fitted_ = false;
     zoom_ = std::clamp(std::floor(zoom + 0.5f), 1.f, 64.f);
 }
 
@@ -112,17 +113,56 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     viewSize_ = available;
 
     // Fitting needs the area, which is only known here.
+    if (fitted_ && (available.x != fittedArea_.x || available.y != fittedArea_.y)) {
+        fitPending_ = true;
+    }
     if (fitPending_ && textureWidth_ > 0 && textureHeight_ > 0) {
         // Enough that the artwork sits *in* the panel rather than against its
         // edges. A sprite touching the frame is hard to judge, which is the one
         // thing the canvas exists for.
         const float margin = 72.f;
-        const float byWidth = (available.x - margin) / static_cast<float>(textureWidth_);
-        const float byHeight = (available.y - margin) / static_cast<float>(textureHeight_);
-        setZoom(std::min(byWidth, byHeight));
-        panX_ = 0.f;
-        panY_ = 0.f;
+        const float tw = static_cast<float>(textureWidth_);
+        const float th = static_cast<float>(textureHeight_);
+        const auto fitIn = [&](float w, float h) {
+            return std::clamp(std::floor(std::min((w - margin) / tw, (h - margin) / th) + 0.5f),
+                              1.f, 64.f);
+        };
+        // Whether the artwork, centred at `z` and moved by the pan, reaches
+        // under the corner overlay.
+        const auto covered = [&](float z, float px, float py) {
+            if (cornerOverlay_.x <= 0.f || cornerOverlay_.y <= 0.f) {
+                return false;
+            }
+            const float right = (available.x + tw * z) * 0.5f + px;
+            const float bottom = (available.y + th * z) * 0.5f + py;
+            return right > available.x - cornerOverlay_.x &&
+                   bottom > available.y - cornerOverlay_.y;
+        };
+        float zoom = fitIn(available.x, available.y);
+        float px = 0.f;
+        float py = 0.f;
+        if (covered(zoom, px, py)) {
+            // Beside the overlay or above it, whichever leaves the artwork
+            // bigger; then smaller still if rounding put it back under.
+            const float beside = fitIn(available.x - cornerOverlay_.x, available.y);
+            const float above = fitIn(available.x, available.y - cornerOverlay_.y);
+            if (beside >= above) {
+                zoom = beside;
+                px = -cornerOverlay_.x * 0.5f;
+            } else {
+                zoom = above;
+                py = -cornerOverlay_.y * 0.5f;
+            }
+            while (zoom > 1.f && covered(zoom, px, py)) {
+                zoom -= 1.f;
+            }
+        }
+        setZoom(zoom);
+        panX_ = px;
+        panY_ = py;
         fitPending_ = false;
+        fitted_ = true;
+        fittedArea_ = available;
     }
 
     const bool windowHovered = ImGui::IsWindowHovered();
@@ -157,6 +197,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
 
             if (zoom_ != previous) {
                 const ImVec2 after = artworkOrigin(zoom_);
+                fitted_ = false;
                 panX_ += (io.MousePos.x - after.x) - localX * zoom_;
                 panY_ += (io.MousePos.y - after.y) - localY * zoom_;
             }
@@ -166,6 +207,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle) ||
             ((ImGui::IsKeyDown(ImGuiKey_Space) || panWithPrimary_) &&
              ImGui::IsMouseDragging(ImGuiMouseButton_Left))) {
+            fitted_ = false;
             panX_ += io.MouseDelta.x;
             panY_ += io.MouseDelta.y;
         }

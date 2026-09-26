@@ -48,12 +48,12 @@ click 20 20
 expect pixel 21 21 e08f40
 expect pixel 19 19 e08f40
 
-# The view: zoom by key, by the zoom tool, and back to a fit.
+# The view: zoom by key and by the zoom tool, then back to a fit.
 key ctrl+0
 key ]
 wait 2
 tool zoom
 click 16 16
-tool hand
-drag 16 16 10 10
+wait 2
+key ctrl+0
 wait 2

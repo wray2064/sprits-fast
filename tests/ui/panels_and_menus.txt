@@ -1,0 +1,32 @@
+# The panels by their buttons and the menus by their items, clicked where
+# they were drawn.
+key t
+key ctrl+0
+expect item + Frame
+click-on + Frame
+expect frames 2
+click-on + Empty
+expect frames 3
+
+click-on Add
+expect layers 2
+click-on Dup
+expect layers 3
+
+# Edit > Fill selection paints the marquee; Select > Modify > Expand grows it.
+tool select
+drag 2 2 9 9
+click-on Edit
+click-on Fill selection
+expect drawn 64 64
+click-on Select
+click-on Modify
+click-on Expand...
+click-on OK
+expect selected 100
+
+# Sprite > Canvas size is a window with its own buttons; Cancel leaves it be.
+click-on Sprite
+click-on Canvas size...
+expect item Cancel
+click-on Cancel

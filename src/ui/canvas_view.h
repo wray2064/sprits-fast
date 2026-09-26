@@ -106,7 +106,7 @@ public:
     void  setZoom(float zoom);
     float zoom() const { return zoom_; }
 
-    void  setPan(float x, float y) { panX_ = x; panY_ = y; }
+    void  setPan(float x, float y) { panX_ = x; panY_ = y; fitted_ = false; }
 
     // The view's own area on screen, as of the last draw.
     ImVec2 viewTopLeft() const { return viewTopLeft_; }
@@ -134,17 +134,30 @@ public:
 
     // Pans so the canvas point (x, y) is in the middle of the view.
     void centreOn(float x, float y) {
+        fitted_ = false;
         panX_ = zoom_ * (static_cast<float>(textureWidth_) * 0.5f - x);
         panY_ = zoom_ * (static_cast<float>(textureHeight_) * 0.5f - y);
     }
     float panX() const { return panX_; }
     float panY() const { return panY_; }
 
-    void resetView() { zoom_ = 8.f; panX_ = 0.f; panY_ = 0.f; }
+    void resetView() { zoom_ = 8.f; panX_ = 0.f; panY_ = 0.f; fitted_ = false; }
 
     // Fit on the next draw, when the window size is known. Fitting needs the
     // available area, which is not known until the panel is being laid out.
     void requestFit() { fitPending_ = true; }
+
+    // The room something drawn over the view's bottom-right corner takes --
+    // the corner preview -- which a fit keeps the artwork clear of, since
+    // what is under it cannot be drawn on. Zero when nothing is there.
+    void setCornerOverlay(ImVec2 size) {
+        if (size.x != cornerOverlay_.x || size.y != cornerOverlay_.y) {
+            cornerOverlay_ = size;
+            if (fitted_) {
+                fitPending_ = true;
+            }
+        }
+    }
 
     // The hand and zoom tools: the left button pans, or steps the zoom about
     // the point clicked (Alt or the right button zooms out).
@@ -240,6 +253,11 @@ private:
     TileGrid  tiles_;
     TiledMode tiled_ = TiledMode::None;
     bool   fitPending_ = false;
+    // Fitted and not zoomed or panned since: the view goes on fitting when
+    // its area changes -- the timeline opening, the window resized.
+    bool   fitted_ = false;
+    ImVec2 fittedArea_ { 0.f, 0.f };
+    ImVec2 cornerOverlay_ { 0.f, 0.f };
     float  zoom_  = 8.f;
     float  panX_  = 0.f;
     float  panY_  = 0.f;

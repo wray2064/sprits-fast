@@ -11,14 +11,71 @@
 #include "app/slices.h"
 #include "ui/canvas_view.h"
 
+#include <imgui_internal.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
 
+// ------------------------------------------------------ the test engine hooks --
+//
+// ImGui calls these for every item it adds while TestEngineHookItems is set:
+// its box, and for most, its label. A script clicks a widget by finding its
+// label among what the last frame drew.
+
+namespace {
+
+struct DrawnItem {
+    ImGuiID     id = 0;
+    ImRect      box;
+    std::string label;
+};
+std::vector<DrawnItem> gDrawing;     // this frame's, as they are added
+std::vector<DrawnItem> gDrawn;       // the last whole frame's
+
+} // namespace
+
+void ImGuiTestEngineHook_ItemAdd(ImGuiContext*, ImGuiID id, const ImRect& bb,
+                                 const ImGuiLastItemData*) {
+    gDrawing.push_back({ id, bb, std::string() });
+}
+
+void ImGuiTestEngineHook_ItemInfo(ImGuiContext*, ImGuiID id, const char* label,
+                                  ImGuiItemStatusFlags) {
+    for (size_t i = gDrawing.size(); i-- > 0;) {
+        if (gDrawing[i].id == id) {
+            gDrawing[i].label = label != nullptr ? label : "";
+            return;
+        }
+    }
+}
+
+void ImGuiTestEngineHook_Log(ImGuiContext*, const char*, ...) {}
+
+const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) { return nullptr; }
+
 namespace fast {
 
 namespace {
+
+// The label as shown: what comes before any ## that only makes the ID unique.
+std::string shownLabel(const std::string& label) {
+    const size_t hashes = label.find("##");
+    return hashes == std::string::npos ? label : label.substr(0, hashes);
+}
+
+// Where the last frame drew a widget with this label, the topmost last.
+bool findDrawn(const std::string& label, ImVec2* centre) {
+    for (size_t i = gDrawn.size(); i-- > 0;) {
+        const DrawnItem& item = gDrawn[i];
+        if (!item.label.empty() && (shownLabel(item.label) == label || item.label == label)) {
+            *centre = item.box.GetCenter();
+            return true;
+        }
+    }
+    return false;
+}
 
 std::vector<std::string> words(const std::string& line) {
     std::vector<std::string> out;
@@ -206,6 +263,13 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         for (size_t i = keys.size(); i-- > 0;) {
             Step s; s.kind = Step::Key; s.key = keys[i]; s.down = false; add(s);
         }
+    } else if (verb == "click-on" && w.size() >= 2) {
+        Step at; at.kind = Step::Widget; at.text = line.substr(line.find("click-on") + 9);
+        while (!at.text.empty() && at.text.back() == ' ') { at.text.pop_back(); }
+        add(at);
+        Step down; down.kind = Step::Button; down.button = ImGuiMouseButton_Left; down.down = true;
+        add(down);
+        Step up = down; up.down = false; add(up);
     } else if (verb == "type" && w.size() >= 2) {
         Step s; s.kind = Step::Text; s.text = line.substr(line.find("type") + 5); add(s);
     } else if (verb == "wait" && w.size() == 2) {
@@ -216,6 +280,12 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
     } else if (verb == "expect" && w.size() >= 3) {
         Step s; s.kind = Step::Expect; s.text = w[1];
         s.args.assign(w.begin() + 2, w.end());
+        if (s.text == "item") {
+            // A label is the rest of the line, spaces and all.
+            std::string label = line.substr(line.find("item") + 5);
+            while (!label.empty() && label.back() == ' ') { label.pop_back(); }
+            s.args = { label };
+        }
         // One settled frame first, so the last input has been acted on.
         Step settle; settle.kind = Step::Wait; add(settle);
         add(s);
@@ -231,6 +301,10 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
     if (!active()) {
         return;
     }
+    // The frame just drawn is the one a label is looked for in.
+    ImGui::GetCurrentContext()->TestEngineHookItems = true;
+    gDrawn.swap(gDrawing);
+    gDrawing.clear();
     if (warmup_ > 0) {
         --warmup_;
         return;
@@ -243,7 +317,8 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
     // The backend queues the real pointer each frame while the window has the
     // focus; this comes after it, so the script's pointer is the one that counts.
     if (pointerSet_) {
-        const ImVec2 at = screen(pointerX_, pointerY_);
+        const ImVec2 at = pointerOnWindow_ ? ImVec2(pointerX_, pointerY_)
+                                           : screen(pointerX_, pointerY_);
         io.AddMousePosEvent(at.x, at.y);
     }
     // Steps that take no frame run at once; the first that does ends the frame.
@@ -276,8 +351,49 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::Shot:
                 shot_ = step.text;
                 continue;
-            case Step::Pos: {
+            case Step::Widget: {
+                ImVec2 centre;
+                if (!findDrawn(step.text, &centre)) {
+                    // A window opened by the last click may take a frame or
+                    // two to be drawn: wait for it, as a person would.
+                    if (++waitedFor_ < 30) {
+                        --next_;
+                        return;
+                    }
+                    waitedFor_ = 0;
+                    std::printf("FAIL script:%d: nothing called \"%s\" on screen\n", step.line,
+                                step.text.c_str());
+                    ++failures_;
+                    ++checks_;
+                    // Its press and release have nothing to land on.
+                    next_ += 2;
+                    return;
+                }
+                waitedFor_ = 0;
                 pointerSet_ = true;
+                pointerOnWindow_ = true;
+                pointerX_ = centre.x;
+                pointerY_ = centre.y;
+                io.AddMousePosEvent(centre.x, centre.y);
+                return;
+            }
+            case Step::Pos: {
+                // A canvas pixel the view does not show is somewhere else on
+                // screen -- a ruler, a panel -- and a press there would do
+                // that thing instead. Said, rather than clicked into.
+                const ImVec2 on = screen(step.x, step.y);
+                const ImVec2 min = canvas.viewTopLeft();
+                const ImVec2 size = canvas.viewSize();
+                if (on.x < min.x || on.y < min.y || on.x >= min.x + size.x ||
+                    on.y >= min.y + size.y) {
+                    std::printf("FAIL script:%d: pixel %g, %g is not in view -- fit the view "
+                                "first (key ctrl+0)\n", step.line,
+                                static_cast<double>(step.x), static_cast<double>(step.y));
+                    ++failures_;
+                    ++checks_;
+                }
+                pointerSet_ = true;
+                pointerOnWindow_ = false;
                 pointerX_ = step.x;
                 pointerY_ = step.y;
                 const ImVec2 at = screen(step.x, step.y);
@@ -378,6 +494,11 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         const size_t count = readFrames(editor.doc).size();
         if (count != static_cast<size_t>(std::atoi(a[0].c_str()))) {
             failed(std::to_string(count) + " frames");
+        }
+    } else if (step.text == "item") {
+        ImVec2 centre;
+        if (!findDrawn(a[0], &centre)) {
+            failed("nothing called \"" + a[0] + "\" on screen");
         }
     } else if (step.text == "slices") {
         const size_t count = readSlices(editor.doc).size();

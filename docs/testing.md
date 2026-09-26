@@ -41,7 +41,10 @@ mouse and keyboard actions into ImGui's own input queue a frame at a time --
 a drag, a right-click, Shift held through a drag, Ctrl+Z -- and checks what
 the document holds afterwards (see `src/ui/ui_script.h` for the language).
 They are the only tests that go through the same path a hand does, and CI
-runs every one.
+runs every one. `click-on LABEL` presses a widget by the label the last frame
+drew it with -- a button, a menu, a menu item -- through ImGui's test-engine
+hooks, which only a script turns on; a canvas pixel the view does not show is
+a failure rather than a click on whatever is there instead.
 
 ## What they found
 
@@ -107,6 +110,13 @@ program -- which is the argument for having them.
   and Fast's polygons use it.
 - **Enter in the text window made a new line** instead of placing the text.
   Enter places it now, Ctrl+Enter makes the new line, Escape cancels.
+- **The corner preview sat on the artwork.** A new 32 x 32 document fitted
+  at 24x, and the preview -- which takes the clicks under it -- covered its
+  bottom-right corner, so those pixels could not be drawn on without zooming
+  out. Every capture had passed `--zoom 12`, where it did not show. A fit now
+  keeps the artwork beside or above the preview, whichever leaves it bigger,
+  and a fitted view fits again when its area changes -- the timeline opening
+  used to leave the canvas cut off top and bottom.
 
 ## The script: at the window
 

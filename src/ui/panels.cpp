@@ -3152,6 +3152,7 @@ const Backdrop kBackdrops[] = {
 
 void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
     if (!editor.preview.visible || canvas.compiledWidth() == 0) {
+        canvas.setCornerOverlay({ 0.f, 0.f });
         return;
     }
 
@@ -3175,6 +3176,9 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
     const float boxWidth = std::max(artWidth + padding * 2.f,
                                     backdropRow + padding * 2.f + 4.f);
     const float boxHeight = artHeight + controlsHeight + padding * 2.f;
+    // The room it takes from the view -- the box, its distance from the edge
+    // and a gap -- which fitting the artwork keeps clear.
+    canvas.setCornerOverlay({ boxWidth + 14.f + 8.f, boxHeight + 14.f + 8.f });
 
     // Bottom right of the canvas, out of the way of the artwork, which is
     // usually centred.
