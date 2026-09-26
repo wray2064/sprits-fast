@@ -1,0 +1,59 @@
+# Copy and paste, dragging a paste into place, arrow nudges, flipping a
+# selection, the brush size keys; the zoom keys, the zoom tool and the hand.
+tool pencil
+colour e08f40
+drag 2 2 5 2
+expect drawn 4 4
+
+tool select
+drag 2 2 5 2
+key ctrl+c
+key ctrl+v
+expect tool move
+drag 3 2 3 6
+key enter
+expect pixel 2 6 e08f40
+expect pixel 2 2 e08f40
+expect drawn 8 8
+
+# The copy at the bottom, nudged right with the arrows.
+tool select
+drag 2 6 5 6
+key right
+key right
+key enter
+expect pixel 7 6 e08f40
+expect pixel 2 6 empty
+
+# Flipped: a bar with a notch, mirrored left to right.
+key ctrl+d
+tool pencil
+drag 10 10 14 10
+click 10 11
+tool select
+drag 10 10 14 11
+key shift+h
+key enter
+expect pixel 14 11 e08f40
+expect pixel 10 11 empty
+
+# Brush size by key, then one click stamps a 3x3.
+key ctrl+d
+tool pencil
+key shift+]
+key shift+]
+expect brush 3
+key ctrl+z
+click 20 20
+expect pixel 21 21 e08f40
+expect pixel 19 19 e08f40
+
+# The view: zoom by key, by the zoom tool, and back to a fit.
+key ctrl+0
+key ]
+wait 2
+tool zoom
+click 16 16
+tool hand
+drag 16 16 10 10
+wait 2

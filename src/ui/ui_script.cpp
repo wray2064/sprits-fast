@@ -8,6 +8,7 @@
 #include "app/export_png.h"
 #include "app/file_io.h"
 #include "app/layers.h"
+#include "app/slices.h"
 #include "ui/canvas_view.h"
 
 #include <algorithm>
@@ -270,7 +271,7 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 continue;
             }
             case Step::Expect:
-                expect(step, editor);
+                expect(step, editor, canvas);
                 continue;
             case Step::Shot:
                 shot_ = step.text;
@@ -306,7 +307,7 @@ std::string UiScript::takeShot() {
     return out;
 }
 
-void UiScript::expect(const Step& step, Editor& editor) {
+void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
     ++checks_;
     const auto failed = [&](const std::string& what) {
         std::printf("FAIL script:%d: expect %s -- %s\n", step.line, step.text.c_str(), what.c_str());
@@ -377,6 +378,19 @@ void UiScript::expect(const Step& step, Editor& editor) {
         const size_t count = readFrames(editor.doc).size();
         if (count != static_cast<size_t>(std::atoi(a[0].c_str()))) {
             failed(std::to_string(count) + " frames");
+        }
+    } else if (step.text == "slices") {
+        const size_t count = readSlices(editor.doc).size();
+        if (count != static_cast<size_t>(std::atoi(a[0].c_str()))) {
+            failed(std::to_string(count) + " slices");
+        }
+    } else if (step.text == "zoom") {
+        if (canvas.zoom() != static_cast<float>(std::atof(a[0].c_str()))) {
+            failed("zoom is " + std::to_string(canvas.zoom()));
+        }
+    } else if (step.text == "brush") {
+        if (editor.brush.size != std::atoi(a[0].c_str())) {
+            failed("brush is " + std::to_string(editor.brush.size));
         }
     } else if (step.text == "tool") {
         Tool want;

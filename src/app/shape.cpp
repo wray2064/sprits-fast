@@ -103,6 +103,7 @@ bool writeGeometry(Document& doc, ls::GeometryId geometry, ShapeKind kind,
             }
             ls::PolygonDesc desc;
             desc.vertices = params.points;
+            desc.includeEdges = true;       // the corners clicked are in it
             return engine.updatePolygon(geometry, desc).ok();
         }
 
@@ -305,6 +306,7 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
             if (params.points.size() >= 3) {
                 ls::PolygonDesc desc;
                 desc.vertices = params.points;
+                desc.includeEdges = true;
                 geometry = engine.createPolygon(doc.id(), desc);
             }
             break;

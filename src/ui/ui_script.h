@@ -27,6 +27,7 @@
 //     expect elements Rectangle 1 how many of an element kind the active layer has
 //     expect selected 16 [20]     pixels selected: exactly, or between
 //     expect layers 2 / expect frames 3 / expect tool pencil
+//     expect slices 1 / expect zoom 12 / expect brush 3
 //     shot path.bmp               a screenshot of the next frame
 
 #pragma once
@@ -75,7 +76,7 @@ private:
     };
 
     bool parse(const std::string& line, int number, std::string* error);
-    void expect(const Step& step, Editor& editor);
+    void expect(const Step& step, Editor& editor, CanvasView& canvas);
 
     std::vector<Step> steps_;
     size_t      next_ = 0;

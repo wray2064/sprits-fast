@@ -1,0 +1,54 @@
+# The tools that take points: contour, polygon, polygon lasso, curve; the
+# slice tool; text typed onto the canvas.
+colour 3060d0
+tool contour
+move 4 4
+press
+move 12 4
+move 12 12
+move 4 12
+release
+expect drawn 81 81
+expect pixel 12 12 3060d0
+key ctrl+z
+expect drawn 0 0
+
+tool polygon
+click 4 4
+click 20 4
+click 20 20
+click 4 20
+key enter
+expect elements Polygon 1
+expect pixel 4 4 3060d0
+expect pixel 20 20 3060d0
+expect pixel 21 21 empty
+key ctrl+z
+expect elements Polygon 0
+
+tool polygon-lasso
+click 4 4
+click 20 4
+click 20 20
+key enter
+expect selected 100 200
+key ctrl+d
+
+tool curve
+click 4 28
+click 16 20
+click 28 28
+key enter
+expect elements Curve 1
+expect pixel 4 28 3060d0
+expect pixel 28 28 3060d0
+
+tool slice
+drag 2 2 10 10
+expect slices 1
+
+tool text
+click 3 3
+type Hi
+key enter
+expect elements Text 1

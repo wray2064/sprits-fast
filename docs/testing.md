@@ -95,6 +95,18 @@ program -- which is the argument for having them.
   top-left of the pixel under the pointer, and a line's flat end covered
   only half of its last pixel. Found by the first UI script; a shape's box now
   holds both end pixels, as a marquee does, and lines have square ends.
+- **Dragging a paste dropped it.** "Any key but the ones a float answers to
+  drops it" counted the mouse buttons and the wheel, which ImGui names as keys,
+  so the press meant to drag a paste into place put it down where it was --
+  and a turn of the wheel did the same to anything lifted. Keyboard keys only
+  now.
+- **A polygon lost the corners it was clicked through.** Filled by the
+  top-left rule with its corners on pixel centres, its right and bottom edges
+  -- two of the pixels clicked among them -- were outside it. The engine's
+  `PolygonDesc::includeEdges` puts every pixel an edge passes through inside,
+  and Fast's polygons use it.
+- **Enter in the text window made a new line** instead of placing the text.
+  Enter places it now, Ctrl+Enter makes the new line, Escape cancels.
 
 ## The script: at the window
 

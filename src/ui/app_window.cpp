@@ -1497,8 +1497,19 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
     if (ImGui::IsWindowAppearing()) {
         ImGui::SetKeyboardFocusHere();
     }
-    ImGui::InputTextMultiline("##words", editor.textBuffer, sizeof(editor.textBuffer),
-                              ImVec2(300.f, ImGui::GetTextLineHeight() * 4.f));
+    // Enter places the words, as in any text dialog; Ctrl+Enter starts a
+    // new line of them. Escape lets it go.
+    const bool entered = ImGui::InputTextMultiline(
+        "##words", editor.textBuffer, sizeof(editor.textBuffer),
+        ImVec2(300.f, ImGui::GetTextLineHeight() * 4.f),
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CtrlEnterForNewLine);
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        editor.textOpen = false;
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::TextDisabled("Enter places it; Ctrl+Enter for a new line");
     ImGui::SetNextItemWidth(160.f);
     ImGui::SliderInt("size", &editor.textScale, 1, 8, "%dx");
     int width = 0;
@@ -1508,7 +1519,7 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
                         editor.textAt.y);
     const bool empty = editor.textBuffer[0] == '\0';
     ImGui::BeginDisabled(empty);
-    if (ImGui::Button("Place", ImVec2(110.f, 0.f))) {
+    if (ImGui::Button("Place", ImVec2(110.f, 0.f)) || (entered && !empty)) {
         PaintLayer* layer = editor.active();
         TextSpec spec;
         spec.text = editor.textBuffer;
@@ -2647,12 +2658,14 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         return;
     }
     if (editor.floating.active()) {
+        // Keyboard keys only. ImGui names the mouse buttons and the wheel as
+        // keys too, and counting them dropped a paste at the very press that
+        // was meant to drag it, and a float at every turn of the wheel.
         bool other = false;
-        for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; ++key) {
+        for (int key = ImGuiKey_Keyboard_BEGIN; key < ImGuiKey_Keyboard_END; ++key) {
             const ImGuiKey named = static_cast<ImGuiKey>(key);
             if (ImGui::IsKeyPressed(named, false) &&
-                !(named >= ImGuiKey_LeftCtrl && named <= ImGuiKey_RightSuper) &&
-                !(named >= ImGuiKey_ReservedForModCtrl && named <= ImGuiKey_ReservedForModSuper)) {
+                !(named >= ImGuiKey_LeftCtrl && named <= ImGuiKey_RightSuper)) {
                 other = true;
             }
         }
