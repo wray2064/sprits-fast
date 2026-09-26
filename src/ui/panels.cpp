@@ -5,6 +5,7 @@
 #include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/theme.h"
+#include "ui/tile_tools.h"
 
 #include "app/reference.h"
 #include "app/library.h"
@@ -15,6 +16,7 @@
 #include "app/shape.h"
 #include "app/transform.h"
 #include "app/tracks.h"
+#include "app/tilemap.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1362,13 +1364,8 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
 
 } // namespace
 
-void drawShapePanel(Editor& editor, CanvasView& canvas) {
-    PaintLayer* layer = editor.active();
-    if (layer == nullptr) {
-        ImGui::TextDisabled("No layer selected.");
-        return;
-    }
-
+// The layer's elements, one row each, and the controls for the one selected.
+static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     // The elements of the layer, one row each: a colour of pixels, or a shape.
     // The selected one is what the controls below edit.
     const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
@@ -1619,6 +1616,23 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
         drawPixelsProperties(editor, canvas, target);
     }
 
+}
+
+void drawShapePanel(Editor& editor, CanvasView& canvas) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        ImGui::TextDisabled("No layer selected.");
+        return;
+    }
+
+    // A tilemap layer's elements are its tiles.
+    TilemapLayer tilemap;
+    if (readTilemapLayer(editor.doc, layer->layer, &tilemap)) {
+        drawTilesSection(editor, canvas);
+    } else {
+        drawElementsPart(editor, canvas, layer);
+    }
+
     ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     theme::sectionHeader("SHADOW");
     {
@@ -1830,7 +1844,16 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     const std::vector<ls::LayerId> order = layerOrder(editor.doc, sprite);
     // Thumbnails for the frame being shown; the others' are dropped, since a
     // frame change is the one time many textures would otherwise pile up.
-    canvas.frames().retainOnlyLayers(order);
+    // The tiles' are kept: the Element panel shows them for any frame.
+    {
+        std::vector<ls::LayerId> keep = order;
+        for (ls::SpriteId tileset : tilesetsOf(editor.doc)) {
+            for (ls::LayerId tile : layerOrder(editor.doc, tileset)) {
+                keep.push_back(tile);
+            }
+        }
+        canvas.frames().retainOnlyLayers(keep);
+    }
 
     // --- the buttons ---------------------------------------------------------
     if (ImGui::Button("Add", ImVec2(52.f, 0.f))) {

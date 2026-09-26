@@ -388,6 +388,21 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     return inside && windowHovered;
 }
 
+void CanvasView::drawFramePart(ImDrawList* draw, const FrameCache::Entry& entry, ImVec2 at,
+                               float scale, uint32_t width, uint32_t height, ImU32 tint) const {
+    if (entry.texture == nullptr || entry.width == 0 || entry.height == 0) {
+        return;
+    }
+    const float w = static_cast<float>(std::min(width, entry.width));
+    const float h = static_cast<float>(std::min(height, entry.height));
+    beginPixels(draw);
+    draw->AddImage(reinterpret_cast<ImTextureID>(entry.texture), at,
+                   ImVec2(at.x + w * scale, at.y + h * scale), ImVec2(0.f, 0.f),
+                   ImVec2(w / static_cast<float>(entry.width), h / static_cast<float>(entry.height)),
+                   tint);
+    endPixels(draw);
+}
+
 void CanvasView::drawFrameTinted(ImDrawList* draw, const FrameCache::Entry& entry,
                                  ImVec2 at, float scale, ImU32 tint) const {
     if (entry.texture == nullptr || entry.width == 0 || entry.height == 0) {

@@ -109,6 +109,7 @@ add_library(fast_core STATIC
     src/app/slices.cpp
     src/app/guides.cpp
     src/app/i18n.cpp
+    src/app/tilemap.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -168,6 +169,7 @@ if (FAST_BUILD_GUI)
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
         src/ui/ui_script.cpp
+        src/ui/tile_tools.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp
@@ -268,6 +270,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_slices_tests tests/slices_tests.cpp)
     target_link_libraries(fast_slices_tests PRIVATE fast_core)
     add_test(NAME fast_slices COMMAND fast_slices_tests)
+
+    add_executable(fast_tilemap_tests tests/tilemap_tests.cpp)
+    target_link_libraries(fast_tilemap_tests PRIVATE fast_core)
+    add_test(NAME fast_tilemap COMMAND fast_tilemap_tests)
 
     add_executable(fast_i18n_tests tests/i18n_tests.cpp)
     target_link_libraries(fast_i18n_tests PRIVATE fast_core)

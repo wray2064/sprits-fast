@@ -48,6 +48,14 @@ into a browser, a chat or another editor; an image copied anywhere else pastes
 into Fast as a float, one element per colour, and a colour the palette has
 exactly comes in as that slot, so it recolours with the palette straight away.
 A copied image can also be pasted as a reference, to draw from.
+**Tilemap layers** (*Sprite > New tilemap layer*): a grid of tiles over the
+canvas, each tile drawn once and shown wherever it is placed. Draw pixels into
+a cell and the tile under it changes everywhere it is used -- an empty cell
+drawn into gets a tile of its own -- or switch to placing tiles and put the
+chosen tile down, flipped or turned, erase cells, fill with the bucket, pick
+with the picker. Each frame has its own cells; the tiles are shared. The
+engine's `DrawTilemapOp` draws them from a tileset whose tiles are live
+layers, and the canvas can be flipped, turned and resized with them.
 **The eraser works on shapes too, without flattening them**: what it takes
 from a rectangle, an ellipse or a line goes into an *Erased* element -- the
 engine's `ClearRegionOp`, a mask that clears what is drawn before it and

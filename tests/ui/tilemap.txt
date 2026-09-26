@@ -1,0 +1,56 @@
+# A tilemap layer by hand: made from the Sprite menu with 8 x 8 tiles; a
+# pixel drawn into an empty cell makes a tile; the tile placed in another
+# cell; a pixel drawn into one placement shows in both; a flipped placing;
+# the eraser empties a cell and undo brings it back; the bucket fills.
+click-on Sprite
+click-on New tilemap layer...
+click-on 8 x 8
+click-on Create
+expect layers 2
+
+tool pencil
+colour e08f40
+click 1 1
+expect drawn 1 1
+
+click-on Place tiles
+click 9 1
+expect pixel 9 1 e08f40
+expect drawn 2 2
+
+click-on Draw pixels
+click 10 2
+expect pixel 2 2 e08f40
+expect drawn 4 4
+
+click-on Place tiles
+click-on Flip X
+click 17 1
+expect pixel 22 1 e08f40
+expect pixel 21 2 e08f40
+
+tool eraser
+click 17 1
+expect pixel 22 1 empty
+key ctrl+z
+expect pixel 22 1 e08f40
+
+click-on Flip X
+tool bucket
+click 1 17
+expect pixel 25 25 e08f40
+
+# Frames: a duplicate keeps the cells as they are; an empty frame gets a
+# tilemap layer of empty cells, the tiles still there to place.
+key t
+key ctrl+0
+click-on + Frame
+expect frames 2
+expect pixel 9 1 e08f40
+click-on + Empty
+expect frames 3
+expect layers 2
+expect drawn 0 0
+tool pencil
+click 9 1
+expect pixel 9 1 e08f40

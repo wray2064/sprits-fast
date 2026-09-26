@@ -211,6 +211,9 @@ public:
     // a frame with nothing cached draws nothing rather than compiling.
     void drawFrameTinted(ImDrawList* draw, const FrameCache::Entry& entry,
                          ImVec2 at, float scale, ImU32 tint) const;
+    // Only the top-left `width` x `height` pixels of it: a tile of a tileset.
+    void drawFramePart(ImDrawList* draw, const FrameCache::Entry& entry, ImVec2 at, float scale,
+                       uint32_t width, uint32_t height, ImU32 tint) const;
 
     // The size of the sprite as last compiled, so a caller can lay out a
     // preview before drawing it.

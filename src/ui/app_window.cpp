@@ -35,6 +35,7 @@
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
 #include "ui/tabs.h"
+#include "ui/tile_tools.h"
 #include "ui/ui_script.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
@@ -567,6 +568,13 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
 
     if (ImGui::BeginMenu(tr("Sprite"))) {
+        if (ImGui::MenuItem(tr("New tilemap layer..."))) {
+            editor.tilemapDialog.open = true;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("A layer drawn as a grid of tiles: each tile drawn once, "
+                              "shown wherever it is placed.");
+        }
         if (ImGui::MenuItem(tr("Canvas size..."))) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
             if (size.ok()) {
@@ -2111,6 +2119,11 @@ void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, boo
     if (run.empty()) {
         return;
     }
+    if (editor.tileTarget.layer.valid()) {
+        strokeTiles(editor, run);
+        canvas.invalidate();
+        return;
+    }
     if (editor.inkStroke.erasing()) {
         strokeInk(editor.doc, editor.inkStroke, run);
     } else {
@@ -2122,7 +2135,8 @@ void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, boo
 
 // Whether the pencil is stamping a custom brush rather than its own.
 bool usingCustomBrush(const Editor& editor) {
-    return editor.tool == Tool::Pencil && editor.customBrushOn && !editor.customBrush.empty();
+    return editor.tool == Tool::Pencil && editor.customBrushOn && !editor.customBrush.empty() &&
+           !editor.tileTarget.layer.valid();
 }
 
 // A custom brush's colour, laid down the way layDown lays a stroke: wrapped,
@@ -2198,6 +2212,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
     // The hand and the zoom tool are the canvas's own business.
     if (editor.tool == Tool::Hand || editor.tool == Tool::Zoom) {
+        return;
+    }
+    if (handleTilemapStroke(editor, canvas, overCanvas, pixel)) {
         return;
     }
     PaintLayer* layer = editor.active();
@@ -2513,11 +2530,22 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                                : editor.tool == Tool::Spray ? "Spray" : "Eraser");
         // Replace turns the other button's colour into this one's.
         const Ink other = back ? foregroundInk(editor) : backgroundInk(editor);
-        const bool ready =
-            (erasing ? beginEraseStroke(editor.doc, layer->layer, &editor.inkStroke)
-                     : beginPaint(editor, *layer, back, &editor.inkStroke)) &&
-            beginInkMode(editor.doc, layer->layer, erasing ? InkMode::Simple : editor.inkMode,
-                         other, paletteRamp(editor), &editor.inkModeState);
+        // On a tilemap layer the stroke goes into the tiles under it.
+        TilemapLayer tilemap;
+        const bool intoTiles = readTilemapLayer(editor.doc, layer->layer, &tilemap);
+        if (intoTiles) {
+            editor.tileTarget = tilemap;
+            editor.tileStrokes.clear();
+            editor.tileErasing = erasing;
+            editor.tileInk = back ? backgroundInk(editor) : foregroundInk(editor);
+            editor.inkStroke = InkStroke{};
+            editor.inkModeState = InkModeState{};
+        }
+        const bool ready = intoTiles ||
+            ((erasing ? beginEraseStroke(editor.doc, layer->layer, &editor.inkStroke)
+                      : beginPaint(editor, *layer, back, &editor.inkStroke)) &&
+             beginInkMode(editor.doc, layer->layer, erasing ? InkMode::Simple : editor.inkMode,
+                          other, paletteRamp(editor), &editor.inkModeState));
         if (!ready) {
             editor.doc.abandonAction();
             editor.say("Nothing to draw on here");
@@ -2622,10 +2650,14 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             layDown(editor, canvas, std::move(rest), tiled);
         }
         editor.lastStrokeEnd = editor.lastPixel;
+        const bool intoTiles = editor.tileTarget.layer.valid();
+        if (intoTiles) {
+            endTileStroke(editor);
+        }
         // A colour painted out entirely, or erased away, leaves the element
         // list rather than lingering as an element that draws nothing.
-        int pruned = pruneEmptyInks(editor.doc, editor.inkStroke.layer,
-                                    editor.inkStroke.target.fill);
+        int pruned = intoTiles ? 0 : pruneEmptyInks(editor.doc, editor.inkStroke.layer,
+                                                    editor.inkStroke.target.fill);
         if (!editor.brushStrokes.empty()) {
             pruned += pruneEmptyInks(editor.doc, editor.inkStroke.layer);
             editor.brushStrokes.clear();
@@ -2960,6 +2992,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
             drawShapeOverlay(editor, canvas, draw, origin, zoom);
             drawFreeScaleOverlay(editor, canvas, draw, origin, zoom);
+            drawTilemapOverlay(editor, canvas, draw, origin, zoom);
             drawSliceOverlay(editor, canvas, draw, origin, zoom);
             drawGuides(editor, canvas, draw, origin, zoom);
             if (editor.stroking && editor.brush.stabiliser > 0) {
@@ -3043,6 +3076,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawCanvasSizePanel(editor, canvas);
     drawSpriteSizePanel(editor, canvas);
     drawModifyPanel(editor);
+    drawTilemapDialog(editor, canvas);
     drawAdjustPanel(editor, canvas);
     drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);

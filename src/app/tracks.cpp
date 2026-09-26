@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/tracks.h"
+#include "app/animation.h"
+#include "app/tilemap.h"
 
 #include "app/layers.h"
 #include "app/transform.h"
@@ -44,9 +46,13 @@ std::string newKey() {
     return text;
 }
 
+// The frames: a tileset is a sprite of the document too, but not one.
 std::vector<ls::SpriteId> framesOf(Document& doc) {
-    auto info = doc.engine().getDocumentInfo(doc.id());
-    return info.ok() ? info.value.sprites : std::vector<ls::SpriteId>{};
+    std::vector<ls::SpriteId> frames;
+    for (const Frame& frame : readFrames(doc)) {
+        frames.push_back(frame.sprite);
+    }
+    return frames;
 }
 
 // One frame's stack as far as tracks care: which track each layer is, what
@@ -249,6 +255,11 @@ bool syncFrame(Document& doc, ls::SpriteId frame, const Stack& master,
                 return changed;
             }
             made = created.value;
+            // A tilemap track's new cel is a tilemap too, of empty cells.
+            TilemapLayer like;
+            if (readTilemapLayer(doc, m.id, &like)) {
+                makeTilemapLike(doc, made, like);
+            }
         }
         setMeta(doc, made.value, kTrackKey, m.key);
         setMeta(doc, made.value, kTrackFromKey, std::string());

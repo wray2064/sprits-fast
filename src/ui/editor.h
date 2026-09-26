@@ -11,6 +11,7 @@
 #include "app/adjust.h"
 #include "app/animation.h"
 #include "app/brush.h"
+#include "app/tilemap.h"
 #include "app/canvas_ops.h"
 #include "app/bucket.h"
 #include "app/dither.h"
@@ -37,6 +38,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <map>
 #include <vector>
 
 namespace fast {
@@ -243,6 +245,25 @@ struct Editor {
     int   renaming = -1;              // index of the layer being renamed, or -1
     // A free scale's handle being dragged (0-7 round the box from the top
     // left, 8 the box itself), where the box was, and where it was grabbed.
+    // Tilemap layers (see tile_tools.h): placing tiles rather than drawing
+    // into them, the tile and turn a placing puts down, a drag of placing,
+    // and a pixel stroke's tilemap and its ink for each tile it touches.
+    bool                          placingTiles = false;
+    uint32_t                      brushTile = 1;
+    uint32_t                      brushTurn = 0;
+    bool                          placingDrag = false;
+    ls::Vec2i                     lastPlaced { 0, 0 };
+    TilemapLayer                  tileTarget;
+    Ink                           tileInk;
+    bool                          tileErasing = false;
+    std::map<uint32_t, InkStroke> tileStrokes;
+    struct TilemapDialog {
+        bool open = false;
+        int  width = 16;
+        int  height = 16;
+        int  tileset = 0;          // 0 a new one, else which, from 1
+    } tilemapDialog;
+
     int        scaleHandle = -1;
     ls::Rect2f scaleFrom;
     ls::Vec2f  scaleGrab { 0.f, 0.f };
@@ -558,7 +579,7 @@ struct Editor {
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
                adjustDialog.open || draggingSlice || editingSlice || draggingGuide >= 0 ||
                selecting || draggingFloat || drawingContour || drawingGradient ||
-               scaleHandle >= 0;
+               scaleHandle >= 0 || placingDrag || tilemapDialog.open;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/animation.h"
+#include "app/tilemap.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -21,12 +22,28 @@ int clampDuration(int64_t milliseconds) {
 }
 
 // The document's sprite list, which is the frame list.
+// The frames: every sprite of the document but a tileset.
 std::vector<ls::SpriteId> spritesOf(Document& doc) {
     auto info = doc.engine().getDocumentInfo(doc.id());
     if (info.fail()) {
         return {};
     }
-    return info.value.sprites;
+    std::vector<ls::SpriteId> frames;
+    for (ls::SpriteId sprite : info.value.sprites) {
+        if (!isTileset(doc, sprite)) {
+            frames.push_back(sprite);
+        }
+    }
+    return frames;
+}
+
+// The frames put in `order`, the tilesets after them, where they always are,
+// so the first sprite of a document is always its first frame.
+ls::VoidResult setFrameOrder(Document& doc, std::vector<ls::SpriteId> order) {
+    for (ls::SpriteId tileset : tilesetsOf(doc)) {
+        order.push_back(tileset);
+    }
+    return doc.engine().setSpriteOrder(doc.id(), order);
 }
 
 bool inRange(int index, size_t count) {
@@ -206,7 +223,7 @@ int insertFrameAfter(Document& doc, int index, ls::SpriteId made, int durationMs
     const size_t at = std::min(static_cast<size_t>(index) + 1, order.size());
     order.insert(order.begin() + static_cast<ptrdiff_t>(at), made);
 
-    if (!doc.engine().setSpriteOrder(doc.id(), order).ok()) {
+    if (!setFrameOrder(doc, order).ok()) {
         return -1;
     }
 
@@ -346,7 +363,7 @@ bool moveFrame(Document& doc, int from, int to) {
     sprites.insert(sprites.begin() + to, moving);
 
     doc.beginAction("Move frame");
-    if (!doc.engine().setSpriteOrder(doc.id(), sprites).ok()) {
+    if (!setFrameOrder(doc, sprites).ok()) {
         doc.abandonAction();
         return false;
     }
@@ -374,7 +391,7 @@ bool reverseFrames(Document& doc, int first, int last) {
     const std::vector<Cycle> cycles = readCycles(doc, static_cast<int>(sprites.size()));
     std::reverse(sprites.begin() + first, sprites.begin() + last + 1);
     doc.beginAction("Reverse frames");
-    if (!doc.engine().setSpriteOrder(doc.id(), sprites).ok()) {
+    if (!setFrameOrder(doc, sprites).ok()) {
         doc.abandonAction();
         return false;
     }

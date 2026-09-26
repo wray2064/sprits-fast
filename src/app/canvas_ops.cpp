@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/canvas_ops.h"
+#include "app/tilemap.h"
+#include "app/layers.h"
 #include "app/guides.h"
 #include "app/slices.h"
 
@@ -15,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <map>
 #include <set>
 
 namespace fast {
@@ -131,9 +134,134 @@ void remapGeometry(Document& doc, ls::GeometryId geometry, const Remap& remap) {
     }
 }
 
+// The turn a remap gives a tile: its linear part, as the images of one step
+// across and one step down. False when it is not a flip or a quarter turn --
+// a scale, which tiles cannot follow, since they keep their size.
+bool tileTurn(const Remap& remap, int m[4]) {
+    const ls::Vec2f o = remap.point({ 0.f, 0.f });
+    const ls::Vec2f a = remap.point({ 1.f, 0.f });
+    const ls::Vec2f b = remap.point({ 0.f, 1.f });
+    const float v[4] = { a.x - o.x, b.x - o.x, a.y - o.y, b.y - o.y };
+    for (int i = 0; i < 4; ++i) {
+        const float r = std::round(v[i]);
+        if (std::fabs(v[i] - r) > 0.001f || std::fabs(r) > 1.f) {
+            return false;
+        }
+        m[i] = static_cast<int>(r);
+    }
+    const bool straight = m[1] == 0 && m[2] == 0 && m[0] != 0 && m[3] != 0;
+    const bool crossed = m[0] == 0 && m[3] == 0 && m[1] != 0 && m[2] != 0;
+    return straight || crossed;
+}
+
+// Every tilemap layer of every frame.
+std::vector<TilemapLayer> allTilemaps(Document& doc) {
+    std::vector<TilemapLayer> out;
+    for (const Frame& frame : readFrames(doc)) {
+        for (ls::LayerId layer : layerOrder(doc, frame.sprite)) {
+            TilemapLayer map;
+            if (readTilemapLayer(doc, layer, &map)) {
+                out.push_back(std::move(map));
+            }
+        }
+    }
+    return out;
+}
+
+// Whether the tilemaps can follow `remap`: a flip, a quarter turn of square
+// tiles, or a move. Said when not.
+bool tilemapsFollow(Document& doc, const Remap& remap, std::string* error) {
+    const std::vector<TilemapLayer> maps = allTilemaps(doc);
+    if (maps.empty()) {
+        return true;
+    }
+    int m[4];
+    if (!tileTurn(remap, m)) {
+        if (error) { *error = "tilemap layers keep their tiles' size, so the sprite cannot be scaled with them"; }
+        return false;
+    }
+    if (m[1] != 0) {
+        for (const TilemapLayer& map : maps) {
+            if (map.grid.tileWidth != map.grid.tileHeight) {
+                if (error) { *error = "a quarter turn needs square tiles, and a tilemap layer's are not"; }
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// One tilemap moved by `remap`: its cells put where the canvas takes them and
+// turned with it, then the grid grown to cover a canvas `size` big. Cells off
+// the canvas are kept, as pixels are.
+void remapTilemap(Document& doc, const TilemapLayer& map, const Remap& remap, ls::Vec2i size,
+                  ls::Vec2i* origin) {
+    int m[4];
+    if (!tileTurn(remap, m)) {
+        return;
+    }
+    const ls::TilemapDesc& old = map.grid;
+    const bool swaps = m[1] != 0;
+    ls::TilemapDesc grid;
+    grid.tileWidth = swaps ? old.tileHeight : old.tileWidth;
+    grid.tileHeight = swaps ? old.tileWidth : old.tileHeight;
+    grid.columns = swaps ? old.rows : old.columns;
+    grid.rows = swaps ? old.columns : old.rows;
+    grid.cells.assign(static_cast<size_t>(grid.columns) * grid.rows, 0u);
+    const float tw = static_cast<float>(old.tileWidth);
+    const float th = static_cast<float>(old.tileHeight);
+    const ls::Vec2f o { static_cast<float>(map.origin.x), static_cast<float>(map.origin.y) };
+    ls::Vec2f min, max;
+    mappedBox(remap, o, { o.x + tw * static_cast<float>(old.columns), o.y + th * static_cast<float>(old.rows) },
+              &min, &max);
+    for (uint32_t r = 0; r < old.rows; ++r) {
+        for (uint32_t c = 0; c < old.columns; ++c) {
+            const ls::Vec2f at { o.x + tw * static_cast<float>(c), o.y + th * static_cast<float>(r) };
+            ls::Vec2f a, b;
+            mappedBox(remap, at, { at.x + tw, at.y + th }, &a, &b);
+            const long nc = std::lround((a.x - min.x) / static_cast<float>(grid.tileWidth));
+            const long nr = std::lround((a.y - min.y) / static_cast<float>(grid.tileHeight));
+            if (nc < 0 || nr < 0 || nc >= static_cast<long>(grid.columns) ||
+                nr >= static_cast<long>(grid.rows)) {
+                continue;
+            }
+            grid.cells[static_cast<size_t>(nr) * grid.columns + static_cast<size_t>(nc)] =
+                turnedCell(old.cells[static_cast<size_t>(r) * old.columns + c], m);
+        }
+    }
+    ls::Vec2i placed { static_cast<int32_t>(std::lround(min.x)), static_cast<int32_t>(std::lround(min.y)) };
+
+    // Grown to cover the canvas, whichever sides it now falls short of.
+    const int32_t gw = static_cast<int32_t>(grid.tileWidth);
+    const int32_t gh = static_cast<int32_t>(grid.tileHeight);
+    int32_t left = 0, top = 0, right = 0, bottom = 0;
+    while (placed.x - left * gw > 0) { ++left; }
+    while (placed.y - top * gh > 0) { ++top; }
+    while (placed.x + (static_cast<int32_t>(grid.columns) + right) * gw < size.x) { ++right; }
+    while (placed.y + (static_cast<int32_t>(grid.rows) + bottom) * gh < size.y) { ++bottom; }
+    if (left + top + right + bottom > 0) {
+        ls::TilemapDesc grown = grid;
+        grown.columns = grid.columns + static_cast<uint32_t>(left + right);
+        grown.rows = grid.rows + static_cast<uint32_t>(top + bottom);
+        grown.cells.assign(static_cast<size_t>(grown.columns) * grown.rows, 0u);
+        for (uint32_t r = 0; r < grid.rows; ++r) {
+            for (uint32_t c = 0; c < grid.columns; ++c) {
+                grown.cells[static_cast<size_t>(r + static_cast<uint32_t>(top)) * grown.columns +
+                            c + static_cast<uint32_t>(left)] =
+                    grid.cells[static_cast<size_t>(r) * grid.columns + c];
+            }
+        }
+        grid = std::move(grown);
+        placed.x -= left * gw;
+        placed.y -= top * gh;
+    }
+    doc.engine().updateTilemap(map.map, grid);
+    *origin = placed;
+}
+
 // Everything every frame holds, moved by `remap`. Each region and each
 // geometry is moved once, however many operations name it.
-void remapDocument(Document& doc, const Remap& remap) {
+void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
     ls::LSContext& engine = doc.engine();
     auto info = engine.getDocumentInfo(doc.id());
     if (info.fail()) {
@@ -141,12 +269,31 @@ void remapDocument(Document& doc, const Remap& remap) {
     }
     std::set<uint64_t> regions;
     std::set<uint64_t> geometries;
+    // A tilemap two linked cels share is moved once; each cel's operation
+    // gets the place it now has.
+    std::map<uint64_t, ls::Vec2i> tilemaps;
     for (ls::SpriteId sprite : info.value.sprites) {
+        // A tileset's tiles are in their own space, not the canvas's.
+        if (isTileset(doc, sprite)) {
+            continue;
+        }
         auto spriteInfo = engine.getSpriteInfo(sprite);
         if (spriteInfo.fail()) {
             continue;
         }
         for (ls::LayerId layer : spriteInfo.value.layers) {
+            TilemapLayer map;
+            if (readTilemapLayer(doc, layer, &map)) {
+                auto moved = tilemaps.find(map.map.value);
+                if (moved == tilemaps.end()) {
+                    ls::Vec2i origin = map.origin;
+                    remapTilemap(doc, map, remap, newSize, &origin);
+                    moved = tilemaps.emplace(map.map.value, origin).first;
+                }
+                engine.setOperationParameter(map.draw, "origin", ls::ParameterValue{ ls::Vec2f{
+                    static_cast<float>(moved->second.x), static_cast<float>(moved->second.y) } });
+                continue;
+            }
             auto operations = engine.getLayerOperations(layer);
             if (operations.fail()) {
                 continue;
@@ -316,11 +463,11 @@ ls::Vec2i canvasSize(Document& doc) {
 // One action: move everything, then set the size.
 bool apply(Document& doc, const char* label, const Remap& remap, int64_t width,
            int64_t height, std::string* error) {
-    if (!sizeAllowed(width, height, error)) {
+    if (!sizeAllowed(width, height, error) || !tilemapsFollow(doc, remap, error)) {
         return false;
     }
     doc.beginAction(label);
-    remapDocument(doc, remap);
+    remapDocument(doc, remap, { static_cast<int32_t>(width), static_cast<int32_t>(height) });
     if (doc.engine().setCanvasSize(doc.id(), static_cast<uint32_t>(width),
                                    static_cast<uint32_t>(height)).fail()) {
         doc.abandonAction();

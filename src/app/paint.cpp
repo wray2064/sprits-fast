@@ -158,6 +158,21 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
         // such operation and is left alone rather than guessed at.
         PaintLayer shapeOnly;
         bool adopted = false;
+        // A tilemap layer is listed by the operation that draws it; what is
+        // drawn on it goes into its tiles (see tilemap.h), not into it.
+        for (const ls::OperationInfo& op : operations.value) {
+            if (op.type == "DrawTilemapOp") {
+                PaintLayer tiles;
+                tiles.layer = layer;
+                tiles.fill = op.id;
+                outLayers->push_back(tiles);
+                adopted = true;
+                break;
+            }
+        }
+        if (adopted) {
+            continue;
+        }
         for (const ls::OperationInfo& op : operations.value) {
             // A stroked line has no region -- it names a polyline and encloses
             // no area. It is still a layer the panel must list, or it would go

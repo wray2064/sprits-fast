@@ -662,6 +662,23 @@ sprits_fast --demo-stroke
    the box. *Expect:* it moves. Each drag is one undo step.
 3. Drag back to the original size. *Expect:* exactly the pixels drawn.
 
+### 4al. Tilemaps
+
+1. *Sprite > New tilemap layer...*, 8 x 8, Create. *Expect:* a layer
+   "Tilemap 2" with a faint grid over the canvas; the Element panel shows
+   TILES, no tiles yet.
+2. Pencil into an empty cell. *Expect:* the pixel, and a tile in the TILES
+   list. *Place tiles*, click another cell. *Expect:* the same tile there.
+   *Draw pixels*, draw into either. *Expect:* both change.
+3. *Place tiles*, *Flip X*, click a cell. *Expect:* the tile mirrored. Eraser:
+   the cell empties; bucket: every empty cell round the one clicked filled;
+   picker on a cell: that tile and its turn chosen.
+4. *+ Frame*. *Expect:* the new frame's cells are a copy; placing there leaves
+   the first frame's alone, but drawing pixels into a tile changes it in both.
+5. Flip the canvas, turn it, make it bigger. *Expect:* the tiles go with the
+   drawing, turned tiles turned. *Sprite size* with a tilemap: refused, saying
+   why.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*
