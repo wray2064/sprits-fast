@@ -163,9 +163,19 @@ bool UiScript::load(const std::string& path, std::string* error) {
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-        const size_t hash = line.find('#');
-        if (hash != std::string::npos) {
-            line.erase(hash);
+        // A comment is a # starting the line or followed by a space -- so a
+        // widget called ##slot1 is a label, not a comment.
+        for (size_t hash = line.find('#'); hash != std::string::npos;
+             hash = line.find('#', hash + 1)) {
+            const bool starts = line.find_first_not_of(" \t") == hash;
+            const bool spaced = hash + 1 >= line.size() || line[hash + 1] == ' ';
+            if (starts || spaced) {
+                line.erase(hash);
+                break;
+            }
+            while (hash + 1 < line.size() && line[hash + 1] == '#') {
+                ++hash;
+            }
         }
         if (!parse(line, number, error)) {
             return false;
@@ -236,6 +246,29 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
             add(move);
         }
         Step up = down; up.down = false; add(up);
+    } else if (verb == "drag-screen" && w.size() >= 3 && w.size() <= 5) {
+        float dx, dy;
+        if (!fast::number(w[1], &dx) || !fast::number(w[2], &dy)) { return fail("not a distance"); }
+        int steps = 12;
+        int button = ImGuiMouseButton_Left;
+        for (size_t i = 3; i < w.size(); ++i) {
+            if (w[i] == "middle") { button = ImGuiMouseButton_Middle; }
+            else if (w[i] == "right") { button = ImGuiMouseButton_Right; }
+            else { steps = std::max(1, std::atoi(w[i].c_str())); }
+        }
+        Step down; down.kind = Step::Button; down.button = button; down.down = true; add(down);
+        for (int i = 1; i <= steps; ++i) {
+            // Each step moves by its share, from wherever the pointer then is.
+            Step move; move.kind = Step::ScreenMove;
+            move.x = dx / static_cast<float>(steps);
+            move.y = dy / static_cast<float>(steps);
+            add(move);
+        }
+        Step up = down; up.down = false; add(up);
+    } else if (verb == "wheel" && w.size() == 2) {
+        Step s; s.kind = Step::Wheel;
+        if (!fast::number(w[1], &s.y)) { return fail("not a number"); }
+        add(s);
     } else if ((verb == "hold" || verb == "let") && w.size() == 2) {
         Step s; s.kind = Step::Key; s.key = keyNamed(w[1]); s.down = verb == "hold";
         if (s.key == ImGuiKey_None) { return fail("not a key"); }
@@ -351,6 +384,21 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::Shot:
                 shot_ = step.text;
                 continue;
+            case Step::ScreenMove: {
+                // From the pointer's place on screen, which from now on is
+                // held in window coordinates: the canvas may move under it.
+                const ImVec2 from = pointerOnWindow_ ? ImVec2(pointerX_, pointerY_)
+                                                     : screen(pointerX_, pointerY_);
+                pointerSet_ = true;
+                pointerOnWindow_ = true;
+                pointerX_ = from.x + step.x;
+                pointerY_ = from.y + step.y;
+                io.AddMousePosEvent(pointerX_, pointerY_);
+                return;
+            }
+            case Step::Wheel:
+                io.AddMouseWheelEvent(0.f, step.y);
+                return;
             case Step::Widget: {
                 ImVec2 centre;
                 if (!findDrawn(step.text, &centre)) {
@@ -499,6 +547,11 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         ImVec2 centre;
         if (!findDrawn(a[0], &centre)) {
             failed("nothing called \"" + a[0] + "\" on screen");
+        }
+    } else if (step.text == "pointer" && a.size() == 2) {
+        const ls::Vec2i at = canvas.pointerPixel();
+        if (at.x != std::atoi(a[0].c_str()) || at.y != std::atoi(a[1].c_str())) {
+            failed("the pointer is over " + std::to_string(at.x) + ", " + std::to_string(at.y));
         }
     } else if (step.text == "slices") {
         const size_t count = readSlices(editor.doc).size();

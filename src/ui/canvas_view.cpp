@@ -176,7 +176,12 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     };
 
     if (windowHovered) {
-        float step = io.MouseWheel;
+        // A step per notch of the wheel: two notches in one frame are two
+        // steps, and a trackpad's trickle of small scrolls adds up to a step
+        // rather than making one every frame it goes on.
+        wheelCarry_ += io.MouseWheel;
+        float step = std::trunc(wheelCarry_);
+        wheelCarry_ -= step;
         if (zoomOnClick_) {
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 step = io.KeyAlt ? -1.f : 1.f;
@@ -193,7 +198,7 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
             const float localY = (io.MousePos.y - before.y) / zoom_;
 
             const float previous = zoom_;
-            setZoom(zoom_ + (step > 0.f ? 1.f : -1.f));
+            setZoom(zoom_ + step);
 
             if (zoom_ != previous) {
                 const ImVec2 after = artworkOrigin(zoom_);

@@ -20,6 +20,9 @@
 //                                 a button, a menu, a menu item, a checkbox
 //     expect item Tween           a widget with that label was drawn
 //     drag 3 3 20 20 [steps] [right]
+//     drag-screen 40 0 [steps] [middle|right]  a drag by screen pixels from where
+//                                 the pointer is -- a pan moves the canvas under it
+//     wheel 1                     the mouse wheel, where the pointer is (negative: back)
 //     hold shift|ctrl|alt|space   a key held down until `let`
 //     let shift|ctrl|alt|space
 //     key ctrl+z                  a chord pressed and released
@@ -31,6 +34,7 @@
 //     expect selected 16 [20]     pixels selected: exactly, or between
 //     expect layers 2 / expect frames 3 / expect tool pencil
 //     expect slices 1 / expect zoom 12 / expect brush 3
+//     expect pointer 3 4          the canvas pixel under the pointer
 //     shot path.bmp               a screenshot of the next frame
 
 #pragma once
@@ -68,7 +72,8 @@ public:
 
 private:
     struct Step {
-        enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget } kind = Wait;
+        enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
+                    Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         bool        down = false;

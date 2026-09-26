@@ -117,6 +117,10 @@ program -- which is the argument for having them.
   keeps the artwork beside or above the preview, whichever leaves it bigger,
   and a fitted view fits again when its area changes -- the timeline opening
   used to leave the canvas cut off top and bottom.
+- **The wheel zoomed a step a frame, not a step a notch.** Two notches in one
+  frame were one step, and a trackpad's stream of small scrolls made a step
+  on every frame of the gesture. The wheel's movement now adds up, and each
+  whole notch is a step.
 
 ## The script: at the window
 

@@ -1,0 +1,32 @@
+# The view by the wheel and by panning, and colours by the palette's swatches.
+expect zoom 20
+move 16 16
+wheel 1
+expect zoom 21
+expect pointer 16 16
+wheel -2
+expect zoom 19
+expect pointer 16 16
+
+# Space-drag and middle-drag pan: the canvas moves with the pointer, so the
+# pixel under it stays the pixel that was grabbed.
+move 10 10
+hold space
+drag-screen 60 0
+let space
+expect pointer 10 10
+move 10 10
+drag-screen 0 -40 middle
+expect pointer 10 10
+key ctrl+0
+expect zoom 20
+
+# A palette swatch is the colour the pencil paints next.
+click-on ##slot1
+tool pencil
+click 3 3
+click-on ##slot5
+click 4 3
+expect drawn 2 2
+expect pixel 3 3 2e3240
+expect pixel 4 3 f6f8fc

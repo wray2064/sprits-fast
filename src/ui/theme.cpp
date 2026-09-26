@@ -6,6 +6,7 @@
 #include "app/i18n.h"
 
 #include <algorithm>
+#include <string>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -677,7 +678,10 @@ bool eyeToggle(const char* id, bool visible, float size) {
 bool swatch(const char* id, ImU32 colour, bool selected, float size) {
     ImGui::PushID(id);
     const ImVec2 at = ImGui::GetCursorScreenPos();
-    const bool pressed = ImGui::InvisibleButton("##swatch", ImVec2(size, size));
+    // Named for what it is -- ##slot3, ##fore -- so a UI script can find it.
+    const std::string label = std::strncmp(id, "##", 2) == 0 ? std::string(id)
+                                                             : "##" + std::string(id);
+    const bool pressed = ImGui::InvisibleButton(label.c_str(), ImVec2(size, size));
     const bool hovered = ImGui::IsItemHovered();
 
     ImDrawList* draw = ImGui::GetWindowDrawList();

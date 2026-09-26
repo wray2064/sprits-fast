@@ -258,6 +258,7 @@ private:
     bool   fitted_ = false;
     ImVec2 fittedArea_ { 0.f, 0.f };
     ImVec2 cornerOverlay_ { 0.f, 0.f };
+    float  wheelCarry_ = 0.f;           // wheel movement short of a whole notch
     float  zoom_  = 8.f;
     float  panX_  = 0.f;
     float  panY_  = 0.f;
