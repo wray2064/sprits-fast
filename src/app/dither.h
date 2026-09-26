@@ -62,7 +62,9 @@ struct DitherSettings {
     ls::Vec2f gradientStart { 0.f, 0.f };
     ls::Vec2f gradientEnd   { 16.f, 16.f };
 
-    ls::PatternAnchor anchor = ls::PatternAnchor::Local;
+    // Global by default: a dither stays a dither however the layer is turned
+    // -- level with the canvas, its gradient turning with what it shades.
+    ls::PatternAnchor anchor = ls::PatternAnchor::Global;
 };
 
 // Names for the interface, in enum order, so a combo box is built from the
@@ -71,12 +73,16 @@ const std::vector<const char*>& ditherPatternNames();
 const std::vector<const char*>& ditherModulationNames();
 const std::vector<const char*>& patternAnchorNames();
 
-// A gradient laid over `pixels` of `layer`: a new element at the top of the
-// layer, dithered with `settings`, taking those pixels from the layer's other
-// colours. What the gradient tool makes -- and it stays a rule, so its ends,
-// pattern and colours can be changed afterwards. Does not bracket an action.
-bool addGradientElement(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels,
-                        const DitherSettings& settings, PaintLayer* out);
+// A gradient laid over `area` of `layer`, in the layer's own pixels: a new
+// element at the top of the layer, dithered with `settings`. It covers what
+// is under it rather than cutting it away, so removing it brings that back.
+// Over a face when it `findsItsEdge` -- what a fill found, found again against
+// the line round it wherever the layer is turned -- or over the area exactly,
+// for a selection. What the gradient tool makes -- and it stays a rule, so its
+// ends, pattern and colours can be changed afterwards. Does not bracket an
+// action.
+bool addGradientElement(Document& doc, ls::LayerId layer, const ls::IntervalSet& area,
+                        bool findsItsEdge, const DitherSettings& settings, PaintLayer* out);
 
 // Turns a layer's fill from solid into dithered, or back, keeping the drawing.
 //

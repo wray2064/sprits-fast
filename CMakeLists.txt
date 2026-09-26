@@ -311,6 +311,10 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_bucket_tests PRIVATE fast_core)
     add_test(NAME fast_bucket COMMAND fast_bucket_tests)
 
+    add_executable(fast_turning_tests tests/turning_tests.cpp)
+    target_link_libraries(fast_turning_tests PRIVATE fast_core)
+    add_test(NAME fast_turning COMMAND fast_turning_tests)
+
     add_executable(fast_animation_tests tests/animation_tests.cpp)
     target_link_libraries(fast_animation_tests PRIVATE fast_core)
     add_test(NAME fast_animation COMMAND fast_animation_tests)

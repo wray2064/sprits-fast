@@ -115,4 +115,10 @@ bool mapCanvasPointToLayer(Document& doc, ls::LayerId layer, ls::Vec2f canvasPoi
 // The composed transform of a layer, source to canvas.
 ls::Mat3f layerTransform(Document& doc, ls::LayerId layer);
 
+// The layer's own pixels that show inside `area`, a set of canvas pixels:
+// each layer pixel whose centre lands in it, and the one each of its pixels
+// is carried back to, so a turned or scaled area comes back whole. The area
+// itself when the layer has no transform.
+ls::IntervalSet canvasAreaOnLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& area);
+
 } // namespace fast

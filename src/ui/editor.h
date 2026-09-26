@@ -434,6 +434,8 @@ struct Editor {
     bool           drawingGradient = false;
     PaintLayer     gradientElement;
     DitherSettings gradientSettings;
+    ls::Vec2f      gradientFrom { 0.f, 0.f };   // the axis on the canvas, for the overlay
+    ls::Vec2f      gradientTo { 0.f, 0.f };
 
     // A contour mid-drag: the outline so far, filled on release.
     bool                   drawingContour = false;

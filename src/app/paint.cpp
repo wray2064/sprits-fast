@@ -5,10 +5,181 @@
 
 #include "app/element.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
 namespace fast {
+
+RegionMade regionMadeOf(Document& doc, ls::RegionId region, ls::GeometryId* geometry) {
+    ls::LSContext& engine = doc.engine();
+    auto source = engine.getRegionSourceGeometry(region);
+    if (source.fail()) {
+        return RegionMade::Missing;
+    }
+    if (geometry != nullptr) {
+        *geometry = source.value;
+    }
+    if (!source.value.valid()) {
+        return RegionMade::Pixels;
+    }
+    if (engine.getStrokes(source.value).ok()) {
+        return RegionMade::Strokes;
+    }
+    if (engine.getArea(source.value).ok()) {
+        return RegionMade::Area;
+    }
+    if (engine.getFace(source.value).ok()) {
+        return RegionMade::Face;
+    }
+    return RegionMade::Shape;
+}
+
+ls::RegionId createFreehandRegion(Document& doc) {
+    ls::LSContext& engine = doc.engine();
+    auto strokes = engine.createStrokes(doc.id(), ls::StrokesDesc{});
+    if (strokes.fail()) {
+        return ls::RegionId{};
+    }
+    auto region = engine.createRegionFromGeometry(strokes.value);
+    if (region.fail()) {
+        engine.deleteGeometry(strokes.value);
+        return ls::RegionId{};
+    }
+    return region.value;
+}
+
+ls::RegionId createFreehandRegion(Document& doc, const ls::IntervalSet& pixels) {
+    ls::StrokesDesc marks;
+    if (!pixels.empty()) {
+        marks.strokes.push_back(areaMark(pixels));
+    }
+    ls::LSContext& engine = doc.engine();
+    auto strokes = engine.createStrokes(doc.id(), marks);
+    if (strokes.fail()) {
+        return ls::RegionId{};
+    }
+    auto region = engine.createRegionFromGeometry(strokes.value);
+    if (region.fail()) {
+        engine.deleteGeometry(strokes.value);
+        return ls::RegionId{};
+    }
+    return region.value;
+}
+
+bool readStrokes(Document& doc, ls::RegionId region, ls::GeometryId* geometry,
+                 ls::StrokesDesc* out) {
+    ls::GeometryId source;
+    if (regionMadeOf(doc, region, &source) != RegionMade::Strokes) {
+        return false;
+    }
+    auto desc = doc.engine().getStrokes(source);
+    if (desc.fail()) {
+        return false;
+    }
+    if (geometry != nullptr) {
+        *geometry = source;
+    }
+    if (out != nullptr) {
+        *out = std::move(desc.value);
+    }
+    return true;
+}
+
+ls::PenStroke pathMark(const std::vector<ls::Vec2i>& centres, const PenBrush& brush) {
+    ls::PenStroke mark;
+    mark.size = static_cast<float>(std::max(1, brush.size));
+    mark.round = brush.round;
+    mark.pixelPerfect = brush.pixelPerfect;
+    mark.points.reserve(centres.size());
+    for (ls::Vec2i p : centres) {
+        mark.points.push_back({ static_cast<float>(p.x) + 0.5f, static_cast<float>(p.y) + 0.5f });
+    }
+    return mark;
+}
+
+ls::PenStroke areaMark(const ls::IntervalSet& pixels) {
+    ls::PenStroke mark;
+    mark.kind = ls::PenKind::Area;
+    mark.area = ls::geom::traceArea(ls::geom::normalize(pixels));
+    return mark;
+}
+
+ls::IntervalSet markPixels(const ls::PenStroke& mark) {
+    ls::StrokesDesc one;
+    one.strokes.push_back(mark);
+    one.strokes.back().erase = false;
+    return ls::geom::rasterizeStrokes(one);
+}
+
+bool eraseFromRegion(Document& doc, ls::RegionId region, const ls::PenStroke& eraser,
+                     const ls::IntervalSet& pixels) {
+    ls::LSContext& engine = doc.engine();
+    auto covered = engine.getRegionIntervals(region);
+    if (covered.fail() || ls::geom::intersectSets(covered.value, pixels).empty()) {
+        return false;
+    }
+    ls::GeometryId source;
+    switch (regionMadeOf(doc, region, &source)) {
+        case RegionMade::Missing:
+            return false;
+        case RegionMade::Pixels: {
+            std::vector<ls::Vec2i> list;
+            for (const ls::Interval& run : pixels.intervals) {
+                for (int32_t x = run.x0; x < run.x1; ++x) {
+                    list.push_back({ x, run.y });
+                }
+            }
+            return engine.erasePixelsFromRegion(region, list).ok();
+        }
+        case RegionMade::Strokes: {
+            ls::StrokesDesc desc = engine.getStrokes(source).value;
+            if (ls::geom::cutStrokes(desc, pixels)) {
+                ls::PenStroke rub = eraser;
+                rub.erase = true;
+                desc.strokes.push_back(std::move(rub));
+            }
+            return engine.updateStrokes(source, desc).ok();
+        }
+        case RegionMade::Area: {
+            // An area is its pixels' edges: traced again without them.
+            const ls::IntervalSet left = ls::geom::subtractSets(
+                ls::geom::rasterizeAreaDesc(engine.getArea(source).value), pixels);
+            return engine.updateArea(source, ls::geom::traceArea(left)).ok();
+        }
+        case RegionMade::Face:
+        case RegionMade::Shape: {
+            // Kept as what was erased from it, so it stays a shape.
+            auto erase = engine.getRegionErase(region);
+            ls::StrokesDesc erased;
+            if (erase.ok() && erase.value.valid()) {
+                erased = engine.getStrokes(erase.value).value;
+            }
+            ls::PenStroke rub = eraser;
+            rub.erase = false;            // what it holds is what to take away
+            erased.strokes.push_back(std::move(rub));
+            if (erase.ok() && erase.value.valid()) {
+                return engine.updateStrokes(erase.value, erased).ok();
+            }
+            auto made = engine.createStrokes(doc.id(), erased);
+            return made.ok() && engine.setRegionErase(region, made.value).ok();
+        }
+    }
+    return false;
+}
+
+void deleteRegionAndShapes(Document& doc, ls::RegionId region) {
+    ls::LSContext& engine = doc.engine();
+    auto source = engine.getRegionSourceGeometry(region);
+    auto erase = engine.getRegionErase(region);
+    engine.deleteRegion(region);
+    if (source.ok() && source.value.valid()) {
+        engine.deleteGeometry(source.value);
+    }
+    if (erase.ok() && erase.value.valid()) {
+        engine.deleteGeometry(erase.value);
+    }
+}
 
 bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& name,
                       ls::Color color, PaintLayer* out) {
@@ -25,16 +196,15 @@ bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& nam
         return false;
     }
 
-    // An empty region to accumulate into. Starting from intervals rather than
-    // from pixels means the shape begins genuinely empty, with nothing drawn.
-    auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
-    if (region.fail()) {
+    // Strokes with nothing in them yet, for the pencil to add to.
+    const ls::RegionId region = createFreehandRegion(doc);
+    if (!region.valid()) {
         doc.abandonAction();
         return false;
     }
 
     ls::FillSolidOp fill;
-    fill.targetRegion = region.value;
+    fill.targetRegion = region;
     fill.fallbackColor = color;
 
     auto op = engine.addOperation(layer.value, fill);
@@ -46,7 +216,7 @@ bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& nam
     doc.endAction();
 
     out->layer = layer.value;
-    out->region = region.value;
+    out->region = region;
     out->fill = op.value;
     return true;
 }
@@ -55,6 +225,19 @@ bool paintPixels(Document& doc, const PaintLayer& target,
                  const std::vector<ls::Vec2i>& pixels) {
     if (!target.drawable() || pixels.empty()) {
         return false;
+    }
+    ls::GeometryId strokes;
+    ls::StrokesDesc marks;
+    if (readStrokes(doc, target.region, &strokes, &marks)) {
+        ls::IntervalSet set;
+        for (ls::Vec2i p : pixels) {
+            set.intervals.push_back({ p.y, p.x, p.x + 1 });
+        }
+        marks.strokes.push_back(areaMark(set));
+        return doc.engine().updateStrokes(strokes, marks).ok();
+    }
+    if (regionMadeOf(doc, target.region) != RegionMade::Pixels) {
+        return false;                 // a shape is not painted into
     }
 
     // The colour is carried by the fill operation, not by the pixels. What is
@@ -80,7 +263,15 @@ bool erasePixels(Document& doc, const PaintLayer& target,
     if (!target.drawable() || pixels.empty()) {
         return false;
     }
-    return doc.engine().erasePixelsFromRegion(target.region, pixels).ok();
+    ls::IntervalSet set;
+    for (ls::Vec2i p : pixels) {
+        set.intervals.push_back({ p.y, p.x, p.x + 1 });
+    }
+    set = ls::geom::normalize(set);
+    // Erasing where nothing is drawn is not a failure: there is simply
+    // nothing to take.
+    eraseFromRegion(doc, target.region, areaMark(set), set);
+    return regionMadeOf(doc, target.region) != RegionMade::Missing;
 }
 
 bool setPaintColor(Document& doc, const PaintLayer& target, ls::Color color) {
@@ -202,10 +393,11 @@ bool adoptPaintLayers(Document& doc, ls::SpriteId spriteId,
             found.layer = layer;
             found.fill = op.id;
             found.region.value = *handle;
-            auto source = engine.getRegionSourceGeometry(found.region);
+            const RegionMade made = regionMadeOf(doc, found.region);
+            const bool freehand = made == RegionMade::Strokes || made == RegionMade::Area ||
+                                  made == RegionMade::Pixels;
             const bool text = engine.getMetadata(found.region.value, "fast.text").ok();
-            if ((source.ok() && source.value.valid()) || op.type == "StrokeRegionBoundaryOp" ||
-                text) {
+            if (!freehand || op.type == "StrokeRegionBoundaryOp" || text) {
                 if (!shapeOnly.valid()) {
                     shapeOnly = found;
                 }

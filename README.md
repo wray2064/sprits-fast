@@ -2,10 +2,14 @@
 
 A lightweight sprite editor built on the [LiveSprite engine](https://github.com/wray2064/livesprite-engine).
 
-Sprites are stored as mathematical operations rather than as pixels. A fill is a
-standing rule about how a region gets its colour; a rotation is a parameter.
-Pixels are compiled from that stack on demand, so nothing degrades no matter how
-many times you change your mind.
+Sprites are stored as mathematical operations rather than as pixels -- all the
+way down. A pencil stroke is the path the pencil took and the brush it took it
+with; a paint-bucket fill is the area it found and a point inside it; a
+rectangle is a rectangle; a fill is a standing rule about how an area gets its
+colour; a rotation is a parameter. Pixels exist only when the picture is
+drawn, so nothing degrades no matter how many times you change your mind --
+turn a layer by 23 degrees and its outline is drawn again as a clean line at
+23 degrees, its fill found again inside it, its dither still a dither.
 
 Fast is the small editor that introduces the idea. **Sprit's'pract** is the full
 production suite.
@@ -56,13 +60,16 @@ chosen tile down, flipped or turned, erase cells, fill with the bucket, pick
 with the picker. Each frame has its own cells; the tiles are shared. The
 engine's `DrawTilemapOp` draws them from a tileset whose tiles are live
 layers, and the canvas can be flipped, turned and resized with them.
-**The eraser works on shapes too, without flattening them**: what it takes
-from a rectangle, an ellipse or a line goes into an *Erased* element -- the
-engine's `ClearRegionOp`, a mask that clears what is drawn before it and
-nothing after -- so the shape keeps its handles, a shape drawn later is not
-erased, and removing the element brings everything back. Delete does the
-same, and a lifted shape carries its erased pixels with it. Nothing is
-ever baked to pixels while editing.
+**Paint covers; it does not cut.** Painting a colour over another lays it on
+top, and the element list is a stack: remove the top colour, a fill or a
+gradient and what was under it is there again, as it was.
+**The eraser keeps everything what it was**: a pencil line is cut where it was
+erased, an area loses the pixels from its edge, and a rectangle, an ellipse, a
+fill or a wide stroke keeps the eraser's stroke as what was erased from it --
+so the shape keeps its handles and the hole moves and turns with it. An erase
+belongs to what it erased, so it never touches anything drawn later or beside
+it. Delete does the same, and a lifted shape carries its holes with it.
+Nothing is ever baked to pixels while editing.
 *Select > Modify* grows, shrinks or borders the selection by any number of
 pixels, with square or round corners; *Edit > Fill selection* paints it in the
 current colour and *Stroke selection* paints a band the brush's width just
@@ -72,9 +79,13 @@ inside its edge -- both as ordinary paint, one undo step each.
 what is drawn, enlarge or reduce by a whole number, resize to any size or
 percentage by nearest neighbour (shapes scaled as shapes), and turn or flip the
 whole canvas -- every frame at once, one undo step each.
-**Rotation at any angle, pixel-art style**: a rotation in the Transform panel
-uses RotSprite -- the drawing enlarged 8x by Scale2x and sampled back -- so a
-ring stays a ring at 30 degrees, with no colour the drawing did not have; and
+**Rotation at any angle, pixel-art style**: a turned layer is not a picture
+turned. Its strokes are walked again at the new angle, one pixel wide and
+joined; its fills are found again inside their outlines, with no gap and no
+leak; a brush keeps its size and a dither stays level and crisp while its
+gradient turns with the shape -- no colour the drawing did not have. (Pixels
+that come from outside, an imported image before it is drawn over, are turned
+with RotSprite.) And
 *Select > Rotate freely* puts the selected pixels on a layer of their own with
 such a rotation, to turn and turn again, and *Scale freely* does the same with
 eight handles round them to size them by -- Shift keeps the proportion,

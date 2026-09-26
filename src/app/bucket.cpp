@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/bucket.h"
+#include "app/shape.h"
 #include "app/transform.h"
 
 #include <algorithm>
@@ -111,85 +112,126 @@ std::vector<ls::Vec2i> bucketArea(Document& doc, ls::SpriteId sprite, ls::Vec2i 
     return flood(compiled.value.raster, seed, settings);
 }
 
-bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
-                ls::Vec2i seed, const BucketSettings& settings,
-                const ls::IntervalSet* within) {
-    if (!stroke.layer.valid()) {
-        return false;
-    }
-
+ls::IntervalSet bucketAreaOnLayer(Document& doc, ls::SpriteId sprite, ls::LayerId layer,
+                                  ls::Vec2i seed, const BucketSettings& settings,
+                                  const ls::IntervalSet* within) {
+    ls::IntervalSet area;
     // A layer that is turned or scaled is flooded in its own space, over its
     // own drawing as drawn, from the point clicked carried back: the fill then
-    // sits inside the outline as it was drawn and turns with it exactly. The
-    // canvas's picture would be the wrong thing to flood -- a turned outline
-    // can show gaps a fill runs out through -- and carrying a flooded canvas
-    // area back pixel by pixel leaves holes, since a turn does not map pixels
-    // one to one.
-    if (!listTransforms(doc, stroke.layer).empty()) {
+    // sits inside the outline as it was drawn and turns with it. The canvas's
+    // picture would be the wrong thing to flood, since a turned layer's
+    // pixels are not where its drawing is.
+    if (!listTransforms(doc, layer).empty()) {
         auto size = doc.engine().getCanvasSize(doc.id());
         ls::Vec2f mapped;
         if (size.fail() ||
-            !mapCanvasPointToLayer(doc, stroke.layer,
+            !mapCanvasPointToLayer(doc, layer,
                                    { static_cast<float>(seed.x), static_cast<float>(seed.y) },
                                    &mapped)) {
-            return false;
+            return area;
         }
         ls::CompileProfile profile = compileProfile(ls::CompileProfileType::Preview,
                                                     static_cast<uint32_t>(size.value.x),
                                                     static_cast<uint32_t>(size.value.y));
         profile.resolveTransforms = false;
-        auto drawn = doc.engine().compileLayer(stroke.layer, profile);
+        auto drawn = doc.engine().compileLayer(layer, profile);
         if (drawn.fail()) {
-            return false;
+            return area;
         }
-        std::vector<ls::Vec2i> area = flood(
-            drawn.value.raster,
-            { static_cast<int32_t>(std::floor(mapped.x + 0.5f)),
-              static_cast<int32_t>(std::floor(mapped.y + 0.5f)) },
-            settings);
+        for (ls::Vec2i pixel : flood(drawn.value.raster,
+                                     { static_cast<int32_t>(std::floor(mapped.x + 0.5f)),
+                                       static_cast<int32_t>(std::floor(mapped.y + 0.5f)) },
+                                     settings)) {
+            area.intervals.push_back({ pixel.y, pixel.x, pixel.x + 1 });
+        }
+        area = ls::geom::normalize(area);
         if (within != nullptr) {
-            const ls::Mat3f toCanvas = layerTransform(doc, stroke.layer);
-            area.erase(std::remove_if(area.begin(), area.end(), [&](ls::Vec2i pixel) {
-                           const ls::Vec2f at = toCanvas.transformPoint(
-                               { static_cast<float>(pixel.x) + 0.5f, static_cast<float>(pixel.y) + 0.5f });
-                           return !ls::geom::contains(*within,
-                               { static_cast<int32_t>(std::floor(at.x)),
-                                 static_cast<int32_t>(std::floor(at.y)) });
-                       }),
-                       area.end());
+            const ls::Mat3f toCanvas = layerTransform(doc, layer);
+            ls::IntervalSet kept;
+            for (const ls::Interval& run : area.intervals) {
+                for (int32_t x = run.x0; x < run.x1; ++x) {
+                    const ls::Vec2f at = toCanvas.transformPoint(
+                        { static_cast<float>(x) + 0.5f, static_cast<float>(run.y) + 0.5f });
+                    if (ls::geom::contains(*within, { static_cast<int32_t>(std::floor(at.x)),
+                                                      static_cast<int32_t>(std::floor(at.y)) })) {
+                        kept.intervals.push_back({ run.y, x, x + 1 });
+                    }
+                }
+            }
+            area = ls::geom::normalize(kept);
         }
-        return !area.empty() && strokeInk(doc, stroke, area);
+        return area;
     }
-
-    std::vector<ls::Vec2i> area = bucketArea(doc, sprite, seed, settings);
+    for (ls::Vec2i pixel : bucketArea(doc, sprite, seed, settings)) {
+        area.intervals.push_back({ pixel.y, pixel.x, pixel.x + 1 });
+    }
+    area = ls::geom::normalize(area);
     if (within != nullptr) {
-        area.erase(std::remove_if(area.begin(), area.end(), [&](ls::Vec2i pixel) {
-                       return !ls::geom::contains(*within, pixel);
-                   }),
-                   area.end());
+        area = ls::geom::intersectSets(area, *within);
     }
+    return area;
+}
+
+bool bucketFill(Document& doc, ls::SpriteId sprite, const InkStroke& stroke,
+                ls::Vec2i seed, const BucketSettings& settings,
+                const ls::IntervalSet* within, PaintLayer* made) {
+    if (!stroke.layer.valid() || !stroke.target.valid()) {
+        return false;
+    }
+    const ls::IntervalSet area = bucketAreaOnLayer(doc, sprite, stroke.layer, seed, settings, within);
     if (area.empty()) {
         return false;
     }
-
-    // The flood found pixels on the canvas; the region lives in the layer's own
-    // space. With a transform on the layer those are not the same place, so the
-    // pixels are carried back the same way the pencil's are.
-    std::vector<ls::Vec2i> inLayerSpace;
-    inLayerSpace.reserve(area.size());
-    for (ls::Vec2i pixel : area) {
-        ls::Vec2f mapped;
-        if (!mapCanvasPointToLayer(doc, stroke.layer,
-                                   {static_cast<float>(pixel.x),
-                                    static_cast<float>(pixel.y)}, &mapped)) {
-            return false;
-        }
-        inLayerSpace.push_back({
-            static_cast<int32_t>(std::floor(mapped.x + 0.5f)),
-            static_cast<int32_t>(std::floor(mapped.y + 0.5f)) });
+    ls::LSContext& engine = doc.engine();
+    // A fill is an element of its own: the area its flood found, and a seed
+    // deep inside it, so that wherever the layer is turned it is found again
+    // against the line round it (see the engine's FaceDesc). A fill of every
+    // pixel of a colour has no one inside to find again, and stays the area.
+    ls::Result<ls::GeometryId> shape = ls::Result<ls::GeometryId>::err(ls::LSError::InvalidId);
+    if (settings.global) {
+        shape = engine.createArea(doc.id(), ls::geom::traceArea(area));
+    } else {
+        ls::FaceDesc face;
+        face.area = ls::geom::traceArea(area);
+        face.seed = ls::geom::deepestPoint(area);
+        face.tolerance = settings.tolerance;
+        face.diagonal = settings.diagonal;
+        shape = engine.createFace(doc.id(), face);
     }
-
-    return strokeInk(doc, stroke, inLayerSpace);
+    if (shape.fail()) {
+        return false;
+    }
+    auto region = engine.createRegionFromGeometry(shape.value);
+    if (region.fail()) {
+        engine.deleteGeometry(shape.value);
+        return false;
+    }
+    // Coloured the way the stroke paints: its ink, or the rule of the element
+    // it paints with.
+    auto rule = engine.getOperation(stroke.target.fill);
+    bool coloured = rule.ok();
+    if (coloured) {
+        if (auto* solid = std::get_if<ls::FillSolidOp>(&rule.value)) {
+            solid->targetRegion = region.value;
+        } else if (auto* dither = std::get_if<ls::FillDitherOp>(&rule.value)) {
+            dither->targetRegion = region.value;
+        } else {
+            coloured = false;
+        }
+    }
+    auto op = coloured ? engine.addOperation(stroke.layer, rule.value)
+                       : ls::Result<ls::OperationId>::err(ls::LSError::InvalidParameter);
+    if (op.fail()) {
+        deleteRegionAndShapes(doc, region.value);
+        return false;
+    }
+    keepEffectsLast(doc, stroke.layer);
+    if (made != nullptr) {
+        made->layer = stroke.layer;
+        made->region = region.value;
+        made->fill = op.value;
+    }
+    return true;
 }
 
 bool bucketFill(Document& doc, ls::SpriteId sprite, const PaintLayer& target,

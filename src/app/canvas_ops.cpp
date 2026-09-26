@@ -131,6 +131,43 @@ void remapGeometry(Document& doc, ls::GeometryId geometry, const Remap& remap) {
             s.p1 = remap.point(s.p1);
         }
         engine.updateCurve(geometry, desc);
+        return;
+    }
+    // Freehand marks, areas and fills: every point moved, a brush grown or
+    // shrunk with what it drew.
+    const auto moveArea = [&remap](ls::AreaDesc& area) {
+        for (auto& contour : area.contours) {
+            for (ls::Vec2f& p : contour) {
+                p = remap.point(p);
+            }
+        }
+    };
+    if (auto strokes = engine.getStrokes(geometry); strokes.ok()) {
+        ls::StrokesDesc desc = strokes.value;
+        for (ls::PenStroke& mark : desc.strokes) {
+            for (ls::Vec2f& p : mark.points) {
+                p = remap.point(p);
+            }
+            mark.size = std::max(1.f, mark.size * remap.lengthScale);
+            for (float& size : mark.sizes) {
+                size = std::max(1.f, size * remap.lengthScale);
+            }
+            moveArea(mark.area);
+        }
+        engine.updateStrokes(geometry, desc);
+        return;
+    }
+    if (auto area = engine.getArea(geometry); area.ok()) {
+        ls::AreaDesc desc = area.value;
+        moveArea(desc);
+        engine.updateArea(geometry, desc);
+        return;
+    }
+    if (auto face = engine.getFace(geometry); face.ok()) {
+        ls::FaceDesc desc = face.value;
+        desc.seed = remap.point(desc.seed);
+        moveArea(desc.area);
+        engine.updateFace(geometry, desc);
     }
 }
 
@@ -269,6 +306,7 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
     }
     std::set<uint64_t> regions;
     std::set<uint64_t> geometries;
+    std::set<uint64_t> texts;
     // A tilemap two linked cels share is moved once; each cel's operation
     // gets the place it now has.
     std::map<uint64_t, ls::Vec2i> tilemaps;
@@ -307,35 +345,41 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
                         if (geometries.insert(source.value.value).second) {
                             remapGeometry(doc, source.value, remap);
                         }
+                        // What was erased from it moves with it.
+                        auto erase = engine.getRegionErase(id);
+                        if (erase.ok() && erase.value.valid() &&
+                            geometries.insert(erase.value.value).second) {
+                            remapGeometry(doc, erase.value, remap);
+                        }
                     } else if (regions.insert(region).second) {
                         auto set = engine.getRegionIntervals(id);
                         if (set.ok()) {
                             engine.setRegionIntervals(id, remap.pixels(set.value));
                         }
-                        // Text keeps its words, place and size on the region;
-                        // they move with it, so retyping lands where it now is.
-                        TextSpec text;
-                        if (readTextElement(doc, id, &text)) {
-                            int w = 0;
-                            int h = 0;
-                            layOutText(text.text, text.at, text.scale, &w, &h);
-                            ls::Vec2f min, max;
-                            mappedBox(remap,
-                                      { static_cast<float>(text.at.x), static_cast<float>(text.at.y) },
-                                      { static_cast<float>(text.at.x + w),
-                                        static_cast<float>(text.at.y + h) }, &min, &max);
-                            text.at = { static_cast<int32_t>(std::floor(min.x + 0.5f)),
-                                        static_cast<int32_t>(std::floor(min.y + 0.5f)) };
-                            if (remap.lengthScale >= 1.f) {
-                                text.scale = std::min(16, static_cast<int>(
-                                    static_cast<float>(text.scale) * remap.lengthScale + 0.5f));
-                            }
-                            engine.setMetadata(id.value, "fast.text.at",
-                                               std::to_string(text.at.x) + "," +
-                                                   std::to_string(text.at.y));
-                            engine.setMetadata(id.value, "fast.text.scale",
-                                               std::to_string(text.scale));
+                    }
+                    // Text keeps its words, place and size on the region;
+                    // they move with it, so retyping lands where it now is.
+                    TextSpec text;
+                    if (texts.insert(region).second && readTextElement(doc, id, &text)) {
+                        int w = 0;
+                        int h = 0;
+                        layOutText(text.text, text.at, text.scale, &w, &h);
+                        ls::Vec2f min, max;
+                        mappedBox(remap,
+                                  { static_cast<float>(text.at.x), static_cast<float>(text.at.y) },
+                                  { static_cast<float>(text.at.x + w),
+                                    static_cast<float>(text.at.y + h) }, &min, &max);
+                        text.at = { static_cast<int32_t>(std::floor(min.x + 0.5f)),
+                                    static_cast<int32_t>(std::floor(min.y + 0.5f)) };
+                        if (remap.lengthScale >= 1.f) {
+                            text.scale = std::min(16, static_cast<int>(
+                                static_cast<float>(text.scale) * remap.lengthScale + 0.5f));
                         }
+                        engine.setMetadata(id.value, "fast.text.at",
+                                           std::to_string(text.at.x) + "," +
+                                               std::to_string(text.at.y));
+                        engine.setMetadata(id.value, "fast.text.scale",
+                                           std::to_string(text.scale));
                     }
                 }
                 for (const char* name : { "polyline", "path" }) {

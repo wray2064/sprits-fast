@@ -9,6 +9,8 @@
 #include "app/transform.h"
 
 #include <algorithm>
+#include <functional>
+#include <iterator>
 
 namespace fast {
 
@@ -27,40 +29,87 @@ ls::IntervalSet canvasMask(Document& doc) {
     return rectangleMask({ 0, 0 }, { size.value.x - 1, size.value.y - 1 });
 }
 
-// A piece's element: a solid fill in `ink`, or a copy of the dithered element
-// `dither` names, over a region of its own holding `pixels`.
+// Every point of every mark, moved by `to`: a path's points, an area's
+// corners. Marks are shapes, so a move or a turn of them is exact.
+ls::StrokesDesc mappedMarks(const ls::StrokesDesc& marks, const std::function<ls::Vec2f(ls::Vec2f)>& to) {
+    ls::StrokesDesc out = marks;
+    for (ls::PenStroke& mark : out.strokes) {
+        for (ls::Vec2f& p : mark.points) {
+            p = to(p);
+        }
+        for (auto& contour : mark.area.contours) {
+            for (ls::Vec2f& p : contour) {
+                p = to(p);
+            }
+        }
+    }
+    return out;
+}
+
+ls::StrokesDesc translatedMarks(const ls::StrokesDesc& marks, ls::Vec2i by) {
+    const ls::Vec2f step { static_cast<float>(by.x), static_cast<float>(by.y) };
+    return mappedMarks(marks, [step](ls::Vec2f p) { return ls::Vec2f{ p.x + step.x, p.y + step.y }; });
+}
+
+// The part of some marks inside `mask`, still marks: thin lines cut at the
+// mask's edge, areas trimmed to it, and what cannot be cut -- a wide stroke
+// -- trimmed by an erase of everything outside.
+ls::StrokesDesc keptInside(const ls::StrokesDesc& marks, const ls::IntervalSet& mask) {
+    ls::StrokesDesc kept = marks;
+    const ls::Rect2i box = ls::geom::bounds(ls::geom::rasterizeStrokes(marks));
+    if (box.empty()) {
+        return kept;
+    }
+    const ls::IntervalSet outside = ls::geom::subtractSets(
+        rectangleMask(box.min, { box.max.x - 1, box.max.y - 1 }), mask);
+    if (ls::geom::cutStrokes(kept, outside)) {
+        ls::PenStroke trim = areaMark(outside);
+        trim.erase = true;
+        kept.strokes.push_back(std::move(trim));
+    }
+    return kept;
+}
+
+// A piece's element: a run on top of the layer holding `marks`, coloured by a
+// solid `ink` or by a copy of the dithered element `dither` names.
 bool makePiece(Document& doc, ls::LayerId layer, const Ink& ink, ls::OperationId dither,
-               const ls::IntervalSet& pixels, Floating::Piece* out) {
+               const ls::StrokesDesc& marks, const ls::IntervalSet& pixels, Floating::Piece* out) {
     ls::LSContext& engine = doc.engine();
-    auto region = engine.createRegionFromIntervals(doc.id(), pixels);
-    if (region.fail()) {
+    const ls::RegionId region = createFreehandRegion(doc);
+    ls::GeometryId strokes;
+    if (!region.valid() || !readStrokes(doc, region, &strokes, nullptr) ||
+        engine.updateStrokes(strokes, marks).fail()) {
+        if (region.valid()) {
+            deleteRegionAndShapes(doc, region);
+        }
         return false;
     }
     ls::Result<ls::OperationId> op = ls::Result<ls::OperationId>::err(ls::LSError::InvalidId);
     if (dither.valid()) {
         auto source = engine.getOperation(dither);
         if (source.ok()) {
-            op = engine.addOperation(layer, source.value);
-            if (op.ok()) {
-                engine.setOperationParameter(op.value, "targetRegion",
-                    ls::ParameterValue{ static_cast<uint64_t>(region.value.value) });
+            if (auto* rule = std::get_if<ls::FillDitherOp>(&source.value)) {
+                rule->targetRegion = region;
+                op = engine.addOperation(layer, source.value);
             }
         }
     }
-    if (!dither.valid() || op.fail()) {
+    if (op.fail()) {
         ls::FillSolidOp fill;
-        fill.targetRegion = region.value;
+        fill.targetRegion = region;
         fill.fallbackColor = ink.colour;
         fill.paletteRole = ink.role;
         op = engine.addOperation(layer, fill);
     }
     if (op.fail()) {
-        engine.deleteRegion(region.value);
+        deleteRegionAndShapes(doc, region);
         return false;
     }
+    keepEffectsLast(doc, layer);
     out->fill = op.value;
-    out->region = region.value;
+    out->region = region;
     out->original = pixels;
+    out->marks = marks;
     return true;
 }
 
@@ -71,6 +120,18 @@ bool isPiece(const Floating& floating, ls::OperationId fill) {
         }
     }
     return false;
+}
+
+bool writePieceMarks(Document& doc, const Floating::Piece& piece, const ls::StrokesDesc& marks) {
+    ls::GeometryId strokes;
+    return readStrokes(doc, piece.region, &strokes, nullptr) &&
+           doc.engine().updateStrokes(strokes, marks).ok();
+}
+
+// What a selection lifts and copies: freehand runs and what the bucket filled.
+bool carriesPixels(const Element& element) {
+    return (element.kind == ElementKind::Paint || element.kind == ElementKind::Fill) &&
+           element.region.valid();
 }
 
 } // namespace
@@ -97,17 +158,28 @@ bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, P
     }
     PixelClip clip;
     clip.from = doc.id();
-    for (const Element& element : elementsOf(doc, layer)) {
-        if (element.kind != ElementKind::Paint) {
-            continue;
-        }
-        const ls::IntervalSet inside =
-            ls::geom::intersectSets(regionPixels(doc, element.region), mask);
-        if (inside.empty()) {
+    // What shows: topmost first, each element only where nothing above it
+    // draws -- a colour painted over is covered, not copied.
+    const std::vector<Element> elements = elementsOf(doc, layer);
+    ls::IntervalSet covered;
+    std::vector<PixelClip::Piece> topFirst;
+    for (size_t n = elements.size(); n-- > 0;) {
+        const Element& element = elements[n];
+        const ls::IntervalSet drawn = elementCoverage(doc, element);
+        const ls::IntervalSet inside = ls::geom::subtractSets(
+            ls::geom::intersectSets(drawn, mask), covered);
+        covered = ls::geom::unionSets(covered, drawn);
+        if (!carriesPixels(element) || inside.empty()) {
             continue;
         }
         PixelClip::Piece piece;
         piece.pixels = inside;
+        ls::StrokesDesc marks;
+        if (readStrokes(doc, element.region, nullptr, &marks)) {
+            piece.marks = keptInside(marks, inside);
+        } else {
+            piece.marks.strokes.push_back(areaMark(inside));
+        }
         if (!inkOfElement(doc, element.fill, &piece.ink)) {
             // A dither: remembered by the element, and by a colour for a
             // document that does not have it.
@@ -119,8 +191,11 @@ bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, P
             piece.ink.colour = paintColor(doc, as);
         }
         clip.mask = ls::geom::unionSets(clip.mask, inside);
-        clip.pieces.push_back(std::move(piece));
+        topFirst.push_back(std::move(piece));
     }
+    // In draw order again.
+    clip.pieces.assign(std::make_move_iterator(topFirst.rbegin()),
+                       std::make_move_iterator(topFirst.rend()));
     if (clip.empty()) {
         return false;
     }
@@ -133,20 +208,16 @@ bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask,
     if (mask.empty() || !layerTakesSelections(doc, layer)) {
         return false;
     }
-    const std::vector<ls::Vec2i> pixels = pixelsOf(mask);
+    const ls::PenStroke eraser = areaMark(mask);
     bool any = false;
-    for (const Element& element : elementsOf(doc, layer)) {
-        if (element.kind != ElementKind::Paint) {
-            continue;
-        }
-        if (ls::geom::intersectSets(regionPixels(doc, element.region), mask).empty()) {
-            continue;
-        }
-        any = doc.engine().erasePixelsFromRegion(element.region, pixels).ok() || any;
-    }
-    // And the shapes lose them, through the erase: they stay shapes.
     if (shapesToo) {
-        any = eraseFromShapes(doc, layer, pixels) || any;
+        any = eraseFromLayer(doc, layer, eraser, mask);
+    } else {
+        for (const Element& element : elementsOf(doc, layer)) {
+            if (carriesPixels(element)) {
+                any = eraseFromRegion(doc, element.region, eraser, mask) || any;
+            }
+        }
     }
     if (any) {
         pruneEmptyInks(doc, layer);
@@ -164,6 +235,7 @@ bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, F
     // The shapes the mask holds entirely. One that crosses its edge stays:
     // half a rectangle is not a thing a shape can be.
     std::vector<Floating::Shape> shapes;
+    std::vector<Floating::ShapeErase> erases;
     for (const Element& element : elementsOf(doc, layer)) {
         if (!element.isGeometry()) {
             continue;
@@ -186,81 +258,38 @@ bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, F
         taken.shape = shapeOfElement(layer, element);
         if (readShapeParams(doc, taken.shape, &taken.original)) {
             shapes.push_back(taken);
+            // Its erase is its own, and goes with it.
+            if (element.region.valid()) {
+                auto erase = doc.engine().getRegionErase(element.region);
+                if (erase.ok() && erase.value.valid()) {
+                    auto marks = doc.engine().getStrokes(erase.value);
+                    if (marks.ok()) {
+                        erases.push_back({ erase.value, marks.value });
+                    }
+                }
+            }
         }
     }
     if (!anyPixels && shapes.empty()) {
         return false;
     }
 
-    // The erased pixels over the shapes that go along. They leave the layer's
-    // erase -- unless a shape that stays is under them too, which keeps its
-    // hole -- and ride with the float in an erase of their own.
-    ls::IntervalSet travelling;
-    if (!shapes.empty()) {
-        ls::IntervalSet moving;
-        ls::IntervalSet staying;
-        for (const Element& element : elementsOf(doc, layer)) {
-            if (element.kind == ElementKind::Paint || element.kind == ElementKind::Erase) {
-                continue;
-            }
-            bool taken = false;
-            for (const Floating::Shape& s : shapes) {
-                taken = taken || s.shape.paint.fill == element.fill;
-            }
-            const ls::IntervalSet cover = ls::geom::normalize(elementCoverage(doc, element));
-            (taken ? moving : staying) = ls::geom::unionSets(taken ? moving : staying, cover);
-        }
-        for (const Element& element : elementsOf(doc, layer)) {
-            if (element.kind != ElementKind::Erase) {
-                continue;
-            }
-            const ls::IntervalSet inside = ls::geom::intersectSets(
-                ls::geom::intersectSets(regionPixels(doc, element.region), mask), moving);
-            if (inside.empty()) {
-                continue;
-            }
-            travelling = ls::geom::unionSets(travelling, inside);
-            const ls::IntervalSet leaves = ls::geom::subtractSets(inside, staying);
-            if (!leaves.empty()) {
-                doc.engine().erasePixelsFromRegion(element.region, pixelsOf(leaves));
-            }
-        }
-    }
-
     Floating floating;
     floating.layer = layer;
     floating.originalMask = mask;
     floating.shapes = std::move(shapes);
-    if (!travelling.empty()) {
-        // After everything the layer draws and before the pieces, which hold
-        // no erased pixels to begin with.
-        auto region = doc.engine().createRegionFromIntervals(doc.id(), travelling);
-        if (region.ok()) {
-            ls::ClearRegionOp clear;
-            clear.targetRegion = region.value;
-            auto op = doc.engine().addOperation(layer, clear);
-            if (op.ok()) {
-                floating.erase = { op.value, region.value, travelling };
-            } else {
-                doc.engine().deleteRegion(region.value);
-            }
-        }
-    }
+    floating.shapeErases = std::move(erases);
     // Out of the layer first, then into pieces at the top: the pieces are
     // added after, so they draw over everything the layer holds.
+    const ls::PenStroke eraser = areaMark(mask);
     for (const Element& element : elementsOf(doc, layer)) {
-        if (element.kind != ElementKind::Paint) {
-            continue;
-        }
-        const ls::IntervalSet inside =
-            ls::geom::intersectSets(regionPixels(doc, element.region), mask);
-        if (!inside.empty()) {
-            doc.engine().erasePixelsFromRegion(element.region, pixelsOf(inside));
+        if (carriesPixels(element)) {
+            eraseFromRegion(doc, element.region, eraser, mask);
         }
     }
     for (const PixelClip::Piece& taken : clip.pieces) {
         Floating::Piece piece;
-        if (makePiece(doc, layer, taken.ink, taken.dither, taken.pixels, &piece)) {
+        if (makePiece(doc, layer, taken.ink, taken.dither, taken.marks, taken.pixels, &piece)) {
             floating.pieces.push_back(std::move(piece));
         }
     }
@@ -282,8 +311,12 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
         // A dither whose element was deleted since the copy pastes as its
         // colour rather than as nothing.
         const bool ditherLives = dither.valid() && doc.engine().getOperation(dither).ok();
+        ls::StrokesDesc marks = taken.marks;
+        if (marks.strokes.empty()) {
+            marks.strokes.push_back(areaMark(taken.pixels));
+        }
         if (makePiece(doc, layer, taken.ink, ditherLives ? dither : ls::OperationId{},
-                      taken.pixels, &piece)) {
+                      marks, taken.pixels, &piece)) {
             floating.pieces.push_back(std::move(piece));
         }
     }
@@ -298,12 +331,10 @@ bool moveFloating(Document& doc, Floating& floating, ls::Vec2i offset) {
     floating.offset = offset;
     bool ok = true;
     for (const Floating::Piece& piece : floating.pieces) {
-        ok = doc.engine().setRegionIntervals(piece.region,
-                                             translated(piece.original, offset)).ok() && ok;
+        ok = writePieceMarks(doc, piece, translatedMarks(piece.marks, offset)) && ok;
     }
-    if (floating.erase.region.valid()) {
-        ok = doc.engine().setRegionIntervals(floating.erase.region,
-                                             translated(floating.erase.original, offset)).ok() && ok;
+    for (const Floating::ShapeErase& erase : floating.shapeErases) {
+        ok = doc.engine().updateStrokes(erase.strokes, translatedMarks(erase.original, offset)).ok() && ok;
     }
     const ls::Vec2f by { static_cast<float>(offset.x), static_cast<float>(offset.y) };
     for (const Floating::Shape& taken : floating.shapes) {
@@ -332,13 +363,9 @@ bool turnFloating(Document& doc, Floating& floating, FloatTurn turn) {
         }
         return set;
     };
-    for (Floating::Piece& piece : floating.pieces) {
-        piece.original = apply(piece.original);
-    }
-    floating.erase.original = apply(floating.erase.original);
-    // A shape's corners, turned the same way. Corners sit between pixels, so
-    // the mirror of a corner at x is at min + max - x, where a pixel's is one
-    // less: a rectangle over pixels 2..4 lands over the pixels the pieces do.
+    // A point, turned the same way. Corners and pixel centres alike: the
+    // mirror of x is at min + max - x, which puts a pixel's centre where the
+    // pixels themselves land and a rectangle's corners round the same pixels.
     const auto corner = [&](ls::Vec2f p) -> ls::Vec2f {
         const float minX = static_cast<float>(within.min.x);
         const float minY = static_cast<float>(within.min.y);
@@ -357,6 +384,13 @@ bool turnFloating(Document& doc, Floating& floating, FloatTurn turn) {
         }
         return p;
     };
+    for (Floating::Piece& piece : floating.pieces) {
+        piece.original = apply(piece.original);
+        piece.marks = mappedMarks(piece.marks, corner);
+    }
+    for (Floating::ShapeErase& erase : floating.shapeErases) {
+        erase.original = mappedMarks(erase.original, corner);
+    }
     for (Floating::Shape& taken : floating.shapes) {
         mapShapePoints(taken.original, corner);
     }
@@ -376,69 +410,45 @@ bool dropFloating(Document& doc, Floating& floating) {
     const ls::LayerId layer = floating.layer;
     const ls::IntervalSet canvas = canvasMask(doc);
 
-    // Everything that lands, clipped to the canvas as every editor clips a
-    // paste: pixels dragged off the edge are gone, not hiding out there.
-    ls::IntervalSet landed;
-    for (Floating::Piece& piece : floating.pieces) {
-        const ls::IntervalSet kept = ls::geom::intersectSets(regionPixels(doc, piece.region), canvas);
-        engine.setRegionIntervals(piece.region, kept);
-        landed = ls::geom::unionSets(landed, kept);
-    }
-    if (floating.erase.region.valid()) {
-        engine.setRegionIntervals(floating.erase.region,
-                                  ls::geom::intersectSets(regionPixels(doc, floating.erase.region),
-                                                          canvas));
-    }
-
-    // Where it lands, the layer's own colours give way -- a pixel has one
-    // colour on a layer, and the one that was dropped is the one that shows.
-    const std::vector<ls::Vec2i> landedPixels = pixelsOf(landed);
-    const std::vector<Element> elements = elementsOf(doc, layer);
-    long long lastShape = -1;
-    for (size_t i = 0; i < elements.size(); ++i) {
-        if (elements[i].isShape()) {
-            lastShape = static_cast<long long>(i);
-        }
-    }
-    for (const Element& element : elements) {
-        if (element.kind != ElementKind::Paint || isPiece(floating, element.fill)) {
-            continue;
-        }
-        if (!ls::geom::intersectSets(regionPixels(doc, element.region), landed).empty()) {
-            engine.erasePixelsFromRegion(element.region, landedPixels);
+    // Clipped to the canvas as every editor clips a paste: what was dragged
+    // off the edge is gone, not hiding out there.
+    for (const Floating::Piece& piece : floating.pieces) {
+        ls::GeometryId strokes;
+        ls::StrokesDesc marks;
+        if (readStrokes(doc, piece.region, &strokes, &marks)) {
+            engine.updateStrokes(strokes, keptInside(marks, canvas));
         }
     }
 
-    // A solid piece whose colour the layer already has, above every shape,
-    // joins that element rather than staying a second one of the same colour.
+    // A solid piece straight above a run of its own colour joins it, rather
+    // than staying a second run of the same colour one above the other.
     for (const Floating::Piece& piece : floating.pieces) {
         Ink ink;
         if (!inkOfElement(doc, piece.fill, &ink)) {
             continue;
         }
-        ls::OperationId into;
-        ls::RegionId intoRegion;
-        for (size_t i = elements.size(); i-- > 0;) {
-            const Element& element = elements[i];
-            if (static_cast<long long>(i) < lastShape) {
-                break;
+        const std::vector<Element> elements = elementsOf(doc, layer);
+        for (size_t i = 1; i < elements.size(); ++i) {
+            if (elements[i].fill != piece.fill) {
+                continue;
             }
+            const Element& below = elements[i - 1];
             Ink other;
-            if (element.kind == ElementKind::Paint && !isPiece(floating, element.fill) &&
-                inkOfElement(doc, element.fill, &other) && other == ink) {
-                into = element.fill;
-                intoRegion = element.region;
-                break;
+            ls::GeometryId belowStrokes;
+            ls::StrokesDesc belowMarks;
+            ls::StrokesDesc pieceMarks;
+            if (below.kind == ElementKind::Paint && !isPiece(floating, below.fill) &&
+                inkOfElement(doc, below.fill, &other) && other == ink &&
+                readStrokes(doc, below.region, &belowStrokes, &belowMarks) &&
+                readStrokes(doc, piece.region, nullptr, &pieceMarks)) {
+                belowMarks.strokes.insert(belowMarks.strokes.end(), pieceMarks.strokes.begin(),
+                                          pieceMarks.strokes.end());
+                engine.updateStrokes(belowStrokes, belowMarks);
+                engine.removeOperation(layer, piece.fill);
+                deleteRegionAndShapes(doc, piece.region);
             }
+            break;
         }
-        if (!into.valid()) {
-            continue;
-        }
-        const ls::IntervalSet joined =
-            ls::geom::unionSets(regionPixels(doc, intoRegion), regionPixels(doc, piece.region));
-        engine.setRegionIntervals(intoRegion, joined);
-        engine.removeOperation(layer, piece.fill);
-        engine.deleteRegion(piece.region);
     }
 
     pruneEmptyInks(doc, layer);

@@ -1,6 +1,9 @@
 # A blob drawn with the pencil, turned in the Transform panel, then filled
 # with the bucket: the outline stays closed, the fill stays inside it and has
-# no holes, and the canvas outside stays empty.
+# no holes, and the canvas outside stays empty. Then a dithered gradient over
+# the turned fill, and the gradient deleted from the element list: it lay
+# only where the fill is, and deleting it leaves the fill and the outline as
+# they were.
 tool pencil
 colour e08f40
 drag 10 6 16 5 6
@@ -34,4 +37,20 @@ expect pixel 16 15 1e3f60
 expect pixel 1 1 empty
 expect pixel 30 30 empty
 expect pixel 1 30 empty
+expect drawn 250 450
+expect elements Fill 1
+
+# The gradient: over the fill, and no further.
+tool gradient
+drag 12 15 20 15
+expect elements Fill 2
+expect pixel 1 1 empty
+expect pixel 30 30 empty
+expect pixel 1 30 empty
+expect drawn 250 450
+
+# Deleted, topmost in the element list: the fill is back, whole.
+click-on x @1
+expect elements Fill 1
+expect pixel 16 15 1e3f60
 expect drawn 250 450

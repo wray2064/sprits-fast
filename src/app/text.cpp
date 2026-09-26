@@ -45,9 +45,16 @@ bool addTextElement(Document& doc, ls::LayerId layer, const TextSpec& spec, cons
         return false;
     }
     ls::LSContext& engine = doc.engine();
-    auto region = engine.createRegionFromIntervals(doc.id(),
-                                                   setOf(layOutText(spec.text, spec.at, spec.scale)));
+    // The glyphs as an area -- the edges of their pixels -- so the words move
+    // and turn with the layer as one shape.
+    auto glyphs = engine.createArea(doc.id(),
+                                    ls::geom::traceArea(setOf(layOutText(spec.text, spec.at, spec.scale))));
+    if (glyphs.fail()) {
+        return false;
+    }
+    auto region = engine.createRegionFromGeometry(glyphs.value);
     if (region.fail()) {
+        engine.deleteGeometry(glyphs.value);
         return false;
     }
     ls::FillSolidOp fill;
@@ -97,9 +104,14 @@ bool updateTextElement(Document& doc, ls::RegionId region, const TextSpec& spec)
     if (!usable(spec)) {
         return false;
     }
-    return doc.engine().setRegionIntervals(region,
-                                           setOf(layOutText(spec.text, spec.at, spec.scale))).ok() &&
-           remember(doc, region, spec);
+    const ls::IntervalSet pixels = setOf(layOutText(spec.text, spec.at, spec.scale));
+    auto glyphs = doc.engine().getRegionSourceGeometry(region);
+    if (glyphs.ok() && glyphs.value.valid() && doc.engine().getArea(glyphs.value).ok()) {
+        return doc.engine().updateArea(glyphs.value, ls::geom::traceArea(pixels)).ok() &&
+               remember(doc, region, spec);
+    }
+    // Text from before glyphs were kept as an area: still pixels.
+    return doc.engine().setRegionIntervals(region, pixels).ok() && remember(doc, region, spec);
 }
 
 } // namespace fast

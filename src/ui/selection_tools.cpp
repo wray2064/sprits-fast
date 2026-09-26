@@ -554,7 +554,7 @@ bool removeSelectionPixels(Editor& editor, bool shapesToo) {
         // Deleting a float: the pixels that were lifted do not come back down.
         for (const Floating::Piece& piece : editor.floating.pieces) {
             editor.doc.engine().removeOperation(editor.floating.layer, piece.fill);
-            editor.doc.engine().deleteRegion(piece.region);
+            deleteRegionAndShapes(editor.doc, piece.region);
         }
         editor.floating.pieces.clear();
         settleFloating(editor);

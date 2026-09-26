@@ -5,6 +5,8 @@
 
 #include "app/element.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace fast {
@@ -299,6 +301,55 @@ ls::Mat3f layerTransform(Document& doc, ls::LayerId layer) {
         composed = ls::Mat3f::aroundPivot(step, entry.pivot).mul(composed);
     }
     return composed;
+}
+
+ls::IntervalSet canvasAreaOnLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& area) {
+    if (listTransforms(doc, layer).empty() || area.empty()) {
+        return area;
+    }
+    const ls::Mat3f toCanvas = layerTransform(doc, layer);
+    auto back = toCanvas.inverse();
+    if (back.fail()) {
+        return {};
+    }
+    ls::IntervalSet out;
+    const auto add = [&out](ls::Vec2f p) {
+        const int32_t x = static_cast<int32_t>(std::floor(p.x));
+        out.intervals.push_back({ static_cast<int32_t>(std::floor(p.y)), x, x + 1 });
+    };
+    // Every canvas pixel of the area, carried back.
+    for (const ls::Interval& run : area.intervals) {
+        for (int32_t x = run.x0; x < run.x1; ++x) {
+            add(back.value.transformPoint({ static_cast<float>(x) + 0.5f,
+                                            static_cast<float>(run.y) + 0.5f }));
+        }
+    }
+    // And every layer pixel near it whose centre lands inside.
+    const ls::Rect2i box = ls::geom::bounds(area);
+    float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
+    for (ls::Vec2f corner : { ls::Vec2f{ static_cast<float>(box.min.x), static_cast<float>(box.min.y) },
+                              ls::Vec2f{ static_cast<float>(box.max.x), static_cast<float>(box.min.y) },
+                              ls::Vec2f{ static_cast<float>(box.min.x), static_cast<float>(box.max.y) },
+                              ls::Vec2f{ static_cast<float>(box.max.x), static_cast<float>(box.max.y) } }) {
+        const ls::Vec2f at = back.value.transformPoint(corner);
+        minX = std::min(minX, at.x);
+        minY = std::min(minY, at.y);
+        maxX = std::max(maxX, at.x);
+        maxY = std::max(maxY, at.y);
+    }
+    for (int32_t y = static_cast<int32_t>(std::floor(minY)) - 1;
+         y <= static_cast<int32_t>(std::ceil(maxY)); ++y) {
+        for (int32_t x = static_cast<int32_t>(std::floor(minX)) - 1;
+             x <= static_cast<int32_t>(std::ceil(maxX)); ++x) {
+            const ls::Vec2f at = toCanvas.transformPoint({ static_cast<float>(x) + 0.5f,
+                                                           static_cast<float>(y) + 0.5f });
+            if (ls::geom::contains(area, { static_cast<int32_t>(std::floor(at.x)),
+                                           static_cast<int32_t>(std::floor(at.y)) })) {
+                out.intervals.push_back({ y, x, x + 1 });
+            }
+        }
+    }
+    return ls::geom::normalize(std::move(out));
 }
 
 bool mapCanvasPointToLayer(Document& doc, ls::LayerId layer, ls::Vec2f canvasPoint,

@@ -9,30 +9,29 @@
 // editor lets a pencil lay down any colour anywhere on a layer, and a person
 // coming from one of them hits that wall in the first minute.
 //
-// The fix keeps the rule rather than bending it. A colour is an *ink*: a
-// palette slot, or a literal colour where there is no slot. A layer holds one
-// freehand element per ink it has been painted with -- a region and a solid
-// fill -- and painting with an ink adds pixels to that ink's region and takes
-// the same pixels out of every other freehand element on the layer, so a
-// pixel belongs to exactly one of them. Nothing is baked: each colour is still
-// a standing rule about a shape, a slot still recolours everything painted
-// through it, and swapping palettes still recolours from the drawing.
+// A colour is an *ink*: a palette slot, or a literal colour where there is no
+// slot. What the pencil draws goes into a *run*: a freehand element -- a
+// region made of strokes (see paint.h) and a fill that colours them -- and a
+// run is one ink. Nothing is baked: each colour is a standing rule about the
+// strokes, a slot still recolours everything painted through it, and swapping
+// palettes still recolours from the drawing.
 //
-// That is Aseprite's indexed mode without its cost. There, a pixel is an index
-// only while the whole sprite is indexed; here every pixel painted through a
-// slot is a role whatever else the document does, and a literal colour sits
-// beside it without anything having to be converted.
+// Paint lands on top. Painting in the ink of the layer's topmost run adds to
+// that run; any other ink starts a run above everything already on the
+// layer. So painting red over blue covers the blue rather than cutting it
+// away, and removing the red brings the blue back -- the element list is a
+// stack of marks, each still what it was when it was made.
 //
-// Order is the one subtlety. Elements draw in list order, and a layer can hold
-// shapes as well as pixels. Fresh paint must land on top of everything already
-// on the layer -- a stroke across a rectangle has to show -- so an ink paints
-// into the topmost element of its colour only if no shape sits above it, and
-// otherwise gets a new element at the top. Two elements may then share a
-// colour; they are still disjoint, so nothing is drawn twice.
+// Erasing reaches everything under the eraser on the layer, and leaves each
+// thing made of what it was made of: a thin line is cut, an area trimmed, a
+// wide stroke, a shape or a fill keeps the eraser's mark as what was erased
+// from it (see eraseFromRegion). An erase belongs to what it erased, so it
+// never reaches anything drawn later -- or anything drawn beside it.
 
 #include "app/document.h"
 #include "app/paint.h"
 
+#include <array>
 #include <map>
 #include <vector>
 
@@ -55,64 +54,71 @@ inline bool operator!=(const Ink& a, const Ink& b) { return !(a == b); }
 // not a solid fill (a dither has a ramp, not a colour).
 bool inkOfElement(Document& doc, ls::OperationId fill, Ink* out);
 
-// One stroke's worth of painting, resolved once at the start so the samples
-// that follow do not look the layer up again.
+// One stroke's worth of painting, resolved once at the start.
 //
-// `target` is where pixels go; invalid for an eraser. `others` is every other
-// freehand region on the layer, which loses whatever the target gains.
+// `target` is the run the stroke paints into; invalid for an eraser. The open
+// paths are the marks being drawn, one for each mirror image, so a drag is one
+// mark however many frames it took: which stroke of the run each is, and the
+// pixel it last reached, so the next piece carries on from it.
 struct InkStroke {
-    ls::LayerId               layer;
-    PaintLayer                target;
-    std::vector<ls::RegionId> others;
-    // Erasing only: where the shapes' pixels go (see eraseFromShapes), and
-    // what the shapes cover, so pixels with no shape under them are not kept.
-    ls::RegionId              shapesErase;
-    ls::IntervalSet           shapeCover;
-    bool erasing() const { return !target.region.valid(); }
+    ls::LayerId layer;
+    PaintLayer  target;
+    bool        eraser = false;
+    struct Open {
+        int       index = -1;
+        ls::Vec2i last { 0, 0 };
+        PenBrush  brush;
+    };
+    std::array<Open, 4> open;
+    bool erasing() const { return eraser; }
 };
 
-// Starts painting `ink` onto `layer`: finds the element that paints it, above
-// every shape on the layer, or adds one at the top. Does not bracket an action;
-// the caller holds one open for the whole stroke, and a new element made here
-// joins it.
+// Starts painting `ink` onto `layer`: into the layer's topmost run if it is
+// this ink, or a new run on top. Does not bracket an action; the caller holds
+// one open for the whole stroke, and a new run made here joins it.
 bool beginInkStroke(Document& doc, ls::LayerId layer, const Ink& ink, InkStroke* out);
 
-// Starts painting into one particular freehand element, whatever rule colours
-// it -- a dithered element picked in the element list paints dither.
+// Starts painting with one particular element's rule, whatever it is -- a
+// dithered element picked in the element list paints dither. Into the element
+// itself when it is a run; a fill or an area gets a run of its own on top,
+// coloured by a copy of the rule.
 bool beginElementStroke(Document& doc, const PaintLayer& element, InkStroke* out);
 
-// Starts erasing: every freehand element on the layer loses the pixels, and
-// the shapes lose them through an erase -- a mask over them (see
-// eraseFromShapes) -- so they stay shapes that can still be edited.
+// Starts erasing everything on `layer` the eraser passes over.
 bool beginEraseStroke(Document& doc, ls::LayerId layer, InkStroke* out);
 
-// What the layer's shapes cover, in its own space.
-ls::IntervalSet shapeCoverage(Document& doc, ls::LayerId layer);
+// Draws along a path: `centres` are the pixels the brush is stamped on, in
+// order, in the layer's own space. It carries on open path `copy` when it
+// starts where that one stopped with the same brush, and starts a new mark
+// otherwise. Erasing, it takes the brush's pixels from everything under them.
+bool strokeAlong(Document& doc, InkStroke& stroke, int copy, const std::vector<ls::Vec2i>& centres,
+                 const PenBrush& brush);
 
-// The erase that takes pixels from the layer's shapes: its topmost one with
-// no shape above it, or a new one after everything the layer draws -- so a
-// shape drawn after an erase is not erased by it. Invalid when the layer has
-// no shapes. Does not bracket an action.
-ls::RegionId shapesEraseOf(Document& doc, ls::LayerId layer);
+// A spray's dots, each on its own.
+bool sprayDots(Document& doc, const InkStroke& stroke, const std::vector<ls::Vec2i>& dots);
 
-// Takes `pixels` out of the layer's shapes without baking them: the pixels
-// join the erase, which clears what is drawn before it and nothing after.
-// False when no shape is under any of them. Does not bracket an action.
-bool eraseFromShapes(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels);
+// Ends the open paths, so the next piece starts a mark of its own.
+void closePaths(InkStroke& stroke);
 
-// Lays pixels down, in the layer's own space.
+// Lays pixels down whole, as an area -- a filled selection, a lasso, a stamp
+// of a custom brush -- or, erasing, takes them away.
 bool strokeInk(Document& doc, const InkStroke& stroke, const std::vector<ls::Vec2i>& pixels);
+
+// Takes `pixels` from everything on `layer` that draws them, each keeping what
+// it is made of (see eraseFromRegion); `eraser` is the mark that took them.
+bool eraseFromLayer(Document& doc, ls::LayerId layer, const ls::PenStroke& eraser,
+                    const ls::IntervalSet& pixels);
 
 // Recolours one solid element: its literal colour and the slot it paints
 // through. The drawing is not touched -- this is Aseprite's "replace colour",
 // except that it is a parameter and can be changed back. False for a dither.
 bool setElementInk(Document& doc, ls::OperationId fill, const Ink& ink);
 
-// Removes the solid freehand elements of `layer` that no longer draw anything
-// -- painted over entirely, or erased -- so the element list does not fill up
-// with the ghosts of colours that were tried. Keeps `keep`, and never removes a
-// layer's last element. A dither is never removed this way: its settings are
-// work, even with nothing under them yet. Returns how many went.
+// Removes the elements of `layer` that no longer draw anything -- erased
+// away, or never drawn in -- so the element list does not fill up with
+// marks that are not there. Keeps `keep`, and never removes a layer's last
+// element. A dither is never removed this way: its settings are work, even
+// with nothing under them yet. Returns how many went.
 int pruneEmptyInks(Document& doc, ls::LayerId layer, ls::OperationId keep = {});
 
 // --- ink modes ------------------------------------------------------------------
@@ -130,9 +136,8 @@ int pruneEmptyInks(Document& doc, ls::LayerId layer, ls::OperationId keep = {});
 //               Once per pixel per stroke, so going over it again does not
 //               keep stepping.
 //
-// Shading is where this model shines. The result is not a new colour but the
-// neighbouring slot, so a shaded area still recolours with the palette, and a
-// ramp laid out in order is the shading scale.
+// The filtered modes lay their pixels down as areas: what they paint is a
+// choice of pixels, not a path.
 enum class InkMode { Simple, LockAlpha, Replace, Shading };
 
 struct InkModeState {
@@ -164,10 +169,10 @@ bool strokeInkMode(Document& doc, InkModeState& state, const InkStroke& stroke,
 std::vector<ls::OperationId> elementsWithInk(Document& doc, ls::LayerId layer, const Ink& ink);
 
 // The ink under a canvas pixel on `sprite`, looked up in the drawing rather
-// than read off the compiled picture: the topmost visible layer's freehand
-// element covering that pixel. That is what lets the picker hand back a slot
-// rather than only a colour. False where no freehand pixel is -- a shape, a
-// transformed layer, an empty spot -- and the caller falls back to the colour.
+// than read off the compiled picture: the topmost visible layer's element
+// covering that pixel. That is what lets the picker hand back a slot rather
+// than only a colour. False where nothing with an ink is, and the caller falls
+// back to the colour.
 bool inkAt(Document& doc, ls::SpriteId sprite, ls::Vec2i pixel, Ink* out);
 
 } // namespace fast

@@ -166,12 +166,12 @@ bool documentFromFrames(Document& doc, const std::string& name,
             if (byColour[c].empty()) {
                 continue;
             }
-            auto region = engine.createRegionFromIntervals(doc.id(), byColour[c]);
-            if (region.fail()) {
+            const ls::RegionId region = createFreehandRegion(doc, byColour[c]);
+            if (!region.valid()) {
                 return fail("the pixels could not be read in");
             }
             ls::FillSolidOp fill;
-            fill.targetRegion = region.value;
+            fill.targetRegion = region;
             fill.fallbackColor = unpack(colours[c]);
             fill.paletteRole = throughPalette ? static_cast<ls::ColorRole>(c)
                                               : ls::kColorRoleNone;
@@ -183,10 +183,10 @@ bool documentFromFrames(Document& doc, const std::string& name,
         if (!any) {
             // An empty frame still gets something to draw into, as every layer
             // Fast makes does.
-            auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
+            const ls::RegionId region = createFreehandRegion(doc);
             ls::FillSolidOp fill;
-            if (region.ok()) {
-                fill.targetRegion = region.value;
+            if (region.valid()) {
+                fill.targetRegion = region;
                 fill.fallbackColor = colours.empty() ? ls::Color{ 0, 0, 0, 255 }
                                                      : unpack(colours.front());
                 engine.addOperation(layer.value, fill);

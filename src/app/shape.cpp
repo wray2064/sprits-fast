@@ -621,17 +621,17 @@ bool shapeOfLayer(Document& doc, const PaintLayer& layer, ShapeLayer* out) {
     if (!layer.region.valid()) {
         return false;
     }
-    auto source = engine.getRegionSourceGeometry(layer.region);
-    if (source.fail() || !source.value.valid()) {
-        return false;       // authored pixels, or a shape edited by hand
+    ls::GeometryId source;
+    if (regionMadeOf(doc, layer.region, &source) != RegionMade::Shape) {
+        return false;       // freehand marks, a fill, or old pixels
     }
 
     // Which kind it is comes from the geometry's own path: an ellipse is a many
     // sided closed loop, a rectangle is four or eight corners. Asking the
     // geometry beats recording the kind separately, which could disagree.
     out->paint = layer;
-    out->geometry = source.value;
-    out->kind = shapeKindOf(doc, source.value);
+    out->geometry = source;
+    out->kind = shapeKindOf(doc, source);
     return true;
 }
 

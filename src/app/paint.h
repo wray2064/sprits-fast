@@ -6,14 +6,15 @@
 //
 // In a conventional editor a pencil writes into a bitmap. Here there is no
 // bitmap to write into: a layer is a stack of operations, and the picture is
-// compiled from it.
+// compiled from it -- and nothing in it is pixels until then.
 //
-// So a paint layer is a *region* -- the shape the user has drawn -- and a fill
-// operation that colours it. The pencil accumulates pixels into that one region
-// rather than adding an operation per stroke, which is why a thousand strokes
-// stay a thousand pixels in one shape instead of a thousand operations to
-// resolve. Changing the colour afterwards is one call, and does not touch the
-// drawing at all.
+// So a paint layer is a *region* and a fill operation that colours it, and a
+// freehand region is made of *strokes* (the engine's StrokesDesc): the paths
+// the pencil took and the brushes it took them with, the areas laid down
+// whole, and the marks that erased them. Where they were drawn they draw
+// exactly the pixels drawn; turned or scaled, they are drawn again where they
+// land, so a turned pencil line is a pencil line. Changing the colour
+// afterwards is one call, and does not touch the drawing at all.
 
 #include "app/document.h"
 
@@ -36,12 +37,58 @@ struct PaintLayer {
     bool drawable() const { return valid() && region.valid(); }
 };
 
+// A brush, as a freehand mark remembers it.
+struct PenBrush {
+    int  size = 1;
+    bool round = false;
+    bool pixelPerfect = true;     // at size 1: the corners of an L dropped
+};
+
+// What a region is made of. Pixels are what documents from before freehand
+// marks were kept as strokes hold -- still drawn, and still edited, as pixels.
+enum class RegionMade { Missing, Pixels, Strokes, Area, Face, Shape };
+RegionMade regionMadeOf(Document& doc, ls::RegionId region, ls::GeometryId* geometry = nullptr);
+
+// A freehand region with nothing drawn in it yet. Does not bracket an action.
+ls::RegionId createFreehandRegion(Document& doc);
+
+// A freehand region holding `pixels` laid down whole, as an area: pixels
+// that came from outside -- an imported image -- made marks like any other.
+ls::RegionId createFreehandRegion(Document& doc, const ls::IntervalSet& pixels);
+
+// The strokes a freehand region is made of, and where they are kept. False
+// when the region is not made of strokes.
+bool readStrokes(Document& doc, ls::RegionId region, ls::GeometryId* geometry,
+                 ls::StrokesDesc* out);
+
+// Marks, as a freehand region keeps them: a path of pixel centres with the
+// brush stamped along it, and a set of pixels laid down whole as an area.
+ls::PenStroke pathMark(const std::vector<ls::Vec2i>& centres, const PenBrush& brush);
+ls::PenStroke areaMark(const ls::IntervalSet& pixels);
+// The pixels a mark draws where it was made.
+ls::IntervalSet markPixels(const ls::PenStroke& mark);
+
+// Takes pixels out of a region and leaves it made of what it was made of.
+// Strokes lose them exactly -- a thin line is cut, an area trimmed -- and a
+// wide stroke under them gets `eraser` over it as an erasing mark. An area is
+// traced again without them. A shape or a fill keeps `eraser` as what was
+// erased from it, so it stays a shape. Pixels lose the pixels. `eraser` is
+// what took them: the eraser's path and brush, or an area. False when the
+// region drew none of them. Does not bracket an action.
+bool eraseFromRegion(Document& doc, ls::RegionId region, const ls::PenStroke& eraser,
+                     const ls::IntervalSet& pixels);
+
+// Deletes a region and the geometry it was made of, and what was erased
+// from it. For an element that is going away.
+void deleteRegionAndShapes(Document& doc, ls::RegionId region);
+
 // Adds a layer to `sprite` that can be drawn on. Brackets its own undo action.
 bool createPaintLayer(Document& doc, ls::SpriteId sprite, const std::string& name,
                       ls::Color color, PaintLayer* out);
 
-// Adds or removes pixels. These do *not* bracket an undo action: a stroke is
-// many calls and one history entry, so the caller brackets the whole drag.
+// Adds or removes pixels -- as an area, since a set of pixels has no path.
+// These do *not* bracket an undo action: a stroke is many calls and one
+// history entry, so the caller brackets the whole drag.
 bool paintPixels(Document& doc, const PaintLayer& target,
                  const std::vector<ls::Vec2i>& pixels);
 bool erasePixels(Document& doc, const PaintLayer& target,

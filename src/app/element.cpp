@@ -42,6 +42,7 @@ const char* elementKindName(ElementKind kind) {
         case ElementKind::Polygon:   return "Polygon";
         case ElementKind::Curve:     return "Curve";
         case ElementKind::Erase:     return "Erased";
+        case ElementKind::Fill:      return "Fill";
     }
     return "Element";
 }
@@ -81,18 +82,22 @@ std::vector<Element> elementsOf(Document& doc, ls::LayerId layer) {
             continue;
         }
         element.outlined = op.type == "StrokeRegionBoundaryOp";
-        // A region still tied to the geometry it was built from is a shape;
-        // one that is not -- authored, or a shape edited by hand -- is pixels.
-        auto source = engine.getRegionSourceGeometry(element.region);
-        if (source.ok() && source.value.valid()) {
-            element.geometry = source.value;
-            switch (shapeKindOf(doc, source.value)) {
+        // What the region is made of says what the element is: strokes, an
+        // area or old pixels are freehand; a face is what the bucket filled;
+        // a rectangle, an ellipse or a polygon is a shape.
+        ls::GeometryId source;
+        const RegionMade made = regionMadeOf(doc, element.region, &source);
+        if (engine.getMetadata(element.region.value, "fast.text").ok()) {
+            element.kind = ElementKind::Text;
+        } else if (made == RegionMade::Shape) {
+            element.geometry = source;
+            switch (shapeKindOf(doc, source)) {
                 case ShapeKind::Ellipse: element.kind = ElementKind::Ellipse; break;
                 case ShapeKind::Polygon: element.kind = ElementKind::Polygon; break;
                 default:                 element.kind = ElementKind::Rectangle; break;
             }
-        } else if (engine.getMetadata(element.region.value, "fast.text").ok()) {
-            element.kind = ElementKind::Text;
+        } else if (made == RegionMade::Face) {
+            element.kind = ElementKind::Fill;
         } else {
             element.kind = ElementKind::Paint;
         }
@@ -177,7 +182,8 @@ bool ensurePaintElement(Document& doc, PaintLayer& layer) {
         return false;
     }
     for (const Element& element : elementsOf(doc, layer.layer)) {
-        if (element.kind == ElementKind::Paint) {
+        if (element.kind == ElementKind::Paint &&
+            regionMadeOf(doc, element.region) == RegionMade::Strokes) {
             layer.region = element.region;
             layer.fill = element.fill;
             return true;
@@ -188,13 +194,13 @@ bool ensurePaintElement(Document& doc, PaintLayer& layer) {
     colourOf(doc, layer.layer, &colour, &role);
 
     doc.beginAction("Pixels on a shape layer");
-    auto region = doc.engine().createRegionFromIntervals(doc.id(), ls::IntervalSet{});
-    if (region.fail()) {
+    const ls::RegionId region = createFreehandRegion(doc);
+    if (!region.valid()) {
         doc.abandonAction();
         return false;
     }
     ls::FillSolidOp fill;
-    fill.targetRegion = region.value;
+    fill.targetRegion = region;
     fill.fallbackColor = colour;
     fill.paletteRole = role;
     auto op = doc.engine().addOperation(layer.layer, fill);
@@ -202,8 +208,9 @@ bool ensurePaintElement(Document& doc, PaintLayer& layer) {
         doc.abandonAction();
         return false;
     }
+    keepEffectsLast(doc, layer.layer);
     doc.endAction();
-    layer.region = region.value;
+    layer.region = region;
     layer.fill = op.value;
     return true;
 }
@@ -217,12 +224,12 @@ bool removeElement(Document& doc, ls::LayerId layer, const Element& element) {
         doc.abandonAction();
         return false;
     }
-    // The drawing it named goes with it. Nothing else can be pointing at a
+    // The drawing it named goes with it -- the region, the shape it was made
+    // of and what was erased from it. Nothing else can be pointing at a
     // region or geometry an element owned: the tools make one per element.
     if (element.region.valid()) {
-        doc.engine().deleteRegion(element.region);
-    }
-    if (element.geometry.valid()) {
+        deleteRegionAndShapes(doc, element.region);
+    } else if (element.geometry.valid()) {
         doc.engine().deleteGeometry(element.geometry);
     }
     doc.endAction();

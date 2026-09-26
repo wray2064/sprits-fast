@@ -30,12 +30,15 @@
 
 namespace fast {
 
-// Text is an element of its own: pixels rebuilt from words kept on its
+// Paint: a run of freehand marks (see ink.h). Fill: what the paint bucket
+// made -- an area that finds its own edge again wherever the layer is turned.
+// Text is an element of its own: an area rebuilt from words kept on its
 // region (see text.h). Like a shape, it is an object on the layer rather than
 // a colour the pencil paints into.
-// Erase: what the eraser took from the shapes under it (see ink.h) -- a mask
-// over them, kept as pixels of its own, so the shapes stay shapes.
-enum class ElementKind { Paint, Rectangle, Ellipse, Line, Text, Polygon, Curve, Erase };
+// Erase: what the eraser took from the lines and curves under it -- a clear
+// over what is drawn before it, kept as the eraser's strokes. Everything else
+// keeps what was erased from it as its own.
+enum class ElementKind { Paint, Rectangle, Ellipse, Line, Text, Polygon, Curve, Erase, Fill };
 
 const char* elementKindName(ElementKind kind);
 
@@ -79,11 +82,11 @@ bool addShapeElement(Document& doc, ls::LayerId layer, ShapeKind kind,
 bool addShapeElement(Document& doc, ls::LayerId layer, ShapeKind kind,
                      const ShapeParams& params, const Ink& ink, ShapeLayer* out);
 
-// Points `layer` at its freehand element for the pencil, creating one -- in
-// the layer's colour and role -- if every element is a shape. A handle
-// adopted from a shape-only layer names the shape's region, and drawing into
-// that would turn the shape into pixels; this is what the pencil calls
-// first. Brackets its own action when it makes one.
+// Points `layer` at a freehand run for the pencil, creating one -- in the
+// layer's colour and role -- if there is none. A handle adopted from a
+// shape-only layer names the shape's region, and a shape is not painted into;
+// this is what the pencil calls first. Brackets its own action when it makes
+// one.
 bool ensurePaintElement(Document& doc, PaintLayer& layer);
 
 // Removes one element. Refuses the last, because a layer with nothing in it

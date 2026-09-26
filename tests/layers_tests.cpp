@@ -510,6 +510,16 @@ void testMergeDownKeepsThePictureAndTheElements() {
 // An erase on the layer below merges -- what comes down lands after it -- and
 // the picture holds; one on the layer above is refused, since it would rub
 // out the lower layer's drawing too.
+// An erase of the rubber that took a hole from a shape. A rectangle keeps
+// what was erased from it as its own, so it merges down like any shape; a
+// line keeps it in a clear over the whole layer, which would rub out the
+// layer below too, so that is refused.
+bool rubOut(Document& doc, ls::LayerId layer, ls::Vec2i at) {
+    ls::IntervalSet pixel;
+    pixel.intervals.push_back({ at.y, at.x, at.x + 1 });
+    return eraseFromLayer(doc, layer, areaMark(pixel), pixel);
+}
+
 void testMergeDownAndErasedShapes() {
     Stack s;
     REQUIRE(s.build());
@@ -520,7 +530,7 @@ void testMergeDownAndErasedShapes() {
     REQUIRE(addShapeTo(s.doc, s.middle.layer, ShapeKind::Rectangle, params,
                        ls::Color{ 200, 200, 0, 255 }, ls::kColorRoleNone, &lower));
     s.doc.beginAction("Erase");
-    REQUIRE(eraseFromShapes(s.doc, s.middle.layer, {{ 3, 3 }}));
+    REQUIRE(rubOut(s.doc, s.middle.layer, { 3, 3 }));
     s.doc.endAction();
     s.doc.beginAction("Hide top");
     REQUIRE(setLayerOpacity(s.doc, s.top.layer, 0.f));
@@ -532,11 +542,29 @@ void testMergeDownAndErasedShapes() {
     CHECK(after.r == before.r && after.g == before.g && after.b == before.b);
     REQUIRE(s.doc.undo());
 
+    // A rectangle erased on the layer above comes down with its hole.
     ShapeLayer upper;
     REQUIRE(addShapeTo(s.doc, s.top.layer, ShapeKind::Rectangle, params,
                        ls::Color{ 0, 200, 200, 255 }, ls::kColorRoleNone, &upper));
     s.doc.beginAction("Erase");
-    REQUIRE(eraseFromShapes(s.doc, s.top.layer, {{ 4, 4 }}));
+    REQUIRE(rubOut(s.doc, s.top.layer, { 4, 4 }));
+    s.doc.endAction();
+    const ls::Color holed = s.at(4, 4);
+    why.clear();
+    REQUIRE(mergeDown(s.doc, s.top.layer, &why).valid());
+    const ls::Color merged = s.at(4, 4);
+    CHECK(merged.r == holed.r && merged.g == holed.g && merged.b == holed.b);
+    REQUIRE(s.doc.undo());
+
+    // A line erased on the layer above is refused.
+    ShapeParams across;
+    across.from = { 1, 8 };
+    across.to = { 9, 8 };
+    ShapeLayer line;
+    REQUIRE(addShapeTo(s.doc, s.top.layer, ShapeKind::Line, across,
+                       ls::Color{ 0, 0, 200, 255 }, ls::kColorRoleNone, &line));
+    s.doc.beginAction("Erase");
+    REQUIRE(rubOut(s.doc, s.top.layer, { 5, 8 }));
     s.doc.endAction();
     why.clear();
     CHECK(!mergeDown(s.doc, s.top.layer, &why).valid());

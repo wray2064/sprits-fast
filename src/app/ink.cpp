@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace fast {
 
@@ -32,36 +33,85 @@ bool isSolid(Document& doc, ls::OperationId op) {
     return info.ok() && info.value.type == "FillSolidOp";
 }
 
-// The freehand elements of a layer, and where the last shape sits among all of
-// its elements -- an ink below that index would paint under the shape.
-struct Survey {
-    std::vector<Element> freehand;
-    std::vector<size_t>  freehandIndex;    // position in the full element list
-    long long            lastShape = -1;
-};
+// A run: a freehand element whose region is made of strokes.
+bool isRun(Document& doc, const Element& element) {
+    return element.kind == ElementKind::Paint && element.region.valid() &&
+           readStrokes(doc, element.region, nullptr, nullptr);
+}
 
-Survey survey(Document& doc, ls::LayerId layer) {
-    Survey out;
-    const std::vector<Element> all = elementsOf(doc, layer);
-    for (size_t i = 0; i < all.size(); ++i) {
-        if (all[i].kind == ElementKind::Paint) {
-            out.freehand.push_back(all[i]);
-            out.freehandIndex.push_back(i);
-        } else {
-            out.lastShape = static_cast<long long>(i);
+// A new run on top of the layer, coloured by `fill` -- a solid colour or a
+// copy of another element's rule -- over strokes with nothing in them yet.
+bool addRun(Document& doc, ls::LayerId layer, ls::Operation fill, PaintLayer* out) {
+    ls::LSContext& engine = doc.engine();
+    const ls::RegionId region = createFreehandRegion(doc);
+    if (!region.valid()) {
+        return false;
+    }
+    if (auto* solid = std::get_if<ls::FillSolidOp>(&fill)) {
+        solid->targetRegion = region;
+    } else if (auto* dither = std::get_if<ls::FillDitherOp>(&fill)) {
+        dither->targetRegion = region;
+    } else {
+        deleteRegionAndShapes(doc, region);
+        return false;
+    }
+    auto op = engine.addOperation(layer, fill);
+    if (op.fail()) {
+        deleteRegionAndShapes(doc, region);
+        return false;
+    }
+    // New paint is drawn before any transform, outline or shadow, so they see it.
+    keepEffectsLast(doc, layer);
+    out->layer = layer;
+    out->region = region;
+    out->fill = op.value;
+    return true;
+}
+
+// What a path of centres draws, the brush stamped along it.
+ls::IntervalSet stamped(const std::vector<ls::Vec2i>& centres, const PenBrush& brush) {
+    return markPixels(pathMark(centres, brush));
+}
+
+std::vector<ls::Vec2i> listOf(const ls::IntervalSet& set) {
+    std::vector<ls::Vec2i> out;
+    for (const ls::Interval& run : set.intervals) {
+        for (int32_t x = run.x0; x < run.x1; ++x) {
+            out.push_back({ x, run.y });
         }
     }
     return out;
 }
 
-bool fillOthers(const Survey& layout, ls::OperationId except, InkStroke* out) {
-    out->others.clear();
-    for (const Element& element : layout.freehand) {
-        if (element.fill != except) {
-            out->others.push_back(element.region);
-        }
+bool sameBrush(const PenBrush& a, const PenBrush& b) {
+    return a.size == b.size && a.round == b.round && a.pixelPerfect == b.pixelPerfect;
+}
+
+// A line or a curve drawn as a path has no region to keep an erase: what the
+// eraser takes from those goes into an erase of the layer's own, a clear laid
+// over what is drawn before it -- kept as strokes, so it moves with them.
+ls::RegionId pathShapesEraseOf(Document& doc, ls::LayerId layer) {
+    const std::vector<Element> all = elementsOf(doc, layer);
+    // The topmost erase, unless something was drawn after it: that one would
+    // then be under the erase, and moving the erase above it would cut into
+    // it whatever was erased before.
+    if (!all.empty() && all.back().kind == ElementKind::Erase &&
+        readStrokes(doc, all.back().region, nullptr, nullptr)) {
+        return all.back().region;
     }
-    return true;
+    ls::LSContext& engine = doc.engine();
+    const ls::RegionId region = createFreehandRegion(doc);
+    if (!region.valid()) {
+        return ls::RegionId{};
+    }
+    ls::ClearRegionOp clear;
+    clear.targetRegion = region;
+    if (engine.addOperation(layer, clear).fail()) {
+        deleteRegionAndShapes(doc, region);
+        return ls::RegionId{};
+    }
+    keepEffectsLast(doc, layer);
+    return region;
 }
 
 } // namespace
@@ -104,169 +154,178 @@ bool beginInkStroke(Document& doc, ls::LayerId layer, const Ink& ink, InkStroke*
     }
     *out = InkStroke{};
     out->layer = layer;
-
-    const Survey layout = survey(doc, layer);
-
-    // The topmost element of this ink, if nothing but pixels sits above it.
-    for (size_t i = layout.freehand.size(); i-- > 0;) {
-        if (static_cast<long long>(layout.freehandIndex[i]) < layout.lastShape) {
-            break;
-        }
+    const std::vector<Element> all = elementsOf(doc, layer);
+    if (!all.empty()) {
+        const Element& top = all.back();
         Ink found;
-        if (inkOfElement(doc, layout.freehand[i].fill, &found) && found == ink) {
+        if (isRun(doc, top) && inkOfElement(doc, top.fill, &found) && found == ink) {
             out->target.layer = layer;
-            out->target.fill = layout.freehand[i].fill;
-            out->target.region = layout.freehand[i].region;
-            return fillOthers(layout, out->target.fill, out);
+            out->target.region = top.region;
+            out->target.fill = top.fill;
+            return true;
         }
-    }
-
-    // None: a new element, at the top so the paint lands over everything.
-    ls::LSContext& engine = doc.engine();
-    auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
-    if (region.fail()) {
-        return false;
     }
     ls::FillSolidOp fill;
-    fill.targetRegion = region.value;
     fill.fallbackColor = ink.colour;
     fill.paletteRole = ink.role;
-    auto op = engine.addOperation(layer, fill);
-    if (op.fail()) {
-        engine.deleteRegion(region.value);
-        return false;
-    }
-    // New paint is drawn before any outline or shadow, so they see it.
-    keepEffectsLast(doc, layer);
-    out->target.layer = layer;
-    out->target.fill = op.value;
-    out->target.region = region.value;
-    return fillOthers(layout, out->target.fill, out);
+    return addRun(doc, layer, fill, &out->target);
 }
 
 bool beginElementStroke(Document& doc, const PaintLayer& element, InkStroke* out) {
-    if (out == nullptr || !element.drawable()) {
+    if (out == nullptr || !element.valid()) {
         return false;
     }
     *out = InkStroke{};
     out->layer = element.layer;
-    out->target = element;
-    return fillOthers(survey(doc, element.layer), element.fill, out);
+    if (element.region.valid()) {
+        const RegionMade made = regionMadeOf(doc, element.region);
+        if (made == RegionMade::Strokes || made == RegionMade::Pixels) {
+            out->target = element;
+            return true;
+        }
+    }
+    auto rule = doc.engine().getOperation(element.fill);
+    return rule.ok() && addRun(doc, element.layer, rule.value, &out->target);
 }
 
 bool beginEraseStroke(Document& doc, ls::LayerId layer, InkStroke* out) {
+    (void)doc;
     if (out == nullptr || !layer.valid()) {
         return false;
     }
     *out = InkStroke{};
     out->layer = layer;
-    out->shapeCover = shapeCoverage(doc, layer);
-    if (!out->shapeCover.empty()) {
-        out->shapesErase = shapesEraseOf(doc, layer);
-    }
-    return fillOthers(survey(doc, layer), ls::OperationId{}, out);
+    out->eraser = true;
+    return true;
 }
 
-ls::IntervalSet shapeCoverage(Document& doc, ls::LayerId layer) {
-    ls::IntervalSet out;
+bool eraseFromLayer(Document& doc, ls::LayerId layer, const ls::PenStroke& eraser,
+                    const ls::IntervalSet& pixels) {
+    if (pixels.empty()) {
+        return false;
+    }
+    bool any = false;
+    bool pathShapeUnder = false;
     for (const Element& element : elementsOf(doc, layer)) {
-        if (element.kind != ElementKind::Paint && element.kind != ElementKind::Erase) {
-            out = ls::geom::unionSets(out, ls::geom::normalize(elementCoverage(doc, element)));
+        if (element.kind == ElementKind::Erase) {
+            continue;
+        }
+        if (!element.region.valid()) {
+            // A line or a curve: its pixels, to see whether the eraser is on it.
+            pathShapeUnder = pathShapeUnder ||
+                !ls::geom::intersectSets(elementCoverage(doc, element), pixels).empty();
+            continue;
+        }
+        any = eraseFromRegion(doc, element.region, eraser, pixels) || any;
+    }
+    if (pathShapeUnder) {
+        const ls::RegionId erase = pathShapesEraseOf(doc, layer);
+        ls::GeometryId geometry;
+        ls::StrokesDesc desc;
+        if (erase.valid() && readStrokes(doc, erase, &geometry, &desc)) {
+            ls::PenStroke rub = eraser;
+            rub.erase = false;
+            desc.strokes.push_back(std::move(rub));
+            any = doc.engine().updateStrokes(geometry, desc).ok() || any;
         }
     }
-    return out;
+    return any;
 }
 
-ls::RegionId shapesEraseOf(Document& doc, ls::LayerId layer) {
-    const std::vector<Element> all = elementsOf(doc, layer);
-    bool anyShape = false;
-    for (const Element& element : all) {
-        anyShape = anyShape || (element.kind != ElementKind::Paint &&
-                                element.kind != ElementKind::Erase);
-    }
-    if (!anyShape) {
-        return ls::RegionId{};
-    }
-    // The topmost erase, unless a shape was drawn after it: that one has to
-    // be under the erase too, and an erase moved above it would also cut
-    // whatever was erased before into it.
-    for (size_t i = all.size(); i-- > 0;) {
-        if (all[i].kind == ElementKind::Erase) {
-            return all[i].region;
-        }
-        if (all[i].kind != ElementKind::Paint) {
-            break;
-        }
-    }
-    ls::LSContext& engine = doc.engine();
-    auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
-    if (region.fail()) {
-        return ls::RegionId{};
-    }
-    ls::ClearRegionOp clear;
-    clear.targetRegion = region.value;
-    if (engine.addOperation(layer, clear).fail()) {
-        engine.deleteRegion(region.value);
-        return ls::RegionId{};
-    }
-    keepEffectsLast(doc, layer);
-    return region.value;
-}
-
-namespace {
-
-bool addToErase(Document& doc, ls::RegionId erase, const ls::IntervalSet& cover,
-                const std::vector<ls::Vec2i>& pixels) {
-    ls::PixelRegionDesc desc;
-    desc.closeSameColorBoundaries = false;
-    for (ls::Vec2i pixel : pixels) {
-        if (ls::geom::contains(cover, pixel)) {
-            desc.pixels.push_back({ pixel, ls::Color{ 0, 0, 0, 255 } });
-        }
-    }
-    if (desc.pixels.empty()) {
+bool strokeAlong(Document& doc, InkStroke& stroke, int copy, const std::vector<ls::Vec2i>& centres,
+                 const PenBrush& brush) {
+    if (centres.empty()) {
         return false;
     }
-    return doc.engine().addPixelsToRegion(erase, desc).ok();
+    if (stroke.erasing()) {
+        return eraseFromLayer(doc, stroke.layer, pathMark(centres, brush), stamped(centres, brush));
+    }
+    ls::GeometryId geometry;
+    ls::StrokesDesc desc;
+    if (!readStrokes(doc, stroke.target.region, &geometry, &desc)) {
+        // A document's old pixels are still painted as pixels.
+        return paintPixels(doc, stroke.target, listOf(stamped(centres, brush)));
+    }
+    InkStroke::Open& open = stroke.open[static_cast<size_t>(copy) & 3u];
+    const ls::Vec2i first = centres.front();
+    const bool carries = open.index >= 0 && open.index < static_cast<int>(desc.strokes.size()) &&
+                         sameBrush(open.brush, brush) &&
+                         std::max(std::abs(first.x - open.last.x), std::abs(first.y - open.last.y)) <= 1;
+    if (carries) {
+        std::vector<ls::Vec2f>& points = desc.strokes[static_cast<size_t>(open.index)].points;
+        for (size_t i = 0; i < centres.size(); ++i) {
+            if (i == 0 && centres[0].x == open.last.x && centres[0].y == open.last.y) {
+                continue;                 // the pixel it stopped on
+            }
+            points.push_back({ static_cast<float>(centres[i].x) + 0.5f,
+                               static_cast<float>(centres[i].y) + 0.5f });
+        }
+    } else {
+        desc.strokes.push_back(pathMark(centres, brush));
+        open.index = static_cast<int>(desc.strokes.size()) - 1;
+        open.brush = brush;
+    }
+    open.last = centres.back();
+    return doc.engine().updateStrokes(geometry, desc).ok();
 }
 
-} // namespace
-
-bool eraseFromShapes(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels) {
-    const ls::IntervalSet cover = shapeCoverage(doc, layer);
-    bool under = false;
-    for (ls::Vec2i pixel : pixels) {
-        if (ls::geom::contains(cover, pixel)) {
-            under = true;
-            break;
-        }
-    }
-    if (!under) {
+bool sprayDots(Document& doc, const InkStroke& stroke, const std::vector<ls::Vec2i>& dots) {
+    if (dots.empty()) {
         return false;
     }
-    const ls::RegionId erase = shapesEraseOf(doc, layer);
-    return erase.valid() && addToErase(doc, erase, cover, pixels);
+    if (stroke.erasing()) {
+        ls::IntervalSet set;
+        for (ls::Vec2i p : dots) {
+            set.intervals.push_back({ p.y, p.x, p.x + 1 });
+        }
+        set = ls::geom::normalize(set);
+        return eraseFromLayer(doc, stroke.layer, areaMark(set), set);
+    }
+    ls::GeometryId geometry;
+    ls::StrokesDesc desc;
+    if (!readStrokes(doc, stroke.target.region, &geometry, &desc)) {
+        return paintPixels(doc, stroke.target, dots);
+    }
+    ls::PenStroke mark = pathMark(dots, PenBrush{});
+    mark.kind = ls::PenKind::Dots;
+    desc.strokes.push_back(std::move(mark));
+    return doc.engine().updateStrokes(geometry, desc).ok();
+}
+
+void closePaths(InkStroke& stroke) {
+    for (InkStroke::Open& open : stroke.open) {
+        open.index = -1;
+    }
 }
 
 bool strokeInk(Document& doc, const InkStroke& stroke, const std::vector<ls::Vec2i>& pixels) {
     if (pixels.empty()) {
         return false;
     }
-    ls::LSContext& engine = doc.engine();
-    bool ok = true;
-    if (!stroke.erasing()) {
-        ok = paintPixels(doc, stroke.target, pixels);
+    ls::IntervalSet set;
+    for (ls::Vec2i p : pixels) {
+        set.intervals.push_back({ p.y, p.x, p.x + 1 });
     }
-    // A pixel has one colour on a layer. Taking it out of the others is what
-    // makes painting red over blue replace the blue rather than stack on it --
-    // and keeps a stroke from being drawn twice where two inks would overlap.
-    for (ls::RegionId region : stroke.others) {
-        ok = engine.erasePixelsFromRegion(region, pixels).ok() && ok;
+    set = ls::geom::normalize(set);
+    if (stroke.erasing()) {
+        return eraseFromLayer(doc, stroke.layer, areaMark(set), set);
     }
-    if (stroke.erasing() && stroke.shapesErase.valid()) {
-        addToErase(doc, stroke.shapesErase, stroke.shapeCover, pixels);
+    ls::GeometryId geometry;
+    ls::StrokesDesc desc;
+    if (!readStrokes(doc, stroke.target.region, &geometry, &desc)) {
+        return paintPixels(doc, stroke.target, pixels);
     }
-    return ok;
+    // An area laid right after another grows it, rather than stacking up one
+    // mark for every stamp of a drag.
+    if (!desc.strokes.empty() && desc.strokes.back().kind == ls::PenKind::Area &&
+        !desc.strokes.back().erase) {
+        const ls::IntervalSet grown = ls::geom::unionSets(
+            ls::geom::rasterizeAreaDesc(desc.strokes.back().area), set);
+        desc.strokes.back().area = ls::geom::traceArea(grown);
+    } else {
+        desc.strokes.push_back(areaMark(set));
+    }
+    return doc.engine().updateStrokes(geometry, desc).ok();
 }
 
 bool setElementInk(Document& doc, ls::OperationId fill, const Ink& ink) {
@@ -285,28 +344,23 @@ int pruneEmptyInks(Document& doc, ls::LayerId layer, ls::OperationId keep) {
     ls::LSContext& engine = doc.engine();
     int removed = 0;
     for (const Element& element : elementsOf(doc, layer)) {
-        if (element.kind == ElementKind::Erase && element.fill != keep) {
-            auto erased = engine.getRegionIntervals(element.region);
-            if (erased.ok() && erased.value.empty() &&
-                engine.removeOperation(layer, element.fill).ok()) {
-                engine.deleteRegion(element.region);
-                ++removed;
-            }
+        if (element.fill == keep || !element.region.valid()) {
             continue;
         }
-        if (element.kind != ElementKind::Paint || element.fill == keep ||
-            !isSolid(doc, element.fill)) {
+        const bool erase = element.kind == ElementKind::Erase;
+        const bool freehand = element.kind == ElementKind::Paint || element.kind == ElementKind::Fill;
+        if (!erase && !(freehand && isSolid(doc, element.fill))) {
             continue;
         }
         auto intervals = engine.getRegionIntervals(element.region);
         if (intervals.fail() || !intervals.value.empty()) {
             continue;
         }
-        if (elementsOf(doc, layer).size() <= 1) {
+        if (!erase && elementsOf(doc, layer).size() <= 1) {
             break;
         }
         if (engine.removeOperation(layer, element.fill).ok()) {
-            engine.deleteRegion(element.region);
+            deleteRegionAndShapes(doc, element.region);
             ++removed;
         }
     }
@@ -325,38 +379,41 @@ bool beginInkMode(Document& doc, ls::LayerId layer, InkMode mode, const Ink& sec
     if (mode == InkMode::Simple) {
         return true;
     }
-    ls::LSContext& engine = doc.engine();
+    // In draw order, so what is on top of a pixel is what answers for it.
     for (const Element& element : elementsOf(doc, layer)) {
-        if (!element.region.valid()) {
-            continue;
-        }
-        auto pixels = engine.getRegionIntervals(element.region);
-        if (pixels.fail() || pixels.value.empty()) {
+        const ls::IntervalSet pixels = elementCoverage(doc, element);
+        if (pixels.empty()) {
             continue;
         }
         // An erase takes its pixels out of what is drawn before it.
         if (element.kind == ElementKind::Erase) {
-            out->allowed = ls::geom::subtractSets(out->allowed, pixels.value);
+            out->allowed = ls::geom::subtractSets(out->allowed, pixels);
+            for (InkModeState::Held& held : out->held) {
+                held.pixels = ls::geom::subtractSets(held.pixels, pixels);
+            }
             continue;
         }
         Ink ink;
-        const bool solid = element.kind == ElementKind::Paint &&
+        const bool solid = (element.kind == ElementKind::Paint ||
+                            element.kind == ElementKind::Fill) &&
                            inkOfElement(doc, element.fill, &ink);
         switch (mode) {
             case InkMode::LockAlpha:
                 // Where anything on the layer draws -- shapes too, since a
                 // shape's pixels are the layer's pixels to the eye.
-                out->allowed = ls::geom::unionSets(out->allowed, pixels.value);
+                out->allowed = ls::geom::unionSets(out->allowed, pixels);
                 break;
             case InkMode::Replace:
+                // Only where the second colour is what shows.
+                out->allowed = ls::geom::subtractSets(out->allowed, pixels);
                 if (solid && ink == second) {
-                    out->allowed = ls::geom::unionSets(out->allowed, pixels.value);
+                    out->allowed = ls::geom::unionSets(out->allowed, pixels);
                 }
                 break;
             case InkMode::Shading:
-                if (solid) {
-                    out->held.push_back({ pixels.value, ink });
-                }
+                // Everything is held, so a pixel under a shape answers as the
+                // shape -- which has no slot, and is left alone.
+                out->held.push_back({ pixels, solid ? ink : Ink{ {0, 0, 0, 0}, ls::kColorRoleNone } });
                 break;
             case InkMode::Simple:
                 break;

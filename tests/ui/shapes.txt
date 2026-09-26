@@ -29,13 +29,14 @@ expect pixel 24 30 3060d0
 expect pixel 31 30 3060d0
 expect pixel 24 31 empty
 
-# The eraser across the first rectangle.
+# The eraser across the first rectangle: it stays a rectangle, and keeps what
+# was erased from it as its own -- no erase of the layer's.
 tool eraser
 drag 1 4 10 4
 expect pixel 5 4 empty
 expect pixel 5 3 3060d0
 expect elements Rectangle 2
-expect elements Erased 1
+expect elements Erased 0
 
 key ctrl+z
 expect pixel 5 4 3060d0

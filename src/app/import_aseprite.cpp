@@ -528,12 +528,12 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
             const float celOpacity = cel != nullptr ? cel->opacity / 255.f : 1.f;
             bool any = false;
             for (auto& [key, set] : runs) {
-                auto region = engine.createRegionFromIntervals(doc.id(), ls::geom::normalize(set));
-                if (region.fail()) {
+                const ls::RegionId region = createFreehandRegion(doc, ls::geom::normalize(set));
+                if (!region.valid()) {
                     return fail(error, "the pixels could not be read in");
                 }
                 ls::FillSolidOp fill;
-                fill.targetRegion = region.value;
+                fill.targetRegion = region;
 
                 if (key & (1ull << 40)) {
                     const uint32_t rgba = static_cast<uint32_t>(key);
@@ -552,10 +552,10 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
                 any = true;
             }
             if (!any) {
-                auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
-                if (region.ok()) {
+                const ls::RegionId region = createFreehandRegion(doc);
+                if (region.valid()) {
                     ls::FillSolidOp fill;
-                    fill.targetRegion = region.value;
+                    fill.targetRegion = region;
                     fill.fallbackColor = file.palette.empty() ? ls::Color{ 0, 0, 0, 255 }
                                                               : file.palette.front();
                     engine.addOperation(made.value, fill);

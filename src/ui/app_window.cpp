@@ -2100,9 +2100,9 @@ std::vector<std::pair<ls::ColorRole, ls::Color>> paletteRamp(Editor& editor) {
     return ramp;
 }
 
-// The last step of every freehand mark -- pencil, spray, eraser, contour:
-// wrapped for tiled mode, mirrored for symmetry, kept inside the selection,
-// and laid down through the ink mode.
+// The last step of a mark that is a choice of pixels rather than a path --
+// a lasso, a stamp: wrapped for tiled mode, mirrored for symmetry, kept
+// inside the selection, and laid down through the ink mode as an area.
 void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, bool tiled) {
     if (tiled) {
         for (ls::Vec2i& at : run) {
@@ -2131,6 +2131,113 @@ void layDown(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> run, boo
                       !editor.strokeWithBack);
     }
     canvas.invalidate();
+}
+
+// The last step of a pencil's or an eraser's path. `centres` are the pixels
+// the brush is stamped on, in order; they are laid down as a path -- a mark
+// that is drawn again wherever the layer is turned -- continuing the one the
+// drag began. Wrapped for tiled mode and mirrored for symmetry, each mirror
+// image a path of its own; split where the selection cuts it. What an ink
+// mode filters, and what goes into tiles, is a choice of pixels, and is laid
+// down as an area.
+void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> centres,
+                 const PenBrush& brush, bool tiled) {
+    if (centres.empty()) {
+        return;
+    }
+    if (tiled) {
+        for (ls::Vec2i& at : centres) {
+            at = canvas.wrap(at);
+        }
+    }
+    // The stamps, for what is laid down as pixels.
+    const auto stampsOf = [&brush](const std::vector<ls::Vec2i>& path) {
+        std::vector<ls::Vec2i> out;
+        for (const ls::Interval& run : markPixels(pathMark(path, brush)).intervals) {
+            for (int32_t x = run.x0; x < run.x1; ++x) {
+                out.push_back({ x, run.y });
+            }
+        }
+        return out;
+    };
+    const bool asPixels = editor.tileTarget.layer.valid() ||
+        (!editor.inkStroke.erasing() && editor.inkModeState.mode != InkMode::Simple) ||
+        (!editor.selection.empty() && brush.size > 1);
+    if (asPixels) {
+        layDown(editor, canvas, stampsOf(centres), false);
+        return;
+    }
+    // Each mirror image, its centre placed so its stamp is the mirror of the
+    // stamp: an even brush hangs right and down, so its mirror hangs from one
+    // pixel further over.
+    const Symmetry symmetry = symmetryNow(editor);
+    const int before = (std::max(1, brush.size) - 1) / 2;
+    const int shift = std::max(1, brush.size) - 2 * before;     // 1 odd, 2 even
+    std::vector<std::vector<ls::Vec2i>> images { centres };
+    if (symmetry.active()) {
+        std::vector<ls::Vec2i> across, down, both;
+        for (ls::Vec2i p : centres) {
+            const ls::Vec2i flippedX { symmetry.axisX - shift - p.x, p.y };
+            const ls::Vec2i flippedY { p.x, symmetry.axisY - shift - p.y };
+            across.push_back(flippedX);
+            down.push_back(flippedY);
+            both.push_back({ flippedX.x, flippedY.y });
+        }
+        if (symmetry.across) { images.push_back(across); }
+        if (symmetry.down)   { images.push_back(down); }
+        if (symmetry.across && symmetry.down) { images.push_back(both); }
+    }
+    for (size_t image = 0; image < images.size(); ++image) {
+        // Split where the path jumps -- a wrap in tiled mode -- or leaves the
+        // selection: each part a path of its own.
+        std::vector<ls::Vec2i> part;
+        const auto flush = [&]() {
+            if (!part.empty()) {
+                strokeAlong(editor.doc, editor.inkStroke, static_cast<int>(image), part, brush);
+                part.clear();
+            }
+        };
+        for (ls::Vec2i at : images[image]) {
+            if (!editor.selection.empty() && !editor.selection.contains(at)) {
+                flush();
+                closePaths(editor.inkStroke);
+                continue;
+            }
+            if (!part.empty() && std::max(std::abs(at.x - part.back().x),
+                                          std::abs(at.y - part.back().y)) > 1) {
+                flush();
+            }
+            part.push_back(at);
+        }
+        flush();
+    }
+    canvas.invalidate();
+}
+
+// A spray's dots, laid down as dots -- each where it fell, wherever the
+// layer is turned.
+void layDownDots(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> dots, bool tiled) {
+    if (editor.tileTarget.layer.valid() || editor.inkStroke.erasing() ||
+        editor.inkModeState.mode != InkMode::Simple) {
+        layDown(editor, canvas, std::move(dots), tiled);
+        return;
+    }
+    if (tiled) {
+        for (ls::Vec2i& at : dots) {
+            at = canvas.wrap(at);
+        }
+    }
+    dots = mirrored(dots, symmetryNow(editor));
+    if (!editor.selection.empty()) {
+        dots.erase(std::remove_if(dots.begin(), dots.end(), [&](ls::Vec2i at) {
+                       return !editor.selection.contains(at);
+                   }),
+                   dots.end());
+    }
+    if (!dots.empty()) {
+        sprayDots(editor.doc, editor.inkStroke, dots);
+        canvas.invalidate();
+    }
 }
 
 // Whether the pencil is stamping a custom brush rather than its own.
@@ -2376,7 +2483,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 filled = any;
             }
             if (filled) {
-                pruneEmptyInks(editor.doc, layer->layer, stroke.target.fill);
+                // The fill is an element of its own; a run made only to say
+                // what colour it is goes again.
+                pruneEmptyInks(editor.doc, layer->layer);
                 editor.doc.endAction();
                 resyncLayers(editor);
             } else {
@@ -2400,15 +2509,24 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
 
     // Gradient: the press makes the element over the area -- the selection,
     // or what a fill would find -- and the drag drives its axis, so what is
-    // on screen during the drag is the gradient itself.
+    // on screen during the drag is the gradient itself. All of it in the
+    // layer's own pixels, so on a turned layer it lands where it was drawn.
     if (editor.tool == Tool::Gradient) {
-        const ls::Vec2f here { static_cast<float>(canvas.pointerPixel().x) + 0.5f,
-                               static_cast<float>(canvas.pointerPixel().y) + 0.5f };
+        const ls::Vec2f pointer { static_cast<float>(canvas.pointerPixel().x) + 0.5f,
+                                  static_cast<float>(canvas.pointerPixel().y) + 0.5f };
+        ls::Vec2f here = pointer;
+        if (!listTransforms(editor.doc, layer->layer).empty()) {
+            auto back = layerTransform(editor.doc, layer->layer).inverse();
+            if (back.ok()) {
+                here = back.value.transformPoint(pointer);
+            }
+        }
         if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
             !ImGui::IsKeyDown(ImGuiKey_Space)) {
-            const std::vector<ls::Vec2i> area = editor.selection.empty()
-                ? bucketArea(editor.doc, editor.sprite, pixel, editor.bucket)
-                : pixelsOf(editor.selection.mask);
+            const bool finds = editor.selection.empty();
+            const ls::IntervalSet area = finds
+                ? bucketAreaOnLayer(editor.doc, editor.sprite, layer->layer, pixel, editor.bucket)
+                : canvasAreaOnLayer(editor.doc, layer->layer, editor.selection.mask);
             DitherSettings settings;
             settings.pattern = editor.dither.pattern;
             settings.modulation = ls::DitherModulation::Linear;
@@ -2421,10 +2539,12 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             settings.gradientStart = here;
             settings.gradientEnd = { here.x + 1.f, here.y };
             editor.doc.beginAction("Gradient");
-            if (!area.empty() && addGradientElement(editor.doc, layer->layer, area, settings,
+            if (!area.empty() && addGradientElement(editor.doc, layer->layer, area, finds, settings,
                                                     &editor.gradientElement)) {
                 editor.drawingGradient = true;
                 editor.gradientSettings = settings;
+                editor.gradientFrom = pointer;
+                editor.gradientTo = pointer;
             } else {
                 editor.doc.abandonAction();
                 editor.say("Nothing to lay a gradient over there");
@@ -2434,6 +2554,7 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             if (here.x != editor.gradientSettings.gradientEnd.x ||
                 here.y != editor.gradientSettings.gradientEnd.y) {
                 editor.gradientSettings.gradientEnd = here;
+                editor.gradientTo = pointer;
                 applyDitherSettings(editor.doc, editor.gradientElement,
                                     editor.gradientSettings);
             }
@@ -2469,10 +2590,13 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         if (editor.drawingContour && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             editor.drawingContour = false;
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
-            const std::vector<ls::Vec2i> inside = pixelsOf(clipToCanvas(
-                lassoMask(editor.contourPoints),
-                size.ok() ? static_cast<uint32_t>(size.value.x) : 0u,
-                size.ok() ? static_cast<uint32_t>(size.value.y) : 0u));
+            // In the layer's own pixels: the contour is drawn over the canvas,
+            // and a turned layer's drawing is not where the canvas shows it.
+            const std::vector<ls::Vec2i> inside = pixelsOf(canvasAreaOnLayer(
+                editor.doc, layer->layer,
+                clipToCanvas(lassoMask(editor.contourPoints),
+                             size.ok() ? static_cast<uint32_t>(size.value.x) : 0u,
+                             size.ok() ? static_cast<uint32_t>(size.value.y) : 0u)));
             editor.contourPoints.clear();
             editor.doc.beginAction("Contour");
             editor.strokeWithBack = false;
@@ -2601,6 +2725,10 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                                          : editor.brush.size;
         const bool perfect = size == 1 && editor.brush.pixelPerfect &&
                              editor.tool == Tool::Pencil;
+        PenBrush brush;
+        brush.size = size;
+        brush.round = editor.brush.round;
+        brush.pixelPerfect = perfect;
         std::vector<ls::Vec2i> run;
         if (usingCustomBrush(editor)) {
             // The brush stamped at every pixel of the path, colour by colour.
@@ -2621,8 +2749,10 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         } else if (editor.tool == Tool::Spray) {
             // A burst every frame the button is held, moving or not, as a can
             // keeps spraying where it is pointed.
-            run = sprayPixels(pixel, editor.sprayRadius, editor.sprayDensity,
-                              ++editor.sprayBursts);
+            layDownDots(editor, canvas,
+                        sprayPixels(pixel, editor.sprayRadius, editor.sprayDensity,
+                                    ++editor.sprayBursts),
+                        tiled);
         } else if (perfect) {
             const std::vector<ls::Vec2i> path =
                 editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{pixel}
@@ -2633,12 +2763,12 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                 }
             }
         } else {
-            run = editor.lastPixel.x < 0
-                ? brushStamp(pixel, size, editor.brush.round)
-                : strokePixels(editor.lastPixel, pixel, size, editor.brush.round);
+            // The centres the brush is stamped on; the mark keeps the brush.
+            run = editor.lastPixel.x < 0 ? std::vector<ls::Vec2i>{ pixel }
+                                         : linePixels(editor.lastPixel, pixel);
         }
-        if (!usingCustomBrush(editor)) {
-            layDown(editor, canvas, std::move(run), tiled);
+        if (!usingCustomBrush(editor) && editor.tool != Tool::Spray) {
+            layDownPath(editor, canvas, std::move(run), brush, tiled);
         }
         editor.lastPixel = pixel;
     }
@@ -2647,7 +2777,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         // The filter's last point, held until now.
         std::vector<ls::Vec2i> rest = editor.pixelPerfect.finish();
         if (!rest.empty() && editor.tool == Tool::Pencil && !usingCustomBrush(editor)) {
-            layDown(editor, canvas, std::move(rest), tiled);
+            PenBrush brush;
+            brush.pixelPerfect = true;
+            layDownPath(editor, canvas, std::move(rest), brush, tiled);
         }
         editor.lastStrokeEnd = editor.lastPixel;
         const bool intoTiles = editor.tileTarget.layer.valid();
@@ -3003,8 +3135,8 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               IM_COL32(255, 255, 255, 120), 1.f);
             }
             if (editor.drawingGradient) {
-                const ls::Vec2f a = editor.gradientSettings.gradientStart;
-                const ls::Vec2f b = editor.gradientSettings.gradientEnd;
+                const ls::Vec2f a = editor.gradientFrom;
+                const ls::Vec2f b = editor.gradientTo;
                 const ImVec2 from(origin.x + a.x * zoom, origin.y + a.y * zoom);
                 const ImVec2 to(origin.x + b.x * zoom, origin.y + b.y * zoom);
                 draw->AddLine(from, to, IM_COL32(0, 0, 0, 200), 3.f);

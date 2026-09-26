@@ -10,6 +10,7 @@
 // be baked as.
 
 #include "app/dither.h"
+#include "app/element.h"
 #include "app/paint.h"
 #include "app/transform.h"
 
@@ -397,8 +398,8 @@ void testAGradientIsAnElementThatStaysARule() {
     CHECK(fast::paintPixels(doc, layer, {{ 0, 0 }, { 15, 0 }}));
     doc.endAction();
 
-    std::vector<ls::Vec2i> row;
-    for (int x = 0; x < 16; ++x) { row.push_back({ x, 0 }); }
+    ls::IntervalSet row;
+    row.intervals.push_back({ 0, 0, 16 });
     fast::DitherSettings settings;
     settings.from = { 0, 0, 0, 255 };
     settings.to = { 255, 255, 255, 255 };
@@ -407,7 +408,7 @@ void testAGradientIsAnElementThatStaysARule() {
     settings.gradientEnd = { 16.f, 0.f };
     fast::PaintLayer gradient;
     doc.beginAction("Gradient");
-    CHECK(fast::addGradientElement(doc, layer.layer, row, settings, &gradient));
+    CHECK(fast::addGradientElement(doc, layer.layer, row, false, settings, &gradient));
     doc.endAction();
     CHECK(fast::layerIsDithered(doc, gradient));
 
@@ -417,14 +418,25 @@ void testAGradientIsAnElementThatStaysARule() {
         return compiled.ok() ? ls::readPixel(compiled.value.raster, x, 0) : ls::Color{};
     };
     CHECK(pixel(0).r == 0 && pixel(15).r == 255);          // dark end, light end
-    // The old colour gave its pixels up: nothing of it shows under the gradient.
+    // The old colour is covered, not cut away: it is all still there under
+    // the gradient.
     auto region = doc.engine().getRegionIntervals(layer.region);
-    CHECK(region.ok() && region.value.empty());
+    CHECK(region.ok() && ls::geom::pixelCount(region.value) == 2);
 
     // Move the end: a parameter, not a repaint.
     settings.gradientEnd = { 8.f, 0.f };
     CHECK(fast::applyDitherSettings(doc, gradient, settings));
     CHECK(pixel(10).r == 255);
+
+    // And removing the gradient brings back what was under it.
+    fast::Element made;
+    for (const fast::Element& element : fast::elementsOf(doc, layer.layer)) {
+        if (element.fill == gradient.fill) {
+            made = element;
+        }
+    }
+    CHECK(fast::removeElement(doc, layer.layer, made));
+    CHECK(pixel(0).r == 9 && pixel(15).r == 9 && pixel(7).a == 0);
 }
 
 int main() {

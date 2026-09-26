@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/dither.h"
+#include "app/shape.h"
 #include "app/ink.h"
 
 #include "app/palette.h"
@@ -121,38 +122,48 @@ ls::RampDesc rampOf(const DitherSettings& settings) {
 
 } // namespace
 
-bool addGradientElement(Document& doc, ls::LayerId layer, const std::vector<ls::Vec2i>& pixels,
-                        const DitherSettings& settings, PaintLayer* out) {
-    if (out == nullptr || pixels.empty()) {
+bool addGradientElement(Document& doc, ls::LayerId layer, const ls::IntervalSet& area,
+                        bool findsItsEdge, const DitherSettings& settings, PaintLayer* out) {
+    if (out == nullptr || area.empty()) {
         return false;
     }
-    // Made as a solid colour first, through the same path a pencil stroke
-    // takes -- so it lands on top of the layer and takes its pixels from the
-    // layer's other colours -- then turned into the dither in place.
-    Ink placeholder;
-    placeholder.colour = settings.from;
-    placeholder.role = settings.fromRole;
-    InkStroke stroke;
     ls::LSContext& engine = doc.engine();
-    auto region = engine.createRegionFromIntervals(doc.id(), ls::IntervalSet{});
-    if (region.fail()) {
+    // Over a face -- found again against the line round it wherever the layer
+    // is turned -- or, for a selection, over the area exactly.
+    ls::Result<ls::GeometryId> shape = ls::Result<ls::GeometryId>::err(ls::LSError::InvalidId);
+    if (findsItsEdge) {
+        ls::FaceDesc face;
+        face.area = ls::geom::traceArea(area);
+        face.seed = ls::geom::deepestPoint(area);
+        shape = engine.createFace(doc.id(), face);
+    } else {
+        shape = engine.createArea(doc.id(), ls::geom::traceArea(area));
+    }
+    if (shape.fail()) {
         return false;
     }
+    auto region = engine.createRegionFromGeometry(shape.value);
+    if (region.fail()) {
+        engine.deleteGeometry(shape.value);
+        return false;
+    }
+    // Made as a solid colour first, then turned into the dither in place.
     ls::FillSolidOp fill;
     fill.targetRegion = region.value;
     fill.fallbackColor = settings.from;
+    fill.paletteRole = settings.fromRole;
     auto op = engine.addOperation(layer, fill);
     if (op.fail()) {
+        deleteRegionAndShapes(doc, region.value);
         return false;
     }
+    // Under the layer's transforms, like everything drawn on it, so what the
+    // drag shows is what stays.
+    keepEffectsLast(doc, layer);
     PaintLayer made;
     made.layer = layer;
     made.fill = op.value;
     made.region = region.value;
-    if (!beginElementStroke(doc, made, &stroke) || !strokeInk(doc, stroke, pixels)) {
-        return false;
-    }
-    (void)placeholder;
     if (!setLayerDithered(doc, made, settings)) {
         return false;
     }
@@ -192,6 +203,9 @@ bool setLayerDithered(Document& doc, PaintLayer& layer, const DitherSettings& se
     op.gradientStart = settings.gradientStart;
     op.gradientEnd = settings.gradientEnd;
     op.anchor = settings.anchor;
+    // The axis is where it was drawn, in the layer's own pixels -- not
+    // measured from the corner of whatever the dither happens to cover.
+    op.coordinateSpace = ls::CoordinateSpace::Canvas;
 
     // In at the old fill's position, then the old one out. Done in this order so
     // a failure to add leaves the layer with the fill it had.

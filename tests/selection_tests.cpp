@@ -173,7 +173,8 @@ void testLiftFloatsWithoutEating() {
     CHECK(same(at(doc, 6, 1), kBlue));
     CHECK(same(at(doc, 10, 1), kRed));
 
-    // Dropped on the blue, it replaces it -- and red joins red's element.
+    // Dropped on the blue, it covers it. The red it was lifted from drew
+    // nothing more and went; the blue is still there under the red.
     REQUIRE(moveFloating(doc, floating, { 5, 0 }));
     REQUIRE(dropFloating(doc, floating));
     doc.endAction();
@@ -186,7 +187,7 @@ void testLiftFloatsWithoutEating() {
     Ink blue;
     blue.colour = kBlue;
     CHECK(elementsWithInk(doc, layer.layer, red).size() == 1);
-    CHECK(elementsWithInk(doc, layer.layer, blue).empty());    // painted out, and gone
+    CHECK(elementsWithInk(doc, layer.layer, blue).size() == 1);
 
     // One step undoes the whole move.
     REQUIRE(doc.undo());
@@ -327,8 +328,8 @@ void testClearLeavesShapes() {
     REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, params, kBlue,
                        ls::kColorRoleNone, &rect));
 
-    // Delete takes the rectangle's pixels too -- through an erase, so it is
-    // still a rectangle, and removing the erase brings it back whole.
+    // Delete takes the rectangle's pixels too -- kept as what was erased from
+    // it, so it is still a rectangle, and clearing that brings it back whole.
     doc.beginAction("Delete");
     REQUIRE(clearPixels(doc, layer.layer, rectangleMask({ 0, 0 }, { 9, 15 })));
     doc.endAction();
@@ -336,15 +337,17 @@ void testClearLeavesShapes() {
     CHECK(at(doc, 3, 1).a == 0);
     CHECK(at(doc, 9, 9).a == 0);
     CHECK(same(at(doc, 10, 10), kBlue));
-    Element erase;
     bool stillShape = false;
     for (const Element& element : elementsOf(doc, layer.layer)) {
         stillShape = stillShape || element.kind == ElementKind::Rectangle;
-        if (element.kind == ElementKind::Erase) { erase = element; }
+        CHECK(element.kind != ElementKind::Erase);
     }
     CHECK(stillShape);
-    REQUIRE(erase.valid());
-    REQUIRE(removeElement(doc, layer.layer, erase));
+    auto erase = doc.engine().getRegionErase(rect.paint.region);
+    REQUIRE(erase.ok() && erase.value.valid());
+    doc.beginAction("Unerase");
+    REQUIRE(doc.engine().setRegionErase(rect.paint.region, ls::GeometryId{}).ok());
+    doc.endAction();
     CHECK(same(at(doc, 9, 9), kBlue));
 }
 

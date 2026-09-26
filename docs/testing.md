@@ -121,8 +121,20 @@ program -- which is the argument for having them.
   frame were one step, and a trackpad's stream of small scrolls made a step
   on every frame of the gesture. The wheel's movement now adds up, and each
   whole notch is a step.
+- **A gradient on a turned layer landed somewhere else, and deleting it took
+  the drawing with it** (found by hand). The gradient worked out its area on
+  the screen and stored it in the layer, which turned it a second time, and
+  it took the pixels under it away from the outline and the fill -- so deleting
+  it left holes. Behind both, and behind the gaps below: freehand marks were
+  kept as pixels and a turn resampled them. Now nothing is pixels until the
+  picture is drawn: strokes are paths, a fill is a face that finds its edge
+  again, a gradient is a face with a rule over what is under it, and a turn
+  moves the shapes and draws them where they land. `tests/turning_tests.cpp`
+  draws, fills, turns through every angle, lays a level dither over the turned
+  fill and deletes it; `tests/ui/rotate_and_fill.txt` does it through the
+  interface, deleting the gradient from the element list.
 - **A turned outline had gaps, and filling it afterwards went wrong** (found by
-  hand). RotSprite takes one sample for each pixel it draws and a line one
+  hand; the fix below was later replaced by the one above). RotSprite takes one sample for each pixel it draws and a line one
   pixel wide can slip between two, so a hand-drawn blob turned came out open
   -- over a fill, the fill showed through. The engine now joins every two
   touching pixels of a thin line that land apart. And the bucket on a turned
@@ -607,9 +619,12 @@ sprits_fast --demo-stroke
 
 ### 4af. Rotating pixel art
 
-1. Transform panel > *Rotate*, drag to 30 degrees. *Expect:* clean diagonals,
-   no new colours; the sampling combo says *Pixel art (RotSprite)*. Switch it
-   to *Coverage* to compare, and back.
+1. Draw a blob with the pencil, fill it with the bucket, then Transform panel
+   > *Rotate*, drag through the angles. *Expect:* at every angle the outline
+   a clean closed line, the fill up to it with nothing bare and nothing
+   outside, no new colours. Lay a gradient over the turned fill: *Expect:* a
+   level, regular dither inside the outline only. Delete the gradient in the
+   element list: *Expect:* the fill as it was.
 2. Select part of a drawing, *Select > Rotate freely*. *Expect:* the pixels on
    a new layer "Rotated" above, gone from the original, with a rotation at 0
    degrees in the Transform panel; drag it. One undo puts everything back.
