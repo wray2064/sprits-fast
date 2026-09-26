@@ -78,6 +78,7 @@ std::string savePreferences(const Preferences& p) {
     out += "view.grid-colour = " + hexColour(p.gridColour) + "\n";
     out += "view.grid-opacity = " + std::to_string(p.gridOpacity) + "\n";
     out += "view.theme = " + std::string(p.lightTheme ? "light" : "dark") + "\n";
+    out += "view.language = " + p.language + "\n";
     return out;
 }
 
@@ -127,6 +128,13 @@ Preferences loadPreferences(const std::string& text) {
             p.gridOpacity = static_cast<int>(number(value, 0, 255, 16));
         } else if (name == "view.theme") {
             p.lightTheme = value == "light";
+        } else if (name == "view.language") {
+            // A name, not a path: letters and a dash only.
+            bool plain = value.size() <= 16;
+            for (char ch : value) {
+                plain = plain && (std::isalnum(static_cast<unsigned char>(ch)) || ch == '-' || ch == '_');
+            }
+            p.language = plain ? value : std::string();
         }
     }
     // A new canvas has to be one Fast works on, whatever the two sides say.

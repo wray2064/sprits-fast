@@ -34,6 +34,7 @@ struct Preferences {
     uint32_t gridColour = 0xFFFFFF;
     int      gridOpacity = 16;
     bool     lightTheme = false;
+    std::string language;             // a catalogue's name, "es"; empty is English
 };
 
 // The canvas colours that suit each theme, for when the theme changes and

@@ -574,6 +574,11 @@ bool selectedPixels(Editor& editor, PaintLayer* out);
 // Reads the keys and preferences from the settings folder, and writes them
 // back. Writing is atomic; a missing folder means nothing is kept, silently.
 void loadSettings(Editor& editor);
+
+// The folder of language catalogues beside the program, and switching to one
+// ("" for English). False when the catalogue could not be read.
+std::string languageFolder();
+bool applyLanguage(const std::string& code);
 void saveSettings(const Editor& editor);
 
 // The symmetry in force, with the axes resolved against the canvas.

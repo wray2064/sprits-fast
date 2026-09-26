@@ -6,9 +6,12 @@
 
 #include "app/clip_image.h"
 #include "app/file_io.h"
+#include "app/i18n.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
 #include "app/tracks.h"
+
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 
@@ -277,11 +280,32 @@ void loadSettings(Editor& editor) {
     if (!keys.empty() && readFile(keys, bytes, &error)) {
         editor.keys.load(std::string(bytes.begin(), bytes.end()));
     }
+    applyLanguage(editor.prefs.language);
     // What the preferences say a new document is, the New window starts from.
     editor.files.newDocument.width = editor.prefs.newWidth;
     editor.files.newDocument.height = editor.prefs.newHeight;
     editor.files.newDocument.background = editor.prefs.newBackground;
     editor.files.newDocument.preset = editor.prefs.newPreset;
+}
+
+std::string languageFolder() {
+    const char* base = SDL_GetBasePath();
+    return base != nullptr ? joinPath(base, "lang") : std::string("lang");
+}
+
+bool applyLanguage(const std::string& code) {
+    if (code.empty()) {
+        clearCatalogue();
+        return true;
+    }
+    std::vector<uint8_t> bytes;
+    std::string error;
+    if (!readFile(joinPath(languageFolder(), code + ".txt"), bytes, &error)) {
+        clearCatalogue();
+        return false;
+    }
+    loadCatalogue(std::string(bytes.begin(), bytes.end()));
+    return true;
 }
 
 void saveSettings(const Editor& editor) {

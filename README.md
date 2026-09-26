@@ -72,7 +72,9 @@ sets what a new document is, how often autosave writes, the undo depth, the
 theme (slate, or paper for a bright room), and the canvas: the pixel grid's colour and opacity, and the chequer's colours
 and square size. Both are plain text files in the settings folder
 (`preferences.txt`, `keys.txt`), read as untrusted -- a hand-edited file can
-make Fast odd, never broken.
+make Fast odd, never broken. The interface can be **translated**: menus, headings, tool and
+command names go through a plain-text catalogue per language
+([docs/translating.md](docs/translating.md)), and Spanish ships with it.
 
 **Layers** — blend modes, opacity, groups that composite as one, clipping,
 locks, drag-to-reorder, copy and paste between frames, and a thumbnail per row;

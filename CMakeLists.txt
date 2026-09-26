@@ -108,6 +108,7 @@ add_library(fast_core STATIC
     src/app/adjust.cpp
     src/app/slices.cpp
     src/app/guides.cpp
+    src/app/i18n.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -172,6 +173,10 @@ if (FAST_BUILD_GUI)
         src/ui/file_commands.cpp
     )
     target_link_libraries(sprits_fast PRIVATE fast_core fast::imgui)
+    # The language catalogues go beside the program, where it looks for them.
+    add_custom_command(TARGET sprits_fast POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/lang $<TARGET_FILE_DIR:sprits_fast>/lang)
 
     if (MSVC)
         target_compile_options(sprits_fast PRIVATE /W4 /WX)
@@ -262,6 +267,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_slices_tests tests/slices_tests.cpp)
     target_link_libraries(fast_slices_tests PRIVATE fast_core)
     add_test(NAME fast_slices COMMAND fast_slices_tests)
+
+    add_executable(fast_i18n_tests tests/i18n_tests.cpp)
+    target_link_libraries(fast_i18n_tests PRIVATE fast_core)
+    add_test(NAME fast_i18n COMMAND fast_i18n_tests ${CMAKE_CURRENT_SOURCE_DIR}/assets/lang)
 
     add_executable(fast_paint_tests tests/paint_tests.cpp)
     target_link_libraries(fast_paint_tests PRIVATE fast_core)

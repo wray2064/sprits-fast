@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "ui/panels.h"
+#include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/theme.h"
 
@@ -127,7 +128,7 @@ void drawToolbar(Editor& editor) {
     };
 
     for (const Entry& entry : kTools) {
-        if (theme::toolButton(entry.icon, entry.name, entry.shortcut,
+        if (theme::toolButton(entry.icon, tr(entry.name), entry.shortcut,
                               editor.tool == entry.tool, entry.description)) {
             if (entry.tool == Tool::Picker && editor.tool != Tool::Picker) {
                 editor.toolBeforePicker = editor.tool;
@@ -2055,11 +2056,11 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                         ImGui::EndDragDropTarget();
                     }
                     if (ImGui::BeginPopupContextItem("gmenu")) {
-                        if (ImGui::MenuItem("Ungroup", "Ctrl+Shift+G")) {
+                        if (ImGui::MenuItem(tr("Ungroup"), "Ctrl+Shift+G")) {
                             editor.activeGroup = openGroup;
                             ungroupActiveLayer(editor, canvas);
                         }
-                        if (ImGui::MenuItem("Rename")) {
+                        if (ImGui::MenuItem(tr("Rename"))) {
                             editor.renamingGroup = openGroup;
                             std::snprintf(editor.groupNameBuffer, sizeof(editor.groupNameBuffer),
                                           "%s", group.name.c_str());
@@ -2214,24 +2215,24 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 if (!layerSelected(editor, id) || editor.activeGroup.valid()) {
                     selectLayer(editor, id);
                 }
-                if (ImGui::MenuItem("Duplicate", "Ctrl+J")) { duplicateActiveLayer(editor, canvas); }
-                if (ImGui::MenuItem("Merge down", "Ctrl+E")) { mergeActiveLayerDown(editor, canvas); }
+                if (ImGui::MenuItem(tr("Duplicate"), "Ctrl+J")) { duplicateActiveLayer(editor, canvas); }
+                if (ImGui::MenuItem(tr("Merge down"), "Ctrl+E")) { mergeActiveLayerDown(editor, canvas); }
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("This layer's elements join the layer below, on top "
                                       "of its own, each still what it was.");
                 }
-                if (ImGui::MenuItem("Copy", "Ctrl+C")) { copyActiveLayer(editor); }
-                if (ImGui::MenuItem("Paste above", "Ctrl+V", false, editor.clipboard.valid())) {
+                if (ImGui::MenuItem(tr("Copy"), "Ctrl+C")) { copyActiveLayer(editor); }
+                if (ImGui::MenuItem(tr("Paste above"), "Ctrl+V", false, editor.clipboard.valid())) {
                     pasteLayerHere(editor, canvas);
                 }
-                if (ImGui::MenuItem("Delete", nullptr, false, order.size() > 1)) {
+                if (ImGui::MenuItem(tr("Delete"), nullptr, false, order.size() > 1)) {
                     deleteSelectedLayers(editor, canvas);
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Move up", "Ctrl+]", false, i + 1 < static_cast<int>(order.size()))) {
+                if (ImGui::MenuItem(tr("Move up"), "Ctrl+]", false, i + 1 < static_cast<int>(order.size()))) {
                     raiseActiveLayer(editor, canvas);
                 }
-                if (ImGui::MenuItem("Move down", "Ctrl+[", false, i > 0)) {
+                if (ImGui::MenuItem(tr("Move down"), "Ctrl+[", false, i > 0)) {
                     lowerActiveLayer(editor, canvas);
                 }
                 ImGui::Separator();
@@ -2243,7 +2244,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                     const std::vector<ls::GroupId> groups = groupOrder(editor.doc, sprite);
                     bool anyOther = false;
                     for (ls::GroupId g : groups) { anyOther = anyOther || g != props.group; }
-                    if (ImGui::BeginMenu("Add to group", anyOther)) {
+                    if (ImGui::BeginMenu(tr("Add to group"), anyOther)) {
                         for (ls::GroupId g : groups) {
                             if (g == props.group) { continue; }
                             GroupProps target;
@@ -2261,21 +2262,21 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                         ImGui::EndMenu();
                     }
                 }
-                if (ImGui::MenuItem("Remove from group", nullptr, false, props.group.valid())) {
+                if (ImGui::MenuItem(tr("Remove from group"), nullptr, false, props.group.valid())) {
                     if (removeFromGroup(editor.doc, id)) {
                         selectLayer(editor, id);
                         canvas.invalidate();
                         editor.say("Out of the group, still where it was");
                     }
                 }
-                if (ImGui::MenuItem("Ungroup", "Ctrl+Shift+G", false, props.group.valid())) {
+                if (ImGui::MenuItem(tr("Ungroup"), "Ctrl+Shift+G", false, props.group.valid())) {
                     ungroupActiveLayer(editor, canvas);
                 }
                 ImGui::Separator();
-                if (ImGui::MenuItem("Clip to layer below", nullptr, props.clipBase.valid(), i > 0)) {
+                if (ImGui::MenuItem(tr("Clip to layer below"), nullptr, props.clipBase.valid(), i > 0)) {
                     toggleActiveLayerClip(editor, canvas);
                 }
-                if (ImGui::MenuItem("Lock", nullptr, props.locked)) {
+                if (ImGui::MenuItem(tr("Lock"), nullptr, props.locked)) {
                     toggleActiveLayerLock(editor);
                 }
                 if (tracksOn(editor.doc) && editor.frames.size() > 1) {
@@ -2307,7 +2308,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                                           "what they held is replaced. Select a run in the "
                                           "frame strip to choose which.");
                     }
-                    if (!linkOf(editor.doc, id).empty() && ImGui::MenuItem("Unlink")) {
+                    if (!linkOf(editor.doc, id).empty() && ImGui::MenuItem(tr("Unlink"))) {
                         editor.doc.beginAction("Unlink cel");
                         const ls::LayerId own = unlinkCel(editor.doc, id);
                         editor.doc.endAction();
@@ -2317,7 +2318,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                         editor.say("This frame's cel is its own again");
                     }
                 }
-                if (ImGui::MenuItem("Reference layer", nullptr, props.reference)) {
+                if (ImGui::MenuItem(tr("Reference layer"), nullptr, props.reference)) {
                     editor.doc.beginAction(props.reference ? "Not a reference" : "Reference layer");
                     setReferenceLayer(editor.doc, id, !props.reference);
                     editor.doc.endAction();
@@ -2330,12 +2331,12 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                                       "in a PNG, a sheet, an animation or the outline round "
                                       "the figure.");
                 }
-                if (ImGui::MenuItem("Rename")) {
+                if (ImGui::MenuItem(tr("Rename"))) {
                     editor.renaming = listIndex;
                     std::snprintf(editor.renameBuffer, sizeof(editor.renameBuffer),
                                   "%s", props.name.c_str());
                 }
-                if (ImGui::MenuItem("Properties...")) {
+                if (ImGui::MenuItem(tr("Properties..."))) {
                     editor.propertiesLayer = id;
                 }
                 ImGui::EndPopup();

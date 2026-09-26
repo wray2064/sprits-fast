@@ -547,6 +547,14 @@ sprits_fast --demo-stroke
    a new layer "Rotated" above, gone from the original, with a rotation at 0
    degrees in the Transform panel; drag it. One undo puts everything back.
 
+### 4ag. Languages
+
+1. *Edit > Preferences > Language*: *es*. *Expect:* the menus, panel titles,
+   section headings and tool names in Spanish at once; *English* puts them
+   back. Restart: the choice is kept.
+2. Remove `lang/es.txt` beside the program and start. *Expect:* English, no
+   error.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

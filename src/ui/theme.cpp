@@ -3,6 +3,8 @@
 
 #include "ui/theme.h"
 
+#include "app/i18n.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -207,6 +209,7 @@ void loadFonts(float scale) {
 // ---------------------------------------------------------------- widgets --
 
 void sectionHeader(const char* label) {
+    label = tr(label);
     // A muted amber rather than grey. It is the one place a second use of the
     // accent earns its keep: it separates the structure of the panel from its
     // contents at a glance, and it is dim enough not to pull the eye off the

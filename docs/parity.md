@@ -155,7 +155,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Isometric grid
 - [x] Reference layer from the clipboard
 - [x] Light theme
-- [ ] Localisation hooks
+- [x] Localisation hooks
 
 ## Tier 3 — beyond the incumbents
 - [x] Palette-indexed PNG export (engine issue; a game can swap colours at run time)
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Localisation: tr() over plain-text catalogues (assets/lang/<code>.txt, copied beside the program), a Language choice in Preferences applied at once and kept; menus, panel titles, section headings, tool names and Keys-tab command names go through it; Spanish catalogue ships (166 strings); docs/translating.md explains adding a language. Remaining English: buttons, field labels, tooltips, status messages.
 - RotSprite: engine SamplingPolicy::RotSprite (3x Scale2x to 8x, then nearest; Majority past 512x512); the Transform panel's new rotations use it and every rotate/scale has a sampling combo; Select > Rotate freely lifts the selection onto its own layer with a RotSprite rotation about its middle, one undo step. Visual check: a ring turned 30 degrees stays a ring under RotSprite and breaks under coverage.
 - Rulers (pixel ticks at any zoom, pointer marked) and guides: dragged out of the rulers, moved by their markers, removed by dropping back on the ruler, one undo step each; kept as document metadata, turned and moved by canvas ops, and extra snap lines while snapping (Grid.linesX/linesY). View menu toggles and Clear guides.
 - Slices: slice tool (C) drags out, moves and resizes named rectangles; View > Slices names them and gives a nine-slice centre, pivot and colour; kept as document metadata (undoable, saved), moved by canvas ops; exported in Fast's manifest and Aseprite's meta.slices (bounds/center/pivot at the sheet's scale). app/slices with tests.

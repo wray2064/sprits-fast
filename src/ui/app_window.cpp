@@ -29,6 +29,7 @@
 #include "app/transform.h"
 #include "app/ui_state.h"
 #include "ui/keys.h"
+#include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
 #include "ui/rulers.h"
@@ -353,12 +354,12 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (!ImGui::BeginMainMenuBar()) {
         return;
     }
-    if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("New...", keysLabel(editor.keys, "file.new").c_str())) {
+    if (ImGui::BeginMenu(tr("File"))) {
+        if (ImGui::MenuItem(tr("New..."), keysLabel(editor.keys, "file.new").c_str())) {
             editor.newDocumentOpen = true;
         }
-        if (ImGui::BeginMenu("Autosave")) {
-            if (ImGui::MenuItem("On", nullptr, editor.autosaveOn,
+        if (ImGui::BeginMenu(tr("Autosave"))) {
+            if (ImGui::MenuItem(tr("On"), nullptr, editor.autosaveOn,
                                 editor.recovery.active())) {
                 editor.autosaveOn = !editor.autosaveOn;
                 if (!editor.autosaveOn) {
@@ -378,7 +379,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 }
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Write a copy now", nullptr, false,
+            if (ImGui::MenuItem(tr("Write a copy now"), nullptr, false,
                                 editor.autosaveOn && editor.doc.modified())) {
                 if (editor.recovery.writeNow(editor.doc, SDL_GetTicks() / 1000ull)) {
                     editor.say("Recovery copy written");
@@ -387,21 +388,21 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Library...", keysLabel(editor.keys, "file.library").c_str())) {
+        if (ImGui::MenuItem(tr("Library..."), keysLabel(editor.keys, "file.library").c_str())) {
             editor.libraryOpen = true;
             editor.libraryStale = true;
         }
-        if (ImGui::MenuItem("Import reference...")) {
+        if (ImGui::MenuItem(tr("Import reference..."))) {
             showImportReferenceDialog(editor.files, window, editor.doc);
         }
-        if (ImGui::MenuItem("Import sprite sheet...")) {
+        if (ImGui::MenuItem(tr("Import sprite sheet..."))) {
             showImportSheetDialog(editor.files, window, editor.doc);
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Open...", keysLabel(editor.keys, "file.open").c_str())) {
+        if (ImGui::MenuItem(tr("Open..."), keysLabel(editor.keys, "file.open").c_str())) {
             requestAction(editor, canvas, window, PendingAction::OpenDialog);
         }
-        if (ImGui::BeginMenu("Open recent", !editor.files.recent.empty())) {
+        if (ImGui::BeginMenu(tr("Open recent"), !editor.files.recent.empty())) {
             for (const std::string& entry : editor.files.recent.entries()) {
                 if (ImGui::MenuItem(fileName(entry).c_str())) {
                     requestAction(editor, canvas, window, PendingAction::OpenPath, entry);
@@ -411,20 +412,20 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 }
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Clear")) {
+            if (ImGui::MenuItem(tr("Clear"))) {
                 editor.files.recent.clear();
                 editor.files.recent.save();
             }
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Save", keysLabel(editor.keys, "file.save").c_str())) {
+        if (ImGui::MenuItem(tr("Save"), keysLabel(editor.keys, "file.save").c_str())) {
             saveOrAsk(editor, canvas, window);
         }
-        if (ImGui::MenuItem("Save as...", keysLabel(editor.keys, "file.save-as").c_str())) {
+        if (ImGui::MenuItem(tr("Save as..."), keysLabel(editor.keys, "file.save-as").c_str())) {
             showSaveAsDialog(editor.files, window, editor.doc);
         }
-        if (ImGui::MenuItem("Save a copy...")) {
+        if (ImGui::MenuItem(tr("Save a copy..."))) {
             showSaveCopyDialog(editor.files, window, editor.doc);
         }
         if (ImGui::IsItemHovered()) {
@@ -432,8 +433,8 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "file you are in -- its name and its unsaved state stay "
                               "as they are.");
         }
-        if (ImGui::BeginMenu("Export PNG")) {
-            ImGui::MenuItem("Indexed, the palette as its table", nullptr, &editor.exportIndexed);
+        if (ImGui::BeginMenu(tr("Export PNG"))) {
+            ImGui::MenuItem(tr("Indexed, the palette as its table"), nullptr, &editor.exportIndexed);
             if (ImGui::IsItemHovered()) {
                 ImGui::SetTooltip("A colour table and one byte a pixel, with the palette's "
                                   "slots in order as the\nfirst entries -- what a game that "
@@ -450,25 +451,25 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem("Export sheet...", nullptr, false,
+        if (ImGui::MenuItem(tr("Export sheet..."), nullptr, false,
                             !editor.frames.empty())) {
             editor.sheetPanelOpen = true;
         }
-        if (ImGui::MenuItem("Export animation...", nullptr, false,
+        if (ImGui::MenuItem(tr("Export animation..."), nullptr, false,
                             !editor.frames.empty())) {
             editor.animationPanelOpen = true;
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Close tab", keysLabel(editor.keys, "file.close").c_str())) {
+        if (ImGui::MenuItem(tr("Close tab"), keysLabel(editor.keys, "file.close").c_str())) {
             requestAction(editor, canvas, window, PendingAction::CloseTab);
         }
-        if (ImGui::MenuItem("Quit", keysLabel(editor.keys, "file.quit").c_str())) {
+        if (ImGui::MenuItem(tr("Quit"), keysLabel(editor.keys, "file.quit").c_str())) {
             requestAction(editor, canvas, window, PendingAction::Quit);
         }
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("Edit")) {
+    if (ImGui::BeginMenu(tr("Edit"))) {
         const std::string undo = editor.doc.canUndo()
             ? "Undo " + editor.doc.undoLabel() : std::string("Undo");
         const std::string redo = editor.doc.canRedo()
@@ -489,54 +490,54 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             refreshInks(editor);
             canvas.invalidate();
         }
-        if (ImGui::MenuItem("History...", nullptr, editor.historyOpen)) {
+        if (ImGui::MenuItem(tr("History..."), nullptr, editor.historyOpen)) {
             editor.historyOpen = !editor.historyOpen;
         }
-        if (ImGui::MenuItem("Preferences...")) {
+        if (ImGui::MenuItem(tr("Preferences..."))) {
             editor.preferencesOpen = true;
         }
         ImGui::Separator();
         const bool selected = !editor.selection.empty();
-        if (ImGui::MenuItem("Cut", keysLabel(editor.keys, "edit.cut").c_str(), false,
+        if (ImGui::MenuItem(tr("Cut"), keysLabel(editor.keys, "edit.cut").c_str(), false,
                             selected)) {
             cutSelectionPixels(editor);
         }
-        if (ImGui::MenuItem("Copy", keysLabel(editor.keys, "edit.copy").c_str())) {
+        if (ImGui::MenuItem(tr("Copy"), keysLabel(editor.keys, "edit.copy").c_str())) {
             copyCommand(editor);
         }
-        if (ImGui::MenuItem("Paste", keysLabel(editor.keys, "edit.paste").c_str())) {
+        if (ImGui::MenuItem(tr("Paste"), keysLabel(editor.keys, "edit.paste").c_str())) {
             pasteCommand(editor, canvas, false);
         }
-        if (ImGui::MenuItem("Paste as new layer", keysLabel(editor.keys, "edit.paste-layer").c_str(),
+        if (ImGui::MenuItem(tr("Paste as new layer"), keysLabel(editor.keys, "edit.paste-layer").c_str(),
                             false, pixelsToPaste(editor))) {
             pasteCommand(editor, canvas, true);
         }
-        if (ImGui::MenuItem("Paste as reference", nullptr, false, clipboardHasImage())) {
+        if (ImGui::MenuItem(tr("Paste as reference"), nullptr, false, clipboardHasImage())) {
             pasteReference(editor, canvas);
         }
-        if (ImGui::MenuItem("Delete", "Del", false, selected)) { deleteSelectionPixels(editor); }
-        if (ImGui::MenuItem("Brush from selection", keysLabel(editor.keys, "edit.brush").c_str(),
+        if (ImGui::MenuItem(tr("Delete"), "Del", false, selected)) { deleteSelectionPixels(editor); }
+        if (ImGui::MenuItem(tr("Brush from selection"), keysLabel(editor.keys, "edit.brush").c_str(),
                             false, selected)) {
             brushFromSelection(editor);
         }
         ImGui::Separator();
         const bool movable = selected || editor.floating.active();
-        if (ImGui::MenuItem("Flip horizontally", "Shift+H", false, movable)) {
+        if (ImGui::MenuItem(tr("Flip horizontally"), "Shift+H", false, movable)) {
             turnSelection(editor, FloatTurn::FlipHorizontal);
         }
-        if (ImGui::MenuItem("Flip vertically", "Shift+V", false, movable)) {
+        if (ImGui::MenuItem(tr("Flip vertically"), "Shift+V", false, movable)) {
             turnSelection(editor, FloatTurn::FlipVertical);
         }
-        if (ImGui::MenuItem("Rotate 90 clockwise", nullptr, false, movable)) {
+        if (ImGui::MenuItem(tr("Rotate 90 clockwise"), nullptr, false, movable)) {
             turnSelection(editor, FloatTurn::Clockwise);
         }
-        if (ImGui::MenuItem("Rotate 90 anticlockwise", nullptr, false, movable)) {
+        if (ImGui::MenuItem(tr("Rotate 90 anticlockwise"), nullptr, false, movable)) {
             turnSelection(editor, FloatTurn::Anticlockwise);
         }
-        if (ImGui::MenuItem("Rotate 180", nullptr, false, movable)) {
+        if (ImGui::MenuItem(tr("Rotate 180"), nullptr, false, movable)) {
             turnSelection(editor, FloatTurn::HalfTurn);
         }
-        if (ImGui::MenuItem("Rotate freely", nullptr, false, movable)) {
+        if (ImGui::MenuItem(tr("Rotate freely"), nullptr, false, movable)) {
             rotateSelectionFreely(editor);
         }
         if (ImGui::IsItemHovered()) {
@@ -547,8 +548,8 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("Sprite")) {
-        if (ImGui::MenuItem("Canvas size...")) {
+    if (ImGui::BeginMenu(tr("Sprite"))) {
+        if (ImGui::MenuItem(tr("Canvas size..."))) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
             if (size.ok()) {
                 editor.canvasDialog.width = size.value.x;
@@ -556,13 +557,13 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             editor.canvasDialog.open = true;
         }
-        if (ImGui::MenuItem("Crop to selection", nullptr, false, !editor.selection.empty())) {
+        if (ImGui::MenuItem(tr("Crop to selection"), nullptr, false, !editor.selection.empty())) {
             const ls::Rect2i box = editor.selection.bounds();
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return cropCanvas(editor.doc, box, error); },
                          "Cropped to the selection");
         }
-        if (ImGui::MenuItem("Trim")) {
+        if (ImGui::MenuItem(tr("Trim"))) {
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return trimCanvas(editor.doc, error); },
                          "Trimmed to what is drawn");
@@ -574,7 +575,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         {
             bool together = tracksOn(editor.doc);
-            if (ImGui::MenuItem("Same layers in every frame", nullptr, &together)) {
+            if (ImGui::MenuItem(tr("Same layers in every frame"), nullptr, &together)) {
                 editor.doc.beginAction(together ? "Layers in every frame"
                                                 : "Layers frame by frame");
                 if (together) {
@@ -596,7 +597,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                                   "and loses nothing.");
             }
         }
-        if (ImGui::MenuItem("Adjust colours...", nullptr, false, editor.active() != nullptr)) {
+        if (ImGui::MenuItem(tr("Adjust colours..."), nullptr, false, editor.active() != nullptr)) {
             editor.adjustDialog = Editor::AdjustDialog{};
             editor.adjustDialog.open = true;
             editor.doc.beginAction("Adjust colours");
@@ -606,7 +607,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "of the elements' own colours and, if asked, the palette "
                               "slots they paint through. Nothing is turned into pixels.");
         }
-        if (ImGui::MenuItem("Sprite size...")) {
+        if (ImGui::MenuItem(tr("Sprite size..."))) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
             if (size.ok()) {
                 editor.spriteDialog.width = size.value.x;
@@ -620,7 +621,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::SetTooltip("Scale everything to any size, nearest neighbour: every "
                               "frame, every layer, shapes as shapes.");
         }
-        if (ImGui::BeginMenu("Enlarge")) {
+        if (ImGui::BeginMenu(tr("Enlarge"))) {
             for (uint32_t factor : { 2u, 3u, 4u, 8u }) {
                 const std::string label = std::to_string(factor) + "x";
                 if (ImGui::MenuItem(label.c_str())) {
@@ -631,7 +632,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Reduce")) {
+        if (ImGui::BeginMenu(tr("Reduce"))) {
             ImGui::TextDisabled("Keeps one pixel of each block: detail is lost.");
             for (uint32_t factor : { 2u, 3u, 4u }) {
                 const std::string label = "1/" + std::to_string(factor);
@@ -644,27 +645,27 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::EndMenu();
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Rotate canvas 90 clockwise")) {
+        if (ImGui::MenuItem(tr("Rotate canvas 90 clockwise"))) {
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return rotateCanvas(editor.doc, 1, error); },
                          "Turned clockwise");
         }
-        if (ImGui::MenuItem("Rotate canvas 90 anticlockwise")) {
+        if (ImGui::MenuItem(tr("Rotate canvas 90 anticlockwise"))) {
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return rotateCanvas(editor.doc, 3, error); },
                          "Turned anticlockwise");
         }
-        if (ImGui::MenuItem("Rotate canvas 180")) {
+        if (ImGui::MenuItem(tr("Rotate canvas 180"))) {
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return rotateCanvas(editor.doc, 2, error); },
                          "Turned around");
         }
-        if (ImGui::MenuItem("Flip canvas horizontally")) {
+        if (ImGui::MenuItem(tr("Flip canvas horizontally"))) {
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return flipCanvas(editor.doc, true, error); },
                          "Flipped left to right");
         }
-        if (ImGui::MenuItem("Flip canvas vertically")) {
+        if (ImGui::MenuItem(tr("Flip canvas vertically"))) {
             changeCanvas(editor, canvas,
                          [&](std::string* error) { return flipCanvas(editor.doc, false, error); },
                          "Flipped top to bottom");
@@ -672,37 +673,37 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("Select")) {
-        if (ImGui::MenuItem("All", "Ctrl+A")) { selectAll(editor); }
-        if (ImGui::MenuItem("Deselect", "Ctrl+D", false, !editor.selection.empty())) {
+    if (ImGui::BeginMenu(tr("Select"))) {
+        if (ImGui::MenuItem(tr("All"), "Ctrl+A")) { selectAll(editor); }
+        if (ImGui::MenuItem(tr("Deselect"), "Ctrl+D", false, !editor.selection.empty())) {
             deselect(editor);
         }
-        if (ImGui::MenuItem("Reselect", nullptr, false, !editor.selection.previous.empty())) {
+        if (ImGui::MenuItem(tr("Reselect"), nullptr, false, !editor.selection.previous.empty())) {
             reselect(editor);
         }
-        if (ImGui::MenuItem("Invert", "Ctrl+Shift+I")) { invertSelection(editor); }
+        if (ImGui::MenuItem(tr("Invert"), "Ctrl+Shift+I")) { invertSelection(editor); }
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("View")) {
-        if (ImGui::MenuItem("Zoom in", "Ctrl+=")) { canvas.setZoom(canvas.zoom() + 1.f); }
-        if (ImGui::MenuItem("Zoom out", "Ctrl+-")) { canvas.setZoom(canvas.zoom() - 1.f); }
-        if (ImGui::MenuItem("Fit to window", "Ctrl+0")) { canvas.requestFit(); }
-        if (ImGui::MenuItem("Reset view")) { canvas.resetView(); }
+    if (ImGui::BeginMenu(tr("View"))) {
+        if (ImGui::MenuItem(tr("Zoom in"), "Ctrl+=")) { canvas.setZoom(canvas.zoom() + 1.f); }
+        if (ImGui::MenuItem(tr("Zoom out"), "Ctrl+-")) { canvas.setZoom(canvas.zoom() - 1.f); }
+        if (ImGui::MenuItem(tr("Fit to window"), "Ctrl+0")) { canvas.requestFit(); }
+        if (ImGui::MenuItem(tr("Reset view"))) { canvas.resetView(); }
         ImGui::Separator();
         bool grid = canvas.gridVisible();
-        if (ImGui::MenuItem("Pixel grid", nullptr, &grid)) { canvas.setGridVisible(grid); }
-        ImGui::MenuItem("Rulers", nullptr, &editor.rulersOn);
-        ImGui::MenuItem("Guides", nullptr, &editor.guidesShown);
-        if (ImGui::MenuItem("Clear guides", nullptr, false, !readGuides(editor.doc).empty())) {
+        if (ImGui::MenuItem(tr("Pixel grid"), nullptr, &grid)) { canvas.setGridVisible(grid); }
+        ImGui::MenuItem(tr("Rulers"), nullptr, &editor.rulersOn);
+        ImGui::MenuItem(tr("Guides"), nullptr, &editor.guidesShown);
+        if (ImGui::MenuItem(tr("Clear guides"), nullptr, false, !readGuides(editor.doc).empty())) {
             editor.doc.beginAction("Clear guides");
             writeGuides(editor.doc, {});
             editor.doc.endAction();
         }
-        if (ImGui::MenuItem("Slices...", nullptr, editor.slicesOpen)) {
+        if (ImGui::MenuItem(tr("Slices..."), nullptr, editor.slicesOpen)) {
             editor.slicesOpen = !editor.slicesOpen;
         }
-        if (ImGui::MenuItem("Snap to grid", keysLabel(editor.keys, "view.snap").c_str(),
+        if (ImGui::MenuItem(tr("Snap to grid"), keysLabel(editor.keys, "view.snap").c_str(),
                             &editor.snapToGrid)) {
             if (editor.snapToGrid) {
                 canvas.tileGrid().visible = true;
@@ -713,10 +714,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "tile lines, and a moved selection steps from tile to tile. "
                               "The tile grid's size and offset are below.");
         }
-        if (ImGui::BeginMenu("Tile grid")) {
+        if (ImGui::BeginMenu(tr("Tile grid"))) {
             TileGrid& tiles = canvas.tileGrid();
-            ImGui::MenuItem("Show", nullptr, &tiles.visible);
-            if (ImGui::MenuItem("Isometric", nullptr, &tiles.isometric) && tiles.isometric) {
+            ImGui::MenuItem(tr("Show"), nullptr, &tiles.visible);
+            if (ImGui::MenuItem(tr("Isometric"), nullptr, &tiles.isometric) && tiles.isometric) {
                 tiles.visible = true;
                 // The usual 2:1 diamond, unless a shape was already chosen.
                 if (tiles.width == tiles.height) {
@@ -739,7 +740,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             tiles.height = std::clamp(tiles.height, 1, 4096);
             ImGui::EndMenu();
         }
-        if (ImGui::BeginMenu("Tiled mode")) {
+        if (ImGui::BeginMenu(tr("Tiled mode"))) {
             const char* names[] = { "Off", "Across", "Down", "Both ways" };
             for (int i = 0; i < 4; ++i) {
                 if (ImGui::MenuItem(names[i], nullptr,
@@ -755,9 +756,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "edge comes back on the other.");
         }
         ImGui::Separator();
-        ImGui::MenuItem("Symmetry across", nullptr, &editor.symmetryAcross);
-        ImGui::MenuItem("Symmetry down", nullptr, &editor.symmetryDown);
-        ImGui::MenuItem("Preview", "P", &editor.preview.visible);
+        ImGui::MenuItem(tr("Symmetry across"), nullptr, &editor.symmetryAcross);
+        ImGui::MenuItem(tr("Symmetry down"), nullptr, &editor.symmetryDown);
+        ImGui::MenuItem(tr("Preview"), "P", &editor.preview.visible);
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -1202,6 +1203,26 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 changed = true;
             }
 
+            {
+                // The languages there are catalogues for, English first.
+                std::vector<std::string> languages = languagesIn(languageFolder());
+                languages.insert(languages.begin(), std::string());
+                const auto shown = [](const std::string& code) {
+                    return code.empty() ? std::string("English") : code;
+                };
+                ImGui::SetNextItemWidth(200.f);
+                if (ImGui::BeginCombo(tr("Language"), shown(prefs.language).c_str())) {
+                    for (const std::string& code : languages) {
+                        if (ImGui::Selectable(shown(code).c_str(), code == prefs.language)) {
+                            prefs.language = code;
+                            applyLanguage(code);
+                            changed = true;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            }
+
             theme::sectionHeader("THE CANVAS");
             bool view = false;
             view |= ImGui::Checkbox("Pixel grid", &prefs.pixelGrid);
@@ -1243,7 +1264,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             if (!editor.rebinding.empty()) {
                 const CommandInfo* info = findCommand(editor.rebinding);
                 ImGui::TextColored(theme::palette().accent, "Press the keys for %s...",
-                                   info != nullptr ? info->label : "?");
+                                   info != nullptr ? tr(info->label) : "?");
                 ImGui::TextDisabled("Escape to give up, Backspace to remove this key.");
                 Chord chord;
                 if (chordPressed(&chord)) {
@@ -1280,14 +1301,18 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             for (const CommandInfo& info : commandList()) {
                 if (std::string(group) != info.group) {
                     group = info.group;
-                    std::string header = group;
-                    for (char& ch : header) {
-                        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                    // In capitals like the other headings -- in English; a
+                    // translation is shown as it was written.
+                    std::string header = tr(group);
+                    if (header == group) {
+                        for (char& ch : header) {
+                            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                        }
                     }
                     theme::sectionHeader(header.c_str());
                 }
                 ImGui::PushID(info.id);
-                ImGui::TextUnformatted(info.label);
+                ImGui::TextUnformatted(tr(info.label));
                 ImGui::SameLine(190.f);
                 const std::vector<Chord>& chords = editor.keys.chordsFor(info.id);
                 for (size_t i = 0; i < chords.size(); ++i) {
@@ -2735,13 +2760,13 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const float toolShare = 0.52f;
     ImGui::SetNextWindowPos({left + toolbarWidth, top});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * toolShare});
-    ImGui::Begin("Tool", nullptr, kPanel);
+    ImGui::Begin((std::string(tr("Tool")) + "###tool").c_str(), nullptr, kPanel);
     drawToolPanel(editor);
     ImGui::End();
 
     ImGui::SetNextWindowPos({left + toolbarWidth, top + bodyHeight * toolShare});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * (1.f - toolShare)});
-    ImGui::Begin("Palette", nullptr, kPanel);
+    ImGui::Begin((std::string(tr("Palette")) + "###palette").c_str(), nullptr, kPanel);
     drawPalettePanel(editor, canvas, window);
     ImGui::End();
 
@@ -2754,19 +2779,19 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const float transformShare = 0.14f;
     ImGui::SetNextWindowPos({rightX, top});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * layersShare});
-    ImGui::Begin("Layers", nullptr, kPanel);
+    ImGui::Begin((std::string(tr("Layers")) + "###layers").c_str(), nullptr, kPanel);
     drawLayerPanel(editor, canvas);
     ImGui::End();
 
     ImGui::SetNextWindowPos({rightX, top + bodyHeight * layersShare});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * shapeShare});
-    ImGui::Begin("Element", nullptr, kPanel);
+    ImGui::Begin((std::string(tr("Element")) + "###element").c_str(), nullptr, kPanel);
     drawShapePanel(editor, canvas);
     ImGui::End();
 
     ImGui::SetNextWindowPos({rightX, top + bodyHeight * (layersShare + shapeShare)});
     ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * transformShare});
-    ImGui::Begin("Transform", nullptr, kPanel);
+    ImGui::Begin((std::string(tr("Transform")) + "###transform").c_str(), nullptr, kPanel);
     drawTransformPanel(editor, canvas);
     ImGui::End();
 
@@ -2777,7 +2802,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                              top + bodyHeight * (layersShare + shapeShare + transformShare)});
     ImGui::SetNextWindowSize({m.sidebarWidth,
                               bodyHeight * (1.f - layersShare - shapeShare - transformShare)});
-    ImGui::Begin("References", nullptr, kPanel);
+    ImGui::Begin((std::string(tr("References")) + "###references").c_str(), nullptr, kPanel);
     drawReferencePanel(editor, canvas, window);
     ImGui::End();
 
@@ -2942,6 +2967,7 @@ struct Options {
     bool        shadow = false;          // --shadow: the figure casts a shadow
     bool        slices = false;          // --slices: two slices, the window open
     bool        rotsprite = false;       // --rotsprite: one sprite turned two ways, side by side
+    std::string language;                // --language CODE: the interface in that language
     float       zoom = 0.f;              // --zoom N: the zoom after the first fit
     // Copy (after --select) or paste through the real system clipboard at
     // start: a headless check of the clipboard both ways. Overwrites the
@@ -2976,6 +3002,8 @@ Options parseOptions(int argc, char** argv) {
             options.preferences = true;
         } else if (arg == "--zoom" && i + 1 < argc) {
             options.zoom = static_cast<float>(std::atof(argv[++i]));
+        } else if (arg == "--language" && i + 1 < argc) {
+            options.language = argv[++i];
         } else if (arg == "--rotsprite") {
             options.rotsprite = true;
         } else if (arg == "--slices") {
@@ -4393,6 +4421,9 @@ int main(int argc, char** argv) {
     // project, and costs the person no decision.
     if (editor.libraryFolders.project.empty() && !editor.doc.path().empty()) {
         editor.libraryFolders.project = directoryOf(editor.doc.path());
+    }
+    if (!options.language.empty()) {
+        applyLanguage(options.language);
     }
     if (options.rotsprite && editor.active() != nullptr) {
         // A small figure drawn twice: the left turned by coverage, the right
