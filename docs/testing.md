@@ -36,6 +36,13 @@ loading a palette updates the colour control; New forgets every rename,
 confirmation, step and cycle that was about the old document, and leaves
 nothing to undo.
 
+The UI scripts in `tests/ui` drive the window itself: `--script FILE` feeds
+mouse and keyboard actions into ImGui's own input queue a frame at a time --
+a drag, a right-click, Shift held through a drag, Ctrl+Z -- and checks what
+the document holds afterwards (see `src/ui/ui_script.h` for the language).
+They are the only tests that go through the same path a hand does, and CI
+runs every one.
+
 ## What they found
 
 Everything below was caught by writing the system tests, not by using the
@@ -83,6 +90,11 @@ program -- which is the argument for having them.
   person using the program found it. `--drag X0,Y0,X1,Y1` now feeds a drag
   through ImGui's own input queue, and CI checks with `--expect-drawn` that a
   pencil and a spray drag paint the whole way.
+- **A rectangle, ellipse or line stopped one pixel short of the pointer.**
+  A drag from pixel 2 to pixel 9 drew 2 to 8: the far corner was put at the
+  top-left of the pixel under the pointer, and a line's flat end covered
+  only half of its last pixel. Found by the first UI script; a shape's box now
+  holds both end pixels, as a marquee does, and lines have square ends.
 
 ## The script: at the window
 

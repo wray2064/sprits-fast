@@ -351,6 +351,9 @@ bool addShapeTo(Document& doc, ls::LayerId layer, ShapeKind kind,
         stroke.fallbackColor = colour;
         stroke.paletteRole = role;
         stroke.snap = ls::SnapPolicy::HalfGrid;   // keeps a 1px line on one row
+        // Square ends reach the middle of each end pixel's far side, so a line
+        // covers both the pixel it starts on and the one it ends on.
+        stroke.cap = ls::StrokeCap::Square;
 
         auto op = engine.addOperation(layer, stroke);
         if (op.fail()) {

@@ -1,0 +1,42 @@
+# Shapes by dragging: each is an element that stays a shape; Shift makes a
+# rectangle a square; the eraser takes pixels out of one without it stopping
+# being one.
+colour 3060d0
+tool rectangle
+drag 2 2 9 6
+expect elements Rectangle 1
+expect pixel 2 2 3060d0
+expect pixel 9 6 3060d0
+expect pixel 10 6 empty
+
+tool ellipse
+drag 12 2 22 10
+expect elements Ellipse 1
+
+tool line
+drag 2 20 20 28
+expect elements Line 1
+expect pixel 2 20 3060d0
+expect pixel 20 28 3060d0
+
+# Shift: a square, as big as the longer side of the drag.
+tool rectangle
+hold shift
+drag 24 14 28 30
+let shift
+expect elements Rectangle 2
+expect pixel 24 30 3060d0
+expect pixel 31 30 3060d0
+expect pixel 24 31 empty
+
+# The eraser across the first rectangle.
+tool eraser
+drag 1 4 10 4
+expect pixel 5 4 empty
+expect pixel 5 3 3060d0
+expect elements Rectangle 2
+expect elements Erased 1
+
+key ctrl+z
+expect pixel 5 4 3060d0
+expect elements Erased 0

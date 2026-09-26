@@ -1,0 +1,48 @@
+# The bucket, the picker, the spray and the gradient, and the keys that pick
+# tools, duplicate layers and frames.
+colour e08f40
+tool bucket
+click 10 10
+expect drawn 1024 1024
+expect pixel 31 31 e08f40
+
+tool pencil
+colour 3060d0
+click 5 5
+tool picker
+colour 000000
+click 5 5
+tool pencil
+click 6 5
+expect pixel 6 5 3060d0
+
+key ctrl+z
+key ctrl+z
+key ctrl+z
+expect drawn 0 0
+
+tool spray
+drag 8 8 20 20
+expect drawn 20
+
+key ctrl+z
+tool gradient
+drag 0 16 31 16
+expect drawn 1024 1024
+
+# Tools by key.
+key e
+expect tool eraser
+key b
+expect tool pencil
+key g
+expect tool bucket
+key m
+expect tool select
+key v
+expect tool move
+
+key ctrl+j
+expect layers 2
+key ctrl+shift+d
+expect frames 2

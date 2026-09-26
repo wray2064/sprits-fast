@@ -288,6 +288,29 @@ void loadSettings(Editor& editor) {
     editor.files.newDocument.preset = editor.prefs.newPreset;
 }
 
+bool toolFromName(const std::string& name, Tool* out) {
+    struct Named { const char* name; Tool tool; };
+    static const Named tools[] = {
+        { "pencil", Tool::Pencil }, { "eraser", Tool::Eraser }, { "bucket", Tool::Bucket },
+        { "picker", Tool::Picker }, { "rectangle", Tool::Rectangle },
+        { "ellipse", Tool::Ellipse }, { "line", Tool::Line }, { "select", Tool::Select },
+        { "select-ellipse", Tool::SelectEllipse }, { "lasso", Tool::Lasso },
+        { "wand", Tool::Wand }, { "move", Tool::Move }, { "spray", Tool::Spray },
+        { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
+        { "gradient", Tool::Gradient }, { "text", Tool::Text },
+        { "polygon-lasso", Tool::PolygonLasso },
+        { "polygon", Tool::Polygon }, { "curve", Tool::Curve },
+        { "slice", Tool::Slice },
+    };
+    for (const Named& named : tools) {
+        if (name == named.name) {
+            *out = named.tool;
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string languageFolder() {
     const char* base = SDL_GetBasePath();
     return base != nullptr ? joinPath(base, "lang") : std::string("lang");

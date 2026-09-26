@@ -119,3 +119,8 @@ jobs:
           # The eraser across a rectangle: it takes the diagonal out of the
           # shape (576 pixels) without the shape stopping being one.
           ./build/sprits_fast --frames 30 --rectangle 4,4,28,28 --tool eraser --drag 3,3,28,28 --expect-drawn 500 --expect-at-most 560
+          # The UI scripts: mouse and keys through ImGui's input, tool by tool.
+          for script in tests/ui/*.txt; do
+            echo "$script"
+            ./build/sprits_fast --script "$script"
+          done

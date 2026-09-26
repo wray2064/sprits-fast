@@ -1,0 +1,29 @@
+# The pencil, driven the way a hand drives it: a drag paints the whole way,
+# undo and redo take it back and forth, the right button paints the second
+# colour, and Shift+click draws a line from where the last stroke ended.
+tool pencil
+colour e08f40
+drag 2 2 20 2
+expect pixel 2 2 e08f40
+expect pixel 11 2 e08f40
+expect pixel 20 2 e08f40
+expect drawn 19 19
+
+key ctrl+z
+expect drawn 0 0
+key ctrl+y
+expect drawn 19 19
+
+drag 2 5 10 5 right
+expect drawn 28 28
+expect pixel 5 5 1a1a1f
+
+hold shift
+click 10 12
+let shift
+expect pixel 10 8 e08f40
+expect drawn 35 35
+
+# A diagonal drag at size 1 is pixel-perfect: one pixel per step, no L corners.
+drag 14 14 24 24 6
+expect drawn 46 46

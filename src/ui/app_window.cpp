@@ -35,6 +35,7 @@
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
 #include "ui/tabs.h"
+#include "ui/ui_script.h"
 #include "ui/selection_tools.h"
 #include "ui/editor.h"
 #include "ui/panels.h"
@@ -2271,11 +2272,11 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
 
         if (editor.draggingShape && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             ShapeParams params;
-            params.from = editor.shapeAnchor;
-            params.to = here;
+            const ls::Vec2f anchor = editor.shapeAnchor;
+            ls::Vec2f to = here;
             if (ImGui::GetIO().KeyShift) {
-                const float dx = here.x - editor.shapeAnchor.x;
-                const float dy = here.y - editor.shapeAnchor.y;
+                const float dx = here.x - anchor.x;
+                const float dy = here.y - anchor.y;
                 if (kind == ShapeKind::Line) {
                     // Fifteen-degree steps: horizontal, vertical, the
                     // diagonals, and the slopes pixel art actually uses
@@ -2283,13 +2284,25 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
                     const float step = 3.14159265f / 12.f;
                     const float angle = std::round(std::atan2(dy, dx) / step) * step;
                     const float length = std::sqrt(dx * dx + dy * dy);
-                    params.to = { editor.shapeAnchor.x + std::round(std::cos(angle) * length),
-                                  editor.shapeAnchor.y + std::round(std::sin(angle) * length) };
+                    to = { anchor.x + std::round(std::cos(angle) * length),
+                           anchor.y + std::round(std::sin(angle) * length) };
                 } else {
                     const float side = std::max(std::fabs(dx), std::fabs(dy));
-                    params.to = { editor.shapeAnchor.x + (dx < 0.f ? -side : side),
-                                  editor.shapeAnchor.y + (dy < 0.f ? -side : side) };
+                    to = { anchor.x + (dx < 0.f ? -side : side),
+                           anchor.y + (dy < 0.f ? -side : side) };
                 }
+            }
+            if (kind == ShapeKind::Line || editor.snapToGrid) {
+                // A line's two points are the drag itself; grid points are
+                // corners already.
+                params.from = anchor;
+                params.to = to;
+            } else {
+                // The box holds both end pixels -- the one pressed on and the
+                // one under the pointer -- as a marquee does, whichever way
+                // the drag went.
+                params.from = { std::min(anchor.x, to.x), std::min(anchor.y, to.y) };
+                params.to = { std::max(anchor.x, to.x) + 1.f, std::max(anchor.y, to.y) + 1.f };
             }
             params.cornerRadius = editor.shapeCorner;
             updateShape(editor.doc, editor.pendingShape, params);
@@ -3053,6 +3066,7 @@ struct Options {
     // through ImGui's own input queue over several frames -- the path a real
     // mouse takes -- so what a drag does can be captured and checked.
     float       drag[4] = { -1.f, -1.f, -1.f, -1.f };
+    std::string script;                  // --script FILE: see ui_script.h
     int         expectDrawn = -1;        // --expect-drawn N: fail unless N pixels are drawn
     int         expectAtMost = -1;       // --expect-at-most N: fail if more than N are
     float       rectangle[4] = { -1.f, -1.f, -1.f, -1.f };  // --rectangle X0,Y0,X1,Y1: a shape to start with
@@ -3103,6 +3117,8 @@ Options parseOptions(int argc, char** argv) {
             options.shadow = true;
         } else if (arg == "--tween") {
             options.tween = true;
+        } else if (arg == "--script" && i + 1 < argc) {
+            options.script = argv[++i];
         } else if (arg == "--expect-drawn" && i + 1 < argc) {
             options.expectDrawn = std::atoi(argv[++i]);
         } else if (arg == "--expect-at-most" && i + 1 < argc) {
@@ -4534,31 +4550,14 @@ int main(int argc, char** argv) {
     editor.symmetryAcross = editor.symmetryAcross || options.symmetry;
     editor.symmetryDown = editor.symmetryDown || options.symmetry;
     if (!options.tool.empty()) {
-        struct Named { const char* name; Tool tool; };
-        const Named tools[] = {
-            { "pencil", Tool::Pencil }, { "eraser", Tool::Eraser }, { "bucket", Tool::Bucket },
-            { "picker", Tool::Picker }, { "rectangle", Tool::Rectangle },
-            { "ellipse", Tool::Ellipse }, { "line", Tool::Line }, { "select", Tool::Select },
-            { "select-ellipse", Tool::SelectEllipse }, { "lasso", Tool::Lasso },
-            { "wand", Tool::Wand }, { "move", Tool::Move }, { "spray", Tool::Spray },
-            { "contour", Tool::Contour }, { "hand", Tool::Hand }, { "zoom", Tool::Zoom },
-            { "gradient", Tool::Gradient }, { "text", Tool::Text },
-            { "polygon-lasso", Tool::PolygonLasso },
-            { "polygon", Tool::Polygon }, { "curve", Tool::Curve },
-            { "slice", Tool::Slice },
-        };
-        for (const Named& named : tools) {
-            if (options.tool == named.name) {
-                editor.tool = named.tool;
-            }
-        }
+        toolFromName(options.tool, &editor.tool);
     }
     // The safety net, before anything can be drawn and lost. Autosave is
     // simply off when there is nowhere to write, rather than writing
     // somewhere the person would not think to look.
     // A headless run keeps to the defaults, so what it captures or checks is
     // the same on every machine, whatever keys the person there has set.
-    const bool headless = options.selfTest || options.frames > 0;
+    const bool headless = options.selfTest || options.frames > 0 || !options.script.empty();
     if (!headless) {
         loadSettings(editor);
     }
@@ -4794,6 +4793,15 @@ int main(int argc, char** argv) {
         }
     }
 
+    UiScript script;
+    if (!options.script.empty()) {
+        std::string scriptError;
+        if (!script.load(options.script, &scriptError)) {
+            std::printf("script: %s\n", scriptError.c_str());
+            return 1;
+        }
+    }
+
     bool running = true;
     bool idleBroken = false;
     int frame = 0;
@@ -4870,6 +4878,7 @@ int main(int argc, char** argv) {
 
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
+        script.feed(editor, canvas);
         if (options.drag[0] >= 0.f) {
             // Settle, press, move in steps, release -- after the backend has
             // had its say, so these are the last word on the pointer.
@@ -4958,7 +4967,18 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (const std::string asked = script.takeShot(); !asked.empty()) {
+            if (SDL_Surface* shot = SDL_RenderReadPixels(renderer, nullptr)) {
+                SDL_SaveBMP(shot, asked.c_str());
+                SDL_DestroySurface(shot);
+            }
+        }
+
         SDL_RenderPresent(renderer);
+        if (script.finished()) {
+            idleBroken = idleBroken || script.failures() > 0;
+            running = false;
+        }
 
         // The fit happens on the first frame; a zoom asked for comes after it.
         if (frame == 0 && options.zoom > 0.f) {

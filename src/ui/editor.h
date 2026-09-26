@@ -46,6 +46,9 @@ enum class Tool { Pencil, Eraser, Bucket, Picker, Rectangle, Ellipse, Line,
                   Spray, Contour, Hand, Zoom, Gradient, Text, PolygonLasso,
                   Polygon, Curve, Slice };
 
+// A tool by the name --tool and the UI scripts use: "pencil", "select-ellipse".
+bool toolFromName(const std::string& name, Tool* out);
+
 // The tools that make a selection rather than a mark.
 inline bool isSelectionTool(Tool tool) {
     return tool == Tool::Select || tool == Tool::SelectEllipse ||

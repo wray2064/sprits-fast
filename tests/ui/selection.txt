@@ -1,0 +1,58 @@
+# Selecting: a marquee drag, Shift adds, Alt subtracts, Ctrl+D drops it;
+# an ellipse and a lasso; the wand takes a painted run; Delete clears what is
+# selected, and moving drags the pixels.
+tool select
+drag 2 2 9 9
+expect selected 64
+hold shift
+drag 20 20 21 21
+let shift
+expect selected 68
+hold alt
+drag 2 2 3 3
+let alt
+expect selected 64
+key ctrl+d
+expect selected 0
+
+tool select-ellipse
+drag 2 2 12 12
+expect selected 90 110
+
+key ctrl+d
+tool lasso
+move 4 4
+press
+move 12 4
+move 20 4
+move 20 12
+move 20 20
+move 12 20
+move 4 20
+release
+expect selected 289
+key ctrl+d
+
+# Paint a bar, wand it, delete it.
+tool pencil
+colour e08f40
+drag 2 25 20 25
+tool wand
+click 5 25
+expect selected 19
+key delete
+expect drawn 0 0
+key ctrl+z
+expect drawn 19 19
+
+# Select part of the bar and drag it down with the move tool.
+tool select
+drag 2 24 8 26
+tool move
+drag 4 25 4 29
+key enter
+expect pixel 4 29 e08f40
+expect pixel 4 25 empty
+expect pixel 12 25 e08f40
+key ctrl+z
+expect pixel 4 25 e08f40

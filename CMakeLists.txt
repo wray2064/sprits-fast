@@ -167,6 +167,7 @@ if (FAST_BUILD_GUI)
         src/ui/tabs.cpp
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
+        src/ui/ui_script.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp
