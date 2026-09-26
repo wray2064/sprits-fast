@@ -200,7 +200,7 @@ ShadowSettings shadowOf(Document& doc, const PaintLayer& layer);
 
 // Keeps a layer's operations in the order they mean: everything drawn, then
 // the transforms that move the drawing, then its effects -- the outline, then
-// the shadow -- whatever has been added since. A colour first used on a turned
+// the shadow -- and a cel's fade last, whatever has been added since. A colour first used on a turned
 // layer is turned with the rest, and an effect sees the drawing as moved.
 // Does not bracket an action.
 void keepEffectsLast(Document& doc, ls::LayerId layer);

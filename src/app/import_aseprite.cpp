@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/import_aseprite.h"
+#include "app/layers.h"
 
 #include "app/animation.h"
 #include "app/file_io.h"
@@ -533,7 +534,7 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
                 }
                 ls::FillSolidOp fill;
                 fill.targetRegion = region.value;
-                fill.opacity = celOpacity;
+
                 if (key & (1ull << 40)) {
                     const uint32_t rgba = static_cast<uint32_t>(key);
                     fill.fallbackColor = { static_cast<uint8_t>(rgba >> 24),
@@ -559,6 +560,10 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
                                                               : file.palette.front();
                     engine.addOperation(made.value, fill);
                 }
+            }
+            // The cel's opacity is the cel's: one fade over its drawing.
+            if (celOpacity < 1.f) {
+                setCelOpacity(doc, made.value, celOpacity);
             }
             if (f == 0) {
                 ++said.layers;

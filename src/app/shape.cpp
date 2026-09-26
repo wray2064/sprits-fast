@@ -646,9 +646,12 @@ void keepEffectsLast(Document& doc, ls::LayerId layer) {
     std::vector<ls::OperationId> transforms;
     std::vector<ls::OperationId> outlines;
     std::vector<ls::OperationId> shadows;
+    std::vector<ls::OperationId> fades;
     for (const ls::OperationInfo& op : operations.value) {
         ls::Operation made;
-        if (op.type == "GenerateSilhouetteOutlineOp") {
+        if (op.type == "FadeOp") {
+            fades.push_back(op.id);
+        } else if (op.type == "GenerateSilhouetteOutlineOp") {
             outlines.push_back(op.id);
         } else if (op.type == "GenerateDropShadowOp") {
             shadows.push_back(op.id);
@@ -662,6 +665,8 @@ void keepEffectsLast(Document& doc, ls::LayerId layer) {
     order.insert(order.end(), transforms.begin(), transforms.end());
     order.insert(order.end(), outlines.begin(), outlines.end());
     order.insert(order.end(), shadows.begin(), shadows.end());
+    // A cel's fade last of all: the whole cel, effects and all, fades.
+    order.insert(order.end(), fades.begin(), fades.end());
     bool same = order.size() == operations.value.size();
     for (size_t i = 0; same && i < order.size(); ++i) {
         same = order[i] == operations.value[i].id;

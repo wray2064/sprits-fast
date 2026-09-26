@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/layers.h"
+#include "app/shape.h"
 #include "app/tracks.h"
 
 #include <algorithm>
@@ -394,6 +395,52 @@ ls::LayerId mergeDown(Document& doc, ls::LayerId upper, std::string* why) {
     }
     doc.endAction();
     return lower;
+}
+
+namespace {
+
+ls::OperationId fadeOf(Document& doc, ls::LayerId layer) {
+    auto operations = doc.engine().getLayerOperations(layer);
+    if (operations.fail()) {
+        return ls::OperationId{};
+    }
+    for (const ls::OperationInfo& op : operations.value) {
+        if (op.type == "FadeOp") {
+            return op.id;
+        }
+    }
+    return ls::OperationId{};
+}
+
+} // namespace
+
+float celOpacity(Document& doc, ls::LayerId layer) {
+    const ls::OperationId fade = fadeOf(doc, layer);
+    if (!fade.valid()) {
+        return 1.f;
+    }
+    auto value = doc.engine().getOperationParameter(fade, "opacity");
+    const float* opacity = value.ok() ? std::get_if<float>(&value.value) : nullptr;
+    return opacity != nullptr ? std::clamp(*opacity, 0.f, 1.f) : 1.f;
+}
+
+bool setCelOpacity(Document& doc, ls::LayerId layer, float opacity) {
+    opacity = std::clamp(opacity, 0.f, 1.f);
+    ls::LSContext& engine = doc.engine();
+    const ls::OperationId fade = fadeOf(doc, layer);
+    if (opacity >= 0.999f) {
+        return !fade.valid() || engine.removeOperation(layer, fade).ok();
+    }
+    if (fade.valid()) {
+        return engine.setOperationParameter(fade, "opacity", ls::ParameterValue{ opacity }).ok();
+    }
+    ls::FadeOp op;
+    op.opacity = opacity;
+    if (engine.addOperation(layer, op).fail()) {
+        return false;
+    }
+    keepEffectsLast(doc, layer);
+    return true;
 }
 
 std::vector<ls::GroupId> groupOrder(Document& doc, ls::SpriteId sprite) {

@@ -2211,6 +2211,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                               static_cast<int>(props.opacity * 100.f + 0.5f));
                 label += detail;
             }
+            if (const float cel = celOpacity(editor.doc, id); cel < 0.999f) {
+                label += "  cel " + std::to_string(static_cast<int>(cel * 100.f + 0.5f)) + "%";
+            }
             if (!props.notes.empty()) { label += "  *"; }
             if (!drawable) { label += "  (not editable here)"; }
 
@@ -2480,6 +2483,17 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
         canvas.invalidate();
     }
     bracketDrag(editor, editor.draggingLayerProperties, "Layer opacity");
+    float cel = celOpacity(editor.doc, id);
+    ImGui::SetNextItemWidth(-60.f);
+    if (ImGui::SliderFloat("cel opacity", &cel, 0.f, 1.f, "%.2f")) {
+        setCelOpacity(editor.doc, id, cel);
+        canvas.invalidate();
+    }
+    bracketDrag(editor, editor.draggingLayerProperties, "Cel opacity");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("This frame's drawing of the layer only, faded under the layer's "
+                          "opacity -- which is the same in every frame.");
+    }
 
     bool visible = props.visible;
     if (ImGui::Checkbox("Visible", &visible)) {

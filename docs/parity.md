@@ -176,7 +176,7 @@ tiers were done.
       flips **(better: a tile is live layers every placement draws, so editing
       a tile edits every placement)**; Aseprite tilemaps imported
       *(done but for importing Aseprite's tilemaps)*
-- [ ] Per-cel opacity (Aseprite's cel properties)
+- [x] Per-cel opacity (Aseprite's cel properties) *(no dedicated test yet)*
 
 ---
 
@@ -184,6 +184,7 @@ tiers were done.
 
 Newest first. One line per landed item, with the commit.
 
+- Cel opacity: engine FadeOp (43 op types), kept last on the layer; Layer properties has a "cel opacity" slider (this frame only, under the layer's opacity, which tracks keep the same), the row shows "cel N%", Aseprite cel opacity imports as it. Still to add: a core test and a UI script.
 - Tilemaps: engine Tilemap resource + DrawTilemapOp (cells with D/X/Y flip bits, tiles are a tileset sprite's layers, dirty through the graph, cloned per cel, saved, snapshotted); Fast app/tilemap (tileset sprites kept out of the frames and after them, tilemap layers, cells, tile pixels, turn composition) and ui/tile_tools (Sprite > New tilemap layer; Draw pixels routes pencil/spray/eraser strokes into the tiles under them, making a tile for an empty cell; Place tiles: pencil places with flips/turn, eraser clears, bucket fills, picker picks; grid overlay and placing preview; TILES section in the Element panel). Tracks give a new frame an empty tilemap cel; canvas flips, quarter turns and resizes carry the grids (turns composed into each cell), scaling is refused. tilemap_tests + tests/ui/tilemap.txt.
 - Scale freely (Edit menu): the selection onto its own layer with a free scale -- exactly a scale about the top-left of what it draws and an offset (app/transform readFreeScale/addFreeScale/setFreeScaleBox, nearest sampling) -- and eight handles with the move tool: corners and edges size it, Shift keeps the proportion, inside moves it, resize cursors, one undo step a drag. UI script scale_freely.txt. Also: Cut and the freely commands leave shapes whole again (only Delete erases them), since the clip holds pixels only.
 - UI scripts click widgets by label (`click-on`, ImGui test-engine hooks, on only while scripting) and refuse canvas pixels out of view; panels_and_menus.txt covers the timeline and layer buttons, Edit > Fill selection, Select > Modify > Expand and its window, Sprite > Canvas size. Found: the corner preview covered the bottom-right of the artwork at the default fit (fixed: a fit keeps clear of it), and opening the timeline left a fitted canvas cut off (fixed: a fitted view refits when its area changes).

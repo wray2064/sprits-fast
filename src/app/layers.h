@@ -101,6 +101,13 @@ ls::LayerId pasteLayer(Document& doc, ls::LayerId source, ls::SpriteId into, int
 
 // --- merging ------------------------------------------------------------------
 //
+// A cel's own opacity: this frame's drawing of the layer faded, under the
+// layer's own opacity -- which tracks keep the same in every frame, where
+// this is the frame's alone. The engine's FadeOp, last on the layer; 1 when
+// there is none. Setting 1 takes it away. Does not bracket an action.
+float celOpacity(Document& doc, ls::LayerId layer);
+bool setCelOpacity(Document& doc, ls::LayerId layer, float opacity);
+
 // Merge down, without flattening anything. A layer is a list of elements --
 // colours of pixels, shapes -- so merging moves the upper layer's elements into
 // the one below, on top of its own, and removes the upper layer. Every element
