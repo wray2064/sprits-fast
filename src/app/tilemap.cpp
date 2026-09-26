@@ -7,7 +7,10 @@
 #include "app/layers.h"
 #include "app/paint.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <utility>
 
 namespace fast {
 
