@@ -39,7 +39,7 @@ tile. **Rulers** run along the canvas, and **guides** dragged out of them
 stay with the document, turn with the canvas and are snapped to as well.
 
 **Text** that stays text: Fast's own five-by-seven pixel face, and a piece of
-text is an element whose words, place and size are kept, so the Element panel
+text is an element whose words, place and size are kept, so the Properties panel
 retypes it and the pixels are rebuilt from the words -- no erasing a typo.
 
 **Selecting** — rectangle and ellipse marquees, a lasso and a magic wand, with
@@ -101,6 +101,16 @@ invert, for a layer, a frame or every frame -- changes the elements' own colours
 and, if asked, the palette slots they paint through. Nothing becomes pixels:
 every element is still what it was, and cancelling puts back exactly what was
 there.
+
+**Panels your way** — every panel docks, tabs, floats and resizes: drag one
+by its tab beside another, onto it to share its place, or out over the canvas
+to float it, and drag the line between two to size them. The *Window* menu
+opens and closes each one and puts the default arrangement back, and the
+arrangement is kept between sessions. *Elements* lists the marks a layer is
+made of, topmost first; *Properties* shows everything about the picked one --
+what it is, its own controls, then the layer's shadow and outline, folding
+away when not wanted. *References* float, opened with Shift+R or whenever one
+is added.
 
 **Your keys, your defaults** — every shortcut is a named command, and
 *Edit > Preferences* rebinds any of them by pressing the new keys, up to four
@@ -476,7 +486,7 @@ were drawn, not against the last frame. Drag the slider through two hundred
 angles and there is still exactly one operation. Set it back to zero, or delete
 the entry, and the original returns exactly.
 
-The same idea one control over: select a colour's row in the Element panel and
+The same idea one control over: select a colour's row in the Elements panel and
 change it, and the drawing is not repainted. The colour lives on the fill rule
 rather than in the pixels.
 

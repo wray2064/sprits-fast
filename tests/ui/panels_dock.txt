@@ -1,0 +1,34 @@
+# Panels dock round the canvas, and move, float, close and come back as in
+# any editor; References float, opened when wanted.
+expect docked tool 1
+expect docked elements 1
+expect docked properties 1
+expect width layers 200 320
+expect missing Import image...
+
+# References: from the Window menu, floating over the canvas; closed again
+# with Shift+R.
+click-on Window
+click-on References
+expect item Import image...
+expect docked references 0
+key shift+r
+expect missing Import image...
+
+# The Elements panel dragged out of its dock by its tab: it floats.
+drag-from Elements @1 by -600 380
+expect docked elements 0
+expect docked properties 1
+
+# Window > Reset layout: back where it started.
+click-on Window
+click-on Reset layout
+wait 2
+expect docked elements 1
+expect missing Import image...
+
+# The picked element's properties are one panel: what it is, then its
+# controls, then the layer's shadow and outline, each folding away.
+expect item SHADOW
+expect item OUTLINE
+expect item Drop shadow

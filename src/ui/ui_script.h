@@ -21,7 +21,12 @@
 //                                 LABEL @2 is the second of several so called
 //     right-click-on Layer 1 / double-click-on Layer 1
 //     drag-onto Layer 2 => Layer 1   press on one widget, let go on another
+//     drag-from Elements by -400 60  press on a widget and drag it by screen
+//                                 pixels -- a panel's tab out of its dock
 //     expect item Tween           a widget with that label was drawn
+//     expect missing Tween        and one that was not
+//     expect docked elements 1    a panel (its ID, see layout.h) docked, or 0: floating
+//     expect width layers 200 300 a panel's width, in screen pixels
 //     drag 3 3 20 20 [steps] [right]
 //     drag-screen 40 0 [steps] [middle|right]  a drag by screen pixels from where
 //                                 the pointer is -- a pan moves the canvas under it

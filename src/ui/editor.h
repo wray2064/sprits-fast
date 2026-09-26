@@ -467,6 +467,20 @@ struct Editor {
     PreviewSettings  preview;
     TimelineSettings timeline;
 
+    // Which panels are open. They dock, tab, float and resize; where each
+    // one is, is kept with the layout (see layout.h). References float and
+    // start closed: they are opened when there is something to draw from.
+    struct Panels {
+        bool tool = true;
+        bool palette = true;
+        bool layers = true;
+        bool elements = true;
+        bool properties = true;
+        bool transform = true;
+        bool references = false;
+        bool resetLayout = false;   // the default arrangement, on the next frame
+    } panels;
+
     // The document's frames, re-read whenever they can have changed. Held
     // rather than re-read every draw because a panel asks for them several
     // times in one pass, and the list is the authority for nothing -- the

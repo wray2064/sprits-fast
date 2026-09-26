@@ -29,6 +29,7 @@
 #include "app/transform.h"
 #include "app/ui_state.h"
 #include "ui/keys.h"
+#include "ui/layout.h"
 #include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
@@ -799,6 +800,38 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::MenuItem(tr("Symmetry across"), nullptr, &editor.symmetryAcross);
         ImGui::MenuItem(tr("Symmetry down"), nullptr, &editor.symmetryDown);
         ImGui::MenuItem(tr("Preview"), "P", &editor.preview.visible);
+        ImGui::EndMenu();
+    }
+    if (ImGui::BeginMenu(tr("Window"))) {
+        const auto toggle = [&editor](const char* name, bool* open, const char* command) {
+            const std::string keys = command != nullptr ? keysLabel(editor.keys, command)
+                                                        : std::string();
+            if (ImGui::MenuItem(tr(name), keys.empty() ? nullptr : keys.c_str(), open)) {
+                ImGui::MarkIniSettingsDirty();
+            }
+        };
+        toggle("Tool", &editor.panels.tool, nullptr);
+        toggle("Palette", &editor.panels.palette, nullptr);
+        toggle("Layers", &editor.panels.layers, nullptr);
+        toggle("Elements", &editor.panels.elements, nullptr);
+        toggle("Properties", &editor.panels.properties, nullptr);
+        toggle("Transform", &editor.panels.transform, nullptr);
+        toggle("Timeline", &editor.timeline.visible, "view.timeline");
+        ImGui::Separator();
+        toggle("References", &editor.panels.references, "view.references");
+        ImGui::MenuItem(tr("Preview"), "P", &editor.preview.visible);
+        ImGui::Separator();
+        if (ImGui::MenuItem(tr("Reset layout"))) {
+            editor.panels = Editor::Panels{};
+            editor.panels.resetLayout = true;
+            ImGui::MarkIniSettingsDirty();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Every panel open and back where it started. A panel "
+                              "is moved by dragging its tab: to the side of another "
+                              "to dock beside it, onto it to share its place, or "
+                              "out over the canvas to float.");
+        }
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -1899,6 +1932,8 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         if (importReference(editor.doc, path, &made, &error)) {
             resyncReferences(editor, canvas);
             editor.activeReference = made.id;
+            // Floating, and opened when there is something in it to look at.
+            editor.panels.references = true;
             canvas.invalidate();
             editor.say("Imported " + made.name + " -- it travels with this file");
         } else {
@@ -2986,6 +3021,15 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // The view.
     if (fired("view.timeline")) { editor.timeline.visible = !editor.timeline.visible; }
     if (fired("view.preview")) { editor.preview.visible = !editor.preview.visible; }
+    if (fired("view.references")) {
+        editor.panels.references = !editor.panels.references;
+        ImGui::MarkIniSettingsDirty();
+    }
+    if (fired("view.reset-layout")) {
+        editor.panels = Editor::Panels{};
+        editor.panels.resetLayout = true;
+        ImGui::MarkIniSettingsDirty();
+    }
     if (fired("view.zoom-in")) { canvas.setZoom(canvas.zoom() + 1.f); }
     if (fired("view.zoom-out")) { canvas.setZoom(canvas.zoom() - 1.f); }
     if (fired("view.fit")) { canvas.requestFit(); }
@@ -3013,7 +3057,8 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     constexpr ImGuiWindowFlags kPanel =
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus;
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoDocking;
 
     // The toolbar: a narrow strip, no title, so the tools read as a group
     // rather than as the contents of a panel.
@@ -3030,70 +3075,80 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
 
-    // The left column: the tool's options above, the palette below, each
-    // scrolling on its own. The palette is reached for more often than any
-    // tool option, so it is never the thing pushed off the bottom.
-    const float toolShare = 0.52f;
-    ImGui::SetNextWindowPos({left + toolbarWidth, top});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * toolShare});
-    ImGui::Begin((std::string(tr("Tool")) + "###tool").c_str(), nullptr, kPanel);
-    drawToolPanel(editor);
-    ImGui::End();
+    // Everything else docks: the panels round the canvas, each one moved,
+    // tabbed, floated, resized or closed as the person likes (see layout.h).
+    drawDockSpace(editor, { left + toolbarWidth, top },
+                  { viewport->WorkSize.x - toolbarWidth, bodyHeight });
+    const ImGuiWindowFlags kDockable = panelFlags();
+    const auto title = [](const char* name, const char* id) {
+        return std::string(tr(name)) + id;
+    };
+    if (editor.panels.tool) {
+        if (ImGui::Begin(title("Tool", panel::kTool).c_str(), &editor.panels.tool, kDockable)) {
+            drawToolPanel(editor);
+        }
+        ImGui::End();
+    }
+    if (editor.panels.palette) {
+        if (ImGui::Begin(title("Palette", panel::kPalette).c_str(), &editor.panels.palette,
+                         kDockable)) {
+            drawPalettePanel(editor, canvas, window);
+        }
+        ImGui::End();
+    }
+    if (editor.panels.layers) {
+        if (ImGui::Begin(title("Layers", panel::kLayers).c_str(), &editor.panels.layers,
+                         kDockable)) {
+            drawLayerPanel(editor, canvas);
+        }
+        ImGui::End();
+    }
+    if (editor.panels.elements) {
+        if (ImGui::Begin(title("Elements", panel::kElements).c_str(), &editor.panels.elements,
+                         kDockable)) {
+            drawElementsPanel(editor, canvas);
+        }
+        ImGui::End();
+    }
+    if (editor.panels.properties) {
+        if (ImGui::Begin(title("Properties", panel::kProperties).c_str(),
+                         &editor.panels.properties, kDockable)) {
+            drawPropertiesPanel(editor, canvas);
+        }
+        ImGui::End();
+    }
+    if (editor.panels.transform) {
+        if (ImGui::Begin(title("Transform", panel::kTransform).c_str(), &editor.panels.transform,
+                         kDockable)) {
+            drawTransformPanel(editor, canvas);
+        }
+        ImGui::End();
+    }
+    // References float over everything, opened when wanted: a picture to
+    // draw from is looked at beside the canvas, not kept in a column.
+    if (editor.panels.references) {
+        ImGui::SetNextWindowPos({ left + viewport->WorkSize.x - m.sidebarWidth * 2.3f,
+                                  top + bodyHeight * 0.18f }, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize({ m.sidebarWidth * 1.2f, bodyHeight * 0.4f },
+                                 ImGuiCond_FirstUseEver);
+        if (ImGui::Begin(title("References", panel::kReferences).c_str(),
+                         &editor.panels.references, kDockable)) {
+            drawReferencePanel(editor, canvas, window);
+        }
+        ImGui::End();
+    }
 
-    ImGui::SetNextWindowPos({left + toolbarWidth, top + bodyHeight * toolShare});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * (1.f - toolShare)});
-    ImGui::Begin((std::string(tr("Palette")) + "###palette").c_str(), nullptr, kPanel);
-    drawPalettePanel(editor, canvas, window);
-    ImGui::End();
-
-    const float rightX = left + viewport->WorkSize.x - m.sidebarWidth;
-    // The right column. The element panel carries a layer's colours, its
-    // shapes, its dither and its outline -- the most numerous controls of the
-    // four -- so it takes the largest share of what is left after the stack.
-    const float layersShare = 0.28f;
-    const float shapeShare  = 0.40f;
-    const float transformShare = 0.14f;
-    ImGui::SetNextWindowPos({rightX, top});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * layersShare});
-    ImGui::Begin((std::string(tr("Layers")) + "###layers").c_str(), nullptr, kPanel);
-    drawLayerPanel(editor, canvas);
-    ImGui::End();
-
-    ImGui::SetNextWindowPos({rightX, top + bodyHeight * layersShare});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * shapeShare});
-    ImGui::Begin((std::string(tr("Element")) + "###element").c_str(), nullptr, kPanel);
-    drawShapePanel(editor, canvas);
-    ImGui::End();
-
-    ImGui::SetNextWindowPos({rightX, top + bodyHeight * (layersShare + shapeShare)});
-    ImGui::SetNextWindowSize({m.sidebarWidth, bodyHeight * transformShare});
-    ImGui::Begin((std::string(tr("Transform")) + "###transform").c_str(), nullptr, kPanel);
-    drawTransformPanel(editor, canvas);
-    ImGui::End();
-
-    // References sit with the other things the document is made of rather
-    // than with the tools: an imported picture is content, even though it is
-    // content for the person rather than for the sprite.
-    ImGui::SetNextWindowPos({rightX,
-                             top + bodyHeight * (layersShare + shapeShare + transformShare)});
-    ImGui::SetNextWindowSize({m.sidebarWidth,
-                              bodyHeight * (1.f - layersShare - shapeShare - transformShare)});
-    ImGui::Begin((std::string(tr("References")) + "###references").c_str(), nullptr, kPanel);
-    drawReferencePanel(editor, canvas, window);
-    ImGui::End();
-
-    const float canvasX = left + toolbarWidth + m.sidebarWidth;
-    const float canvasWidth = viewport->WorkSize.x - toolbarWidth - m.sidebarWidth * 2.f;
-    // The strip takes its height out of the canvas rather than overlapping it:
-    // an animator wants to see the frame and the strip at the same time, and a
-    // timeline floating over the artwork hides the thing it is describing.
-    const float timelineHeight = timelinePanelHeight(editor);
-    ImGui::SetNextWindowPos({canvasX, top});
-    ImGui::SetNextWindowSize({canvasWidth, bodyHeight - timelineHeight});
+    // The canvas: the middle of the dock space, which nothing covers, with no
+    // tab of its own and no way to drag it out.
+    ImGuiWindowClass canvasClass;
+    canvasClass.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoTabBar |
+                                           ImGuiDockNodeFlags_NoUndocking;
+    ImGui::SetNextWindowClass(&canvasClass);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, theme::palette().canvasBackground);
-    ImGui::Begin("##canvas", nullptr,
-                 kPanel | ImGuiWindowFlags_NoTitleBar |
+    ImGui::Begin(panel::kCanvas, nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus |
                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     drawTabBar(editor, canvas, window);
     ls::Vec2i hovered { -1, -1 };
@@ -3185,12 +3240,15 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
+    // The timeline docks under the canvas by default and takes its height
+    // out of it rather than covering it: an animator wants to see the frame
+    // and the strip at once.
     if (editor.timeline.visible) {
-        ImGui::SetNextWindowPos({canvasX, top + bodyHeight - timelineHeight});
-        ImGui::SetNextWindowSize({canvasWidth, timelineHeight});
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
-        ImGui::Begin("##timeline", nullptr, kPanel | ImGuiWindowFlags_NoTitleBar);
-        drawTimelinePanel(editor, canvas);
+        if (ImGui::Begin(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible,
+                         kDockable)) {
+            drawTimelinePanel(editor, canvas);
+        }
         ImGui::End();
         ImGui::PopStyleVar();
     }
@@ -4606,6 +4664,28 @@ int runSelfTest() {
         check(!frameRange(anim, &first, &last), "one frame is not a run");
     }
 
+    // ----------------------------------------------------------- layout --
+    //
+    // Which panels are open is kept in the layout file with where they are:
+    // read back as it was written.
+    {
+        Editor laidOut;
+        ImGuiContext* context = ImGui::CreateContext();
+        registerPanelSettings(laidOut);
+        const char* kept = "[FastPanels][Open]\nreferences=1\nelements=0\ntimeline=1\n\n";
+        ImGui::LoadIniSettingsFromMemory(kept, std::strlen(kept));
+        check(laidOut.panels.references && !laidOut.panels.elements && laidOut.timeline.visible,
+              "the panels open as they were left");
+        check(laidOut.panels.properties, "and the ones not mentioned as they start");
+        laidOut.panels.properties = false;
+        size_t size = 0;
+        const std::string written = ImGui::SaveIniSettingsToMemory(&size);
+        check(written.find("properties=0") != std::string::npos &&
+                  written.find("references=1") != std::string::npos,
+              "and are written back as they are");
+        ImGui::DestroyContext(context);
+    }
+
     if (failures == 0) {
         std::printf("ui_selftest: all checks passed\n");
         return 0;
@@ -4670,6 +4750,10 @@ int main(int argc, char** argv) {
     // would never be read -- it would only drop an imgui.ini into whatever
     // directory the editor happened to be started from.
     ImGui::GetIO().IniFilename = nullptr;
+    // Panels dock, tab and float (see layout.h). A panel is dragged out of a
+    // dock by its tab, and a window's own title bar docks it again.
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 
     theme::loadFonts(SDL_GetWindowDisplayScale(window));
     theme::apply();
@@ -4680,6 +4764,14 @@ int main(int argc, char** argv) {
     Editor editor;
     editor.files.dialog.init();
     editor.files.recent.load();
+    // Where the panels were left, kept between sessions -- except for a run
+    // that is scripted or captured, which starts from the default so what it
+    // checks does not depend on how the panels were last arranged.
+    const bool interactive = options.frames == 0 && options.script.empty();
+    registerPanelSettings(editor);
+    if (interactive) {
+        loadLayout();
+    }
 
     CanvasView canvas(renderer);
     if (!newDocument(editor, 32)) {
@@ -5147,6 +5239,9 @@ int main(int argc, char** argv) {
         drawWindow(editor, canvas, window);
 
         ImGui::Render();
+        if (interactive) {
+            saveLayoutWhenChanged();
+        }
         const ImVec4 bg = theme::palette().windowBackground;
         SDL_SetRenderDrawColor(renderer,
                                static_cast<Uint8>(bg.x * 255),

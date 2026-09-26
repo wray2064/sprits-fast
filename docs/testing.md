@@ -121,6 +121,12 @@ program -- which is the argument for having them.
   frame were one step, and a trackpad's stream of small scrolls made a step
   on every frame of the gesture. The wheel's movement now adds up, and each
   whole notch is a step.
+- **A script could not find a panel's tab.** ImGui tells a tab's label before
+  it adds the tab, and the script's hook attached labels only to items it
+  already had, so a tab had none and a drag aimed at one landed in the middle
+  of the panel. The hook now keeps an early label until its item arrives.
+  `tests/ui/panels_dock.txt` floats a panel by its tab, opens References and
+  resets the layout.
 - **UI scripts failed at random on a desktop someone was using.** A scripted
   window still took the machine's real mouse, keys and focus changes, so a
   pointer passing over it or a click in another window landed mid-run, and a
@@ -176,7 +182,7 @@ sprits_fast --demo-stroke
 1. Press `T` if the timeline is hidden. Press *Play*. Watch the swing.
 2. Double-click the dark blue slot the dither uses (the highlighted one) and
    drag the picker to red. *Expect:* every frame on the strip and the playing
-   canvas recolour together, and the ramp's *dark* swatch in the Element
+   canvas recolour together, and the ramp's *dark* swatch in the Properties
    panel (the *Dither* row of *Layer 1*) shows red -- not the old blue.
 3. Press `Ctrl+Z`. *Expect:* one undo puts it all back, strip included.
 4. *Load…* a `.gpl` with fewer colours than the palette (write one in a text
@@ -203,7 +209,7 @@ sprits_fast --demo-stroke
 
 ### 3. The dither panel tells the truth
 
-1. Select *Layer 1*, then its *Dither* row in the Element panel. Change the
+1. Select *Layer 1*, then its *Dither* row in the Elements panel. Change the
    pattern to *Checker*. Drag the
    density slider back and forth. *Expect:* the pattern combo stays on
    *Checker* throughout. (It used to snap to Bayer 4x4 on the first drag.)
@@ -217,7 +223,7 @@ sprits_fast --demo-stroke
    warning naming the consequence, and *Remove anyway* / *Keep it*.
 2. *Remove anyway*. *Expect:* no pixel changes anywhere -- every layer keeps
    the colour it showed. With the row of pixels that used it selected in the
-   Element panel, the panel says they name a slot the palette no longer has,
+   Properties panel, the panel says they name a slot the palette no longer has,
    and offers *Put the slot back*.
 3. *Add current colour*. *Expect:* it lands in a new slot, not the hole;
    nothing recolours by accident.
@@ -263,7 +269,7 @@ sprits_fast --demo-stroke
 ### 4d. Elements and drag-to-group
 
 1. Select *Layer 1*. Rectangle tool: drag one out. *Expect:* no new layer; the
-   Element panel lists the new *Rectangle* at the top, in the current colour,
+   Elements panel lists the new *Rectangle* at the top, in the current colour,
    above the *Line*, *Rectangle* and *Dither* already there, and edits it; the
    layer thumbnail shows all of it.
 2. Pencil on the same layer, across the new rectangle. *Expect:* the stroke
@@ -281,7 +287,7 @@ sprits_fast --demo-stroke
 
 1. New document. Click the palette's first slot and draw a line; click the
    third and draw across it. *Expect:* one layer; where they cross, the second
-   colour; the Element panel lists two *Pixels* rows, each naming its slot.
+   colour; the Elements panel lists two *Pixels* rows, each naming its slot.
 2. Right-click the fifth slot, then right-drag on the canvas. *Expect:* the
    fifth slot's colour, on the same layer. Press `X`. *Expect:* the two
    swatches in the Tool panel trade places.
@@ -289,7 +295,7 @@ sprits_fast --demo-stroke
    recolours as you drag; the second does not.
 4. Eyedropper (`I`) on the second line. *Expect:* the Tool panel says *slot 3*,
    and the palette rings it.
-5. Erase the whole of the first line. *Expect:* its row leaves the Element
+5. Erase the whole of the first line. *Expect:* its row leaves the Elements
    panel. `Ctrl+Z`. *Expect:* the line and the row come back together.
 6. Select the second line's row, press *= current* with a different colour
    chosen. *Expect:* the line changes colour and nothing else does.
@@ -310,7 +316,7 @@ sprits_fast --demo-stroke
    *Expect:* it drops; the original is still there.
 5. Draw a rectangle with `R`, then box it and a few pixels beside it with `M`
    and drag. *Expect:* the rectangle travels as a rectangle -- select it in the
-   Element panel afterwards and its from/to have moved.
+   Properties panel afterwards and its from/to have moved.
 6. Shift-drag a second box. *Expect:* the two join. Alt-drag across both.
    *Expect:* a bite taken out. `Ctrl+Shift+I`. *Expect:* everything else.
 7. `W` on a region of one colour. *Expect:* exactly that area. Tick *Whole
@@ -323,7 +329,7 @@ sprits_fast --demo-stroke
 ### 4j. Pictures in and out
 
 1. Open a PNG made in another editor. *Expect:* one layer, the palette panel
-   showing the picture's colours, the Element panel one row per colour. Edit a
+   showing the picture's colours, the Elements panel one row per colour. Edit a
    swatch. *Expect:* those pixels recolour.
 2. Open an animated GIF. *Expect:* the strip opens with one frame per GIF frame,
    each with its hold; Play matches the GIF in a browser.
@@ -346,7 +352,7 @@ sprits_fast --demo-stroke
    part of the figure is cut off. Then 32 x 32 again. *Expect:* it is all back.
 3. Draw a rounded rectangle, then *Enlarge 2x*. *Expect:* the rectangle is
    twice the size with twice the corner radius, and still listed as a
-   rectangle in the Element panel.
+   rectangle in the Elements panel.
 4. *Trim* on a sprite with a margin. *Expect:* the canvas hugs the drawing on
    every frame, including frames drawn further out than this one.
 
@@ -523,7 +529,7 @@ sprits_fast --demo-stroke
 ### 4y. Polygons, curves and handles
 
 1. Polygon (`Shift+D`): click five corners, click the first. *Expect:* a
-   filled polygon in the current colour, listed as *Polygon* in the Element
+   filled polygon in the current colour, listed as *Polygon* in the Elements
    panel, its corners marked on the canvas.
 2. Drag a corner. *Expect:* the polygon follows; one `Ctrl+Z` puts it back.
    With snap on, corners land on grid points.
@@ -531,7 +537,7 @@ sprits_fast --demo-stroke
    click a third and press Enter. *Expect:* a one-pixel curve with no
    doubled corners, bending through the middle point; its handles show.
 4. Drag a point: its handles come with it. Drag a handle: only the bend
-   changes. Tick *Closed* in the Element panel. *Expect:* it fills.
+   changes. Tick *Closed* in the Properties panel. *Expect:* it fills.
 5. Backspace while placing takes the last point back; Escape lets the whole
    path go; changing tool does too.
 6. A rectangle drawn earlier and made active: its two corners are handles
@@ -584,12 +590,12 @@ sprits_fast --demo-stroke
    Tick *Palette slots too*: they turn as well, and the palette with them.
 2. Every frame, invert. *Expect:* every frame inverted. Reset: exactly as
    before. Cancel: nothing changed, nothing to undo.
-3. Apply. *Expect:* one undo step; the Element panel still lists every
+3. Apply. *Expect:* one undo step; the Elements panel still lists every
    element, a rectangle still a rectangle.
 
 ### 4ac. Drop shadow
 
-1. A rectangle; Element panel > *Drop shadow*. *Expect:* a shadow down and
+1. A rectangle; Properties panel > *Drop shadow*. *Expect:* a shadow down and
    right, only where the rectangle is not. Offset, colour and opacity change
    it live; each drag one undo step.
 2. Move the rectangle. *Expect:* the shadow follows. Draw new pixels on the
@@ -634,6 +640,26 @@ sprits_fast --demo-stroke
    a new layer "Rotated" above, gone from the original, with a rotation at 0
    degrees in the Transform panel; drag it. One undo puts everything back.
 
+### 4ak. Panels
+
+1. Drag the *Elements* tab out over the canvas. *Expect:* it floats there,
+   and the panels round it take up its room. Drag it by its tab onto the
+   *Layers* tab. *Expect:* the two share one place as tabs. Drag it to the
+   edge of the Tool panel. *Expect:* the drop highlights where it will go,
+   and it docks there.
+2. Drag the line between the canvas and the right column. *Expect:* the
+   column widens, the canvas narrows. Close *Transform* with the x on its
+   tab. *Expect:* its room goes to the panel above.
+3. *Window*: every panel with a tick; tick *Transform* again. *Expect:* it
+   comes back where it was. *Window > References* (or Shift+R). *Expect:* a
+   floating References panel; importing or pasting a reference also opens
+   it.
+4. Quit and start again. *Expect:* the panels where they were left.
+   *Window > Reset layout*. *Expect:* the arrangement it started with.
+5. Pick a rectangle in *Elements*. *Expect:* Properties names it, shows its
+   corners and roundness, then SHADOW and OUTLINE, which fold away when
+   their heading is clicked.
+
 ### 4ag. Languages
 
 1. *Edit > Preferences > Language*: *es*. *Expect:* the menus, panel titles,
@@ -668,19 +694,19 @@ sprits_fast --demo-stroke
 ### 4aj. Erasing shapes
 
 1. Draw a filled rectangle; the eraser across it. *Expect:* the stroke comes
-   out of the rectangle; the Element panel lists *Erased  N px* above a
-   *Rectangle* that still has its corners to drag. Drag a corner outward.
-   *Expect:* it grows; the erased stroke is still erased.
+   out of the rectangle, which is still the one *Rectangle* in the Elements
+   panel with its corners to drag -- it keeps what was erased as its own.
+   Drag a corner outward. *Expect:* it grows; the erased stroke is still
+   erased. Turn the layer: the hole turns with it.
 2. Paint over the erased stroke. *Expect:* the paint shows. Draw an ellipse
-   across it. *Expect:* the ellipse is whole -- an erase clears only what was
-   drawn before it.
-3. Select the *Erased* row and remove it (x). *Expect:* the rectangle is whole
-   again. Undo brings the erase back.
-4. Marquee part of a shape, Delete. *Expect:* that part goes, the shape stays
+   across it. *Expect:* the ellipse is whole -- an erase belongs to what it
+   erased.
+3. Marquee part of a shape, Delete. *Expect:* that part goes, the shape stays
    a shape. Marquee around a whole erased rectangle and drag it. *Expect:* it
    lands with its erased part still erased, and nothing is left behind.
-5. Merge down a layer whose shapes are erased onto another. *Expect:* refused,
-   saying the erase would rub out the layer below too.
+4. Merge down a layer whose rectangle is erased onto another. *Expect:* it
+   merges, hole and all. Erase part of a *line* shape and merge: *Expect:*
+   refused, saying the erase would rub out the layer below too.
 
 ### 4ak. Scaling freely
 
@@ -696,7 +722,7 @@ sprits_fast --demo-stroke
 ### 4al. Tilemaps
 
 1. *Sprite > New tilemap layer...*, 8 x 8, Create. *Expect:* a layer
-   "Tilemap 2" with a faint grid over the canvas; the Element panel shows
+   "Tilemap 2" with a faint grid over the canvas; the Properties panel shows
    TILES, no tiles yet.
 2. Pencil into an empty cell. *Expect:* the pixel, and a tile in the TILES
    list. *Place tiles*, click another cell. *Expect:* the same tile there.

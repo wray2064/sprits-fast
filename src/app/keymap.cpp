@@ -162,6 +162,8 @@ const std::vector<CommandInfo>& commandList() {
         { "anim.duplicate", "Duplicate frame", "Animation", { ctrl("D", true) } },
         { "view.timeline", "Timeline", "View", { key("T") } },
         { "view.preview", "Preview", "View", { key("P") } },
+        { "view.references", "References", "View", { shift("R") } },
+        { "view.reset-layout", "Reset layout", "View", {} },
         { "view.zoom-in", "Zoom in", "View", { key("]"), ctrl("=") }, true },
         { "view.zoom-out", "Zoom out", "View", { key("["), ctrl("-") }, true },
         { "view.fit", "Fit to window", "View", { ctrl("0") } },

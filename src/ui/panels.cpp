@@ -1365,11 +1365,9 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
 
 } // namespace
 
-// The layer's elements, one row each, and the controls for the one selected.
-static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
-    // The elements of the layer, one row each: a colour of pixels, or a shape.
-    // The selected one is what the controls below edit.
-    const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
+// Which element of the layer the panels are about: the one picked, or the
+// first when none is.
+static const Element* pickedElement(Editor& editor, const std::vector<Element>& elements) {
     const Element* selected = nullptr;
     for (const Element& element : elements) {
         if (element.fill == editor.activeElement) { selected = &element; }
@@ -1379,50 +1377,74 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
         editor.activeElement = selected->fill;
         editor.paintIntoElement = false;
     }
-    if (elements.size() > 1) {
-        theme::sectionHeader("ELEMENTS");
-        // Topmost first, the way the layer stack reads.
-        for (size_t n = elements.size(); n-- > 0;) {
-            const Element& element = elements[n];
-            ImGui::PushID(static_cast<int>(element.fill.value));
-            ImGui::ColorButton("##chip", ImGui::ColorConvertU32ToFloat4(
-                                   elementChip(editor, layer->layer, element)),
-                               ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder,
-                               ImVec2(12.f, 12.f));
-            ImGui::SameLine();
-            const std::string label = elementLabel(editor, element) + "##" +
-                                      std::to_string(n);
-            if (ImGui::Selectable(label.c_str(), &element == selected,
-                                  0, ImVec2(ImGui::GetContentRegionAvail().x - 26.f, 0.f))) {
-                if (editor.activeElement != element.fill) {
-                    editor.paintIntoElement = false;
-                }
-                editor.activeElement = element.fill;
-                selected = &element;
+    return selected;
+}
+
+// The layer's elements, one row each, topmost first: the stack of marks the
+// layer is made of -- a run of one colour, a fill, a gradient, a shape, text.
+// The picked one is what Properties edits.
+static void drawElementList(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
+    const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
+    const Element* selected = pickedElement(editor, elements);
+    // Topmost first, the way the layer stack reads.
+    for (size_t n = elements.size(); n-- > 0;) {
+        const Element& element = elements[n];
+        ImGui::PushID(static_cast<int>(element.fill.value));
+        ImGui::ColorButton("##chip", ImGui::ColorConvertU32ToFloat4(
+                               elementChip(editor, layer->layer, element)),
+                           ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder,
+                           ImVec2(12.f, 12.f));
+        ImGui::SameLine();
+        const std::string label = elementLabel(editor, element) + "##" +
+                                  std::to_string(n);
+        if (ImGui::Selectable(label.c_str(), &element == selected,
+                              0, ImVec2(ImGui::GetContentRegionAvail().x - 26.f, 0.f))) {
+            if (editor.activeElement != element.fill) {
+                editor.paintIntoElement = false;
             }
-            ImGui::SameLine();
-            if (ImGui::SmallButton("x")) {
-                if (removeElement(editor.doc, layer->layer, element)) {
-                    editor.activeElement = ls::OperationId{};
-                    editor.paintIntoElement = false;
-                    resyncLayers(editor);
-                    canvas.invalidate();
-                    editor.say("Element removed; the rest of the layer is untouched");
-                    ImGui::PopID();
-                    return;
-                }
-            }
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Remove this element. The others stay.");
-            }
-            ImGui::PopID();
+            editor.activeElement = element.fill;
+            selected = &element;
         }
         ImGui::SameLine();
-        theme::hint("A layer holds several marks: one element per colour its "
-                    "pixels are painted in, and any shapes drawn onto it. Each "
-                    "shape stays a shape; each colour stays a rule, so it can be "
-                    "changed without repainting.");
-        ImGui::Dummy(ImVec2(0.f, 4.f));
+        if (ImGui::SmallButton("x")) {
+            if (removeElement(editor.doc, layer->layer, element)) {
+                editor.activeElement = ls::OperationId{};
+                editor.paintIntoElement = false;
+                resyncLayers(editor);
+                canvas.invalidate();
+                editor.say("Element removed; the rest of the layer is untouched");
+                ImGui::PopID();
+                return;
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Remove this element. The others stay.");
+        }
+        ImGui::PopID();
+    }
+    ImGui::SameLine();
+    theme::hint("A layer holds several marks: one element per colour its "
+                "pixels are painted in, and any shapes drawn onto it. Each "
+                "shape stays a shape; each colour stays a rule, so it can be "
+                "changed without repainting.");
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+}
+
+// The picked element's own controls, under a line that says what it is.
+static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
+    const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
+    const Element* selected = pickedElement(editor, elements);
+    if (selected != nullptr) {
+        ImGui::ColorButton("##picked", ImGui::ColorConvertU32ToFloat4(
+                               elementChip(editor, layer->layer, *selected)),
+                           ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder,
+                           ImVec2(14.f, 14.f));
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textBright);
+        ImGui::TextUnformatted(elementLabel(editor, *selected).c_str());
+        ImGui::PopStyleColor();
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0.f, 2.f));
     }
 
     if (selected != nullptr && selected->kind == ElementKind::Text) {
@@ -1619,82 +1641,67 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
 
 }
 
-void drawShapePanel(Editor& editor, CanvasView& canvas) {
-    PaintLayer* layer = editor.active();
-    if (layer == nullptr) {
-        ImGui::TextDisabled("No layer selected.");
-        return;
-    }
+namespace {
 
-    // A tilemap layer's elements are its tiles.
-    TilemapLayer tilemap;
-    if (readTilemapLayer(editor.doc, layer->layer, &tilemap)) {
-        drawTilesSection(editor, canvas);
-    } else {
-        drawElementsPart(editor, canvas, layer);
+// A drop shadow cast by what the layer draws.
+void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
+    bool shadowed = hasShadow(editor.doc, *layer);
+    if (ImGui::Checkbox("Drop shadow", &shadowed)) {
+        editor.doc.beginAction(shadowed ? "Add shadow" : "Remove shadow");
+        if (shadowed) {
+            setShadow(editor.doc, *layer, ShadowSettings{});
+        } else {
+            removeShadow(editor.doc, *layer);
+        }
+        editor.doc.endAction();
+        canvas.invalidate();
     }
-
-    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
-    theme::sectionHeader("SHADOW");
-    {
-        bool shadowed = hasShadow(editor.doc, *layer);
-        if (ImGui::Checkbox("Drop shadow", &shadowed)) {
-            editor.doc.beginAction(shadowed ? "Add shadow" : "Remove shadow");
-            if (shadowed) {
-                setShadow(editor.doc, *layer, ShadowSettings{});
-            } else {
-                removeShadow(editor.doc, *layer);
-            }
-            editor.doc.endAction();
+    ImGui::SameLine();
+    theme::hint("Cast by whatever the layer draws -- or the whole figure -- and "
+                "worked out as the sprite is drawn, so it follows the artwork. "
+                "It falls only where nothing else is.");
+    if (shadowed) {
+        ShadowSettings settings = shadowOf(editor.doc, *layer);
+        bool changed = false;
+        const char* scopes[] = { "Cast by this layer", "Cast by the figure" };
+        int scope = static_cast<int>(settings.scope);
+        ImGui::SetNextItemWidth(-1.f);
+        if (ImGui::Combo("##shadowscope", &scope, scopes, 2)) {
+            settings.scope = static_cast<OutlineScope>(scope);
+            changed = true;
+        }
+        int offset[2] = { settings.dx, settings.dy };
+        ImGui::SetNextItemWidth(-60.f);
+        if (ImGui::SliderInt2("offset", offset, -kMaxShadowOffset, kMaxShadowOffset)) {
+            settings.dx = offset[0];
+            settings.dy = offset[1];
+            changed = true;
+        }
+        bracketDrag(editor, editor.editingShape, "Shadow offset");
+        float rgba[4];
+        fromColor(settings.colour, rgba);
+        if (ImGui::ColorEdit3("##shadowcolour", rgba, ImGuiColorEditFlags_NoInputs)) {
+            settings.colour = toColor(rgba);
+            settings.colour.a = 255;
+            settings.role = ls::kColorRoleNone;
+            changed = true;
+        }
+        bracketDrag(editor, editor.editingShape, "Shadow colour");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-60.f);
+        if (ImGui::SliderFloat("opacity##shadow", &settings.opacity, 0.f, 1.f, "%.2f")) {
+            changed = true;
+        }
+        bracketDrag(editor, editor.editingShape, "Shadow opacity");
+        if (changed) {
+            setShadow(editor.doc, *layer, settings);
             canvas.invalidate();
         }
-        ImGui::SameLine();
-        theme::hint("Cast by whatever the layer draws -- or the whole figure -- and "
-                    "worked out as the sprite is drawn, so it follows the artwork. "
-                    "It falls only where nothing else is.");
-        if (shadowed) {
-            ShadowSettings settings = shadowOf(editor.doc, *layer);
-            bool changed = false;
-            const char* scopes[] = { "Cast by this layer", "Cast by the figure" };
-            int scope = static_cast<int>(settings.scope);
-            ImGui::SetNextItemWidth(-1.f);
-            if (ImGui::Combo("##shadowscope", &scope, scopes, 2)) {
-                settings.scope = static_cast<OutlineScope>(scope);
-                changed = true;
-            }
-            int offset[2] = { settings.dx, settings.dy };
-            ImGui::SetNextItemWidth(-60.f);
-            if (ImGui::SliderInt2("offset", offset, -kMaxShadowOffset, kMaxShadowOffset)) {
-                settings.dx = offset[0];
-                settings.dy = offset[1];
-                changed = true;
-            }
-            bracketDrag(editor, editor.editingShape, "Shadow offset");
-            float rgba[4];
-            fromColor(settings.colour, rgba);
-            if (ImGui::ColorEdit3("##shadowcolour", rgba, ImGuiColorEditFlags_NoInputs)) {
-                settings.colour = toColor(rgba);
-                settings.colour.a = 255;
-                settings.role = ls::kColorRoleNone;
-                changed = true;
-            }
-            bracketDrag(editor, editor.editingShape, "Shadow colour");
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(-60.f);
-            if (ImGui::SliderFloat("opacity##shadow", &settings.opacity, 0.f, 1.f, "%.2f")) {
-                changed = true;
-            }
-            bracketDrag(editor, editor.editingShape, "Shadow opacity");
-            if (changed) {
-                setShadow(editor.doc, *layer, settings);
-                canvas.invalidate();
-            }
-        }
     }
+}
 
-    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
-    theme::sectionHeader("OUTLINE");
-
+// An outline generated round what the layer draws.
+void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     const bool wasOutlined = hasOutline(editor.doc, *layer);
     bool outlined = wasOutlined;
     if (ImGui::Checkbox("Outline", &outlined)) {
@@ -1800,6 +1807,47 @@ void drawShapePanel(Editor& editor, CanvasView& canvas) {
     if (changed) {
         setOutline(editor.doc, *layer, settings);
         canvas.invalidate();
+    }
+}
+
+} // namespace
+
+void drawElementsPanel(Editor& editor, CanvasView& canvas) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        ImGui::TextDisabled("No layer selected.");
+        return;
+    }
+    // A tilemap layer's elements are its tiles, which want the room
+    // Properties has.
+    TilemapLayer tilemap;
+    if (readTilemapLayer(editor.doc, layer->layer, &tilemap)) {
+        ImGui::TextDisabled("A tilemap layer: its tiles are in Properties.");
+        return;
+    }
+    drawElementList(editor, canvas, layer);
+}
+
+void drawPropertiesPanel(Editor& editor, CanvasView& canvas) {
+    PaintLayer* layer = editor.active();
+    if (layer == nullptr) {
+        ImGui::TextDisabled("No layer selected.");
+        return;
+    }
+    TilemapLayer tilemap;
+    if (readTilemapLayer(editor.doc, layer->layer, &tilemap)) {
+        drawTilesSection(editor, canvas);
+    } else {
+        drawElementsPart(editor, canvas, layer);
+    }
+    ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
+    // The layer's effects, under the picked element's own controls: they
+    // belong to the whole layer, and fold away when they are not wanted.
+    if (theme::foldingHeader("SHADOW")) {
+        drawShadowSection(editor, canvas, layer);
+    }
+    if (theme::foldingHeader("OUTLINE")) {
+        drawOutlineSection(editor, canvas, layer);
     }
 }
 
@@ -2637,6 +2685,8 @@ bool pasteReference(Editor& editor, CanvasView& canvas) {
     }
     resyncReferences(editor, canvas);
     editor.activeReference = made.id;
+    // Floating, and opened when there is something in it to look at.
+    editor.panels.references = true;
     canvas.invalidate();
     editor.say("Pasted as a reference -- it travels with this file");
     return true;
@@ -2937,6 +2987,8 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                     addReference(editor.doc, image.name, bytes, &made, &error)) {
                     resyncReferences(editor, canvas);
                     editor.activeReference = made.id;
+                    // Floating, and opened when there is something in it to look at.
+                    editor.panels.references = true;
                     editor.say("Imported " + made.name + " as a reference");
                 } else {
                     editor.say("Could not import " + image.name + ": " + error);

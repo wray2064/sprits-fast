@@ -95,6 +95,9 @@ void loadFonts(float scale);
 
 // A dim, letter-spaced label above a group of controls.
 void sectionHeader(const char* label);
+// A section header that folds its section away when clicked: the same muted
+// label and hairline, with an arrow. Open until folded. True while open.
+bool foldingHeader(const char* label);
 
 // ------------------------------------------------------------------ icons --
 //

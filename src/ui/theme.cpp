@@ -186,6 +186,15 @@ void apply() {
     colours[ImGuiCol_Tab]                  = c.windowBackground;
     colours[ImGuiCol_TabHovered]           = c.control;
     colours[ImGuiCol_TabSelected]          = c.panelBackground;
+    colours[ImGuiCol_TabSelectedOverline]  = c.accent;
+    colours[ImGuiCol_TabDimmed]            = c.windowBackground;
+    colours[ImGuiCol_TabDimmedSelected]    = c.panelBackground;
+    colours[ImGuiCol_TabDimmedSelectedOverline] = c.accentDim;
+
+    // Docking: where a dragged panel would land, and the empty space of a
+    // dock node with nothing in it.
+    colours[ImGuiCol_DockingPreview]       = ImVec4(c.accent.x, c.accent.y, c.accent.z, 0.45f);
+    colours[ImGuiCol_DockingEmptyBg]       = c.windowBackground;
 
     colours[ImGuiCol_TextSelectedBg]       = c.accentDim;
     colours[ImGuiCol_NavCursor]            = c.accent;
@@ -208,6 +217,31 @@ void loadFonts(float scale) {
 }
 
 // ---------------------------------------------------------------- widgets --
+
+bool foldingHeader(const char* label) {
+    const char* shown = tr(label);
+    const ImVec4 muted { (*gActive).accent.x, (*gActive).accent.y, (*gActive).accent.z,
+                         0.72f };
+    ImGui::Dummy(ImVec2(0.f, 2.f));
+    // No box behind it, as with a plain section header: a filled bar would
+    // read as a selected row.
+    ImGui::PushStyleColor(ImGuiCol_Text, muted);
+    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 0.f, 0.f, 0.f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, (*gActive).controlHovered);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, (*gActive).controlActive);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.f, 2.f));
+    const std::string id = std::string(shown) + "###fold" + label;
+    const bool open = ImGui::CollapsingHeader(id.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(4);
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const float width = ImGui::GetContentRegionAvail().x;
+    ImGui::GetWindowDrawList()->AddLine(
+        ImVec2(at.x, at.y + 1.f), ImVec2(at.x + width, at.y + 1.f),
+        ImGui::GetColorU32((*gActive).border));
+    ImGui::Dummy(ImVec2(0.f, 3.f));
+    return open;
+}
 
 void sectionHeader(const char* label) {
     label = tr(label);

@@ -15,7 +15,10 @@
 include(FetchContent)
 
 set(FAST_SDL_TAG   "release-3.4.16" CACHE STRING "SDL3 tag to build against")
-set(FAST_IMGUI_TAG "v1.92.9"        CACHE STRING "Dear ImGui tag to build against")
+# The docking branch's tag of the same release: panels that dock, tab, float
+# and resize like every other editor's. (A new variable name, so a build tree
+# that cached the plain tag picks this one up.)
+set(FAST_IMGUI_DOCKING_TAG "v1.92.9-docking" CACHE STRING "Dear ImGui (docking) tag to build against")
 
 # ------------------------------------------------------------------- SDL3 ----
 
@@ -43,7 +46,7 @@ FetchContent_MakeAvailable(SDL3)
 
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        ${FAST_IMGUI_TAG}
+    GIT_TAG        ${FAST_IMGUI_DOCKING_TAG}
     GIT_SHALLOW    TRUE
     GIT_PROGRESS   TRUE
 )

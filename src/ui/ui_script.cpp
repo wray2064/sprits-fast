@@ -35,6 +35,8 @@ struct DrawnItem {
 };
 std::vector<DrawnItem> gDrawing;     // this frame's, as they are added
 std::vector<DrawnItem> gDrawn;       // the last whole frame's
+// A label told before its item is added -- a tab's is -- kept until it is.
+std::vector<std::pair<ImGuiID, std::string>> gEarlyLabels;
 
 } // namespace
 
@@ -42,7 +44,15 @@ void ImGuiTestEngineHook_ItemAdd(ImGuiContext* ctx, ImGuiID id, const ImRect& bb
                                  const ImGuiLastItemData*) {
     const bool shown = ctx == nullptr || ctx->CurrentWindow == nullptr ||
                        ctx->CurrentWindow->ClipRect.Contains(bb.GetCenter());
-    gDrawing.push_back({ id, bb, std::string(), shown });
+    std::string label;
+    for (size_t i = gEarlyLabels.size(); i-- > 0;) {
+        if (gEarlyLabels[i].first == id) {
+            label = gEarlyLabels[i].second;
+            gEarlyLabels.erase(gEarlyLabels.begin() + static_cast<std::ptrdiff_t>(i));
+            break;
+        }
+    }
+    gDrawing.push_back({ id, bb, label, shown });
 }
 
 void ImGuiTestEngineHook_ItemInfo(ImGuiContext*, ImGuiID id, const char* label,
@@ -52,6 +62,10 @@ void ImGuiTestEngineHook_ItemInfo(ImGuiContext*, ImGuiID id, const char* label,
             gDrawing[i].label = label != nullptr ? label : "";
             return;
         }
+    }
+    // Not added yet: a tab tells its label first.
+    if (label != nullptr && gEarlyLabels.size() < 256) {
+        gEarlyLabels.push_back({ id, label });
     }
 }
 
@@ -356,6 +370,29 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         add(onto);
         Step settle; settle.kind = Step::Wait; add(settle);
         Step up = down; up.down = false; add(up);
+    } else if (verb == "drag-from" && line.find(" by ") != std::string::npos) {
+        // A widget picked up and dragged by a distance: a panel's tab out of
+        // its dock, the line between two panels.
+        const std::string rest = line.substr(line.find(verb) + verb.size() + 1);
+        const size_t by = rest.rfind(" by ");
+        Step from; from.kind = Step::Widget; from.text = rest.substr(0, by);
+        splitIndex(&from.text, &from.index);
+        std::istringstream distance(rest.substr(by + 4));
+        float dx = 0.f, dy = 0.f;
+        if (!(distance >> dx >> dy)) { return fail("not a distance"); }
+        constexpr int kSteps = 16;
+        from.skip = kSteps + 3;
+        add(from);
+        Step down; down.kind = Step::Button; down.button = ImGuiMouseButton_Left; down.down = true;
+        add(down);
+        for (int i = 0; i < kSteps; ++i) {
+            Step move; move.kind = Step::ScreenMove;
+            move.x = dx / static_cast<float>(kSteps);
+            move.y = dy / static_cast<float>(kSteps);
+            add(move);
+        }
+        Step settle; settle.kind = Step::Wait; add(settle);
+        Step up = down; up.down = false; add(up);
     } else if (verb == "type" && w.size() >= 2) {
         Step s; s.kind = Step::Text; s.text = line.substr(line.find("type") + 5); add(s);
     } else if (verb == "wait" && w.size() == 2) {
@@ -366,9 +403,9 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
     } else if (verb == "expect" && w.size() >= 3) {
         Step s; s.kind = Step::Expect; s.text = w[1];
         s.args.assign(w.begin() + 2, w.end());
-        if (s.text == "item") {
+        if (s.text == "item" || s.text == "missing") {
             // A label is the rest of the line, spaces and all.
-            std::string label = line.substr(line.find("item") + 5);
+            std::string label = line.substr(line.find(s.text) + s.text.size() + 1);
             while (!label.empty() && label.back() == ' ') { label.pop_back(); }
             s.args = { label };
         }
@@ -391,6 +428,7 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
     ImGui::GetCurrentContext()->TestEngineHookItems = true;
     gDrawn.swap(gDrawing);
     gDrawing.clear();
+    gEarlyLabels.clear();
     if (warmup_ > 0) {
         --warmup_;
         return;
@@ -603,6 +641,28 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         splitIndex(&label, &index);
         if (!findDrawn(label, index, &centre)) {
             failed("nothing called \"" + a[0] + "\" on screen");
+        }
+    } else if (step.text == "missing") {
+        ImVec2 centre;
+        std::string label = a[0];
+        int index = 0;
+        splitIndex(&label, &index);
+        if (findDrawn(label, index, &centre)) {
+            failed("\"" + a[0] + "\" is on screen");
+        }
+    } else if (step.text == "docked" && a.size() == 2) {
+        // A panel by its ID (see layout.h): docked, or floating.
+        const ImGuiWindow* window = ImGui::FindWindowByName(("###" + a[0]).c_str());
+        const bool docked = window != nullptr && window->DockIsActive;
+        if (window == nullptr || docked != (std::atoi(a[1].c_str()) != 0)) {
+            failed(window == nullptr ? "no panel " + a[0]
+                                     : a[0] + (docked ? " is docked" : " is floating"));
+        }
+    } else if (step.text == "width" && a.size() == 3) {
+        const ImGuiWindow* window = ImGui::FindWindowByName(("###" + a[0]).c_str());
+        const float width = window != nullptr ? window->Size.x : -1.f;
+        if (width < std::atof(a[1].c_str()) || width > std::atof(a[2].c_str())) {
+            failed(a[0] + " is " + std::to_string(width) + " wide");
         }
     } else if (step.text == "canvas" && a.size() == 2) {
         auto size = editor.doc.engine().getCanvasSize(editor.doc.id());

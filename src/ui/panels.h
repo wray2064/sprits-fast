@@ -24,9 +24,10 @@ void drawToolPanel(Editor& editor);
 // through. Changing an entry recolours every layer using it.
 void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
 
-// The shape on the active layer, if it has one, and the outline that follows
-// whatever the layer draws.
-void drawShapePanel(Editor& editor, CanvasView& canvas);
+// The layer's elements, topmost first; and the picked one's properties,
+// with the layer's shadow and outline under them.
+void drawElementsPanel(Editor& editor, CanvasView& canvas);
+void drawPropertiesPanel(Editor& editor, CanvasView& canvas);
 
 // The layer stack, topmost first.
 void drawLayerPanel(Editor& editor, CanvasView& canvas);

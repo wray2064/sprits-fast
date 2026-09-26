@@ -95,6 +95,8 @@ Tiled mode = Modo mosaico
 Symmetry across = Simetría horizontal
 Symmetry down = Simetría vertical
 Preview = Vista previa
+Window = Ventana
+Reset layout = Restablecer disposición
 
 # --- capas -------------------------------------------------------------------
 Ungroup = Desagrupar
@@ -171,8 +173,12 @@ Tool = Herramienta
 Palette = Paleta
 Layers = Capas
 Element = Elemento
+Elements = Elementos
+Properties = Propiedades
 Transform = Transformar
 References = Referencias
+SHADOW = SOMBRA
+OUTLINE = CONTORNO
 
 # --- órdenes (teclas) ---------------------------------------------------------
 Tools = Herramientas
