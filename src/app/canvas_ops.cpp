@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/canvas_ops.h"
+#include "app/guides.h"
 #include "app/slices.h"
 
 #include "app/animation.h"
@@ -223,6 +224,23 @@ void remapDocument(Document& doc, const Remap& remap) {
                 }
             }
         }
+    }
+
+    // Guides go where the canvas takes them: a line down the canvas can come
+    // out across it after a quarter turn.
+    std::vector<Guide> guides = readGuides(doc);
+    if (!guides.empty()) {
+        for (Guide& guide : guides) {
+            const float at = static_cast<float>(guide.at);
+            const ls::Vec2f a = remap.point(guide.vertical ? ls::Vec2f{ at, 0.f } : ls::Vec2f{ 0.f, at });
+            const ls::Vec2f b = remap.point(guide.vertical ? ls::Vec2f{ at, 1.f } : ls::Vec2f{ 1.f, at });
+            if (std::fabs(a.x - b.x) < 0.001f) {
+                guide = { true, static_cast<int32_t>(std::lround(a.x)) };
+            } else {
+                guide = { false, static_cast<int32_t>(std::lround(a.y)) };
+            }
+        }
+        writeGuides(doc, guides);
     }
 
     // Slices go where the canvas takes them, corners and all.

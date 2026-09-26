@@ -459,6 +459,13 @@ struct Editor {
     std::vector<ls::Vec2f> pathPoints;
     std::vector<ls::Vec2f> pathHandles;
 
+    // Rulers along the canvas, the guides pulled out of them, and a guide being
+    // dragged (its index; a new one is taken back if it never leaves the ruler).
+    bool        rulersOn = true;
+    bool        guidesShown = true;
+    int         draggingGuide = -1;
+    bool        guideIsNew = false;
+
     // Slices (see app/slices.h): the one being edited, a drag of it -- a
     // corner 0..3 or 4 for the whole -- and the slices window.
     int         activeSlice = -1;
@@ -530,7 +537,7 @@ struct Editor {
         return stroking || recolouring || draggingTransform || draggingDither ||
                draggingPalette || editingShape || draggingShape || draggingLayer ||
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
-               adjustDialog.open || draggingSlice || editingSlice ||
+               adjustDialog.open || draggingSlice || editingSlice || draggingGuide >= 0 ||
                selecting || draggingFloat || drawingContour || drawingGradient;
     }
 

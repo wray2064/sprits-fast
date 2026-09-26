@@ -28,11 +28,25 @@ int32_t cellStart(int32_t p, int step, int offset) {
     return offset + k * s;
 }
 
+// The grid's nearest line, or a guide nearer still.
+int32_t nearestOf(float at, int32_t grid, const std::vector<int32_t>& lines) {
+    int32_t best = grid;
+    float distance = std::fabs(at - static_cast<float>(grid));
+    for (int32_t line : lines) {
+        const float d = std::fabs(at - static_cast<float>(line));
+        if (d < distance) {
+            best = line;
+            distance = d;
+        }
+    }
+    return best;
+}
+
 } // namespace
 
 ls::Vec2i nearestGridPoint(ls::Vec2f at, const Grid& grid) {
-    return { nearestLine(at.x, grid.width, grid.offsetX),
-             nearestLine(at.y, grid.height, grid.offsetY) };
+    return { nearestOf(at.x, nearestLine(at.x, grid.width, grid.offsetX), grid.linesX),
+             nearestOf(at.y, nearestLine(at.y, grid.height, grid.offsetY), grid.linesY) };
 }
 
 ls::Rect2i cellAt(ls::Vec2i pixel, const Grid& grid) {

@@ -12,6 +12,8 @@
 
 #include <livesprite/livesprite.h>
 
+#include <vector>
+
 namespace fast {
 
 struct Grid {
@@ -19,6 +21,10 @@ struct Grid {
     int height = 16;
     int offsetX = 0;
     int offsetY = 0;
+    // Guides: lines between columns (x) and rows (y) that snap as well as the
+    // grid's own, whichever is nearer.
+    std::vector<int32_t> linesX;
+    std::vector<int32_t> linesY;
 };
 
 // The grid point nearest a position in canvas coordinates (a pixel's centre

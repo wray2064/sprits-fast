@@ -92,6 +92,18 @@ void testSnappedMove() {
     CHECK(same(snappedMove({ 10, 10 }, { 2, -3 }, grid), { 0, 0 }));
 }
 
+void testGuidesSnapToo() {
+    Grid grid;
+    grid.width = 16;
+    grid.height = 16;
+    grid.linesX = { 5 };
+    grid.linesY = { 30 };
+    // Nearer the guide than any grid line: the guide.
+    CHECK(same(nearestGridPoint({ 6.2f, 29.1f }, grid), { 5, 30 }));
+    // Nearer a grid line: the grid line.
+    CHECK(same(nearestGridPoint({ 14.5f, 18.f }, grid), { 16, 16 }));
+}
+
 } // namespace
 
 int main() {
@@ -99,6 +111,7 @@ int main() {
     testCells();
     testSnappedMarquee();
     testSnappedMove();
+    testGuidesSnapToo();
     if (failures == 0) {
         std::printf("grid_snap: all passed\n");
         return 0;

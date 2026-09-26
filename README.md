@@ -31,7 +31,8 @@ keeps a rectangle square, an ellipse round and a line on fifteen-degree steps.
 comes back on the other; a **tile grid** of any size and offset sits over the
 pixel grid (or an **isometric** one of 2:1 diamonds), and **snap to grid** (`Shift+S`) makes marquees cover whole tiles,
 shapes put their corners on tile lines, and a moved selection step tile to
-tile.
+tile. **Rulers** run along the canvas, and **guides** dragged out of them
+stay with the document, turn with the canvas and are snapped to as well.
 
 **Text** that stays text: Fast's own five-by-seven pixel face, and a piece of
 text is an element whose words, place and size are kept, so the Element panel

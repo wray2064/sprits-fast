@@ -107,6 +107,7 @@ add_library(fast_core STATIC
     src/app/tracks.cpp
     src/app/adjust.cpp
     src/app/slices.cpp
+    src/app/guides.cpp
     src/app/recent_files.cpp
     src/app/shape.cpp
     src/app/text.cpp
@@ -164,6 +165,7 @@ if (FAST_BUILD_GUI)
         src/ui/shape_tools.cpp
         src/ui/tabs.cpp
         src/ui/slice_tool.cpp
+        src/ui/rulers.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
         src/ui/theme.cpp

@@ -108,6 +108,10 @@ public:
 
     void  setPan(float x, float y) { panX_ = x; panY_ = y; }
 
+    // The view's own area on screen, as of the last draw.
+    ImVec2 viewTopLeft() const { return viewTopLeft_; }
+    ImVec2 viewSize() const { return viewSize_; }
+
     // The part of the canvas the view shows, in canvas pixels, as of the last
     // draw -- what the navigator outlines.
     ls::Rect2f visibleArea() const {

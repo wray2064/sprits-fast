@@ -12,6 +12,7 @@
 #include "app/canvas_ops.h"
 #include "app/document.h"
 #include "app/file_io.h"
+#include "app/guides.h"
 #include "app/sheet.h"
 #include "app/slices.h"
 
@@ -140,6 +141,28 @@ void testTheyAreInTheDescriptions() {
     CHECK(none.find("\"slices\": []") != std::string::npos);
 }
 
+// Guides: their text, a document keeping them, and the canvas turning them.
+void testGuides() {
+    const std::vector<Guide> back = decodeGuides(encodeGuides({ { true, 4 }, { false, -2 } }) +
+                                                 ";x9;v;h1a;v7");
+    REQUIRE(back.size() == 3);
+    CHECK(back[0].vertical && back[0].at == 4);
+    CHECK(!back[1].vertical && back[1].at == -2);
+    CHECK(back[2].vertical && back[2].at == 7);
+
+    Document doc;
+    REQUIRE(doc.create("guides", 16, 8));
+    REQUIRE(writeGuides(doc, { { true, 4 }, { false, 2 } }));
+    std::string error;
+    REQUIRE(rotateCanvas(doc, 1, &error));           // 16 x 8 turns to 8 x 16, clockwise
+    const std::vector<Guide> turned = readGuides(doc);
+    REQUIRE(turned.size() == 2);
+    // Clockwise, (x, y) goes to (h - y, x): the line down at x = 4 comes out
+    // across at y = 4, and the line across at y = 2 comes out down at x = 6.
+    CHECK(!turned[0].vertical && turned[0].at == 4);
+    CHECK(turned[1].vertical && turned[1].at == 6);
+}
+
 } // namespace
 
 int main() {
@@ -147,6 +170,7 @@ int main() {
     testKeptAndUndone();
     testTheyMoveWithTheCanvas();
     testTheyAreInTheDescriptions();
+    testGuides();
     if (failures == 0) {
         std::printf("slices: all passed\n");
         return 0;

@@ -526,6 +526,18 @@ sprits_fast --demo-stroke
    its bounds, centre and pivot at the sheet's scale.
 5. Rotate the canvas. *Expect:* the slice turns with it.
 
+### 4ae. Rulers and guides
+
+1. The rulers count pixels at any zoom, with the pointer marked on both.
+2. Drag down out of the top ruler. *Expect:* a guide across the canvas,
+   following the pointer by whole pixels; let go over the canvas: it stays,
+   one undo step. Drag its marker on the left ruler to move it; drop it back
+   on the ruler to remove it.
+3. Snap on, draw a rectangle near a guide. *Expect:* its corner lands on the
+   guide when the guide is nearer than any grid line.
+4. Rotate the canvas. *Expect:* the guides turn with it. *View > Clear
+   guides*, *View > Rulers* and *View > Guides* do what they say.
+
 ### 4e. The brush
 
 1. Pencil, size 1, pixel-perfect on. Draw a slow diagonal in steps. *Expect:*

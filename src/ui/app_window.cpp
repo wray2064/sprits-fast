@@ -14,6 +14,7 @@
 #include "app/import_aseprite.h"
 #include "app/palette_tools.h"
 #include "app/pixel_font.h"
+#include "app/guides.h"
 #include "app/slices.h"
 #include "app/tracks.h"
 #include "app/import_image.h"
@@ -30,6 +31,7 @@
 #include "ui/keys.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
+#include "ui/rulers.h"
 #include "ui/slice_tool.h"
 #include "ui/tabs.h"
 #include "ui/selection_tools.h"
@@ -682,6 +684,13 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         bool grid = canvas.gridVisible();
         if (ImGui::MenuItem("Pixel grid", nullptr, &grid)) { canvas.setGridVisible(grid); }
+        ImGui::MenuItem("Rulers", nullptr, &editor.rulersOn);
+        ImGui::MenuItem("Guides", nullptr, &editor.guidesShown);
+        if (ImGui::MenuItem("Clear guides", nullptr, false, !readGuides(editor.doc).empty())) {
+            editor.doc.beginAction("Clear guides");
+            writeGuides(editor.doc, {});
+            editor.doc.endAction();
+        }
         if (ImGui::MenuItem("Slices...", nullptr, editor.slicesOpen)) {
             editor.slicesOpen = !editor.slicesOpen;
         }
@@ -2806,6 +2815,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
             drawShapeOverlay(editor, canvas, draw, origin, zoom);
             drawSliceOverlay(editor, canvas, draw, origin, zoom);
+            drawGuides(editor, canvas, draw, origin, zoom);
             if (editor.stroking && editor.brush.stabiliser > 0) {
                 const ls::Vec2f a = editor.stabiliser.at();
                 const ls::Vec2f b = canvas.pointerExact();
@@ -2838,6 +2848,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               centre(editor.contourPoints.front()), ink, 1.f);
             }
         });
+    drawRulers(editor, canvas);
     editor.hovered = hovered;
 
     // The preview goes on top of the canvas and takes its clicks first, so a
@@ -4365,6 +4376,7 @@ int main(int argc, char** argv) {
         hit.pivot = { 5, 16 };
         hit.colour = { 230, 90, 60, 255 };
         writeSlices(editor.doc, { panel, hit });
+        writeGuides(editor.doc, { { true, 16 }, { false, 20 } });
         editor.tool = Tool::Slice;
         editor.activeSlice = 0;
         editor.slicesOpen = true;
@@ -4561,7 +4573,13 @@ int main(int argc, char** argv) {
         handleShortcuts(editor, canvas, window);
         {
             const TileGrid& tiles = canvas.tileGrid();
-            editor.snapGrid = { tiles.width, tiles.height, tiles.offsetX, tiles.offsetY };
+            editor.snapGrid = { tiles.width, tiles.height, tiles.offsetX, tiles.offsetY, {}, {} };
+            if (editor.guidesShown) {
+                for (const Guide& guide : readGuides(editor.doc)) {
+                    (guide.vertical ? editor.snapGrid.linesX : editor.snapGrid.linesY)
+                        .push_back(guide.at);
+                }
+            }
         }
         drawWindow(editor, canvas, window);
 

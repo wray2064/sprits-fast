@@ -151,7 +151,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Slices (named rectangles, 9-slice) exported in the manifest
 - [ ] Pixel-art rotation (RotSprite-quality) for selections and layers
 - [x] Minimap / navigator
-- [ ] Guides and rulers
+- [x] Guides and rulers
 - [x] Isometric grid
 - [x] Reference layer from the clipboard
 - [x] Light theme
@@ -168,6 +168,7 @@ only output. A feature that bakes pixels to get done faster is not done.
 
 Newest first. One line per landed item, with the commit.
 
+- Rulers (pixel ticks at any zoom, pointer marked) and guides: dragged out of the rulers, moved by their markers, removed by dropping back on the ruler, one undo step each; kept as document metadata, turned and moved by canvas ops, and extra snap lines while snapping (Grid.linesX/linesY). View menu toggles and Clear guides.
 - Slices: slice tool (C) drags out, moves and resizes named rectangles; View > Slices names them and gives a nine-slice centre, pivot and colour; kept as document metadata (undoable, saved), moved by canvas ops; exported in Fast's manifest and Aseprite's meta.slices (bounds/center/pivot at the sheet's scale). app/slices with tests.
 - Drop shadow as a live operation (engine GenerateDropShadowOp): cast by the layer or the whole figure, offset/colour/slot/opacity, only where nothing else is, never part of the figure's silhouette; Element panel section; effects (outline, then shadow) kept after every mark and transform (keepEffectsLast on new paint, new shapes and in the commit hook), which also fixes an outline not tracing paint added after it.
 - Adjust colours (Sprite menu): hue, saturation, lightness, brightness, contrast, invert over this layer, this frame or every frame; edits the elements' own colours (fills, strokes, outlines, both ends of a dither) and optionally the palette slots they paint through -- never pixels; applied from a recorded base so zero is exact; modal, one undo step, Cancel restores. app/adjust with tests.
