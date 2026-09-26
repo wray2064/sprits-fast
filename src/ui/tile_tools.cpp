@@ -194,40 +194,145 @@ bool handleTilemapStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls
     return false;
 }
 
-void strokeTiles(Editor& editor, const std::vector<ls::Vec2i>& run) {
+namespace {
+
+// Where a canvas pixel falls in the tile `cell` names, the cell's turns
+// undone -- for any pixel, not only one inside the cell: a path that runs on
+// past the cell's edge runs on past the tile's, where the tile draws nothing.
+// `shift` is 2 for a brush an even number of pixels across, whose mirror
+// image hangs from one pixel further over, and 1 otherwise.
+ls::Vec2i intoTile(const TilemapLayer& map, ls::Vec2i cell, uint32_t value, ls::Vec2i pixel,
+                   int shift) {
+    const int32_t tw = static_cast<int32_t>(map.grid.tileWidth);
+    const int32_t th = static_cast<int32_t>(map.grid.tileHeight);
+    const int32_t u = pixel.x - map.origin.x - cell.x * tw;
+    const int32_t v = pixel.y - map.origin.y - cell.y * th;
+    int32_t su = (value & ls::kTileFlipX) != 0 ? tw - shift - u : u;
+    int32_t sv = (value & ls::kTileFlipY) != 0 ? th - shift - v : v;
+    if ((value & ls::kTileFlipD) != 0 && tw == th) {
+        std::swap(su, sv);
+    }
+    return { su, sv };
+}
+
+// The cells under some pixels that hold a tile -- an empty one drawn into
+// given a tile of its own, unless erasing.
+std::vector<ls::Vec2i> cellsUnder(Editor& editor, const std::vector<ls::Vec2i>& pixels) {
     TilemapLayer& map = editor.tileTarget;
-    std::map<uint32_t, std::vector<ls::Vec2i>> byTile;
-    for (ls::Vec2i pixel : run) {
-        uint32_t tile = 0;
-        ls::Vec2i local;
-        if (!tilePixel(map, pixel, &tile, &local)) {
-            ls::Vec2i cell;
-            if (editor.tileErasing || !cellAt(map, pixel, &cell)) {
+    std::vector<ls::Vec2i> cells;
+    for (ls::Vec2i pixel : pixels) {
+        ls::Vec2i cell;
+        if (!cellAt(map, pixel, &cell) ||
+            std::any_of(cells.begin(), cells.end(), [cell](ls::Vec2i c) {
+                return c.x == cell.x && c.y == cell.y;
+            })) {
+            continue;
+        }
+        if ((cellValue(map, cell) & ls::kTileIndexMask) == 0) {
+            if (editor.tileErasing) {
                 continue;
             }
-            // An empty cell drawn into gets a tile of its own.
             const uint32_t made = addTile(editor.doc, map.tileset);
-            if (made == 0 || !setCell(editor.doc, map, cell, made) ||
-                !tilePixel(map, pixel, &tile, &local)) {
+            if (made == 0 || !setCell(editor.doc, map, cell, made)) {
                 continue;
             }
             editor.brushTile = made;
         }
-        byTile[tile].push_back(local);
+        cells.push_back(cell);
     }
-    for (auto& [tile, pixels] : byTile) {
-        auto stroke = editor.tileStrokes.find(tile);
-        if (stroke == editor.tileStrokes.end()) {
-            InkStroke made;
-            const ls::LayerId layer = tileLayer(editor.doc, map.tileset, tile);
-            const bool ok = editor.tileErasing ? beginEraseStroke(editor.doc, layer, &made)
-                                               : beginInkStroke(editor.doc, layer, editor.tileInk, &made);
-            if (!ok) {
-                continue;
-            }
-            stroke = editor.tileStrokes.emplace(tile, made).first;
+    return cells;
+}
+
+// The stroke into the tile a cell names, one for each cell: two cells
+// naming one tile, turned differently, see a path two ways.
+InkStroke* cellStroke(Editor& editor, ls::Vec2i cell) {
+    TilemapLayer& map = editor.tileTarget;
+    const uint32_t key = static_cast<uint32_t>(cell.y) * map.grid.columns +
+                         static_cast<uint32_t>(cell.x);
+    auto stroke = editor.tileStrokes.find(key);
+    if (stroke == editor.tileStrokes.end()) {
+        InkStroke made;
+        const uint32_t tile = cellValue(map, cell) & ls::kTileIndexMask;
+        const ls::LayerId layer = tileLayer(editor.doc, map.tileset, tile);
+        const bool ok = editor.tileErasing ? beginEraseStroke(editor.doc, layer, &made)
+                                           : beginInkStroke(editor.doc, layer, editor.tileInk, &made);
+        if (!ok) {
+            return nullptr;
         }
-        strokeInk(editor.doc, stroke->second, pixels);
+        stroke = editor.tileStrokes.emplace(key, made).first;
+    }
+    return &stroke->second;
+}
+
+std::vector<ls::Vec2i> pixelList(const ls::IntervalSet& set) {
+    std::vector<ls::Vec2i> out;
+    for (const ls::Interval& run : set.intervals) {
+        for (int32_t x = run.x0; x < run.x1; ++x) {
+            out.push_back({ x, run.y });
+        }
+    }
+    return out;
+}
+
+} // namespace
+
+void strokeTilesAlong(Editor& editor, const std::vector<ls::Vec2i>& centres,
+                      const PenBrush& brush, int copy) {
+    if (centres.empty()) {
+        return;
+    }
+    const TilemapLayer& map = editor.tileTarget;
+    const int shift = !brush.tip && brush.size % 2 == 0 ? 2 : 1;
+    for (ls::Vec2i cell : cellsUnder(editor, pixelList(markPixels(pathMark(centres, brush))))) {
+        InkStroke* stroke = cellStroke(editor, cell);
+        if (stroke == nullptr) {
+            continue;
+        }
+        const uint32_t value = cellValue(map, cell);
+        std::vector<ls::Vec2i> local;
+        local.reserve(centres.size());
+        for (ls::Vec2i p : centres) {
+            local.push_back(intoTile(map, cell, value, p, shift));
+        }
+        strokeAlong(editor.doc, *stroke, copy, local, brush);
+    }
+}
+
+void strokeTileDots(Editor& editor, const std::vector<ls::Vec2i>& dots) {
+    const TilemapLayer& map = editor.tileTarget;
+    for (ls::Vec2i cell : cellsUnder(editor, dots)) {
+        InkStroke* stroke = cellStroke(editor, cell);
+        if (stroke == nullptr) {
+            continue;
+        }
+        const uint32_t value = cellValue(map, cell);
+        std::vector<ls::Vec2i> local;
+        for (ls::Vec2i p : dots) {
+            ls::Vec2i at;
+            if (cellAt(map, p, &at) && at.x == cell.x && at.y == cell.y) {
+                local.push_back(intoTile(map, cell, value, p, 1));
+            }
+        }
+        sprayDots(editor.doc, *stroke, local);
+    }
+}
+
+void strokeTiles(Editor& editor, const std::vector<ls::Vec2i>& run) {
+    const TilemapLayer& map = editor.tileTarget;
+    for (ls::Vec2i cell : cellsUnder(editor, run)) {
+        InkStroke* stroke = cellStroke(editor, cell);
+        if (stroke == nullptr) {
+            continue;
+        }
+        const uint32_t value = cellValue(map, cell);
+        std::vector<ls::Vec2i> local;
+        for (ls::Vec2i p : run) {
+            ls::Vec2i at;
+            if (cellAt(map, p, &at) && at.x == cell.x && at.y == cell.y) {
+                local.push_back(intoTile(map, cell, value, p, 1));
+            }
+        }
+        strokeInk(editor.doc, *stroke, local);
     }
 }
 

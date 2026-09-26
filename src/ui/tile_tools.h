@@ -29,9 +29,17 @@ bool activeTilemap(Editor& editor, TilemapLayer* out);
 // cannot draw there why. True when it took the pointer this frame.
 bool handleTilemapStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i pixel);
 
-// Drawing pixels: a stroke's pixels into the tiles under them, and the
-// stroke's end.
+// Drawing into the tiles under a stroke. A path goes into each cell it
+// touches as that cell's tile sees it -- the cell's flips and turn undone --
+// and is a path in the tile, so what is drawn into a tile stays a stroke;
+// dots go in as dots, and pixels chosen whole (a lasso, a wide eraser in a
+// selection) as an area. An empty cell drawn into gets a tile of its own.
+// `copy` is which mirror image a path is, as strokeAlong takes it.
+void strokeTilesAlong(Editor& editor, const std::vector<ls::Vec2i>& centres,
+                      const PenBrush& brush, int copy);
+void strokeTileDots(Editor& editor, const std::vector<ls::Vec2i>& dots);
 void strokeTiles(Editor& editor, const std::vector<ls::Vec2i>& run);
+// The stroke's end.
 void endTileStroke(Editor& editor);
 
 // The grid over the canvas, and the tile a placing would put down.

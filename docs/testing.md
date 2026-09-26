@@ -166,6 +166,12 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **Drawing into tiles laid pixels down as areas.** A stroke on a tilemap
+  layer was cut into the pixels of each cell and stored in the tile as an
+  area. Each cell it touches now gets the path itself, mapped into the tile
+  the way the cell shows it -- flipped, turned -- so the tile holds a line.
+  `tests/ui/tilemap.txt` drags across a plain and a flipped placement of one
+  tile and checks both halves land on the same tile pixels.
 - **A custom brush painted nothing.** Each colour of the brush began its
   stroke by handing its own run to `beginElementStroke`, which cleared the
   stroke -- and with it the run it had been handed -- before reading it, so

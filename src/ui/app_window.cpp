@@ -2196,14 +2196,15 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
         }
         return out;
     };
-    const bool erasing = editor.inkStroke.erasing();
-    const bool asPixels = editor.tileTarget.layer.valid() ||
-        (erasing && !editor.selection.empty() && brush.size > 1);
+    const bool erasing = editor.inkStroke.erasing() ||
+                         (editor.tileTarget.layer.valid() && editor.tileErasing);
+    const bool tiles = editor.tileTarget.layer.valid();
+    const bool asPixels = erasing && !editor.selection.empty() && brush.size > 1;
     if (asPixels) {
         layDown(editor, canvas, stampsOf(centres), false);
         return;
     }
-    if (!erasing && editor.inkModeState.nothing) {
+    if (!erasing && !tiles && editor.inkModeState.nothing) {
         return;                         // the mode allows nowhere
     }
     // Each mirror image, its centre placed so its stamp is the mirror of the
@@ -2234,7 +2235,9 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
             if (part.empty()) {
                 return;
             }
-            if (!erasing && editor.inkModeState.mode == InkMode::Shading) {
+            if (tiles) {
+                strokeTilesAlong(editor, part, brush, static_cast<int>(image));
+            } else if (!erasing && editor.inkModeState.mode == InkMode::Shading) {
                 InkModeState::Piece piece;
                 piece.copy = static_cast<int>(image);
                 piece.points = part;
@@ -2246,7 +2249,7 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
             part.clear();
         };
         for (ls::Vec2i at : images[image]) {
-            if (erasing && !editor.selection.empty() && !editor.selection.contains(at)) {
+            if ((erasing || tiles) && !editor.selection.empty() && !editor.selection.contains(at)) {
                 flush();
                 closePaths(editor.inkStroke);
                 continue;
@@ -2265,11 +2268,12 @@ void layDownPath(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> cent
 // A spray's dots, laid down as dots -- each where it fell, wherever the
 // layer is turned.
 void layDownDots(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> dots, bool tiled) {
-    if (editor.tileTarget.layer.valid() || editor.inkStroke.erasing()) {
+    const bool tiles = editor.tileTarget.layer.valid();
+    if ((tiles && editor.tileErasing) || (!tiles && editor.inkStroke.erasing())) {
         layDown(editor, canvas, std::move(dots), tiled);
         return;
     }
-    if (editor.inkModeState.nothing) {
+    if (!tiles && editor.inkModeState.nothing) {
         return;                         // the mode allows nowhere
     }
     if (tiled) {
@@ -2287,7 +2291,9 @@ void layDownDots(Editor& editor, CanvasView& canvas, std::vector<ls::Vec2i> dots
     if (dots.empty()) {
         return;
     }
-    if (editor.inkModeState.mode == InkMode::Shading) {
+    if (tiles) {
+        strokeTileDots(editor, dots);
+    } else if (editor.inkModeState.mode == InkMode::Shading) {
         InkModeState::Piece piece;
         piece.kind = InkModeState::Piece::Kind::Dots;
         piece.points = dots;
