@@ -15,9 +15,11 @@
 #include "app/element.h"
 #include "app/image_io.h"
 #include "app/import_image.h"
+#include "app/ink.h"
 #include "app/palette.h"
 
 #include <cstdio>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -97,10 +99,17 @@ void testAPictureOpensAsItself() {
     CHECK(identical(compiled(doc, doc.sprite()), picture));
     CHECK(!doc.modified() && !doc.canUndo());       // opening is not editing
 
-    // One layer, one element per colour, every one through its slot.
+    // One layer; each colour its lines and its solid part -- the hair a line,
+    // the skin a face -- every one through its slot.
     auto info = doc.engine().getSpriteInfo(doc.sprite());
     REQUIRE(info.ok() && info.value.layers.size() == 1);
-    CHECK(elementsOf(doc, info.value.layers.front()).size() == 3);
+    std::set<ls::ColorRole> roles;
+    for (const Element& element : elementsOf(doc, info.value.layers.front())) {
+        Ink ink;
+        CHECK(inkOfElement(doc, element.fill, &ink) && ink.usesSlot());
+        roles.insert(ink.role);
+    }
+    CHECK(roles.size() == 3);
     const std::vector<PaletteEntry> slots = paletteEntries(doc);
     REQUIRE(slots.size() == 3);
     CHECK(slots[0].color.r == 60);                   // hair, the first colour met

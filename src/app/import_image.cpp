@@ -161,25 +161,22 @@ bool documentFromFrames(Document& doc, const std::string& name,
         if (layer.fail()) {
             return fail("a layer could not be made");
         }
-        bool any = false;
+        std::vector<ImportedColour> laid;
         for (size_t c = 0; c < colours.size(); ++c) {
             if (byColour[c].empty()) {
                 continue;
             }
-            const ls::RegionId region = createFreehandRegion(doc, byColour[c]);
-            if (!region.valid()) {
-                return fail("the pixels could not be read in");
-            }
-            ls::FillSolidOp fill;
-            fill.targetRegion = region;
-            fill.fallbackColor = unpack(colours[c]);
-            fill.paletteRole = throughPalette ? static_cast<ls::ColorRole>(c)
-                                              : ls::kColorRoleNone;
-            if (engine.addOperation(layer.value, fill).fail()) {
-                return fail("the pixels could not be read in");
-            }
-            any = true;
+            ImportedColour colour;
+            colour.fill.fallbackColor = unpack(colours[c]);
+            colour.fill.paletteRole = throughPalette ? static_cast<ls::ColorRole>(c)
+                                                     : ls::kColorRoleNone;
+            colour.pixels = byColour[c];
+            laid.push_back(std::move(colour));
         }
+        if (!laid.empty() && !layDownImported(doc, layer.value, laid)) {
+            return fail("the pixels could not be read in");
+        }
+        const bool any = !laid.empty();
         if (!any) {
             // An empty frame still gets something to draw into, as every layer
             // Fast makes does.

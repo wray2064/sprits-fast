@@ -166,6 +166,17 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **An imported picture broke up when turned.** Each colour came in as one
+  exact area, so a one-pixel outline was an area one pixel wide, which a
+  turn cuts into dashes -- and the fill beside it, a separate area, ran over
+  it in one place and short of it in another. Colours are traced now: lines
+  as paths, solid parts as faces found again between the lines and solid
+  parts they touch. Turning the traced blob then showed the fill's sharpest
+  points coming out past the line, first as little lines of the fill's own
+  colour drawn over the outline, then as slivers of its turned area cut off
+  outside it; a solid part keeps its hemmed-in points, and a face keeps to
+  what its walls close in. `tests/turning_tests.cpp` imports the blob of
+  the report and turns it through every angle.
 - **Drawing into tiles laid pixels down as areas.** A stroke on a tilemap
   layer was cut into the pixels of each cell and stored in the tile as an
   area. Each cell it touches now gets the path itself, mapped into the tile

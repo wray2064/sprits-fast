@@ -57,8 +57,9 @@ RegionMade regionMadeOf(Document& doc, ls::RegionId region, ls::GeometryId* geom
 // A freehand region with nothing drawn in it yet. Does not bracket an action.
 ls::RegionId createFreehandRegion(Document& doc);
 
-// A freehand region holding `pixels` laid down whole, as an area: pixels
-// that came from outside -- an imported image -- made marks like any other.
+// A freehand region holding `pixels`, traced into marks (see
+// ls::geom::traceStrokes): pixels that came from outside -- an imported
+// image, an old document -- made marks like any other, each line a path.
 ls::RegionId createFreehandRegion(Document& doc, const ls::IntervalSet& pixels);
 
 // The strokes a freehand region is made of, and where they are kept. False
@@ -72,6 +73,21 @@ ls::PenStroke pathMark(const std::vector<ls::Vec2i>& centres, const PenBrush& br
 ls::PenStroke areaMark(const ls::IntervalSet& pixels);
 // The pixels a mark draws where it was made.
 ls::IntervalSet markPixels(const ls::PenStroke& mark);
+
+// A colour's pixels from outside, and the rule that colours them (its target
+// region is made by layDownImported).
+struct ImportedColour {
+    ls::FillSolidOp fill;
+    ls::IntervalSet pixels;
+};
+
+// Pixels from outside -- an image, an Aseprite cel -- laid on `layer` as
+// shapes (see ls::geom::traceStrokes): first each colour's lines and dots, a
+// run of paths, then each colour's solid parts, a face closed in by the lines
+// and solid parts it touches (see ls::FaceDesc::walls). Turned, a line is
+// drawn again as a line and the solid parts meet it, and each other, as they
+// did. As drawn, exactly the pixels. Does not bracket an action.
+bool layDownImported(Document& doc, ls::LayerId layer, const std::vector<ImportedColour>& colours);
 
 // Takes pixels out of a region and leaves it made of what it was made of.
 // Strokes lose them exactly -- a thin line is cut, an area trimmed -- and a

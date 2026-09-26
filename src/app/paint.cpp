@@ -51,10 +51,9 @@ ls::RegionId createFreehandRegion(Document& doc) {
 }
 
 ls::RegionId createFreehandRegion(Document& doc, const ls::IntervalSet& pixels) {
-    ls::StrokesDesc marks;
-    if (!pixels.empty()) {
-        marks.strokes.push_back(areaMark(pixels));
-    }
+    // Traced: every part one pixel wide a path, the rest areas, so a line in
+    // an imported image turns as a line.
+    const ls::StrokesDesc marks = ls::geom::traceStrokes(pixels);
     ls::LSContext& engine = doc.engine();
     auto strokes = engine.createStrokes(doc.id(), marks);
     if (strokes.fail()) {
@@ -195,6 +194,116 @@ void deleteRegionAndShapes(Document& doc, ls::RegionId region) {
     if (erase.ok() && erase.value.valid()) {
         engine.deleteGeometry(erase.value);
     }
+}
+
+bool layDownImported(Document& doc, ls::LayerId layer, const std::vector<ImportedColour>& colours) {
+    ls::LSContext& engine = doc.engine();
+    struct Traced {
+        ls::StrokesDesc lines;          // the parts one pixel wide, and dots
+        ls::IntervalSet linePixels;
+        ls::AreaDesc    solid;
+        ls::IntervalSet solidPixels;
+        ls::RegionId    lineRegion;
+        ls::GeometryId  face;
+    };
+    std::vector<Traced> traced(colours.size());
+    ls::IntervalSet all;
+    for (const ImportedColour& colour : colours) {
+        all = ls::geom::unionSets(all, colour.pixels);
+    }
+    for (size_t i = 0; i < colours.size(); ++i) {
+        ls::StrokesDesc marks = ls::geom::traceStrokes(colours[i].pixels);
+        for (const ls::PenStroke& mark : marks.strokes) {
+            if (mark.kind == ls::PenKind::Area) {
+                traced[i].solidPixels = ls::geom::rasterizeAreaDesc(mark.area);
+            }
+        }
+        // A thin part of a solid one -- the point of a fill run into a sharp
+        // corner, hemmed in by other colours all along -- is the solid part's
+        // own: its face finds it again between the lines round it, where a
+        // line of its own would be drawn over them. A one-pixel spike out into
+        // nothing stays a line.
+        const ls::IntervalSet around = ls::geom::expand(traced[i].solidPixels, 1.f, true);
+        const ls::IntervalSet hemmed = ls::geom::expand(ls::geom::subtractSets(all, colours[i].pixels),
+                                                        1.f, true);
+        for (ls::PenStroke& mark : marks.strokes) {
+            if (mark.kind == ls::PenKind::Area) {
+                continue;
+            }
+            const ls::IntervalSet drawn = ls::geom::rasterizeStrokes({ { mark } });
+            const ls::IntervalSet own = ls::geom::subtractSets(drawn, traced[i].solidPixels);
+            const bool tip = !traced[i].solidPixels.empty() &&
+                !ls::geom::intersectSets(drawn, around).empty() &&
+                (ls::geom::pixelCount(own) <= 2 || ls::geom::subtractSets(own, hemmed).empty());
+            if (tip) {
+                traced[i].solidPixels = ls::geom::unionSets(traced[i].solidPixels, drawn);
+            } else {
+                traced[i].lines.strokes.push_back(std::move(mark));
+            }
+        }
+        traced[i].solid = ls::geom::traceArea(traced[i].solidPixels);
+        traced[i].linePixels = ls::geom::subtractSets(colours[i].pixels, traced[i].solidPixels);
+    }
+    const auto addFill = [&](size_t i, ls::RegionId region) {
+        ls::FillSolidOp fill = colours[i].fill;
+        fill.targetRegion = region;
+        return engine.addOperation(layer, fill).ok();
+    };
+
+    // The lines first: runs of paths.
+    for (size_t i = 0; i < traced.size(); ++i) {
+        if (traced[i].lines.strokes.empty()) {
+            continue;
+        }
+        auto strokes = engine.createStrokes(doc.id(), traced[i].lines);
+        if (strokes.fail()) {
+            return false;
+        }
+        auto region = engine.createRegionFromGeometry(strokes.value);
+        if (region.fail() || !addFill(i, region.value)) {
+            return false;
+        }
+        traced[i].lineRegion = region.value;
+    }
+    // Then the solid parts, as faces, each closed in by what it touches.
+    for (Traced& colour : traced) {
+        if (colour.solidPixels.empty()) {
+            continue;
+        }
+        ls::FaceDesc face;
+        face.area = colour.solid;
+        face.seed = ls::geom::deepestPoint(colour.solidPixels);
+        auto made = engine.createFace(doc.id(), face);
+        if (made.fail()) {
+            return false;
+        }
+        colour.face = made.value;
+    }
+    for (size_t i = 0; i < traced.size(); ++i) {
+        if (!traced[i].face.valid()) {
+            continue;
+        }
+        const ls::IntervalSet around = ls::geom::expand(traced[i].solidPixels, 1.f, false);
+        ls::FaceDesc face = engine.getFace(traced[i].face).value;
+        for (size_t j = 0; j < traced.size(); ++j) {
+            if (traced[j].lineRegion.valid() &&
+                !ls::geom::intersectSets(around, traced[j].linePixels).empty()) {
+                face.walls.push_back({ traced[j].lineRegion, ls::GeometryId{}, ls::ClipOp::Add });
+            }
+            if (j != i && traced[j].face.valid() &&
+                !ls::geom::intersectSets(around, traced[j].solidPixels).empty()) {
+                face.walls.push_back({ ls::RegionId{}, traced[j].face, ls::ClipOp::Add });
+            }
+        }
+        if (engine.updateFace(traced[i].face, face).fail()) {
+            return false;
+        }
+        auto region = engine.createRegionFromGeometry(traced[i].face);
+        if (region.fail() || !addFill(i, region.value)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 int upgradePixelRegions(Document& doc) {

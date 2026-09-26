@@ -45,10 +45,11 @@ bool addTextElement(Document& doc, ls::LayerId layer, const TextSpec& spec, cons
         return false;
     }
     ls::LSContext& engine = doc.engine();
-    // The glyphs as an area -- the edges of their pixels -- so the words move
-    // and turn with the layer as one shape.
-    auto glyphs = engine.createArea(doc.id(),
-                                    ls::geom::traceArea(setOf(layOutText(spec.text, spec.at, spec.scale))));
+    // The glyphs traced into marks -- each stroke of a letter a path, the
+    // thicker parts areas -- so the words move and turn with the layer and a
+    // one-pixel letter stays joined up.
+    auto glyphs = engine.createStrokes(doc.id(),
+                                       ls::geom::traceStrokes(setOf(layOutText(spec.text, spec.at, spec.scale))));
     if (glyphs.fail()) {
         return false;
     }
@@ -106,11 +107,15 @@ bool updateTextElement(Document& doc, ls::RegionId region, const TextSpec& spec)
     }
     const ls::IntervalSet pixels = setOf(layOutText(spec.text, spec.at, spec.scale));
     auto glyphs = doc.engine().getRegionSourceGeometry(region);
+    if (glyphs.ok() && glyphs.value.valid() && doc.engine().getStrokes(glyphs.value).ok()) {
+        return doc.engine().updateStrokes(glyphs.value, ls::geom::traceStrokes(pixels)).ok() &&
+               remember(doc, region, spec);
+    }
+    // Text from when glyphs were kept as one area, or as pixels.
     if (glyphs.ok() && glyphs.value.valid() && doc.engine().getArea(glyphs.value).ok()) {
         return doc.engine().updateArea(glyphs.value, ls::geom::traceArea(pixels)).ok() &&
                remember(doc, region, spec);
     }
-    // Text from before glyphs were kept as an area: still pixels.
     return doc.engine().setRegionIntervals(region, pixels).ok() && remember(doc, region, spec);
 }
 

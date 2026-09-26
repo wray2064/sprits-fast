@@ -14,11 +14,13 @@
 #include "app/bucket.h"
 #include "app/dither.h"
 #include "app/element.h"
+#include "app/import_image.h"
 #include "app/ink.h"
 #include "app/paint.h"
 #include "app/transform.h"
 
 #include <cstdio>
+#include <string>
 #include <vector>
 
 static int failures = 0;
@@ -316,9 +318,70 @@ void testAnOldDrawingOpensAsShapes() {
     CHECK(!opened.modified());
 }
 
+// An image opened as a document: its one-pixel outline comes in as paths,
+// not as an area whose one-pixel edge comes apart, so turned it stays closed
+// round its fill, as a drawn one does.
+void testAnImportedOutlineTurns() {
+    const ls::Vec2i corners[13] = {
+        { 20, 12 }, { 32, 10 }, { 40, 18 }, { 50, 16 }, { 54, 26 }, { 44, 32 }, { 52, 42 },
+        { 42, 50 }, { 32, 44 }, { 22, 52 }, { 14, 42 }, { 18, 32 }, { 10, 22 },
+    };
+    ls::RasterBuffer image = ls::makeRaster(kSize, kSize);
+    for (int i = 0; i < 13; ++i) {
+        for (ls::Vec2i p : linePixels(corners[i], corners[(i + 1) % 13])) {
+            ls::writePixel(image, p.x, p.y, kOutline);
+        }
+    }
+    // The inside, filled from the middle up to the outline.
+    std::vector<ls::Vec2i> stack { { 32, 30 } };
+    while (!stack.empty()) {
+        const ls::Vec2i p = stack.back();
+        stack.pop_back();
+        if (p.x < 0 || p.y < 0 || p.x >= kSize || p.y >= kSize ||
+            ls::readPixel(image, p.x, p.y).a != 0) {
+            continue;
+        }
+        ls::writePixel(image, p.x, p.y, kFill);
+        stack.push_back({ p.x + 1, p.y });
+        stack.push_back({ p.x - 1, p.y });
+        stack.push_back({ p.x, p.y + 1 });
+        stack.push_back({ p.x, p.y - 1 });
+    }
+
+    Document doc;
+    ImportReport report;
+    std::string error;
+    REQUIRE(documentFromFrames(doc, "blob", { image }, {}, &report, &error));
+    CHECK(picture(doc).pixels == image.pixels);
+    auto info = doc.engine().getSpriteInfo(doc.sprite());
+    REQUIRE(info.ok() && !info.value.layers.empty());
+    const ls::LayerId layer = info.value.layers.back();
+    const ls::OperationId turn = addRotate(doc, layer, 3.f, { 32.f, 32.f },
+                                           ls::SamplingPolicy::RotSprite);
+    REQUIRE(turn.valid());
+    int leaked = 0;
+    int bare = 0;
+    int empty = 0;
+    for (int angle = 3; angle < 360; angle += 7) {
+        REQUIRE(setRotateAngle(doc, turn, static_cast<float>(angle)));
+        const Look turned = look(picture(doc));
+        leaked += turned.leaked;
+        bare += turned.bare;
+        empty += turned.inside < 400 ? 1 : 0;
+    }
+    CHECK(leaked == 0);
+    CHECK(bare == 0);
+    CHECK(empty == 0);
+    if (leaked != 0 || bare != 0 || empty != 0) {
+        std::printf("    imported, turned: %d pixels leaked, %d bare inside, %d angles broken open\n",
+                    leaked, bare, empty);
+    }
+}
+
 } // namespace
 
 int main() {
+    testAnImportedOutlineTurns();
     testAnOldDrawingOpensAsShapes();
     testPencilBucketTurnGradient();
     testAnErasedLineStaysCut();

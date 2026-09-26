@@ -313,7 +313,7 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
         const bool ditherLives = dither.valid() && doc.engine().getOperation(dither).ok();
         ls::StrokesDesc marks = taken.marks;
         if (marks.strokes.empty()) {
-            marks.strokes.push_back(areaMark(taken.pixels));
+            marks = ls::geom::traceStrokes(taken.pixels);   // an image's pixels, traced
         }
         if (makePiece(doc, layer, taken.ink, ditherLives ? dither : ls::OperationId{},
                       marks, taken.pixels, &piece)) {

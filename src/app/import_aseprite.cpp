@@ -526,14 +526,11 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
             }
 
             const float celOpacity = cel != nullptr ? cel->opacity / 255.f : 1.f;
-            bool any = false;
+            std::vector<ImportedColour> laid;
             for (auto& [key, set] : runs) {
-                const ls::RegionId region = createFreehandRegion(doc, ls::geom::normalize(set));
-                if (!region.valid()) {
-                    return fail(error, "the pixels could not be read in");
-                }
-                ls::FillSolidOp fill;
-                fill.targetRegion = region;
+                ImportedColour colour;
+                colour.pixels = ls::geom::normalize(set);
+                ls::FillSolidOp& fill = colour.fill;
 
                 if (key & (1ull << 40)) {
                     const uint32_t rgba = static_cast<uint32_t>(key);
@@ -546,11 +543,14 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
                     fill.fallbackColor = key < file.palette.size() ? file.palette[key]
                                                                    : ls::Color{ 0, 0, 0, 255 };
                 }
-                if (engine.addOperation(made.value, fill).fail()) {
-                    return fail(error, "the pixels could not be read in");
-                }
-                any = true;
+                laid.push_back(std::move(colour));
             }
+            // Lines as paths and solid parts as faces between them (see
+            // layDownImported), so a turned cel keeps its lines.
+            if (!laid.empty() && !layDownImported(doc, made.value, laid)) {
+                return fail(error, "the pixels could not be read in");
+            }
+            const bool any = !laid.empty();
             if (!any) {
                 const ls::RegionId region = createFreehandRegion(doc);
                 if (region.valid()) {
