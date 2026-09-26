@@ -198,10 +198,11 @@ bool setShadow(Document& doc, const PaintLayer& layer, const ShadowSettings& set
 bool removeShadow(Document& doc, const PaintLayer& layer);
 ShadowSettings shadowOf(Document& doc, const PaintLayer& layer);
 
-// Keeps a layer's effects -- its outline, then its shadow -- after everything
-// they are drawn from, whatever has been added to the layer since they were.
-// An effect sees what is drawn before it and nothing after. Does not bracket
-// an action.
+// Keeps a layer's operations in the order they mean: everything drawn, then
+// the transforms that move the drawing, then its effects -- the outline, then
+// the shadow -- whatever has been added since. A colour first used on a turned
+// layer is turned with the rest, and an effect sees the drawing as moved.
+// Does not bracket an action.
 void keepEffectsLast(Document& doc, ls::LayerId layer);
 
 } // namespace fast

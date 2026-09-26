@@ -11,6 +11,7 @@
 // In a conventional editor every one of these tests would fail, because each
 // rotation there resamples the result of the last one.
 
+#include "app/ink.h"
 #include "app/paint.h"
 #include "app/transform.h"
 
@@ -267,6 +268,30 @@ void testDrawingThroughAnOffsetLandsWhereClicked() {
     CHECK(readPixel(compiled.value.raster, 20, 9).a != 0);
 }
 
+// A colour the layer has never had, painted on a turned layer: its new
+// element goes under the turn with the rest of the drawing, so it too lands
+// where it was clicked.
+void testANewColourOnATurnedLayerTurnsToo() {
+    Canvas canvas;
+    REQUIRE(canvas.build());
+    REQUIRE(fast::addRotate(canvas.doc, canvas.paint.layer, 90.f, canvas.centre()).valid());
+    const Vec2i clicked { 24, 6 };
+    Vec2f mapped;
+    REQUIRE(fast::mapCanvasPointToLayer(canvas.doc, canvas.paint.layer,
+                                        {static_cast<float>(clicked.x),
+                                         static_cast<float>(clicked.y)}, &mapped));
+    fast::Ink blue;
+    blue.colour = Color{30, 60, 220, 255};
+    fast::InkStroke stroke;
+    REQUIRE(fast::beginInkStroke(canvas.doc, canvas.paint.layer, blue, &stroke));
+    REQUIRE(fast::strokeInk(canvas.doc, stroke,
+                            {{static_cast<int32_t>(mapped.x + 0.5f),
+                              static_cast<int32_t>(mapped.y + 0.5f)}}));
+    auto compiled = canvas.doc.engine().compileSprite(canvas.sprite, profile());
+    REQUIRE(compiled.ok());
+    CHECK(readPixel(compiled.value.raster, clicked.x, clicked.y).b == 220);
+}
+
 // A scale of zero has no inverse, and saying so beats drawing in the wrong place.
 void testAnUninvertibleTransformIsReported() {
     Canvas canvas;
@@ -354,6 +379,7 @@ int main() {
     testScaleAndMirrorAreEditableToo();
     testDrawingThroughATransformLandsWhereClicked();
     testDrawingThroughAnOffsetLandsWhereClicked();
+    testANewColourOnATurnedLayerTurnsToo();
     testAnUninvertibleTransformIsReported();
     testTransformsSurviveAFileRoundTrip();
     testTransformsAreUndoable();

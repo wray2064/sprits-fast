@@ -638,18 +638,23 @@ void keepEffectsLast(Document& doc, ls::LayerId layer) {
         return;
     }
     std::vector<ls::OperationId> rest;
+    std::vector<ls::OperationId> transforms;
     std::vector<ls::OperationId> outlines;
     std::vector<ls::OperationId> shadows;
     for (const ls::OperationInfo& op : operations.value) {
+        ls::Operation made;
         if (op.type == "GenerateSilhouetteOutlineOp") {
             outlines.push_back(op.id);
         } else if (op.type == "GenerateDropShadowOp") {
             shadows.push_back(op.id);
+        } else if (ls::makeOperationOfType(op.type, made) && ls::operationIsTransform(made)) {
+            transforms.push_back(op.id);
         } else {
             rest.push_back(op.id);
         }
     }
     std::vector<ls::OperationId> order = rest;
+    order.insert(order.end(), transforms.begin(), transforms.end());
     order.insert(order.end(), outlines.begin(), outlines.end());
     order.insert(order.end(), shadows.begin(), shadows.end());
     bool same = order.size() == operations.value.size();
