@@ -215,6 +215,29 @@ void testAReferenceTravelsAndChangesNoPixel() {
     CHECK(picture.width == 32 && picture.height == 24);
 }
 
+// The picker, where the artwork draws nothing, takes the reference's own
+// colour -- the image's pixel, not the faded one on screen.
+void testThePickerTakesTheReferencesOwnColour() {
+    Document doc;
+    REQUIRE(build(doc));
+    Reference reference;
+    std::string error;
+    const ls::Color skin { 210, 150, 120, 255 };
+    REQUIRE(addReference(doc, "skin.png", makePng(8, 8, skin), &reference, &error));
+    reference.x = 2.f;
+    reference.y = 2.f;
+    reference.scale = 1.f;
+    reference.opacity = 0.3f;
+    REQUIRE(updateReference(doc, reference));
+    ls::Color picked;
+    REQUIRE(referenceColourAt(doc, { 4, 4 }, &picked));
+    CHECK(picked.r == skin.r && picked.g == skin.g && picked.b == skin.b && picked.a == 255);
+    CHECK(!referenceColourAt(doc, { 12, 12 }, &picked));     // past its edge
+    reference.visible = false;
+    REQUIRE(updateReference(doc, reference));
+    CHECK(!referenceColourAt(doc, { 4, 4 }, &picked));       // hidden, nothing to take
+}
+
 // The bit that needed the history to carry Fast's own package entries: the
 // engine's snapshot knows nothing about them, so without that an undone
 // import left the image behind.
@@ -356,6 +379,7 @@ int main() {
     testTheDecoderIsBounded();
     testDownscaleKeepsWholePixels();
     testAReferenceTravelsAndChangesNoPixel();
+    testThePickerTakesTheReferencesOwnColour();
     testImportingAReferenceUndoes();
     testTheLimitsHold();
     testAHostileListIsNotTrusted();

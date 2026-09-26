@@ -7,6 +7,7 @@
 #include "app/image_io.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace fast {
@@ -374,6 +375,43 @@ bool removeReference(Document& doc, const Reference& reference) {
     writeReferences(doc, references);
     doc.endAction();
     return true;
+}
+
+bool referenceColourAt(Document& doc, ls::Vec2i pixel, ls::Color* out) {
+    if (out == nullptr) {
+        return false;
+    }
+    const std::vector<Reference> all = readReferences(doc);
+    for (int pass = 0; pass < 2; ++pass) {
+        const bool behind = pass == 1;
+        for (size_t i = all.size(); i-- > 0;) {
+            const Reference& reference = all[i];
+            if (!reference.visible || reference.behind != behind || reference.scale <= 0.f) {
+                continue;
+            }
+            // The middle of the canvas pixel, in the reference's own pixels.
+            const float u = (static_cast<float>(pixel.x) + 0.5f - reference.x) / reference.scale;
+            const float v = (static_cast<float>(pixel.y) + 0.5f - reference.y) / reference.scale;
+            if (u < 0.f || v < 0.f || u >= static_cast<float>(reference.width) ||
+                v >= static_cast<float>(reference.height)) {
+                continue;
+            }
+            const std::vector<uint8_t>* bytes = referenceBytes(doc, reference);
+            ls::RasterBuffer image;
+            std::string error;
+            if (bytes == nullptr || !decodeImage(*bytes, &image, &error)) {
+                continue;
+            }
+            const ls::Color colour = ls::readPixel(image, static_cast<int32_t>(std::floor(u)),
+                                                   static_cast<int32_t>(std::floor(v)));
+            if (colour.a == 0) {
+                continue;
+            }
+            *out = colour;
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace fast

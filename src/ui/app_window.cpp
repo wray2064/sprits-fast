@@ -2363,10 +2363,15 @@ bool pickInk(Editor& editor, CanvasView& canvas, ls::Vec2i pixel, Ink* out) {
     if (inkAt(editor.doc, editor.sprite, pixel, out)) {
         return true;
     }
-    const ls::Color* seen = canvas.colorAt(pixel);
-    if (seen == nullptr || seen->a == 0) {
+    // Where the artwork draws nothing, a reference shown there gives its own
+    // colour -- the image's pixel, not the faded one on screen.
+    const ls::Color* drawn = canvas.colorAt(pixel);
+    ls::Color fromReference;
+    const bool bare = drawn == nullptr || drawn->a == 0;
+    if (bare && !referenceColourAt(editor.doc, pixel, &fromReference)) {
         return false;
     }
+    const ls::Color* seen = bare ? &fromReference : drawn;
     out->colour = *seen;
     out->role = ls::kColorRoleNone;
     for (const PaletteEntry& entry :

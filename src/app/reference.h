@@ -71,6 +71,13 @@ struct Reference {
     std::string entryName() const { return std::string(kReferencePrefix) + id + ".png"; }
 };
 
+// The colour of the reference image itself at a canvas pixel -- the image's
+// own pixel, not the faded one on screen -- from the topmost visible reference
+// that covers it with something (those in front of the artwork first, then
+// those behind; later imports over earlier). False where none does. What the
+// picker takes where the artwork draws nothing.
+bool referenceColourAt(Document& doc, ls::Vec2i pixel, ls::Color* out);
+
 // The document's references, in the order they were imported.
 std::vector<Reference> readReferences(Document& doc);
 
