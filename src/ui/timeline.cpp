@@ -14,6 +14,7 @@
 // pause before the window appears.
 
 #include "ui/panels.h"
+#include "app/i18n.h"
 #include "ui/theme.h"
 
 #include "app/tracks.h"
@@ -124,7 +125,7 @@ void drawCycleControls(Editor& editor) {
                : editor.cycles[static_cast<size_t>(timeline.activeCycle)].name);
 
     if (ImGui::BeginCombo("##cycle", current.c_str())) {
-        if (ImGui::Selectable("Every frame", timeline.activeCycle < 0)) {
+        if (ImGui::Selectable(tr("Every frame"), timeline.activeCycle < 0)) {
             selectCycle(editor, -1);
         }
         for (int i = 0; i < static_cast<int>(editor.cycles.size()); ++i) {
@@ -142,7 +143,7 @@ void drawCycleControls(Editor& editor) {
 
     ImGui::SameLine();
     ImGui::BeginDisabled(editor.cycles.size() >= kMaxCycles || frameCount == 0);
-    if (ImGui::Button("New")) {
+    if (ImGui::Button(tr("New"))) {
         const int at = addCycle(editor.doc, "cycle " +
                                 std::to_string(editor.cycles.size() + 1), frameCount);
         if (at >= 0) {
@@ -152,14 +153,14 @@ void drawCycleControls(Editor& editor) {
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("A new cycle covering every frame in order.\n"
-                          "It plays straight away; refining it is subtraction.");
+        ImGui::SetTooltip("%s", tr("A new cycle covering every frame in order.\n"
+                          "It plays straight away; refining it is subtraction."));
     }
     ImGui::EndDisabled();
 
     ImGui::SameLine();
     ImGui::BeginDisabled(timeline.activeCycle < 0);
-    if (ImGui::Button("Rename")) {
+    if (ImGui::Button(tr("Rename"))) {
         const std::string& name =
             editor.cycles[static_cast<size_t>(timeline.activeCycle)].name;
         std::snprintf(timeline.cycleNameBuffer, sizeof(timeline.cycleNameBuffer),
@@ -167,7 +168,7 @@ void drawCycleControls(Editor& editor) {
         ImGui::OpenPopup("rename cycle");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Delete##cycle")) {
+    if (ImGui::Button(tr("Delete##cycle"))) {
         if (deleteCycle(editor.doc, timeline.activeCycle, frameCount)) {
             resyncFrames(editor);
             selectCycle(editor, -1);
@@ -213,7 +214,7 @@ void drawCycleControls(Editor& editor) {
         const bool done = ImGui::InputText("##name", timeline.cycleNameBuffer,
                                            sizeof(timeline.cycleNameBuffer),
                                            ImGuiInputTextFlags_EnterReturnsTrue);
-        if (done || ImGui::Button("Rename##ok")) {
+        if (done || ImGui::Button(tr("Rename##ok"))) {
             if (timeline.activeCycle >= 0) {
                 renameCycle(editor.doc, timeline.activeCycle,
                             timeline.cycleNameBuffer, frameCount);
@@ -471,7 +472,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     int last = 0;
     const bool ranged = frameRange(editor, &first, &last);
     ImGui::BeginDisabled(busy || timeline.playing);
-    if (ImGui::Button("+ Frame")) {
+    if (ImGui::Button(tr("+ Frame"))) {
         const int at = ranged ? duplicateFrames(editor.doc, first, last)
                               : duplicateFrame(editor.doc, timeline.activeFrame);
         if (at >= 0) {
@@ -485,12 +486,12 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Duplicate this frame, or the selected run  (Ctrl+Shift+D)\n"
-                          "The copy owns its own drawing.");
+        ImGui::SetTooltip("%s", tr("Duplicate this frame, or the selected run  (Ctrl+Shift+D)\n"
+                          "The copy owns its own drawing."));
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(!tracksOn(editor.doc) || ranged);
-    if (ImGui::Button("+ Linked")) {
+    if (ImGui::Button(tr("+ Linked"))) {
         // A copy whose every layer is the same cel as the original's: drawing
         // on either draws on both.
         editor.doc.beginAction("Duplicate frame, linked");
@@ -514,12 +515,12 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Duplicate this frame with every layer linked to the original: "
+        ImGui::SetTooltip("%s", tr("Duplicate this frame with every layer linked to the original: "
                           "the same cels, so a stroke on either lands on both. Unlink a "
-                          "layer from its row's menu.");
+                          "layer from its row's menu."));
     }
     ImGui::SameLine();
-    if (ImGui::Button("+ Empty")) {
+    if (ImGui::Button(tr("+ Empty"))) {
         const int at = addEmptyFrame(editor, timeline.activeFrame);
         if (at >= 0) {
             resyncFrames(editor);
@@ -528,7 +529,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(editor.frames.size() <= 1);
-    if (ImGui::Button("Delete")) {
+    if (ImGui::Button(tr("Delete"))) {
         const int from = ranged ? first : timeline.activeFrame;
         const int to = ranged ? last : timeline.activeFrame;
         if (deleteFrames(editor.doc, from, to)) {
@@ -542,7 +543,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(!ranged);
-    if (ImGui::Button("Reverse")) {
+    if (ImGui::Button(tr("Reverse"))) {
         if (reverseFrames(editor.doc, first, last)) {
             resyncFrames(editor);
             editor.say("Reversed frames " + std::to_string(first + 1) + " to " +
@@ -557,15 +558,15 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     ImGui::SameLine();
     ImGui::BeginDisabled(!ranged || last - first < 2 || !tracksOn(editor.doc) ||
                          editor.active() == nullptr);
-    if (ImGui::Button("Tween")) {
+    if (ImGui::Button(tr("Tween"))) {
         ImGui::OpenPopup("##tween");
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("The selected layer's transforms, from the first frame of the run\n"
+        ImGui::SetTooltip("%s", tr("The selected layer's transforms, from the first frame of the run\n"
                           "to the last, with every frame between getting the values in\n"
                           "between: rotate, scale, offset and pivot. Give the two end\n"
-                          "frames the same transforms first. Shift+click selects a run.");
+                          "frames the same transforms first. Shift+click selects a run."));
     }
     if (ImGui::BeginPopup("##tween")) {
         const struct { TweenEasing easing; const char* name; } easings[] = {
@@ -615,41 +616,41 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             resyncFrames(editor);
         }
         if (ImGui::IsItemHovered() && ranged) {
-            ImGui::SetTooltip("The hold of every selected frame");
+            ImGui::SetTooltip("%s", tr("The hold of every selected frame"));
         }
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(70.f);
     ImGui::DragFloat("##speed", &timeline.speed, 0.01f, 0.25f, 4.f, "%.2fx");
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Playback speed: a preview at half speed to judge the "
+        ImGui::SetTooltip("%s", tr("Playback speed: a preview at half speed to judge the "
                           "timing, or faster to see the motion. The holds are "
-                          "not changed.");
+                          "not changed."));
     }
     ImGui::SameLine();
-    ImGui::Checkbox("Onion", &timeline.onion);
+    ImGui::Checkbox(tr("Onion"), &timeline.onion);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("The frames either side, faint, under this one.\n"
-                          "Behind in warm, ahead in cool.");
+        ImGui::SetTooltip("%s", tr("The frames either side, faint, under this one.\n"
+                          "Behind in warm, ahead in cool."));
     }
     ImGui::SameLine(0.f, 2.f);
-    if (ImGui::SmallButton("v##onion")) {
+    if (ImGui::SmallButton(tr("v##onion"))) {
         ImGui::OpenPopup("onion-settings");
     }
     if (ImGui::BeginPopup("onion-settings")) {
         ImGui::SetNextItemWidth(120.f);
-        ImGui::SliderInt("behind", &timeline.onionBefore, 0, 4);
+        ImGui::SliderInt(tr("behind"), &timeline.onionBefore, 0, 4);
         ImGui::SetNextItemWidth(120.f);
-        ImGui::SliderInt("ahead", &timeline.onionAfter, 0, 4);
-        ImGui::Checkbox("Neighbours in the cycle", &timeline.onionInCycle);
+        ImGui::SliderInt(tr("ahead"), &timeline.onionAfter, 0, 4);
+        ImGui::Checkbox(tr("Neighbours in the cycle"), &timeline.onionInCycle);
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("The frames the selected cycle plays either side of "
-                              "this one, rather than its neighbours in the strip.");
+            ImGui::SetTooltip("%s", tr("The frames the selected cycle plays either side of "
+                              "this one, rather than its neighbours in the strip."));
         }
-        ImGui::Checkbox("Wrap at the ends", &timeline.onionWraps);
-        ImGui::ColorEdit3("behind##tint", timeline.onionBehind, ImGuiColorEditFlags_NoInputs);
+        ImGui::Checkbox(tr("Wrap at the ends"), &timeline.onionWraps);
+        ImGui::ColorEdit3(tr("behind##tint"), timeline.onionBehind, ImGuiColorEditFlags_NoInputs);
         ImGui::SameLine();
-        ImGui::ColorEdit3("ahead##tint", timeline.onionAhead, ImGuiColorEditFlags_NoInputs);
+        ImGui::ColorEdit3(tr("ahead##tint"), timeline.onionAhead, ImGuiColorEditFlags_NoInputs);
         ImGui::EndPopup();
     }
 
@@ -846,7 +847,7 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
         return;
     }
 
-    theme::sectionHeader("FORMAT");
+    theme::sectionHeader(tr("FORMAT"));
     const char* formats[] = { "GIF", "Animated PNG", "PNG sequence", "WebP" };
     int format = static_cast<int>(settings.format);
     ImGui::SetNextItemWidth(160.f);
@@ -884,9 +885,9 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
         editor.animationFromCycle = false;
     }
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
-    theme::sectionHeader("WHAT PLAYS");
+    theme::sectionHeader(tr("WHAT PLAYS"));
     ImGui::BeginDisabled(!haveCycle);
-    if (ImGui::RadioButton("The selected cycle", editor.animationFromCycle)) {
+    if (ImGui::RadioButton(tr("The selected cycle"), editor.animationFromCycle)) {
         editor.animationFromCycle = true;
     }
     ImGui::EndDisabled();
@@ -895,7 +896,7 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
         const Cycle& cycle = editor.cycles[static_cast<size_t>(editor.timeline.activeCycle)];
         ImGui::TextColored(c.textDim, "(%s)", cycle.name.empty() ? "unnamed" : cycle.name.c_str());
     }
-    if (ImGui::RadioButton("Every frame, in order", !editor.animationFromCycle)) {
+    if (ImGui::RadioButton(tr("Every frame, in order"), !editor.animationFromCycle)) {
         editor.animationFromCycle = false;
     }
 
@@ -917,7 +918,7 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
     ImGui::BeginDisabled(steps.empty());
-    if (ImGui::Button("Choose a file...", ImVec2(150.f, 0.f))) {
+    if (ImGui::Button(tr("Choose a file..."), ImVec2(150.f, 0.f))) {
         showAnimationDialog(editor.files, window, editor.doc,
                             animationExtension(settings.format));
         editor.animationPanelOpen = false;
@@ -925,7 +926,7 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         editor.animationPanelOpen = false;
         ImGui::CloseCurrentPopup();
     }
@@ -956,9 +957,9 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
         editor.sheetFromCycle = false;
     }
 
-    theme::sectionHeader("WHAT GOES IN");
+    theme::sectionHeader(tr("WHAT GOES IN"));
     ImGui::BeginDisabled(!haveCycle);
-    if (ImGui::RadioButton("The selected cycle", editor.sheetFromCycle)) {
+    if (ImGui::RadioButton(tr("The selected cycle"), editor.sheetFromCycle)) {
         editor.sheetFromCycle = true;
     }
     ImGui::EndDisabled();
@@ -969,7 +970,7 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
                            cycle.name.empty() ? "unnamed" : cycle.name.c_str(),
                            static_cast<int>(cycle.frames.size()));
     }
-    if (ImGui::RadioButton("Every frame, in order", !editor.sheetFromCycle)) {
+    if (ImGui::RadioButton(tr("Every frame, in order"), !editor.sheetFromCycle)) {
         editor.sheetFromCycle = false;
     }
 
@@ -978,7 +979,7 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
     const std::vector<int> steps = sheetSteps(editor);
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
-    theme::sectionHeader("ARRANGEMENT");
+    theme::sectionHeader(tr("ARRANGEMENT"));
 
     const char* layouts[] = { "Grid", "One row", "One column" };
     int layout = static_cast<int>(settings.layout);
@@ -1015,19 +1016,19 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
         settings.spacing = static_cast<uint32_t>(std::max(0, spacing));
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Empty pixels between cells, so a texture filter or a mip "
-                          "level does not bleed one frame into the next.");
+        ImGui::SetTooltip("%s", tr("Empty pixels between cells, so a texture filter or a mip "
+                          "level does not bleed one frame into the next."));
     }
-    ImGui::Checkbox("Trim to what is drawn", &settings.trim);
+    ImGui::Checkbox(tr("Trim to what is drawn"), &settings.trim);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Every cell cut to the smallest rectangle holding what any "
+        ImGui::SetTooltip("%s", tr("Every cell cut to the smallest rectangle holding what any "
                           "frame draws -- the same for all, so they still line up. "
-                          "The description says where it was cut from.");
+                          "The description says where it was cut from."));
     }
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
-    theme::sectionHeader("BESIDE THE IMAGE");
-    ImGui::Checkbox("Write a description of the sheet", &settings.writeManifest);
+    theme::sectionHeader(tr("BESIDE THE IMAGE"));
+    ImGui::Checkbox(tr("Write a description of the sheet"), &settings.writeManifest);
     if (settings.writeManifest) {
         const char* formats[] = { "Fast's own", "Aseprite JSON (hash)", "Aseprite JSON (array)" };
         int format = static_cast<int>(settings.manifestFormat);
@@ -1036,25 +1037,25 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
             settings.manifestFormat = static_cast<SheetManifestFormat>(format);
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Fast's own says everything, cycles and repeats included.\n"
+            ImGui::SetTooltip("%s", tr("Fast's own says everything, cycles and repeats included.\n"
                               "The Aseprite layouts are what game-engine importers built "
                               "for\nAseprite already read; cycles become frame tags where "
-                              "they are a run of cells.");
+                              "they are a run of cells."));
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("A small .json beside the PNG: where every cell is, how "
+        ImGui::SetTooltip("%s", tr("A small .json beside the PNG: where every cell is, how "
                           "long it is held,\nand what the cycles are. Without it a "
-                          "consumer has only the picture.");
+                          "consumer has only the picture."));
     }
 
-    ImGui::Checkbox("One pattern across the whole sheet", &settings.patternAcrossSheet);
+    ImGui::Checkbox(tr("One pattern across the whole sheet"), &settings.patternAcrossSheet);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Off: every cell is exactly what exporting that frame "
+        ImGui::SetTooltip("%s", tr("Off: every cell is exactly what exporting that frame "
                           "alone would give.\nOn: dithers and screens run "
                           "continuously across the sheet, so a cell\nno longer "
                           "matches what the editor showed. Nothing else can do "
-                          "this;\nask for it deliberately.");
+                          "this;\nask for it deliberately."));
     }
 
     // What it will actually come out as. Shown before committing, because the
@@ -1081,14 +1082,14 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
     ImGui::BeginDisabled(!workable);
-    if (ImGui::Button("Choose a file...", ImVec2(150.f, 0.f))) {
+    if (ImGui::Button(tr("Choose a file..."), ImVec2(150.f, 0.f))) {
         showSheetDialog(editor.files, window, editor.doc);
         editor.sheetPanelOpen = false;
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         editor.sheetPanelOpen = false;
         ImGui::CloseCurrentPopup();
     }

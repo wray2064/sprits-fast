@@ -43,7 +43,12 @@ int main(int argc, char** argv) {
     CHECK(std::strcmp(tr("a = b"), "a igual a b") == 0);
     CHECK(std::strcmp(tr("Two\nlines"), "Dos\nlíneas") == 0);
     CHECK(std::strcmp(tr("Quit"), "Quit") == 0);           // missing: English
+    // A label with an ID after "##": the words translated, the ID kept.
+    CHECK(std::strcmp(tr("File##menu"), "Archivo##menu") == 0);
+    CHECK(std::strcmp(tr("Quit##menu"), "Quit##menu") == 0);
+    CHECK(std::strcmp(tr("##alone"), "##alone") == 0);
     clearCatalogue();
+    CHECK(std::strcmp(tr("File##menu"), "File##menu") == 0);
     CHECK(std::strcmp(tr("File"), "File") == 0);
 
     // The shipped Spanish catalogue, when the tests are given its folder.
@@ -53,8 +58,10 @@ int main(int argc, char** argv) {
         const std::string path = joinPath(argv[1], "es.txt");
         CHECK(readFile(path, bytes, &error));
         const size_t entries = loadCatalogue(std::string(bytes.begin(), bytes.end()));
-        CHECK(entries > 150);
+        CHECK(entries > 400);
         CHECK(std::strcmp(tr("Merge down"), "Combinar hacia abajo") == 0);
+        CHECK(std::strcmp(tr("= current"), "= actual") == 0);
+        CHECK(std::strcmp(tr("Flip X"), "Voltear X") == 0);
         CHECK(languagesIn(argv[1]) == std::vector<std::string>({ "es" }));
         clearCatalogue();
     }

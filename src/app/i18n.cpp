@@ -6,11 +6,18 @@
 #include "app/file_io.h"
 
 #include <algorithm>
+#include <cstring>
 #include <unordered_map>
 
 namespace fast {
 
 namespace {
+
+// Labels with an ID after "##", their words translated, made as asked for.
+std::unordered_map<std::string, std::string>& withIds() {
+    static std::unordered_map<std::string, std::string> made;
+    return made;
+}
 
 std::unordered_map<std::string, std::string>& catalogue() {
     static std::unordered_map<std::string, std::string> table;
@@ -81,11 +88,13 @@ size_t loadCatalogue(const std::string& text) {
         table[english] = translated;
     }
     catalogue() = std::move(table);
+    withIds().clear();
     return catalogue().size();
 }
 
 void clearCatalogue() {
     catalogue().clear();
+    withIds().clear();
 }
 
 const char* tr(const char* english) {
@@ -93,7 +102,24 @@ const char* tr(const char* english) {
         return english;
     }
     const auto it = catalogue().find(english);
-    return it == catalogue().end() ? english : it->second.c_str();
+    if (it != catalogue().end()) {
+        return it->second.c_str();
+    }
+    // "Add##layer": the words translated, the ID after the ## kept, so a
+    // widget is the same widget in every language. Made once and kept.
+    const char* hashes = std::strstr(english, "##");
+    if (hashes == nullptr || hashes == english) {
+        return english;
+    }
+    auto made = withIds().find(english);
+    if (made == withIds().end()) {
+        const auto words = catalogue().find(std::string(english, hashes));
+        if (words == catalogue().end()) {
+            return english;
+        }
+        made = withIds().emplace(english, words->second + hashes).first;
+    }
+    return made->second.c_str();
 }
 
 std::vector<std::string> languagesIn(const std::string& folder) {

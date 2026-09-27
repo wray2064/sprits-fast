@@ -148,13 +148,13 @@ namespace {
 void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& layer) {
     DitherSettings settings;
     if (!readDitherSettings(editor.doc, layer, &settings)) {
-        ImGui::TextDisabled("This layer is not dithered.");
+        ImGui::TextDisabled("%s", tr("This layer is not dithered."));
         return;
     }
 
     bool changed = false;
 
-    theme::sectionHeader("PATTERN");
+    theme::sectionHeader(tr("PATTERN"));
     int pattern = static_cast<int>(settings.pattern);
     ImGui::SetNextItemWidth(-1.f);
     if (ImGui::Combo("##pattern", &pattern, ditherPatternNames().data(),
@@ -164,10 +164,10 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
         singleAction(editor, "Dither pattern");
     }
     ImGui::SameLine();
-    theme::hint("Threshold matrices, not stamps. The same tile works at any "
-                "density and at every step of a gradient.");
+    theme::hint(tr("Threshold matrices, not stamps. The same tile works at any "
+                "density and at every step of a gradient."));
 
-    theme::sectionHeader("VALUE");
+    theme::sectionHeader(tr("VALUE"));
     int modulation = static_cast<int>(settings.modulation);
     ImGui::SetNextItemWidth(-1.f);
     if (ImGui::Combo("##modulation", &modulation, ditherModulationNames().data(),
@@ -177,9 +177,9 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
         singleAction(editor, "Dither value");
     }
     ImGui::SameLine();
-    theme::hint("Constant is a flat screen. The others vary the value across "
+    theme::hint(tr("Constant is a flat screen. The others vary the value across "
                 "the shape, which is what makes a gradient out of dithered "
-                "colour.");
+                "colour."));
 
     if (settings.modulation == ls::DitherModulation::Constant) {
         ImGui::SetNextItemWidth(-1.f);
@@ -204,7 +204,7 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
         }
     }
 
-    theme::sectionHeader("ANCHOR");
+    theme::sectionHeader(tr("ANCHOR"));
     int anchor = static_cast<int>(settings.anchor);
     ImGui::SetNextItemWidth(-1.f);
     if (ImGui::Combo("##anchor", &anchor, patternAnchorNames().data(),
@@ -222,7 +222,7 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
             : "The screen stays put; the artwork moves across it.");
     ImGui::PopStyleColor();
 
-    theme::sectionHeader("RAMP");
+    theme::sectionHeader(tr("RAMP"));
 
     // One row per end: the colour, the slot it follows if any, and a button
     // that points it at the current colour -- a slot when the colour came from
@@ -242,13 +242,13 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
             const std::string slot = "slot " + std::to_string(role);
             ImGui::TextColored(theme::palette().accent, "%s", slot.c_str());
             ImGui::SameLine();
-            if (ImGui::SmallButton("detach")) {
+            if (ImGui::SmallButton(tr("detach"))) {
                 role = ls::kColorRoleNone;
                 changed = true;
             }
             ImGui::SameLine();
         }
-        if (ImGui::SmallButton("= current")) {
+        if (ImGui::SmallButton(tr("= current"))) {
             const Ink ink = foregroundInk(editor);
             colour = ink.colour;
             role = ink.role;
@@ -256,17 +256,17 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
             singleAction(editor, "Ramp end from the current colour");
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Set this end to the current colour -- its palette "
-                              "slot, when it has one.");
+            ImGui::SetTooltip("%s", tr("Set this end to the current colour -- its palette "
+                              "slot, when it has one."));
         }
         ImGui::PopID();
     };
     rampEnd("dark",  settings.from, settings.fromRole);
     ImGui::SameLine();
-    theme::hint("Each end is a colour or a palette slot. Pick a slot in the "
+    theme::hint(tr("Each end is a colour or a palette slot. Pick a slot in the "
                 "palette, then press = current on an end to point it there -- "
                 "the dither then recolours with a palette change like "
-                "everything else.");
+                "everything else."));
     rampEnd("light", settings.to,   settings.toRole);
 
     if (changed) {
@@ -285,20 +285,20 @@ void drawInkControls(Editor& editor);
 
 void drawToolPanel(Editor& editor) {
     if (isSelectionTool(editor.tool) || editor.tool == Tool::Move) {
-        theme::sectionHeader("SELECTION");
+        theme::sectionHeader(tr("SELECTION"));
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("Shift adds, Alt subtracts, Shift+Alt intersects. Drag "
+        ImGui::TextWrapped("%s", tr("Shift adds, Alt subtracts, Shift+Alt intersects. Drag "
                            "inside the selection to move what it holds; arrows "
                            "nudge a pixel, Shift+arrows eight. Enter drops a move, "
                            "Escape takes it back. Ctrl+C, Ctrl+X and Ctrl+V work on "
-                           "the selected pixels; Delete clears them.");
+                           "the selected pixels; Delete clears them."));
         ImGui::PopStyleColor();
         if (editor.tool == Tool::Wand) {
-            ImGui::Checkbox("Follow diagonals##wand", &editor.wand.diagonal);
-            ImGui::Checkbox("Whole canvas##wand", &editor.wand.global);
+            ImGui::Checkbox(tr("Follow diagonals##wand"), &editor.wand.diagonal);
+            ImGui::Checkbox(tr("Whole canvas##wand"), &editor.wand.global);
             ImGui::SameLine();
-            theme::hint("Every pixel of the colour clicked, wherever it is, rather "
-                        "than only the area touching the click.");
+            theme::hint(tr("Every pixel of the colour clicked, wherever it is, rather "
+                        "than only the area touching the click."));
             ImGui::SetNextItemWidth(-1.f);
             ImGui::SliderInt("##wandtolerance", &editor.wand.tolerance, 0, 64,
                              "tolerance  %d");
@@ -311,13 +311,13 @@ void drawToolPanel(Editor& editor) {
     }
 
     if (editor.tool == Tool::Bucket) {
-        theme::sectionHeader("FILL");
-        ImGui::Checkbox("Follow diagonals", &editor.bucket.diagonal);
+        theme::sectionHeader(tr("FILL"));
+        ImGui::Checkbox(tr("Follow diagonals"), &editor.bucket.diagonal);
         ImGui::SameLine();
-        theme::hint("Off by default. A one-pixel diagonal is a wall in pixel "
+        theme::hint(tr("Off by default. A one-pixel diagonal is a wall in pixel "
                     "art, and leaking through it is the classic paint-bucket "
-                    "annoyance.");
-        ImGui::Checkbox("Whole canvas", &editor.bucket.global);
+                    "annoyance."));
+        ImGui::Checkbox(tr("Whole canvas"), &editor.bucket.global);
         ImGui::SetNextItemWidth(-1.f);
         ImGui::SliderInt("##tolerance", &editor.bucket.tolerance, 0, 64,
                          "tolerance  %d");
@@ -325,7 +325,7 @@ void drawToolPanel(Editor& editor) {
     }
 
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Spray) {
-        theme::sectionHeader("INK");
+        theme::sectionHeader(tr("INK"));
         const char* modes[] = { "Simple", "Lock alpha", "Replace colour", "Shading" };
         int mode = static_cast<int>(editor.inkMode);
         ImGui::SetNextItemWidth(-1.f);
@@ -352,7 +352,7 @@ void drawToolPanel(Editor& editor) {
     }
 
     if (editor.tool == Tool::Gradient) {
-        theme::sectionHeader("GRADIENT");
+        theme::sectionHeader(tr("GRADIENT"));
         int pattern = static_cast<int>(editor.dither.pattern);
         ImGui::SetNextItemWidth(-1.f);
         if (ImGui::Combo("##gradpattern", &pattern, ditherPatternNames().data(),
@@ -360,16 +360,16 @@ void drawToolPanel(Editor& editor) {
             editor.dither.pattern = static_cast<ls::DitherPatternKind>(pattern);
         }
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("From the left colour to the right one, along the drag. "
+        ImGui::TextWrapped("%s", tr("From the left colour to the right one, along the drag. "
                            "Inside the selection when there is one, otherwise the "
                            "area of the colour under the press, as a fill would "
-                           "find it.");
+                           "find it."));
         ImGui::PopStyleColor();
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 
     if (editor.tool == Tool::Spray) {
-        theme::sectionHeader("SPRAY");
+        theme::sectionHeader(tr("SPRAY"));
         ImGui::SetNextItemWidth(-1.f);
         ImGui::SliderInt("##sprayradius", &editor.sprayRadius, 1, 32, "reach  %d");
         ImGui::SetNextItemWidth(-1.f);
@@ -378,62 +378,62 @@ void drawToolPanel(Editor& editor) {
     }
 
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser) {
-        theme::sectionHeader("BRUSH");
+        theme::sectionHeader(tr("BRUSH"));
         ImGui::SetNextItemWidth(-1.f);
         ImGui::SliderInt("##size", &editor.brush.size, 1, kMaxBrushSize, "size  %d");
         ImGui::SameLine();
-        theme::hint("Shift+] and Shift+[ change it from the keyboard. Even "
-                    "sizes hang right and down from the pointer's pixel.");
+        theme::hint(tr("Shift+] and Shift+[ change it from the keyboard. Even "
+                    "sizes hang right and down from the pointer's pixel."));
         ImGui::BeginDisabled(editor.brush.size < 3);
-        ImGui::Checkbox("Round", &editor.brush.round);
+        ImGui::Checkbox(tr("Round"), &editor.brush.round);
         ImGui::EndDisabled();
         if (editor.tool == Tool::Pencil) {
             ImGui::SameLine();
             ImGui::BeginDisabled(editor.brush.size != 1);
-            ImGui::Checkbox("Pixel-perfect", &editor.brush.pixelPerfect);
+            ImGui::Checkbox(tr("Pixel-perfect"), &editor.brush.pixelPerfect);
             ImGui::EndDisabled();
             ImGui::SameLine();
-            theme::hint("At one pixel: the corner of every L in the stroke is "
+            theme::hint(tr("At one pixel: the corner of every L in the stroke is "
                         "dropped, so a diagonal reads as a line rather than a "
                         "staircase with doubled steps. The last pixel lands when "
-                        "the stroke ends.");
+                        "the stroke ends."));
         }
         if (!editor.customBrush.empty() && editor.tool == Tool::Pencil) {
-            ImGui::Checkbox("Stamp the custom brush", &editor.customBrushOn);
+            ImGui::Checkbox(tr("Stamp the custom brush"), &editor.customBrushOn);
             if (editor.customBrushOn) {
                 ImGui::SameLine();
-                if (ImGui::SmallButton("forget it")) {
+                if (ImGui::SmallButton(tr("forget it"))) {
                     editor.customBrush = PixelClip{};
                     editor.customBrushOn = false;
                 }
-                if (ImGui::RadioButton("its own colours", editor.customBrushOwnColours)) {
+                if (ImGui::RadioButton(tr("its own colours"), editor.customBrushOwnColours)) {
                     editor.customBrushOwnColours = true;
                 }
                 ImGui::SameLine();
-                if (ImGui::RadioButton("the current colour", !editor.customBrushOwnColours)) {
+                if (ImGui::RadioButton(tr("the current colour"), !editor.customBrushOwnColours)) {
                     editor.customBrushOwnColours = false;
                 }
             }
         } else if (editor.tool == Tool::Pencil) {
-            ImGui::TextDisabled("Select pixels and press Ctrl+B for a brush of them.");
+            ImGui::TextDisabled("%s", tr("Select pixels and press Ctrl+B for a brush of them."));
         }
         ImGui::SetNextItemWidth(-1.f);
         ImGui::SliderInt("##stabiliser", &editor.brush.stabiliser, 0, 32,
                          editor.brush.stabiliser == 0 ? "stabiliser off" : "stabiliser %d");
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("The line follows a point pulled along behind the pointer "
+            ImGui::SetTooltip("%s", tr("The line follows a point pulled along behind the pointer "
                               "on a string this long,\nso a shaky hand draws a smooth "
-                              "curve. 0 turns it off.");
+                              "curve. 0 turns it off."));
         }
         if (editor.pen.seen) {
-            ImGui::Checkbox("Pen pressure sets size", &editor.brush.pressureSize);
+            ImGui::Checkbox(tr("Pen pressure sets size"), &editor.brush.pressureSize);
             ImGui::SameLine();
-            theme::hint("Light touch, one pixel; full pressure, the size above. "
-                        "The pen's eraser end erases while it touches.");
+            theme::hint(tr("Light touch, one pixel; full pressure, the size above. "
+                        "The pen's eraser end erases while it touches."));
         } else {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-            ImGui::TextWrapped("A pen tablet works as is; bring one near and "
-                               "pressure appears here.");
+            ImGui::TextWrapped("%s", tr("A pen tablet works as is; bring one near and "
+                               "pressure appears here."));
             ImGui::PopStyleColor();
         }
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
@@ -441,9 +441,9 @@ void drawToolPanel(Editor& editor) {
 
     if (editor.tool == Tool::Rectangle || editor.tool == Tool::Ellipse ||
         editor.tool == Tool::Line) {
-        theme::sectionHeader("SHAPES");
+        theme::sectionHeader(tr("SHAPES"));
         if (editor.tool != Tool::Line) {
-            ImGui::Checkbox("Outline only", &editor.shapeOutline);
+            ImGui::Checkbox(tr("Outline only"), &editor.shapeOutline);
             if (editor.shapeOutline) {
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(-1.f);
@@ -451,26 +451,26 @@ void drawToolPanel(Editor& editor) {
                                    "width %.0f");
             }
         }
-        ImGui::Checkbox("Each shape on its own layer", &editor.shapesOnOwnLayer);
+        ImGui::Checkbox(tr("Each shape on its own layer"), &editor.shapesOnOwnLayer);
         ImGui::SameLine();
-        theme::hint("Off: a shape joins the active layer as one of its "
+        theme::hint(tr("Off: a shape joins the active layer as one of its "
                     "elements, beside the pixels and the other shapes, and "
                     "stays editable in the Shape panel. On: every shape is a "
-                    "layer of its own, listed in the stack.");
+                    "layer of its own, listed in the stack."));
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser ||
         editor.tool == Tool::Bucket || editor.tool == Tool::Spray) {
-        theme::sectionHeader("SYMMETRY");
-        ImGui::Checkbox("Across", &editor.symmetryAcross);
+        theme::sectionHeader(tr("SYMMETRY"));
+        ImGui::Checkbox(tr("Across"), &editor.symmetryAcross);
         ImGui::SameLine();
-        ImGui::Checkbox("Down", &editor.symmetryDown);
+        ImGui::Checkbox(tr("Down"), &editor.symmetryDown);
         ImGui::SameLine();
-        theme::hint("Drawing on one side of an axis draws on the other too. The "
+        theme::hint(tr("Drawing on one side of an axis draws on the other too. The "
                     "axes start at the middle of the canvas; move them here. "
                     "Shift+click with the pencil draws a straight line from "
-                    "where the last stroke ended.");
+                    "where the last stroke ended."));
         const Symmetry now = symmetryNow(editor);
         if (editor.symmetryAcross) {
             float x = static_cast<float>(now.axisX) * 0.5f;
@@ -502,22 +502,22 @@ namespace {
 // recolouring what is already drawn is the element panel's job, or the
 // palette's.
 void drawInkControls(Editor& editor) {
-    theme::sectionHeader("COLOUR");
+    theme::sectionHeader(tr("COLOUR"));
 
     const auto toU32 = [](const float rgba[4]) {
         return ImGui::GetColorU32(ImVec4(rgba[0], rgba[1], rgba[2], rgba[3]));
     };
     theme::swatch("##fore", toU32(editor.color), true, 30.f);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("What the left button paints with");
+        ImGui::SetTooltip("%s", tr("What the left button paints with"));
     }
     ImGui::SameLine();
     if (theme::swatch("##back", toU32(editor.backColor), false, 22.f)) {
         swapInks(editor);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("What the right button paints with. Click, or press X, "
-                          "to swap the two.");
+        ImGui::SetTooltip("%s", tr("What the right button paints with. Click, or press X, "
+                          "to swap the two."));
     }
     ImGui::SameLine();
     const auto describe = [&](const float rgba[4], ls::ColorRole role) {
@@ -534,10 +534,10 @@ void drawInkControls(Editor& editor) {
     ImGui::TextDisabled("%s", describe(editor.backColor, editor.backRole).c_str());
     ImGui::EndGroup();
     ImGui::SameLine();
-    theme::hint("A colour taken from the palette paints through its slot, so "
+    theme::hint(tr("A colour taken from the palette paints through its slot, so "
                 "what you draw with it recolours when the slot changes. A colour "
                 "picked here is a value of its own. Right-click paints with the "
-                "second colour.");
+                "second colour."));
 
     // Smaller than the column: the palette under it is used more often than
     // the picker, and a picker the width of the panel pushes it off screen.
@@ -605,8 +605,8 @@ void drawPaletteQuickRow(Editor& editor, CanvasView& canvas,
         ImGui::EndCombo();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("The palette every frame uses. Switching it recolours "
-                          "the whole animation in one step, from the drawing.");
+        ImGui::SetTooltip("%s", tr("The palette every frame uses. Switching it recolours "
+                          "the whole animation in one step, from the drawing."));
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(palettes.size() < 2);
@@ -640,7 +640,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
                      const std::vector<PaletteInfo>& palettes,
                      ls::PaletteId documents) {
     ImGui::SetNextItemOpen(editor.palettesOpen, ImGuiCond_Always);
-    const bool open = ImGui::CollapsingHeader("Palettes");
+    const bool open = ImGui::CollapsingHeader(tr("Palettes"));
     editor.palettesOpen = open;
     if (!open) {
         return;
@@ -673,7 +673,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
                 swapPalette(editor, canvas, info.id);
             }
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Use this palette for every frame");
+                ImGui::SetTooltip("%s", tr("Use this palette for every frame"));
             }
             ImGui::SameLine();
             ImGui::Selectable(info.name.c_str(), false,
@@ -688,7 +688,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
                 ImGui::SetTooltip("%zu colour(s). Double-click to rename.", info.colours);
             }
             ImGui::SameLine();
-            if (ImGui::SmallButton("copy")) {
+            if (ImGui::SmallButton(tr("copy"))) {
                 editor.doc.beginAction("Copy palette");
                 const ls::PaletteId made =
                     addPalette(editor.doc, info.name + " copy", info.id);
@@ -699,7 +699,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
             }
             ImGui::SameLine();
             ImGui::BeginDisabled(palettes.size() < 2);
-            if (ImGui::SmallButton("x")) {
+            if (ImGui::SmallButton(tr("x"))) {
                 editor.doc.beginAction("Delete palette");
                 if (deletePalette(editor.doc, info.id)) {
                     editor.doc.endAction();
@@ -721,7 +721,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
         ImGui::PopID();
     }
 
-    if (ImGui::Button("New palette", ImVec2(-1.f, 0.f))) {
+    if (ImGui::Button(tr("New palette"), ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("New palette");
         const ls::PaletteId made = addPalette(editor.doc, "palette " +
                                               std::to_string(palettes.size() + 1),
@@ -732,9 +732,9 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("A copy of the current palette, to change some slots "
+        ImGui::SetTooltip("%s", tr("A copy of the current palette, to change some slots "
                           "of. Every layer keeps its slots, so the copy is a "
-                          "recolour waiting to happen.");
+                          "recolour waiting to happen."));
     }
 
     // The frame's own binding. Per frame, because that is what makes a flash
@@ -750,7 +750,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-1.f);
     if (ImGui::BeginCombo("##frame-palette", ownName)) {
-        if (ImGui::Selectable("the document's", !own.valid())) {
+        if (ImGui::Selectable(tr("the document's"), !own.valid())) {
             if (own.valid()) {
                 editor.doc.beginAction("Frame follows the document's palette");
                 bindFrame(editor.doc, sprite, ls::PaletteId{});
@@ -773,9 +773,9 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
         ImGui::EndCombo();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("A palette for this frame alone. It sits out the "
+        ImGui::SetTooltip("%s", tr("A palette for this frame alone. It sits out the "
                           "swap above -- a flash frame -- and one per frame "
-                          "is colour cycling.");
+                          "is colour cycling."));
     }
 }
 
@@ -790,7 +790,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const std::vector<PaletteEntry> entries = paletteEntries(editor.doc, shown);
 
     if (palettes.empty() || !shown.valid()) {
-        ImGui::TextDisabled("No palette.");
+        ImGui::TextDisabled("%s", tr("No palette."));
         return;
     }
 
@@ -908,11 +908,11 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             if (editor.confirmRemoveSlot == entry.role) {
                 // Something paints through it. Say what happens, and ask.
                 ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
-                ImGui::TextWrapped("Layers use this slot. They will keep the "
+                ImGui::TextWrapped("%s", tr("Layers use this slot. They will keep the "
                                    "colour they show now and stop following "
-                                   "the palette.");
+                                   "the palette."));
                 ImGui::PopStyleColor();
-                if (ImGui::Button("Remove anyway")) {
+                if (ImGui::Button(tr("Remove anyway"))) {
                     editor.doc.beginAction("Remove palette slot");
                     removePaletteEntry(editor.doc, shown, entry.role);
                     editor.doc.endAction();
@@ -921,10 +921,10 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("Keep it")) {
+                if (ImGui::Button(tr("Keep it"))) {
                     editor.confirmRemoveSlot = ls::kColorRoleNone;
                 }
-            } else if (ImGui::Button("Remove slot")) {
+            } else if (ImGui::Button(tr("Remove slot"))) {
                 if (inUse) {
                     editor.confirmRemoveSlot = entry.role;
                 } else {
@@ -936,8 +936,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 }
             }
             if (ImGui::IsItemHovered() && inUse && editor.confirmRemoveSlot != entry.role) {
-                ImGui::SetTooltip("Something paints through this slot; you will "
-                                  "be asked first.");
+                ImGui::SetTooltip("%s", tr("Something paints through this slot; you will "
+                                  "be asked first."));
             }
             ImGui::EndPopup();
         } else if (editor.renamingSlot == entry.role) {
@@ -1012,7 +1012,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::PopID();
         }
         ImGui::PopStyleVar();
-        if (ImGui::SmallButton("Keep these shades as slots")) {
+        if (ImGui::SmallButton(tr("Keep these shades as slots"))) {
             editor.doc.beginAction("Add shades");
             int added = 0;
             for (const ls::Color& shade : shades) {
@@ -1032,7 +1032,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
     ImGui::Dummy(ImVec2(0.f, 4.f));
 
-    if (ImGui::Button("Add current colour", ImVec2(-1.f, 0.f))) {
+    if (ImGui::Button(tr("Add current colour"), ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("Add palette colour");
         const ls::ColorRole added =
             addPaletteEntry(editor.doc, editor.sprite, toColor(editor.color));
@@ -1049,28 +1049,28 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // palette, which is what loading a palette means everywhere else -- and
     // it recolours a sprite drawn through roles, which is the point of them.
     const float half = (ImGui::GetContentRegionAvail().x - theme::metrics().itemSpacing) * 0.5f;
-    if (ImGui::Button("Load...", ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Load..."), ImVec2(half, 0.f))) {
         showImportPaletteDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip(".gpl from GIMP or Aseprite, or .hex from Lospec.\n"
+        ImGui::SetTooltip("%s", tr(".gpl from GIMP or Aseprite, or .hex from Lospec.\n"
                           "Replaces the palette this frame uses; layers drawn "
-                          "through slots recolour.");
+                          "through slots recolour."));
     }
     ImGui::SameLine();
-    if (ImGui::Button("Save...", ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Save..."), ImVec2(half, 0.f))) {
         showExportPaletteDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip(".gpl keeps the slot names; .hex, .pal and .act are just "
-                          "the colours.");
+        ImGui::SetTooltip("%s", tr(".gpl keeps the slot names; .hex, .pal and .act are just "
+                          "the colours."));
     }
 
     // Arranging and building: sort, a ramp between the two colours, an
     // adjustment of the whole palette, and the presets that ship with Fast.
     const float quarter = (ImGui::GetContentRegionAvail().x -
                            theme::metrics().itemSpacing * 3.f) * 0.25f;
-    if (ImGui::Button("Sort", ImVec2(quarter, 0.f))) {
+    if (ImGui::Button(tr("Sort"), ImVec2(quarter, 0.f))) {
         ImGui::OpenPopup("sort-palette");
     }
     if (ImGui::BeginPopup("sort-palette")) {
@@ -1092,7 +1092,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                           editor.backRole != ls::kColorRoleNone &&
                           editor.inkRole != editor.backRole;
     ImGui::BeginDisabled(!rampable);
-    if (ImGui::Button("Ramp", ImVec2(quarter, 0.f))) {
+    if (ImGui::Button(tr("Ramp"), ImVec2(quarter, 0.f))) {
         ImGui::OpenPopup("ramp-palette");
     }
     ImGui::EndDisabled();
@@ -1104,8 +1104,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (ImGui::BeginPopup("ramp-palette")) {
         static int steps = 3;
         ImGui::SetNextItemWidth(120.f);
-        ImGui::SliderInt("steps", &steps, 1, 16);
-        if (ImGui::Button("Add the ramp")) {
+        ImGui::SliderInt(tr("steps"), &steps, 1, 16);
+        if (ImGui::Button(tr("Add the ramp"))) {
             editor.doc.beginAction("Palette ramp");
             const std::vector<ls::ColorRole> made =
                 addRampBetween(editor.doc, shown, editor.inkRole, editor.backRole, steps);
@@ -1116,27 +1116,27 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Adjust", ImVec2(quarter, 0.f))) {
+    if (ImGui::Button(tr("Adjust"), ImVec2(quarter, 0.f))) {
         editor.paletteAdjust = Editor::PaletteAdjust{};
         editor.paletteAdjust.base = entries;
         ImGui::OpenPopup("adjust-palette");
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Turn the hue, and push saturation and lightness, of every "
+        ImGui::SetTooltip("%s", tr("Turn the hue, and push saturation and lightness, of every "
                           "slot at once -- a recolour of everything painted through "
-                          "them, from the drawing.");
+                          "them, from the drawing."));
     }
     if (ImGui::BeginPopup("adjust-palette")) {
         Editor::PaletteAdjust& adjust = editor.paletteAdjust;
         bool changed = false;
         ImGui::SetNextItemWidth(200.f);
-        changed |= ImGui::SliderFloat("hue", &adjust.hue, -180.f, 180.f, "%.0f deg");
+        changed |= ImGui::SliderFloat(tr("hue"), &adjust.hue, -180.f, 180.f, "%.0f deg");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         ImGui::SetNextItemWidth(200.f);
-        changed |= ImGui::SliderFloat("saturation", &adjust.saturation, -1.f, 1.f, "%.2f");
+        changed |= ImGui::SliderFloat(tr("saturation"), &adjust.saturation, -1.f, 1.f, "%.2f");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         ImGui::SetNextItemWidth(200.f);
-        changed |= ImGui::SliderFloat("lightness", &adjust.lightness, -1.f, 1.f, "%.2f");
+        changed |= ImGui::SliderFloat(tr("lightness"), &adjust.lightness, -1.f, 1.f, "%.2f");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         if (changed) {
             adjustPalette(editor.doc, shown, adjust.base, adjust.hue, adjust.saturation,
@@ -1144,15 +1144,15 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             refreshInks(editor);
             canvas.invalidate();
         }
-        ImGui::TextDisabled("From the palette as it was when this opened.");
+        ImGui::TextDisabled("%s", tr("From the palette as it was when this opened."));
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Presets", ImVec2(quarter, 0.f))) {
+    if (ImGui::Button(tr("Presets"), ImVec2(quarter, 0.f))) {
         ImGui::OpenPopup("palette-presets");
     }
     if (ImGui::BeginPopup("palette-presets")) {
-        ImGui::TextDisabled("Replaces this palette, as loading a file does.");
+        ImGui::TextDisabled("%s", tr("Replaces this palette, as loading a file does."));
         for (const PalettePreset& preset : palettePresets()) {
             const std::string label = preset.name + "  (" +
                                       std::to_string(preset.colours.size()) + ")";
@@ -1176,7 +1176,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::EndPopup();
     }
 
-    if (ImGui::Button("Make every colour a slot", ImVec2(-1.f, 0.f))) {
+    if (ImGui::Button(tr("Make every colour a slot"), ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("Colours to slots");
         const int made = slotsFromColours(editor.doc, shown);
         if (made > 0) {
@@ -1188,16 +1188,16 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Every colour painted as a value of its own, on every "
+        ImGui::SetTooltip("%s", tr("Every colour painted as a value of its own, on every "
                           "frame, becomes a palette slot -- one that already has "
                           "the colour, or a new one. After this the palette "
-                          "recolours the whole sprite.");
+                          "recolours the whole sprite."));
     }
 
     if (current != ls::kColorRoleNone) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("Editing a swatch changes every layer that uses it, "
-                           "from the drawing rather than over it.");
+        ImGui::TextWrapped("%s", tr("Editing a swatch changes every layer that uses it, "
+                           "from the drawing rather than over it."));
         ImGui::PopStyleColor();
     }
 
@@ -1253,7 +1253,7 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
     // Solid or dithered is a property of this element, since it is the rule
     // that colours this drawing. Switching does not touch the drawing.
     bool dithered = layerIsDithered(editor.doc, target);
-    if (ImGui::Checkbox("Dithered fill", &dithered)) {
+    if (ImGui::Checkbox(tr("Dithered fill"), &dithered)) {
         editor.doc.beginAction(dithered ? "Dither the pixels" : "Solid fill");
         Ink was;
         const bool hadInk = inkOfElement(editor.doc, target.fill, &was);
@@ -1281,16 +1281,16 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
                             : "Back to a solid fill, drawing intact");
     }
     ImGui::SameLine();
-    theme::hint("A dither compares a value against a threshold matrix and picks "
+    theme::hint(tr("A dither compares a value against a threshold matrix and picks "
                 "between two ramp stops. Switching back and forth costs "
-                "nothing: the drawing is never touched.");
+                "nothing: the drawing is never touched."));
 
     if (dithered) {
-        ImGui::Checkbox("Paint with this dither", &editor.paintIntoElement);
+        ImGui::Checkbox(tr("Paint with this dither"), &editor.paintIntoElement);
         ImGui::SameLine();
-        theme::hint("On: the pencil and the bucket paint into this element, so "
+        theme::hint(tr("On: the pencil and the bucket paint into this element, so "
                     "what you draw takes the dither. Off: they paint the "
-                    "current colour, as usual.");
+                    "current colour, as usual."));
         ImGui::Dummy(ImVec2(0.f, 4.f));
         drawDitherControls(editor, canvas, target);
         return;
@@ -1314,7 +1314,7 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
                                "longer has, so they show their own colour.",
                                ink.role);
             ImGui::PopStyleColor();
-            if (ImGui::Button("Put the slot back", ImVec2(-1.f, 0.f))) {
+            if (ImGui::Button(tr("Put the slot back"), ImVec2(-1.f, 0.f))) {
                 editor.doc.beginAction("Restore palette slot");
                 setPaletteEntry(editor.doc, palette, ink.role, ink.colour);
                 editor.doc.endAction();
@@ -1327,7 +1327,7 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
             ImGui::TextWrapped("Painted through slot %u. Edit the swatch to "
                                "recolour everything using it.", ink.role);
             ImGui::PopStyleColor();
-            if (ImGui::SmallButton("Use its own colour")) {
+            if (ImGui::SmallButton(tr("Use its own colour"))) {
                 // Keep what is on screen: detaching should not move the colour.
                 Ink own;
                 own.colour = resolved;
@@ -1341,7 +1341,7 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
     } else {
         float rgba[4];
         fromColor(ink.colour, rgba);
-        if (ImGui::ColorEdit4("colour##pixels", rgba, ImGuiColorEditFlags_NoInputs)) {
+        if (ImGui::ColorEdit4(tr("colour##pixels"), rgba, ImGuiColorEditFlags_NoInputs)) {
             Ink changed = ink;
             changed.colour = toColor(rgba);
             setElementInk(editor.doc, target.fill, changed);
@@ -1352,7 +1352,7 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
     }
 
     ImGui::SameLine();
-    if (ImGui::SmallButton("= current")) {
+    if (ImGui::SmallButton(tr("= current"))) {
         editor.doc.beginAction("Recolour pixels");
         setElementInk(editor.doc, target.fill, foregroundInk(editor));
         editor.doc.endAction();
@@ -1360,8 +1360,8 @@ void drawPixelsProperties(Editor& editor, CanvasView& canvas, PaintLayer target)
         editor.say("These pixels take the current colour; the drawing is untouched");
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Give these pixels the current colour -- its slot, when "
-                          "it has one. A replace-colour that can be changed back.");
+        ImGui::SetTooltip("%s", tr("Give these pixels the current colour -- its slot, when "
+                          "it has one. A replace-colour that can be changed back."));
     }
 }
 
@@ -1408,7 +1408,7 @@ static void drawElementList(Editor& editor, CanvasView& canvas, PaintLayer* laye
             selected = &element;
         }
         ImGui::SameLine();
-        if (ImGui::SmallButton("x")) {
+        if (ImGui::SmallButton(tr("x"))) {
             if (removeElement(editor.doc, layer->layer, element)) {
                 editor.activeElement = ls::OperationId{};
                 editor.paintIntoElement = false;
@@ -1420,15 +1420,15 @@ static void drawElementList(Editor& editor, CanvasView& canvas, PaintLayer* laye
             }
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Remove this element. The others stay.");
+            ImGui::SetTooltip("%s", tr("Remove this element. The others stay."));
         }
         ImGui::PopID();
     }
     ImGui::SameLine();
-    theme::hint("A layer holds several marks: one element per colour its "
+    theme::hint(tr("A layer holds several marks: one element per colour its "
                 "pixels are painted in, and any shapes drawn onto it. Each "
                 "shape stays a shape; each colour stays a rule, so it can be "
-                "changed without repainting.");
+                "changed without repainting."));
     ImGui::Dummy(ImVec2(0.f, 4.f));
 }
 
@@ -1452,7 +1452,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
     if (selected != nullptr && selected->kind == ElementKind::Text) {
         TextSpec spec;
         if (readTextElement(editor.doc, selected->region, &spec)) {
-            theme::sectionHeader("TEXT");
+            theme::sectionHeader(tr("TEXT"));
             char buffer[kMaxTextLength + 1] = {};
             std::snprintf(buffer, sizeof(buffer), "%s", spec.text.c_str());
             bool changed = false;
@@ -1475,7 +1475,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
             }
             bracketDrag(editor, editor.editingShape, "Move text");
             ImGui::SetNextItemWidth(-42.f);
-            if (ImGui::SliderInt("size", &spec.scale, 1, 8, "%dx")) {
+            if (ImGui::SliderInt(tr("size"), &spec.scale, 1, 8, "%dx")) {
                 changed = true;
             }
             bracketDrag(editor, editor.editingShape, "Text size");
@@ -1484,11 +1484,11 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 canvas.invalidate();
             }
             ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-            ImGui::TextWrapped("Still text: the pixels are rebuilt from the words. Its "
+            ImGui::TextWrapped("%s", tr("Still text: the pixels are rebuilt from the words. Its "
                                "colour is set like any other -- pick one and press = "
-                               "current in the list's pixels, or edit its slot.");
+                               "current in the list's pixels, or edit its slot."));
             ImGui::PopStyleColor();
-            if (ImGui::SmallButton("Current colour##text")) {
+            if (ImGui::SmallButton(tr("Current colour##text"))) {
                 editor.doc.beginAction("Recolour text");
                 setElementInk(editor.doc, selected->fill, foregroundInk(editor));
                 editor.doc.endAction();
@@ -1534,7 +1534,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                                     shape.kind == ShapeKind::Curve ? "points" : "corners");
                 if (shape.kind == ShapeKind::Curve) {
                     bool closed = params.closed;
-                    if (ImGui::Checkbox("Closed##curve", &closed)) {
+                    if (ImGui::Checkbox(tr("Closed##curve"), &closed)) {
                         editor.doc.beginAction(closed ? "Close the curve" : "Open the curve");
                         params.closed = closed;
                         updateShape(editor.doc, shape, params);
@@ -1542,8 +1542,8 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                         canvas.invalidate();
                     }
                     if (ImGui::IsItemHovered()) {
-                        ImGui::SetTooltip("Joined back to its first point and filled: a "
-                                          "shape with curved sides that stays editable.");
+                        ImGui::SetTooltip("%s", tr("Joined back to its first point and filled: a "
+                                          "shape with curved sides that stays editable."));
                     }
                 }
             } else {
@@ -1567,7 +1567,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 // radius set here is also the one the next rectangle starts
                 // with.
                 ImGui::SetNextItemWidth(-42.f);
-                if (ImGui::SliderFloat("round", &params.cornerRadius, 0.f, 12.f,
+                if (ImGui::SliderFloat(tr("round"), &params.cornerRadius, 0.f, 12.f,
                                        "%.1f")) {
                     editor.shapeCorner = params.cornerRadius;
                     changed = true;
@@ -1587,7 +1587,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 float width = 1.f;
                 bool outlined = shapeIsOutlined(editor.doc, selected->fill, &width);
                 ls::OperationId op = selected->fill;
-                if (ImGui::Checkbox("Outline only##element", &outlined)) {
+                if (ImGui::Checkbox(tr("Outline only##element"), &outlined)) {
                     editor.doc.beginAction(outlined ? "Outline the shape" : "Fill the shape");
                     setShapeOutlined(editor.doc, layer->layer, &op, outlined, width);
                     editor.doc.endAction();
@@ -1607,7 +1607,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 }
             }
 
-            if (ImGui::SmallButton("Current colour")) {
+            if (ImGui::SmallButton(tr("Current colour"))) {
                 editor.doc.beginAction("Recolour shape");
                 const Ink ink = foregroundInk(editor);
                 editor.doc.engine().setOperationParameter(
@@ -1620,24 +1620,24 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 editor.say("The shape takes the current colour");
             }
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Give this shape the current colour -- its slot, "
-                                  "when it has one.");
+                ImGui::SetTooltip("%s", tr("Give this shape the current colour -- its slot, "
+                                  "when it has one."));
             }
         }
     } else if (selected != nullptr && selected->kind == ElementKind::Erase) {
-        theme::sectionHeader("ERASED");
+        theme::sectionHeader(tr("ERASED"));
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("What the eraser or Delete took from the shapes under "
+        ImGui::TextWrapped("%s", tr("What the eraser or Delete took from the shapes under "
                            "it. They are still shapes: this is a mask over them, kept "
                            "as pixels of its own, and it clears only what was drawn "
-                           "before it. Remove it (x) and they come back whole.");
+                           "before it. Remove it (x) and they come back whole."));
         ImGui::PopStyleColor();
     } else if (selected != nullptr && selected->kind == ElementKind::Paint) {
         PaintLayer target;
         target.layer = layer->layer;
         target.fill = selected->fill;
         target.region = selected->region;
-        theme::sectionHeader("PIXELS");
+        theme::sectionHeader(tr("PIXELS"));
         drawPixelsProperties(editor, canvas, target);
     }
 
@@ -1648,7 +1648,7 @@ namespace {
 // A drop shadow cast by what the layer draws.
 void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     bool shadowed = hasShadow(editor.doc, *layer);
-    if (ImGui::Checkbox("Drop shadow", &shadowed)) {
+    if (ImGui::Checkbox(tr("Drop shadow"), &shadowed)) {
         editor.doc.beginAction(shadowed ? "Add shadow" : "Remove shadow");
         if (shadowed) {
             setShadow(editor.doc, *layer, ShadowSettings{});
@@ -1659,9 +1659,9 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         canvas.invalidate();
     }
     ImGui::SameLine();
-    theme::hint("Cast by whatever the layer draws -- or the whole figure -- and "
+    theme::hint(tr("Cast by whatever the layer draws -- or the whole figure -- and "
                 "worked out as the sprite is drawn, so it follows the artwork. "
-                "It falls only where nothing else is.");
+                "It falls only where nothing else is."));
     if (shadowed) {
         ShadowSettings settings = shadowOf(editor.doc, *layer);
         bool changed = false;
@@ -1691,7 +1691,7 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         bracketDrag(editor, editor.editingShape, "Shadow colour");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-60.f);
-        if (ImGui::SliderFloat("opacity##shadow", &settings.opacity, 0.f, 1.f, "%.2f")) {
+        if (ImGui::SliderFloat(tr("opacity##shadow"), &settings.opacity, 0.f, 1.f, "%.2f")) {
             changed = true;
         }
         bracketDrag(editor, editor.editingShape, "Shadow opacity");
@@ -1706,7 +1706,7 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
 void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     const bool wasOutlined = hasOutline(editor.doc, *layer);
     bool outlined = wasOutlined;
-    if (ImGui::Checkbox("Outline", &outlined)) {
+    if (ImGui::Checkbox(tr("Outline"), &outlined)) {
         editor.doc.beginAction(outlined ? "Add outline" : "Remove outline");
         if (outlined) {
             setOutline(editor.doc, *layer, OutlineSettings{});
@@ -1717,9 +1717,9 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         canvas.invalidate();
     }
     ImGui::SameLine();
-    theme::hint("Generated during the compile from whatever is drawn, so it "
+    theme::hint(tr("Generated during the compile from whatever is drawn, so it "
                 "follows the artwork instead of being stamped where the artwork "
-                "used to be. Move the shape and the outline moves.");
+                "used to be. Move the shape and the outline moves."));
 
     if (!outlined) {
         return;
@@ -1741,10 +1741,10 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         settings.scope = static_cast<OutlineScope>(scope);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("This layer: a line round what this layer draws, which\n"
+        ImGui::SetTooltip("%s", tr("This layer: a line round what this layer draws, which\n"
                           "is what one part of a character wants.\n"
                           "Whole sprite: one line round the figure however many\n"
-                          "layers it is built from, with no seam where they meet.");
+                          "layers it is built from, with no seam where they meet."));
     }
 
     // The order is the engine's, not one chosen here: Inside, Outside, Center.
@@ -1768,7 +1768,7 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     // the one thing left behind by it.
     float rgba[4];
     fromColor(settings.colour, rgba);
-    if (ImGui::ColorEdit4("colour", rgba, ImGuiColorEditFlags_NoInputs)) {
+    if (ImGui::ColorEdit4(tr("colour"), rgba, ImGuiColorEditFlags_NoInputs)) {
         settings.colour = toColor(rgba);
         settings.role = ls::kColorRoleNone;      // a picked colour is a value
     }
@@ -1780,19 +1780,19 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         const std::string label = "slot " + std::to_string(settings.role);
         ImGui::TextColored(theme::palette().accent, "%s", label.c_str());
         ImGui::SameLine();
-        if (ImGui::SmallButton("detach")) {
+        if (ImGui::SmallButton(tr("detach"))) {
             settings.role = ls::kColorRoleNone;
         }
-    } else if (ImGui::SmallButton("use a palette slot")) {
+    } else if (ImGui::SmallButton(tr("use a palette slot"))) {
         // The slot the layer already paints through, so the outline and the
         // fill move together under a palette swap unless told otherwise.
         const ls::ColorRole fillRole = layerRole(editor.doc, *layer);
         settings.role = fillRole != ls::kColorRoleNone ? fillRole : 0;
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Take the colour from a palette slot, so changing what "
+        ImGui::SetTooltip("%s", tr("Take the colour from a palette slot, so changing what "
                           "the slot means recolours every outline using it -- "
-                          "from the drawing rather than over it.");
+                          "from the drawing rather than over it."));
     }
 
     // Field by field rather than memcmp: the struct has padding, and comparing
@@ -1817,14 +1817,14 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
 void drawElementsPanel(Editor& editor, CanvasView& canvas) {
     PaintLayer* layer = editor.active();
     if (layer == nullptr) {
-        ImGui::TextDisabled("No layer selected.");
+        ImGui::TextDisabled("%s", tr("No layer selected."));
         return;
     }
     // A tilemap layer's elements are its tiles, which want the room
     // Properties has.
     TilemapLayer tilemap;
     if (readTilemapLayer(editor.doc, layer->layer, &tilemap)) {
-        ImGui::TextDisabled("A tilemap layer: its tiles are in Properties.");
+        ImGui::TextDisabled("%s", tr("A tilemap layer: its tiles are in Properties."));
         return;
     }
     drawElementList(editor, canvas, layer);
@@ -1833,7 +1833,7 @@ void drawElementsPanel(Editor& editor, CanvasView& canvas) {
 void drawPropertiesPanel(Editor& editor, CanvasView& canvas) {
     PaintLayer* layer = editor.active();
     if (layer == nullptr) {
-        ImGui::TextDisabled("No layer selected.");
+        ImGui::TextDisabled("%s", tr("No layer selected."));
         return;
     }
     TilemapLayer tilemap;
@@ -1845,10 +1845,10 @@ void drawPropertiesPanel(Editor& editor, CanvasView& canvas) {
     ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     // The layer's effects, under the picked element's own controls: they
     // belong to the whole layer, and fold away when they are not wanted.
-    if (theme::foldingHeader("SHADOW")) {
+    if (theme::foldingHeader(tr("SHADOW"))) {
         drawShadowSection(editor, canvas, layer);
     }
-    if (theme::foldingHeader("OUTLINE")) {
+    if (theme::foldingHeader(tr("OUTLINE"))) {
         drawOutlineSection(editor, canvas, layer);
     }
 }
@@ -1907,7 +1907,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     }
 
     // --- the buttons ---------------------------------------------------------
-    if (ImGui::Button("Add", ImVec2(52.f, 0.f))) {
+    if (ImGui::Button(tr("Add"), ImVec2(52.f, 0.f))) {
         PaintLayer layer;
         const std::string name = "Layer " + std::to_string(order.size() + 1);
         if (createPaintLayer(editor.doc, sprite, name, toColor(editor.color), &layer)) {
@@ -1948,28 +1948,28 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
               "group's row to add inside it.");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Dup", ImVec2(46.f, 0.f))) {
+    if (ImGui::Button(tr("Dup"), ImVec2(46.f, 0.f))) {
         duplicateActiveLayer(editor, canvas);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Duplicate the active layer  (Ctrl+J)");
+        ImGui::SetTooltip("%s", tr("Duplicate the active layer  (Ctrl+J)"));
     }
     ImGui::SameLine();
     const bool canDelete = order.size() > 1;
     ImGui::BeginDisabled(!canDelete);
-    if (ImGui::Button("Delete", ImVec2(56.f, 0.f))) {
+    if (ImGui::Button(tr("Delete"), ImVec2(56.f, 0.f))) {
         deleteSelectedLayers(editor, canvas);
     }
     ImGui::EndDisabled();
     if (!canDelete && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("A sprite needs at least one layer.");
+        ImGui::SetTooltip("%s", tr("A sprite needs at least one layer."));
     }
     ImGui::SameLine();
     if (ImGui::Button("^", ImVec2(22.f, 0.f))) { raiseActiveLayer(editor, canvas); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Move up  (Ctrl+])"); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("%s", tr("Move up  (Ctrl+])")); }
     ImGui::SameLine();
-    if (ImGui::Button("v", ImVec2(22.f, 0.f))) { lowerActiveLayer(editor, canvas); }
-    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Move down  (Ctrl+[)"); }
+    if (ImGui::Button(tr("v"), ImVec2(22.f, 0.f))) { lowerActiveLayer(editor, canvas); }
+    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("%s", tr("Move down  (Ctrl+[)")); }
 
     // --- the properties strip -------------------------------------------------
     //
@@ -2017,21 +2017,21 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
             bracketDrag(editor, editor.draggingLayer, onGroup ? "Group opacity" : "Layer opacity");
             if (!onGroup) {
                 bool clipped = layerProps.clipBase.valid();
-                if (ImGui::Checkbox("clip to below", &clipped)) {
+                if (ImGui::Checkbox(tr("clip to below"), &clipped)) {
                     toggleActiveLayerClip(editor, canvas);
                 }
                 if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Draw only where the layer below draws: a "
+                    ImGui::SetTooltip("%s", tr("Draw only where the layer below draws: a "
                                       "highlight that stays inside the body. A move "
-                                      "clears it, because \"below\" changed.");
+                                      "clears it, because \"below\" changed."));
                 }
                 ImGui::SameLine();
                 bool locked = layerProps.locked;
-                if (ImGui::Checkbox("lock", &locked)) {
+                if (ImGui::Checkbox(tr("lock"), &locked)) {
                     toggleActiveLayerLock(editor);
                 }
                 if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Tools leave a locked layer alone.");
+                    ImGui::SetTooltip("%s", tr("Tools leave a locked layer alone."));
                 }
             }
         }
@@ -2286,8 +2286,8 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 const uint64_t handle = id.value;
                 ImGui::SetDragDropPayload("layer", &handle, sizeof(handle));
                 ImGui::TextUnformatted(props.name.c_str());
-                ImGui::TextDisabled("Drop on a row to move there. On a group's row to join it.\n"
-                                    "Hold Ctrl to make a group of the two.");
+                ImGui::TextDisabled("%s", tr("Drop on a row to move there. On a group's row to join it.\n"
+                                    "Hold Ctrl to make a group of the two."));
                 ImGui::EndDragDropSource();
             }
             // A drop with Ctrl held groups the two; without, it is a move,
@@ -2319,8 +2319,8 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 if (ImGui::MenuItem(tr("Duplicate"), "Ctrl+J")) { duplicateActiveLayer(editor, canvas); }
                 if (ImGui::MenuItem(tr("Merge down"), "Ctrl+E")) { mergeActiveLayerDown(editor, canvas); }
                 if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("This layer's elements join the layer below, on top "
-                                      "of its own, each still what it was.");
+                    ImGui::SetTooltip("%s", tr("This layer's elements join the layer below, on top "
+                                      "of its own, each still what it was."));
                 }
                 if (ImGui::MenuItem(tr("Copy"), "Ctrl+C")) { copyActiveLayer(editor); }
                 if (ImGui::MenuItem(tr("Paste above"), "Ctrl+V", false, editor.clipboard.valid())) {
@@ -2405,9 +2405,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                             : std::string("Nothing to link"));
                     }
                     if (ImGui::IsItemHovered()) {
-                        ImGui::SetTooltip("This layer in those frames becomes this frame's cel -- "
+                        ImGui::SetTooltip("%s", tr("This layer in those frames becomes this frame's cel -- "
                                           "what they held is replaced. Select a run in the "
-                                          "frame strip to choose which.");
+                                          "frame strip to choose which."));
                     }
                     if (!linkOf(editor.doc, id).empty() && ImGui::MenuItem(tr("Unlink"))) {
                         editor.doc.beginAction("Unlink cel");
@@ -2428,9 +2428,9 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                                                : "A reference now: drawn on the canvas, left out of every export");
                 }
                 if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("For a sketch or a guide to draw over: shown here, never "
+                    ImGui::SetTooltip("%s", tr("For a sketch or a guide to draw over: shown here, never "
                                       "in a PNG, a sheet, an animation or the outline round "
-                                      "the figure.");
+                                      "the figure."));
                 }
                 if (ImGui::MenuItem(tr("Rename"))) {
                     editor.renaming = listIndex;
@@ -2455,8 +2455,8 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     acceptDrop(0);
     if (order.size() > 1) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("Drag to reorder, or onto a group to join it; "
-                           "Ctrl+drop groups two. Right-click for the rest.");
+        ImGui::TextWrapped("%s", tr("Drag to reorder, or onto a group to join it; "
+                           "Ctrl+drop groups two. Right-click for the rest."));
         ImGui::PopStyleColor();
     }
 }
@@ -2510,7 +2510,7 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     }
     // The name: kept when the field is left or Enter pressed, one undo step.
     ImGui::SetNextItemWidth(-60.f);
-    ImGui::InputText("name", editor.propertiesName, sizeof(editor.propertiesName));
+    ImGui::InputText(tr("name"), editor.propertiesName, sizeof(editor.propertiesName));
     if (ImGui::IsItemDeactivatedAfterEdit() && props.name != editor.propertiesName &&
         editor.propertiesName[0] != '\0') {
         editor.doc.beginAction("Rename layer");
@@ -2520,7 +2520,7 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
 
     int blend = static_cast<int>(props.blend);
     ImGui::SetNextItemWidth(-60.f);
-    if (ImGui::Combo("blend", &blend, blendModeNames().data(),
+    if (ImGui::Combo(tr("blend"), &blend, blendModeNames().data(),
                      static_cast<int>(blendModeNames().size()))) {
         editor.doc.beginAction("Blend mode");
         setLayerBlend(editor.doc, id, static_cast<ls::BlendMode>(blend));
@@ -2529,25 +2529,25 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     }
     float opacity = props.opacity;
     ImGui::SetNextItemWidth(-60.f);
-    if (ImGui::SliderFloat("opacity", &opacity, 0.f, 1.f, "%.2f")) {
+    if (ImGui::SliderFloat(tr("opacity"), &opacity, 0.f, 1.f, "%.2f")) {
         setLayerOpacity(editor.doc, id, opacity);
         canvas.invalidate();
     }
     bracketDrag(editor, editor.draggingLayerProperties, "Layer opacity");
     float cel = celOpacity(editor.doc, id);
     ImGui::SetNextItemWidth(-60.f);
-    if (ImGui::SliderFloat("cel opacity", &cel, 0.f, 1.f, "%.2f")) {
+    if (ImGui::SliderFloat(tr("cel opacity"), &cel, 0.f, 1.f, "%.2f")) {
         setCelOpacity(editor.doc, id, cel);
         canvas.invalidate();
     }
     bracketDrag(editor, editor.draggingLayerProperties, "Cel opacity");
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("This frame's drawing of the layer only, faded under the layer's "
-                          "opacity -- which is the same in every frame.");
+        ImGui::SetTooltip("%s", tr("This frame's drawing of the layer only, faded under the layer's "
+                          "opacity -- which is the same in every frame."));
     }
 
     bool visible = props.visible;
-    if (ImGui::Checkbox("Visible", &visible)) {
+    if (ImGui::Checkbox(tr("Visible"), &visible)) {
         editor.doc.beginAction(visible ? "Show layer" : "Hide layer");
         setLayerVisible(editor.doc, id, visible);
         editor.doc.endAction();
@@ -2555,28 +2555,28 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SameLine();
     bool locked = props.locked;
-    if (ImGui::Checkbox("Locked", &locked)) {
+    if (ImGui::Checkbox(tr("Locked"), &locked)) {
         editor.doc.beginAction(locked ? "Lock layer" : "Unlock layer");
         setLayerLocked(editor.doc, id, locked);
         editor.doc.endAction();
     }
     bool reference = props.reference;
-    if (ImGui::Checkbox("Reference -- never exported", &reference)) {
+    if (ImGui::Checkbox(tr("Reference -- never exported"), &reference)) {
         editor.doc.beginAction(reference ? "Reference layer" : "Not a reference");
         setReferenceLayer(editor.doc, id, reference);
         editor.doc.endAction();
         canvas.invalidate();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Drawn on the canvas like any layer, left out of every export "
-                          "and of the outline round the whole figure.");
+        ImGui::SetTooltip("%s", tr("Drawn on the canvas like any layer, left out of every export "
+                          "and of the outline round the whole figure."));
     }
 
-    theme::sectionHeader("TAG");
+    theme::sectionHeader(tr("TAG"));
     // None, the eight, and any colour at all.
     {
         const bool none = !props.tagged;
-        if (ImGui::RadioButton("none", none) && !none) {
+        if (ImGui::RadioButton(tr("none"), none) && !none) {
             editor.doc.beginAction("Untag layer");
             setLayerTag(editor.doc, id, nullptr);
             editor.doc.endAction();
@@ -2620,7 +2620,7 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
         }
     }
 
-    theme::sectionHeader("NOTES");
+    theme::sectionHeader(tr("NOTES"));
     ImGui::InputTextMultiline("##notes", editor.propertiesNotes, sizeof(editor.propertiesNotes),
                               ImVec2(-1.f, 90.f));
     if (ImGui::IsItemDeactivatedAfterEdit() && props.notes != editor.propertiesNotes) {
@@ -2628,7 +2628,7 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
         setLayerNotes(editor.doc, id, editor.propertiesNotes);
         editor.doc.endAction();
     }
-    ImGui::TextDisabled("Kept with the layer, shown when its tag is hovered.");
+    ImGui::TextDisabled("%s", tr("Kept with the layer, shown when its tag is hovered."));
     ImGui::End();
     if (!open) {
         editor.propertiesLayer = ls::LayerId{};
@@ -2696,30 +2696,30 @@ bool pasteReference(Editor& editor, CanvasView& canvas) {
 
 void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const float half = (ImGui::GetContentRegionAvail().x - theme::metrics().itemSpacing) * 0.5f;
-    if (ImGui::Button("Import image...", ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Import image..."), ImVec2(half, 0.f))) {
         showImportReferenceDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("A photograph, a sketch, a pose to draw from. It is "
+        ImGui::SetTooltip("%s", tr("A photograph, a sketch, a pose to draw from. It is "
                           "stored in this document, so it travels with the "
-                          "work and is never exported.");
+                          "work and is never exported."));
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(!clipboardHasImage());
-    if (ImGui::Button("Paste image", ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Paste image"), ImVec2(half, 0.f))) {
         pasteReference(editor, canvas);
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("An image copied in a browser or another program, as a "
-                          "reference.");
+        ImGui::SetTooltip("%s", tr("An image copied in a browser or another program, as a "
+                          "reference."));
     }
 
     if (editor.references.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("Nothing to draw from yet. An image imported here "
+        ImGui::TextWrapped("%s", tr("Nothing to draw from yet. An image imported here "
                            "sits over or under the canvas at whatever opacity "
-                           "you want, and changes no pixel of the artwork.");
+                           "you want, and changes no pixel of the artwork."));
         ImGui::PopStyleColor();
         return;
     }
@@ -2748,7 +2748,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
             ImGui::SetTooltip("%u x %u", reference.width, reference.height);
         }
         ImGui::SameLine();
-        if (ImGui::SmallButton("x")) {
+        if (ImGui::SmallButton(tr("x"))) {
             removeReference(editor.doc, reference);
             resyncReferences(editor, canvas);
             editor.say("Reference removed");
@@ -2785,12 +2785,12 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     bracketDrag(editor, editor.draggingReference, "Move reference");
 
     ImGui::SetNextItemWidth(-42.f);
-    if (ImGui::DragFloat("scale", &edited.scale, 0.01f, 0.01f, 64.f, "%.3f")) {
+    if (ImGui::DragFloat(tr("scale"), &edited.scale, 0.01f, 0.01f, 64.f, "%.3f")) {
         changed = true;
     }
     bracketDrag(editor, editor.draggingReference, "Scale reference");
 
-    if (ImGui::Button("Fit")) {
+    if (ImGui::Button(tr("Fit"))) {
         auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
         if (size.ok() && size.value.x > 0 && size.value.y > 0) {
             fitReference(edited, static_cast<uint32_t>(size.value.x),
@@ -2799,22 +2799,22 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
         }
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Centre it on the canvas at the largest size that fits.");
+        ImGui::SetTooltip("%s", tr("Centre it on the canvas at the largest size that fits."));
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("behind", &edited.behind)) {
+    if (ImGui::Checkbox(tr("behind"), &edited.behind)) {
         changed = true;
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Under the artwork to trace from, or over it to "
-                          "compare against.");
+        ImGui::SetTooltip("%s", tr("Under the artwork to trace from, or over it to "
+                          "compare against."));
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("lock", &edited.locked)) {
+    if (ImGui::Checkbox(tr("lock"), &edited.locked)) {
         changed = true;
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("A locked reference will not move when dragged.");
+        ImGui::SetTooltip("%s", tr("A locked reference will not move when dragged."));
     }
 
     if (changed) {
@@ -2829,7 +2829,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     }
 
     ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-    ImGui::TextWrapped("Alt+drag on the canvas moves the selected reference.");
+    ImGui::TextWrapped("%s", tr("Alt+drag on the canvas moves the selected reference."));
     ImGui::PopStyleColor();
 }
 
@@ -2857,11 +2857,11 @@ void drawFolderRow(Editor& editor, SDL_Window* window, bool references) {
     }
     if (!folder.empty()) {
         ImGui::SameLine();
-        if (ImGui::Button("Reload")) {
+        if (ImGui::Button(tr("Reload"))) {
             editor.libraryStale = true;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Up")) {
+        if (ImGui::Button(tr("Up"))) {
             const std::string parent = parentDirectory(folder);
             if (!parent.empty() && directoryExists(parent)) {
                 (references ? editor.libraryFolders.references
@@ -2926,7 +2926,7 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
 
     if (ImGui::BeginTabBar("libraryTabs")) {
-        const bool sprites = ImGui::BeginTabItem("Sprites");
+        const bool sprites = ImGui::BeginTabItem(tr("Sprites"));
         if (sprites) {
             if (editor.libraryShowingReferences) {
                 editor.libraryShowingReferences = false;
@@ -2934,7 +2934,7 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::EndTabItem();
         }
-        const bool images = ImGui::BeginTabItem("References");
+        const bool images = ImGui::BeginTabItem(tr("References"));
         if (images) {
             if (!editor.libraryShowingReferences) {
                 editor.libraryShowingReferences = true;
@@ -3004,9 +3004,9 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         if (editor.libraryImages.empty()) {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-            ImGui::TextWrapped("No images in this folder. Point it at wherever "
+            ImGui::TextWrapped("%s", tr("No images in this folder. Point it at wherever "
                                "you keep the pictures you draw from -- the same "
-                               "pose sheet gets used across a dozen sprites.");
+                               "pose sheet gets used across a dozen sprites."));
             ImGui::PopStyleColor();
         }
     } else {
@@ -3049,10 +3049,10 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         if (editor.libraryDocuments.empty()) {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-            ImGui::TextWrapped("No sprites in this folder. A project here is "
+            ImGui::TextWrapped("%s", tr("No sprites in this folder. A project here is "
                                "just a folder: point it at the one your work "
                                "lives in and everything beside this file is one "
-                               "click away.");
+                               "click away."));
             ImGui::PopStyleColor();
         }
     }
@@ -3065,7 +3065,7 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     PaintLayer* layer = editor.active();
     if (layer == nullptr) {
-        ImGui::TextDisabled("No layer selected.");
+        ImGui::TextDisabled("%s", tr("No layer selected."));
         return;
     }
 
@@ -3079,36 +3079,36 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     const float third = (ImGui::GetContentRegionAvail().x -
                          theme::metrics().itemSpacing * 3.f) / 4.f;
 
-    if (ImGui::Button("Rotate", ImVec2(third, 0.f))) {
+    if (ImGui::Button(tr("Rotate"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add rotate");
         addRotate(editor.doc, layer->layer, 0.f, centre, ls::SamplingPolicy::RotSprite);
         editor.doc.endAction();
         canvas.invalidate();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Scale", ImVec2(third, 0.f))) {
+    if (ImGui::Button(tr("Scale"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add scale");
         addScale(editor.doc, layer->layer, {1.f, 1.f}, centre);
         editor.doc.endAction();
         canvas.invalidate();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Mirror", ImVec2(third, 0.f))) {
+    if (ImGui::Button(tr("Mirror"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add mirror");
         addMirror(editor.doc, layer->layer, ls::MirrorAxis::X, centre);
         editor.doc.endAction();
         canvas.invalidate();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Offset", ImVec2(third, 0.f))) {
+    if (ImGui::Button(tr("Offset"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add offset");
         addOffset(editor.doc, layer->layer, {0.f, 0.f});
         editor.doc.endAction();
         canvas.invalidate();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Move what the layer draws by whole pixels, without "
-                          "touching the drawing -- the motion a tween moves.");
+        ImGui::SetTooltip("%s", tr("Move what the layer draws by whole pixels, without "
+                          "touching the drawing -- the motion a tween moves."));
     }
 
     const std::vector<TransformEntry> transforms =
@@ -3117,10 +3117,10 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     if (transforms.empty()) {
         ImGui::Dummy(ImVec2(0.f, 6.f));
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("Nothing applied. Add a rotation and drag it: the "
+        ImGui::TextWrapped("%s", tr("Nothing applied. Add a rotation and drag it: the "
                            "picture is rebuilt from the drawing each time, so "
                            "returning to zero returns the original pixels "
-                           "exactly.");
+                           "exactly."));
         ImGui::PopStyleColor();
         return;
     }
@@ -3161,7 +3161,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
             }
             bracketDrag(editor, editor.draggingTransform, "Offset");
         } else {
-            ImGui::TextDisabled("no parameters");
+            ImGui::TextDisabled("%s", tr("no parameters"));
         }
         if (entry.kind == TransformKind::Rotate || entry.kind == TransformKind::Scale) {
             // How each pixel is picked: RotSprite for pixel art, or the
@@ -3192,12 +3192,12 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
 
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
-        if (ImGui::SmallButton("x")) {
+        if (ImGui::SmallButton(tr("x"))) {
             toRemove = entry.id;
         }
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Remove. The original returns exactly.");
+            ImGui::SetTooltip("%s", tr("Remove. The original returns exactly."));
         }
 
         if (changed) {
@@ -3217,7 +3217,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     }
 
     ImGui::Dummy(ImVec2(0.f, 4.f));
-    if (ImGui::Button("Remove all", ImVec2(-1.f, 0.f))) {
+    if (ImGui::Button(tr("Remove all"), ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("Remove transforms");
         clearTransforms(editor.doc, layer->layer);
         editor.doc.endAction();
@@ -3323,7 +3323,7 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
                             std::clamp((mouse.y - artAt.y) / scale, 0.f, h));
         }
         if (partial && ImGui::IsItemHovered() && !ImGui::IsItemActive()) {
-            ImGui::SetTooltip("Click or drag to look there");
+            ImGui::SetTooltip("%s", tr("Click or drag to look there"));
         }
         ImGui::SetCursorScreenPos(cursor);
         if (partial) {
@@ -3365,7 +3365,7 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
         editor.preview.transparent = true;
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("No background");
+        ImGui::SetTooltip("%s", tr("No background"));
     }
 
     ImGui::SameLine(0.f, 3.f);
@@ -3376,7 +3376,7 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
         editor.preview.transparent = false;
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Background colour");
+        ImGui::SetTooltip("%s", tr("Background colour"));
     }
 
     // The situations a sprite has to survive, one click each.
@@ -3473,17 +3473,17 @@ void drawStatusBar(Editor& editor, const CanvasView& canvas) {
     ImGui::SameLine(0.f, 18.f);
     theme::statusItem("Compile", compile.c_str(), false);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("How long the last real compile took. Cached frames "
+        ImGui::SetTooltip("%s", tr("How long the last real compile took. Cached frames "
                           "cost nothing, so this only moves when something "
-                          "changed.");
+                          "changed."));
     }
     ImGui::SameLine(0.f, 10.f);
     // Bright only when it is not zero, so at rest it does not draw the eye.
     theme::statusItem("x", compiles.c_str(), canvas.compilesThisFrame() > 0);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Compiles this frame. Zero at rest and one while "
+        ImGui::SetTooltip("%s", tr("Compiles this frame. Zero at rest and one while "
                           "drawing: every other frame on screen is a texture "
-                          "that already exists, not a second compile.");
+                          "that already exists, not a second compile."));
     }
 }
 

@@ -389,7 +389,7 @@ void drawTilesSection(Editor& editor, CanvasView& canvas) {
     if (!activeTilemap(editor, &map)) {
         return;
     }
-    theme::sectionHeader("TILES");
+    theme::sectionHeader(tr("TILES"));
     if (ImGui::RadioButton(tr("Draw pixels"), !editor.placingTiles)) {
         editor.placingTiles = false;
     }
@@ -398,10 +398,10 @@ void drawTilesSection(Editor& editor, CanvasView& canvas) {
         editor.placingTiles = true;
     }
     ImGui::SameLine();
-    theme::hint("Drawing pixels draws into the tiles under the pencil: every cell naming a "
+    theme::hint(tr("Drawing pixels draws into the tiles under the pencil: every cell naming a "
                 "tile shows the stroke, and an empty cell drawn into gets a new tile. Placing "
                 "tiles puts the chosen tile into cells -- the eraser empties them, the bucket "
-                "fills, the picker picks.");
+                "fills, the picker picks."));
 
     const size_t count = tileCount(editor.doc, map.tileset);
     if (count > 0) {
@@ -438,11 +438,11 @@ void drawTilesSection(Editor& editor, CanvasView& canvas) {
     }
     if (count == 0) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("No tiles yet. Draw pixels into a cell and it gets one, or add one here.");
+        ImGui::TextWrapped("%s", tr("No tiles yet. Draw pixels into a cell and it gets one, or add one here."));
         ImGui::PopStyleColor();
     }
 
-    if (ImGui::SmallButton("+ Tile")) {
+    if (ImGui::SmallButton(tr("+ Tile"))) {
         editor.doc.beginAction("New tile");
         const uint32_t made = addTile(editor.doc, map.tileset);
         editor.doc.endAction();
@@ -452,7 +452,7 @@ void drawTilesSection(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(count == 0);
-    if (ImGui::SmallButton("Duplicate##tile")) {
+    if (ImGui::SmallButton(tr("Duplicate##tile"))) {
         editor.doc.beginAction("Duplicate tile");
         const uint32_t made = duplicateTile(editor.doc, map.tileset, editor.brushTile);
         editor.doc.endAction();
@@ -461,13 +461,13 @@ void drawTilesSection(Editor& editor, CanvasView& canvas) {
         }
     }
     // The turn the pencil places with.
-    if (ImGui::SmallButton("Flip X")) { editor.brushTurn ^= ls::kTileFlipX; }
+    if (ImGui::SmallButton(tr("Flip X"))) { editor.brushTurn ^= ls::kTileFlipX; }
     ImGui::SameLine();
-    if (ImGui::SmallButton("Flip Y")) { editor.brushTurn ^= ls::kTileFlipY; }
+    if (ImGui::SmallButton(tr("Flip Y"))) { editor.brushTurn ^= ls::kTileFlipY; }
     ImGui::SameLine();
     const bool square = map.grid.tileWidth == map.grid.tileHeight;
     ImGui::BeginDisabled(!square);
-    if (ImGui::SmallButton("Turn")) {
+    if (ImGui::SmallButton(tr("Turn"))) {
         const int clockwise[4] = { 0, -1, 1, 0 };
         editor.brushTurn = turnedCell(1u | editor.brushTurn, clockwise) & ~ls::kTileIndexMask;
     }
@@ -518,9 +518,9 @@ void drawTilemapDialog(Editor& editor, CanvasView& canvas) {
     }
     if (dialog.tileset == 0) {
         ImGui::SetNextItemWidth(100.f);
-        ImGui::InputInt("tile width", &dialog.width);
+        ImGui::InputInt(tr("tile width"), &dialog.width);
         ImGui::SetNextItemWidth(100.f);
-        ImGui::InputInt("tile height", &dialog.height);
+        ImGui::InputInt(tr("tile height"), &dialog.height);
         dialog.width = std::clamp(dialog.width, 1, 256);
         dialog.height = std::clamp(dialog.height, 1, 256);
         for (int size : { 8, 16, 24, 32 }) {
@@ -533,11 +533,11 @@ void drawTilemapDialog(Editor& editor, CanvasView& canvas) {
         ImGui::NewLine();
     }
     ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-    ImGui::TextWrapped("A grid of tiles over the canvas. Each tile is drawn once and shows "
-                       "wherever it is placed; drawing into one changes it everywhere.");
+    ImGui::TextWrapped("%s", tr("A grid of tiles over the canvas. Each tile is drawn once and shows "
+                       "wherever it is placed; drawing into one changes it everywhere."));
     ImGui::PopStyleColor();
     ImGui::Dummy(ImVec2(0.f, 6.f));
-    if (ImGui::Button("Create", ImVec2(110.f, 0.f))) {
+    if (ImGui::Button(tr("Create"), ImVec2(110.f, 0.f))) {
         const ls::SpriteId sprite = editor.activeSprite();
         editor.doc.beginAction("New tilemap layer");
         ls::SpriteId tileset = dialog.tileset > 0 ? sets[static_cast<size_t>(dialog.tileset - 1)]
@@ -567,7 +567,7 @@ void drawTilemapDialog(Editor& editor, CanvasView& canvas) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         dialog.open = false;
         ImGui::CloseCurrentPopup();
     }

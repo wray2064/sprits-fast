@@ -177,10 +177,13 @@ if (FAST_BUILD_GUI)
         src/ui/file_commands.cpp
     )
     target_link_libraries(sprits_fast PRIVATE fast_core fast::imgui)
-    # The language catalogues go beside the program, where it looks for them.
-    add_custom_command(TARGET sprits_fast POST_BUILD
+    # The language catalogues go beside the program, where it looks for them --
+    # on every build, since a catalogue edited alone relinks nothing.
+    add_custom_target(fast_lang ALL
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_CURRENT_SOURCE_DIR}/assets/lang $<TARGET_FILE_DIR:sprits_fast>/lang)
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/lang $<TARGET_FILE_DIR:sprits_fast>/lang
+        COMMENT "Copying the language catalogues")
+    add_dependencies(fast_lang sprits_fast)
 
     if (MSVC)
         target_compile_options(sprits_fast PRIVATE /W4 /WX /we4062)

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "ui/slice_tool.h"
+#include "app/i18n.h"
 
 #include "app/grid_snap.h"
 #include "app/slices.h"
@@ -227,9 +228,9 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
     }
     std::vector<Slice> slices = readSlices(editor.doc);
     if (slices.empty()) {
-        ImGui::TextWrapped("No slices. Take the slice tool (C) and drag out a rectangle: a "
+        ImGui::TextWrapped("%s", tr("No slices. Take the slice tool (C) and drag out a rectangle: a "
                            "button, a hitbox, a panel to stretch by its middle. They go "
-                           "out with the sheet's description, Aseprite's layout included.");
+                           "out with the sheet's description, Aseprite's layout included."));
         ImGui::End();
         return;
     }
@@ -272,7 +273,7 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
             }
         };
         ImGui::SetNextItemWidth(-60.f);
-        ImGui::InputText("name", editor.sliceName, sizeof(editor.sliceName));
+        ImGui::InputText(tr("name"), editor.sliceName, sizeof(editor.sliceName));
         if (ImGui::IsItemDeactivatedAfterEdit() && editor.sliceName[0] != '\0') {
             s.name = editor.sliceName;
             changed = true;
@@ -286,7 +287,7 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
             changed = true;
         }
         bracket();
-        if (ImGui::Checkbox("Nine-slice centre", &s.nine)) {
+        if (ImGui::Checkbox(tr("Nine-slice centre"), &s.nine)) {
             if (s.nine && s.centre.empty()) {
                 s.centre = { { s.bounds.width() / 4, s.bounds.height() / 4 },
                              { s.bounds.width() - s.bounds.width() / 4,
@@ -310,7 +311,7 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
             }
             bracket();
         }
-        if (ImGui::Checkbox("Pivot", &s.hasPivot)) {
+        if (ImGui::Checkbox(tr("Pivot"), &s.hasPivot)) {
             if (s.hasPivot) {
                 s.pivot = { s.bounds.width() / 2, s.bounds.height() };
             }
@@ -326,7 +327,7 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
             bracket();
         }
         float rgb[3] = { s.colour.r / 255.f, s.colour.g / 255.f, s.colour.b / 255.f };
-        if (ImGui::ColorEdit3("colour##slice", rgb, ImGuiColorEditFlags_NoInputs)) {
+        if (ImGui::ColorEdit3(tr("colour##slice"), rgb, ImGuiColorEditFlags_NoInputs)) {
             s.colour = { static_cast<uint8_t>(rgb[0] * 255.f + 0.5f),
                          static_cast<uint8_t>(rgb[1] * 255.f + 0.5f),
                          static_cast<uint8_t>(rgb[2] * 255.f + 0.5f), 255 };
@@ -334,7 +335,7 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
         }
         bracket();
         ImGui::SameLine();
-        if (ImGui::Button("Delete")) {
+        if (ImGui::Button(tr("Delete"))) {
             slices.erase(slices.begin() + editor.activeSlice);
             editor.doc.beginAction("Delete slice");
             writeSlices(editor.doc, slices);

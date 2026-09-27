@@ -28,12 +28,18 @@ equals sign inside either side.
 - the menu bar and every menu item;
 - the headings of every panel section, and the panels' titles;
 - the tool names on the toolbar;
-- the command names in *Preferences > Keys*.
+- the command names in *Preferences > Keys*;
+- buttons, checkboxes, radio buttons, sliders' and fields' labels, and the
+  tooltips and hints written as one piece of text.
 
-Buttons, field labels, tooltips and status-bar messages are still English
-only. Wrapping them is mechanical -- a literal `"Save"` becomes `tr("Save")` --
-and the extraction script used for the Spanish catalogue lists what is wrapped.
-Keep new strings translatable by writing them through `tr()` from the start.
+A label with an ID after `##` (`"Add##layer"`) is looked up by its words
+alone, and keeps its ID, so a widget is the same widget in every language:
+the catalogue needs only `Add = Añadir`.
+
+Still English: status-bar messages, text built from pieces at run time, the
+numbers' formats inside sliders ("size %d"), and element and layer names,
+which are the document's. Keep new strings translatable by writing them
+through `tr()` from the start.
 
 ## Starting a new language
 

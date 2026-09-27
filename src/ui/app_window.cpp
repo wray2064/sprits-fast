@@ -372,7 +372,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 }
             }
             if (!editor.recovery.active()) {
-                ImGui::TextDisabled("No settings folder to write to.");
+                ImGui::TextDisabled("%s", tr("No settings folder to write to."));
             }
             ImGui::Separator();
             for (uint32_t minutes : { 1u, 2u, 5u, 10u }) {
@@ -434,16 +434,16 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             showSaveCopyDialog(editor.files, window, editor.doc);
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Write the document somewhere else, and carry on in the "
+            ImGui::SetTooltip("%s", tr("Write the document somewhere else, and carry on in the "
                               "file you are in -- its name and its unsaved state stay "
-                              "as they are.");
+                              "as they are."));
         }
         if (ImGui::BeginMenu(tr("Export PNG"))) {
             ImGui::MenuItem(tr("Indexed, the palette as its table"), nullptr, &editor.exportIndexed);
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("A colour table and one byte a pixel, with the palette's "
+                ImGui::SetTooltip("%s", tr("A colour table and one byte a pixel, with the palette's "
                                   "slots in order as the\nfirst entries -- what a game that "
-                                  "swaps palettes at run time wants.");
+                                  "swaps palettes at run time wants."));
             }
             ImGui::Separator();
             const int scales[] = { 1, 2, 4, 8, 16 };
@@ -554,17 +554,17 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             rotateSelectionFreely(editor);
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Any angle, pixel-art style (RotSprite): the selection goes "
+            ImGui::SetTooltip("%s", tr("Any angle, pixel-art style (RotSprite): the selection goes "
                               "onto a layer of its own with a rotation the Transform panel "
-                              "turns, and can turn again whenever you like.");
+                              "turns, and can turn again whenever you like."));
         }
         if (ImGui::MenuItem(tr("Scale freely"), nullptr, false, movable)) {
             scaleSelectionFreely(editor);
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("The selection onto a layer of its own with handles to size "
+            ImGui::SetTooltip("%s", tr("The selection onto a layer of its own with handles to size "
                               "it by, and move it by. The drawing is never resampled: any "
-                              "size can go back to the original exactly.");
+                              "size can go back to the original exactly."));
         }
         ImGui::EndMenu();
     }
@@ -574,8 +574,8 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.tilemapDialog.open = true;
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("A layer drawn as a grid of tiles: each tile drawn once, "
-                              "shown wherever it is placed.");
+            ImGui::SetTooltip("%s", tr("A layer drawn as a grid of tiles: each tile drawn once, "
+                              "shown wherever it is placed."));
         }
         if (ImGui::MenuItem(tr("Canvas size..."))) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
@@ -597,8 +597,8 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                          "Trimmed to what is drawn");
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Crop to the smallest rectangle holding everything any "
-                              "frame draws.");
+            ImGui::SetTooltip("%s", tr("Crop to the smallest rectangle holding everything any "
+                              "frame draws."));
         }
         ImGui::Separator();
         {
@@ -619,10 +619,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                                     : "Each frame's layers are its own again");
             }
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("On: layers run through the whole animation, as in "
+                ImGui::SetTooltip("%s", tr("On: layers run through the whole animation, as in "
                                   "Aseprite -- each frame holds its own pixels of each. "
                                   "Turning it on for an older file matches layers by name "
-                                  "and loses nothing.");
+                                  "and loses nothing."));
             }
         }
         if (ImGui::MenuItem(tr("Adjust colours..."), nullptr, false, editor.active() != nullptr)) {
@@ -631,9 +631,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.doc.beginAction("Adjust colours");
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Hue, saturation, lightness, brightness, contrast, invert -- "
+            ImGui::SetTooltip("%s", tr("Hue, saturation, lightness, brightness, contrast, invert -- "
                               "of the elements' own colours and, if asked, the palette "
-                              "slots they paint through. Nothing is turned into pixels.");
+                              "slots they paint through. Nothing is turned into pixels."));
         }
         if (ImGui::MenuItem(tr("Sprite size..."))) {
             auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
@@ -646,8 +646,8 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.spriteDialog.open = true;
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Scale everything to any size, nearest neighbour: every "
-                              "frame, every layer, shapes as shapes.");
+            ImGui::SetTooltip("%s", tr("Scale everything to any size, nearest neighbour: every "
+                              "frame, every layer, shapes as shapes."));
         }
         if (ImGui::BeginMenu(tr("Enlarge"))) {
             for (uint32_t factor : { 2u, 3u, 4u, 8u }) {
@@ -661,7 +661,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(tr("Reduce"))) {
-            ImGui::TextDisabled("Keeps one pixel of each block: detail is lost.");
+            ImGui::TextDisabled("%s", tr("Keeps one pixel of each block: detail is lost."));
             for (uint32_t factor : { 2u, 3u, 4u }) {
                 const std::string label = "1/" + std::to_string(factor);
                 if (ImGui::MenuItem(label.c_str())) {
@@ -752,9 +752,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Marquees cover whole tiles, shapes put their corners on "
+            ImGui::SetTooltip("%s", tr("Marquees cover whole tiles, shapes put their corners on "
                               "tile lines, and a moved selection steps from tile to tile. "
-                              "The tile grid's size and offset are below.");
+                              "The tile grid's size and offset are below."));
         }
         if (ImGui::BeginMenu(tr("Tile grid"))) {
             TileGrid& tiles = canvas.tileGrid();
@@ -767,17 +767,17 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 }
             }
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Diamonds for isometric tiles: width across, height "
-                                  "down, 2:1 by default. Snapping keeps to the square grid.");
+                ImGui::SetTooltip("%s", tr("Diamonds for isometric tiles: width across, height "
+                                  "down, 2:1 by default. Snapping keeps to the square grid."));
             }
             ImGui::SetNextItemWidth(120.f);
-            ImGui::InputInt("width", &tiles.width);
+            ImGui::InputInt(tr("width"), &tiles.width);
             ImGui::SetNextItemWidth(120.f);
-            ImGui::InputInt("height", &tiles.height);
+            ImGui::InputInt(tr("height"), &tiles.height);
             ImGui::SetNextItemWidth(120.f);
-            ImGui::InputInt("offset x", &tiles.offsetX);
+            ImGui::InputInt(tr("offset x"), &tiles.offsetX);
             ImGui::SetNextItemWidth(120.f);
-            ImGui::InputInt("offset y", &tiles.offsetY);
+            ImGui::InputInt(tr("offset y"), &tiles.offsetY);
             tiles.width = std::clamp(tiles.width, 1, 4096);
             tiles.height = std::clamp(tiles.height, 1, 4096);
             ImGui::EndMenu();
@@ -793,9 +793,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::EndMenu();
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("The canvas drawn again beside itself, so a tile's "
+            ImGui::SetTooltip("%s", tr("The canvas drawn again beside itself, so a tile's "
                               "seams show while it is drawn -- and a stroke off one "
-                              "edge comes back on the other.");
+                              "edge comes back on the other."));
         }
         ImGui::Separator();
         ImGui::MenuItem(tr("Symmetry across"), nullptr, &editor.symmetryAcross);
@@ -828,10 +828,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             ImGui::MarkIniSettingsDirty();
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Every panel open and back where it started. A panel "
+            ImGui::SetTooltip("%s", tr("Every panel open and back where it started. A panel "
                               "is moved by dragging its tab: to the side of another "
                               "to dock beside it, onto it to share its place, or "
-                              "out over the canvas to float.");
+                              "out over the canvas to float."));
         }
         ImGui::EndMenu();
     }
@@ -853,11 +853,11 @@ void drawSheetImportPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
         ImGui::TextDisabled("%u x %u", sheet.picture.width, sheet.picture.height);
         ImGui::Dummy(ImVec2(0.f, 4.f));
         ImGui::SetNextItemWidth(120.f);
-        ImGui::InputInt("cell width", &sheet.cellWidth);
+        ImGui::InputInt(tr("cell width"), &sheet.cellWidth);
         ImGui::SetNextItemWidth(120.f);
-        ImGui::InputInt("cell height", &sheet.cellHeight);
+        ImGui::InputInt(tr("cell height"), &sheet.cellHeight);
         ImGui::SetNextItemWidth(120.f);
-        ImGui::InputInt("hold (ms)", &sheet.holdMs, 10, 100);
+        ImGui::InputInt(tr("hold (ms)"), &sheet.holdMs, 10, 100);
         sheet.cellWidth = std::max(1, sheet.cellWidth);
         sheet.cellHeight = std::max(1, sheet.cellHeight);
         sheet.holdMs = std::clamp(sheet.holdMs, kMinFrameMs, kMaxFrameMs);
@@ -872,7 +872,7 @@ void drawSheetImportPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
             ImGui::Text("%zu frame(s): %u across, %u down", cells.size(), columns, rows);
             if (sheet.picture.width % static_cast<uint32_t>(sheet.cellWidth) != 0 ||
                 sheet.picture.height % static_cast<uint32_t>(sheet.cellHeight) != 0) {
-                ImGui::TextDisabled("The edge that does not make a whole cell is left out.");
+                ImGui::TextDisabled("%s", tr("The edge that does not make a whole cell is left out."));
             }
         } else {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
@@ -881,7 +881,7 @@ void drawSheetImportPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
         }
         ImGui::Dummy(ImVec2(0.f, 6.f));
         ImGui::BeginDisabled(!fits);
-        if (ImGui::Button("Open as frames", ImVec2(-1.f, 0.f))) {
+        if (ImGui::Button(tr("Open as frames"), ImVec2(-1.f, 0.f))) {
             requestAction(editor, canvas, window, PendingAction::ImportSheet);
         }
         ImGui::EndDisabled();
@@ -910,9 +910,9 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         ImGui::TextDisabled("Now %d x %d", size.value.x, size.value.y);
     }
     ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt("width", &dialog.width);
+    ImGui::InputInt(tr("width"), &dialog.width);
     ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt("height", &dialog.height);
+    ImGui::InputInt(tr("height"), &dialog.height);
     dialog.width = std::clamp(dialog.width, 1, static_cast<int>(kMaxCanvasDimension));
     dialog.height = std::clamp(dialog.height, 1, static_cast<int>(kMaxCanvasDimension));
 
@@ -930,12 +930,12 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         ImGui::PopID();
     }
     ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-    ImGui::TextWrapped("Pixels a smaller canvas leaves outside are kept, not "
-                       "thrown away: grow it again and they are back.");
+    ImGui::TextWrapped("%s", tr("Pixels a smaller canvas leaves outside are kept, not "
+                       "thrown away: grow it again and they are back."));
     ImGui::PopStyleColor();
 
     ImGui::Dummy(ImVec2(0.f, 6.f));
-    if (ImGui::Button("Resize", ImVec2(110.f, 0.f))) {
+    if (ImGui::Button(tr("Resize"), ImVec2(110.f, 0.f))) {
         const uint32_t w = static_cast<uint32_t>(dialog.width);
         const uint32_t h = static_cast<uint32_t>(dialog.height);
         const CanvasAnchor anchor = dialog.anchor;
@@ -946,7 +946,7 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         dialog.open = false;
         ImGui::CloseCurrentPopup();
     }
@@ -1001,11 +1001,11 @@ void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
     }
     const char* scopes[] = { "This layer", "Every layer of this frame", "Every frame" };
     ImGui::SetNextItemWidth(220.f);
-    ImGui::Combo("covers", &dialog.scope, scopes, 3);
-    ImGui::Checkbox("Palette slots too", &dialog.slots);
+    ImGui::Combo(tr("covers"), &dialog.scope, scopes, 3);
+    ImGui::Checkbox(tr("Palette slots too"), &dialog.slots);
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("The slots these layers paint through change as well -- and so "
-                          "does everything else that paints through them.");
+        ImGui::SetTooltip("%s", tr("The slots these layers paint through change as well -- and so "
+                          "does everything else that paints through them."));
     }
     ImGui::TextDisabled("%zu colour(s)%s", dialog.base.sites.size() + dialog.base.slots.size(),
                         dialog.base.slots.empty() ? "" : ", slots included");
@@ -1013,16 +1013,16 @@ void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
     ColourAdjust& a = dialog.adjust;
     bool changed = false;
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat("hue", &a.hue, -180.f, 180.f, "%.0f deg");
+    changed |= ImGui::SliderFloat(tr("hue"), &a.hue, -180.f, 180.f, "%.0f deg");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat("saturation", &a.saturation, -1.f, 1.f, "%.2f");
+    changed |= ImGui::SliderFloat(tr("saturation"), &a.saturation, -1.f, 1.f, "%.2f");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat("lightness", &a.lightness, -1.f, 1.f, "%.2f");
+    changed |= ImGui::SliderFloat(tr("lightness"), &a.lightness, -1.f, 1.f, "%.2f");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat("brightness", &a.brightness, -1.f, 1.f, "%.2f");
+    changed |= ImGui::SliderFloat(tr("brightness"), &a.brightness, -1.f, 1.f, "%.2f");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat("contrast", &a.contrast, -1.f, 1.f, "%.2f");
-    changed |= ImGui::Checkbox("Invert", &a.invert);
+    changed |= ImGui::SliderFloat(tr("contrast"), &a.contrast, -1.f, 1.f, "%.2f");
+    changed |= ImGui::Checkbox(tr("Invert"), &a.invert);
     if (changed) {
         applyAdjust(editor.doc, dialog.base, a);
         canvas.invalidate();
@@ -1041,18 +1041,18 @@ void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
         canvas.invalidate();
         ImGui::CloseCurrentPopup();
     };
-    if (ImGui::Button("Apply", ImVec2(100.f, 0.f))) {
+    if (ImGui::Button(tr("Apply"), ImVec2(100.f, 0.f))) {
         close(true);
         editor.say("Adjusted; every element is still what it was");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Reset", ImVec2(80.f, 0.f))) {
+    if (ImGui::Button(tr("Reset"), ImVec2(80.f, 0.f))) {
         a = ColourAdjust{};
         applyAdjust(editor.doc, dialog.base, a);
         canvas.invalidate();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         close(false);
     }
     ImGui::EndPopup();
@@ -1074,10 +1074,10 @@ void drawModifyPanel(Editor& editor) {
         return;
     }
     ImGui::SetNextItemWidth(160.f);
-    if (ImGui::InputInt("pixels", &dialog.pixels)) {
+    if (ImGui::InputInt(tr("pixels"), &dialog.pixels)) {
         dialog.pixels = std::clamp(dialog.pixels, 1, 256);
     }
-    ImGui::Checkbox("Round corners", &dialog.round);
+    ImGui::Checkbox(tr("Round corners"), &dialog.round);
     ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
     ImGui::TextWrapped(dialog.how == SelectionModify::Border
                            ? "Keeps only a band this wide just inside the edge -- the "
@@ -1086,7 +1086,7 @@ void drawModifyPanel(Editor& editor) {
                              "a circle.");
     ImGui::PopStyleColor();
     ImGui::Dummy(ImVec2(0.f, 6.f));
-    if (ImGui::Button("OK", ImVec2(110.f, 0.f))) {
+    if (ImGui::Button(tr("OK"), ImVec2(110.f, 0.f))) {
         auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
         if (size.ok()) {
             settleFloating(editor);
@@ -1101,7 +1101,7 @@ void drawModifyPanel(Editor& editor) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         dialog.open = false;
         ImGui::CloseCurrentPopup();
     }
@@ -1127,7 +1127,7 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
     const float w0 = static_cast<float>(size.value.x);
     const float h0 = static_cast<float>(size.value.y);
     ImGui::TextDisabled("Now %d x %d", size.value.x, size.value.y);
-    ImGui::Checkbox("Keep the proportion", &dialog.lockRatio);
+    ImGui::Checkbox(tr("Keep the proportion"), &dialog.lockRatio);
 
     // Pixels and percent are two views of one choice: editing either sets the
     // other, and a locked proportion carries each change across.
@@ -1143,13 +1143,13 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
         dialog.percentY = static_cast<float>(dialog.height) * 100.f / h0;
     };
     ImGui::SetNextItemWidth(120.f);
-    if (ImGui::InputInt("width", &dialog.width)) {
+    if (ImGui::InputInt(tr("width"), &dialog.width)) {
         dialog.width = std::clamp(dialog.width, 1, static_cast<int>(kMaxCanvasDimension));
         fromPixels(true);
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.f);
-    if (ImGui::InputInt("height", &dialog.height)) {
+    if (ImGui::InputInt(tr("height"), &dialog.height)) {
         dialog.height = std::clamp(dialog.height, 1, static_cast<int>(kMaxCanvasDimension));
         fromPixels(false);
     }
@@ -1167,13 +1167,13 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
                                    static_cast<int>(kMaxCanvasDimension));
     };
     ImGui::SetNextItemWidth(120.f);
-    if (ImGui::InputFloat("% across", &dialog.percentX, 25.f, 100.f, "%.1f")) {
+    if (ImGui::InputFloat(tr("% across"), &dialog.percentX, 25.f, 100.f, "%.1f")) {
         dialog.percentX = std::clamp(dialog.percentX, 1.f, 10000.f);
         fromPercent(true);
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.f);
-    if (ImGui::InputFloat("% down", &dialog.percentY, 25.f, 100.f, "%.1f")) {
+    if (ImGui::InputFloat(tr("% down"), &dialog.percentY, 25.f, 100.f, "%.1f")) {
         dialog.percentY = std::clamp(dialog.percentY, 1.f, 10000.f);
         fromPercent(false);
     }
@@ -1198,7 +1198,7 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
     ImGui::PopStyleColor();
 
     ImGui::Dummy(ImVec2(0.f, 6.f));
-    if (ImGui::Button("Resize", ImVec2(110.f, 0.f))) {
+    if (ImGui::Button(tr("Resize"), ImVec2(110.f, 0.f))) {
         const uint32_t w = static_cast<uint32_t>(dialog.width);
         const uint32_t h = static_cast<uint32_t>(dialog.height);
         changeCanvas(editor, canvas, [&](std::string* error) {
@@ -1208,7 +1208,7 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         dialog.open = false;
         ImGui::CloseCurrentPopup();
     }
@@ -1258,8 +1258,8 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
     Preferences& prefs = editor.prefs;
     bool changed = false;
     if (ImGui::BeginTabBar("preference-tabs")) {
-        if (ImGui::BeginTabItem("General")) {
-            theme::sectionHeader("A NEW DOCUMENT");
+        if (ImGui::BeginTabItem(tr("General"))) {
+            theme::sectionHeader(tr("A NEW DOCUMENT"));
             int size[2] = { static_cast<int>(prefs.newWidth), static_cast<int>(prefs.newHeight) };
             ImGui::SetNextItemWidth(200.f);
             if (ImGui::InputInt2("size", size)) {
@@ -1274,14 +1274,14 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             }
             const char* backgrounds[] = { "Transparent", "White", "Black", "The palette's first colour" };
             ImGui::SetNextItemWidth(200.f);
-            changed |= ImGui::Combo("background", &prefs.newBackground, backgrounds, 4);
+            changed |= ImGui::Combo(tr("background"), &prefs.newBackground, backgrounds, 4);
             const std::vector<PalettePreset>& presets = palettePresets();
             const char* current = prefs.newPreset < 0 ||
                                   prefs.newPreset >= static_cast<int>(presets.size())
                 ? "Starter" : presets[static_cast<size_t>(prefs.newPreset)].name.c_str();
             ImGui::SetNextItemWidth(200.f);
             if (ImGui::BeginCombo("palette", current)) {
-                if (ImGui::Selectable("Starter", prefs.newPreset < 0)) {
+                if (ImGui::Selectable(tr("Starter"), prefs.newPreset < 0)) {
                     prefs.newPreset = -1;
                     changed = true;
                 }
@@ -1295,31 +1295,31 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 ImGui::EndCombo();
             }
 
-            theme::sectionHeader("WORKING");
-            if (ImGui::Checkbox("Autosave a copy", &prefs.autosaveOn)) {
+            theme::sectionHeader(tr("WORKING"));
+            if (ImGui::Checkbox(tr("Autosave a copy"), &prefs.autosaveOn)) {
                 editor.autosaveOn = prefs.autosaveOn && editor.recovery.active();
                 changed = true;
             }
             int minutes = static_cast<int>(prefs.autosaveSeconds / 60);
             ImGui::SetNextItemWidth(200.f);
-            if (ImGui::SliderInt("every", &minutes, 1, 30, "%d min")) {
+            if (ImGui::SliderInt(tr("every"), &minutes, 1, 30, "%d min")) {
                 prefs.autosaveSeconds = static_cast<uint32_t>(minutes) * 60u;
                 editor.recovery.setIntervalSeconds(prefs.autosaveSeconds);
                 changed = true;
             }
             int history = static_cast<int>(prefs.historyLimit);
             ImGui::SetNextItemWidth(200.f);
-            if (ImGui::SliderInt("undo steps", &history, 10, 2000)) {
+            if (ImGui::SliderInt(tr("undo steps"), &history, 10, 2000)) {
                 prefs.historyLimit = static_cast<uint32_t>(history);
                 editor.doc.setHistoryLimit(prefs.historyLimit);
                 changed = true;
             }
 
-            theme::sectionHeader("LOOK");
+            theme::sectionHeader(tr("LOOK"));
             int look = prefs.lightTheme ? 1 : 0;
             const char* looks[] = { "Slate (dark)", "Paper (light)" };
             ImGui::SetNextItemWidth(200.f);
-            if (ImGui::Combo("theme", &look, looks, 2)) {
+            if (ImGui::Combo(tr("theme"), &look, looks, 2)) {
                 prefs.lightTheme = look == 1;
                 theme::setLight(prefs.lightTheme);
                 canvasDefaultsFor(prefs.lightTheme, &prefs);
@@ -1347,14 +1347,14 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 }
             }
 
-            theme::sectionHeader("THE CANVAS");
+            theme::sectionHeader(tr("THE CANVAS"));
             bool view = false;
-            view |= ImGui::Checkbox("Pixel grid", &prefs.pixelGrid);
+            view |= ImGui::Checkbox(tr("Pixel grid"), &prefs.pixelGrid);
             ImGui::SameLine();
             view |= editColour("##grid", &prefs.gridColour);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.f);
-            view |= ImGui::SliderInt("grid opacity", &prefs.gridOpacity, 0, 255);
+            view |= ImGui::SliderInt(tr("grid opacity"), &prefs.gridOpacity, 0, 255);
             view |= editColour("##checker-light", &prefs.checkerLight);
             ImGui::SameLine();
             view |= editColour("##checker-dark", &prefs.checkerDark);
@@ -1362,8 +1362,8 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             ImGui::TextUnformatted("chequer");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.f);
-            view |= ImGui::SliderInt("square", &prefs.checkerSize, 2, 64, "%d px");
-            if (ImGui::Button("Canvas defaults")) {
+            view |= ImGui::SliderInt(tr("square"), &prefs.checkerSize, 2, 64, "%d px");
+            if (ImGui::Button(tr("Canvas defaults"))) {
                 const Preferences defaults;
                 prefs.pixelGrid = defaults.pixelGrid;
                 prefs.gridColour = defaults.gridColour;
@@ -1382,14 +1382,14 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
         const ImGuiTabItemFlags keysFlags =
             editor.preferencesShowKeys ? ImGuiTabItemFlags_SetSelected : 0;
         editor.preferencesShowKeys = false;
-        if (ImGui::BeginTabItem("Keys", nullptr, keysFlags)) {
+        if (ImGui::BeginTabItem(tr("Keys"), nullptr, keysFlags)) {
             // A key being given: the next chord pressed is it, Escape gives
             // up, Backspace removes the chord.
             if (!editor.rebinding.empty()) {
                 const CommandInfo* info = findCommand(editor.rebinding);
                 ImGui::TextColored(theme::palette().accent, "Press the keys for %s...",
                                    info != nullptr ? tr(info->label) : "?");
-                ImGui::TextDisabled("Escape to give up, Backspace to remove this key.");
+                ImGui::TextDisabled("%s", tr("Escape to give up, Backspace to remove this key."));
                 Chord chord;
                 if (chordPressed(&chord)) {
                     std::vector<Chord> chords = editor.keys.chordsFor(editor.rebinding);
@@ -1416,7 +1416,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 }
                 ImGui::Separator();
             }
-            if (ImGui::Button("Reset every key")) {
+            if (ImGui::Button(tr("Reset every key"))) {
                 editor.keys.resetAll();
                 changed = true;
             }
@@ -1455,7 +1455,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                     if (shared) {
                         ImGui::PopStyleColor();
                         if (ImGui::IsItemHovered()) {
-                            ImGui::SetTooltip("Another command has this key too.");
+                            ImGui::SetTooltip("%s", tr("Another command has this key too."));
                         }
                     }
                     ImGui::SameLine();
@@ -1467,7 +1467,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 }
                 if (!editor.keys.isDefault(info.id)) {
                     ImGui::SameLine();
-                    if (ImGui::SmallButton("default")) {
+                    if (ImGui::SmallButton(tr("default"))) {
                         editor.keys.reset(info.id);
                         changed = true;
                     }
@@ -1501,7 +1501,7 @@ void drawHistoryPanel(Editor& editor, CanvasView& canvas) {
         const std::vector<std::string> done = editor.doc.undoLabels();
         const std::vector<std::string> undone = editor.doc.redoLabels();
         int target = -1;           // how many steps should be done afterwards
-        if (ImGui::Selectable("(as opened)", done.empty())) {
+        if (ImGui::Selectable(tr("(as opened)"), done.empty())) {
             target = 0;
         }
         for (size_t i = 0; i < done.size(); ++i) {
@@ -1559,9 +1559,9 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
         ImGui::EndPopup();
         return;
     }
-    ImGui::TextDisabled("Enter places it; Ctrl+Enter for a new line");
+    ImGui::TextDisabled("%s", tr("Enter places it; Ctrl+Enter for a new line"));
     ImGui::SetNextItemWidth(160.f);
-    ImGui::SliderInt("size", &editor.textScale, 1, 8, "%dx");
+    ImGui::SliderInt(tr("size"), &editor.textScale, 1, 8, "%dx");
     int width = 0;
     int height = 0;
     layOutText(editor.textBuffer, editor.textAt, editor.textScale, &width, &height);
@@ -1569,7 +1569,7 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
                         editor.textAt.y);
     const bool empty = editor.textBuffer[0] == '\0';
     ImGui::BeginDisabled(empty);
-    if (ImGui::Button("Place", ImVec2(110.f, 0.f)) || (entered && !empty)) {
+    if (ImGui::Button(tr("Place"), ImVec2(110.f, 0.f)) || (entered && !empty)) {
         PaintLayer* layer = editor.active();
         TextSpec spec;
         spec.text = editor.textBuffer;
@@ -1594,7 +1594,7 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         editor.textOpen = false;
         ImGui::CloseCurrentPopup();
     }
@@ -1616,9 +1616,9 @@ void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
     int width = static_cast<int>(spec.width);
     int height = static_cast<int>(spec.height);
     ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt("width", &width);
+    ImGui::InputInt(tr("width"), &width);
     ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt("height", &height);
+    ImGui::InputInt(tr("height"), &height);
     for (int size : { 16, 24, 32, 48, 64, 128, 256 }) {
         const std::string label = std::to_string(size);
         if (ImGui::SmallButton(label.c_str())) {
@@ -1634,14 +1634,14 @@ void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
     ImGui::Dummy(ImVec2(0.f, 4.f));
     const char* backgrounds[] = { "Transparent", "White", "Black", "The palette's first colour" };
     ImGui::SetNextItemWidth(220.f);
-    ImGui::Combo("background", &spec.background, backgrounds, 4);
+    ImGui::Combo(tr("background"), &spec.background, backgrounds, 4);
 
     const std::vector<PalettePreset>& presets = palettePresets();
     const char* current = spec.preset < 0 ? "Starter"
                                           : presets[static_cast<size_t>(spec.preset)].name.c_str();
     ImGui::SetNextItemWidth(220.f);
     if (ImGui::BeginCombo("palette", current)) {
-        if (ImGui::Selectable("Starter", spec.preset < 0)) {
+        if (ImGui::Selectable(tr("Starter"), spec.preset < 0)) {
             spec.preset = -1;
         }
         for (size_t i = 0; i < presets.size(); ++i) {
@@ -1656,14 +1656,14 @@ void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
     }
     ImGui::Dummy(ImVec2(0.f, 6.f));
     ImGui::BeginDisabled(!fits);
-    if (ImGui::Button("Create", ImVec2(110.f, 0.f))) {
+    if (ImGui::Button(tr("Create"), ImVec2(110.f, 0.f))) {
         editor.newDocumentOpen = false;
         ImGui::CloseCurrentPopup();
         requestAction(editor, canvas, window, PendingAction::NewDocument);
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
         editor.newDocumentOpen = false;
         ImGui::CloseCurrentPopup();
     }
@@ -1689,14 +1689,14 @@ void drawRecoveryPrompt(Editor& editor, CanvasView& canvas) {
         return;
     }
 
-    ImGui::TextWrapped("Sprit's'fast closed without saving last time. These "
-                       "copies were kept:");
+    ImGui::TextWrapped("%s", tr("Sprit's'fast closed without saving last time. These "
+                       "copies were kept:"));
     ImGui::Dummy(ImVec2(0.f, 4.f));
 
     for (size_t i = 0; i < editor.recovered.size(); ++i) {
         const RecoveredWork& work = editor.recovered[i];
         ImGui::PushID(static_cast<int>(i));
-        if (ImGui::Button("Open")) {
+        if (ImGui::Button(tr("Open"))) {
             // Through openPath, so the view state and everything else in the
             // package comes back. It opens as the *copy*, which is then
             // marked as changed -- the person saves it where they want it,
@@ -1730,7 +1730,7 @@ void drawRecoveryPrompt(Editor& editor, CanvasView& canvas) {
             ImGui::SetTooltip("%s", work.originalPath.c_str());
         }
         ImGui::SameLine();
-        if (ImGui::SmallButton("Discard")) {
+        if (ImGui::SmallButton(tr("Discard"))) {
             discardRecoveredWork(work);
             editor.recovered.erase(editor.recovered.begin() +
                                    static_cast<ptrdiff_t>(i));
@@ -1746,15 +1746,15 @@ void drawRecoveryPrompt(Editor& editor, CanvasView& canvas) {
     }
 
     ImGui::Dummy(ImVec2(0.f, 6.f));
-    if (ImGui::Button("Later")) {
+    if (ImGui::Button(tr("Later"))) {
         // Kept, not deleted: closing the question is not the same as saying
         // the work is worthless, and it will be offered again next time.
         editor.askingToRecover = false;
         ImGui::CloseCurrentPopup();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Leave them where they are. You will be asked again "
-                          "next time.");
+        ImGui::SetTooltip("%s", tr("Leave them where they are. You will be asked again "
+                          "next time."));
     }
     ImGui::EndPopup();
 }
@@ -1779,7 +1779,7 @@ void drawUnsavedPrompt(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::Text("%s has unsaved changes.", name.c_str());
     ImGui::Dummy(ImVec2(0.f, 6.f));
 
-    if (ImGui::Button("Save", ImVec2(112.f, 0.f))) {
+    if (ImGui::Button(tr("Save"), ImVec2(112.f, 0.f))) {
         const PendingAction action = editor.files.pending;
         const std::string path = editor.files.pendingPath;
         if (editor.doc.path().empty()) {
@@ -1795,7 +1795,7 @@ void drawUnsavedPrompt(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Discard", ImVec2(112.f, 0.f))) {
+    if (ImGui::Button(tr("Discard"), ImVec2(112.f, 0.f))) {
         const PendingAction action = editor.files.pending;
         const std::string path = editor.files.pendingPath;
         editor.files.pending = PendingAction::None;
@@ -1804,7 +1804,7 @@ void drawUnsavedPrompt(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(112.f, 0.f)) ||
+    if (ImGui::Button(tr("Cancel"), ImVec2(112.f, 0.f)) ||
         ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         editor.files.pending = PendingAction::None;
         editor.files.pendingPath.clear();
