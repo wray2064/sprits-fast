@@ -166,6 +166,12 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **A turned layer refused every selection.** A selection is drawn over the
+  canvas and a turned layer's marks are not where the canvas shows them, so
+  lifting, moving, copying and clearing were all refused. The selection is
+  now carried into the layer and the float's move carried back through the
+  turn. `tests/ui/turned_selection.txt` turns a line a quarter turn in the
+  Transform panel, boxes it on the canvas and drags it across.
 - **Erasing a line cleared whatever was under it.** A line or a curve had no
   region to keep an erase, so the eraser laid a clear over everything the
   layer had drawn before it, which stayed put when the line moved and

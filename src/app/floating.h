@@ -25,8 +25,13 @@
 // action that the caller holds open, so one Ctrl+Z undoes a move and Escape
 // abandons it with nothing to clean up.
 //
-// Layers with a transform refuse: a selection is drawn over the canvas, and a
-// turned layer's marks are not where the canvas shows them.
+// A selection is drawn over the canvas and a float is dragged across it, but a
+// turned layer's marks are not where the canvas shows them. So on a layer
+// with a transform the selection is carried into the layer (the layer pixels
+// that show inside it), the float is moved there in whole layer pixels, and
+// what floats is shown back on the canvas where the layer puts it. A clip is
+// kept in canvas space: marks copied off a turned layer are carried out onto
+// the canvas, and carried into whatever layer they are pasted on.
 
 #include "app/document.h"
 #include "app/ink.h"
@@ -61,10 +66,12 @@ struct PixelClip {
 std::vector<std::vector<ls::Vec2i>> stampOf(const PixelClip& clip, ls::Vec2i centre);
 
 // Whether a layer's pixels can be lifted, copied and cleared through a
-// selection: false for a layer with any transform on it.
+// selection: false only for one whose transform cannot be undone (a scale of
+// zero), since a selection is carried into the layer through it.
 bool layerTakesSelections(Document& doc, ls::LayerId layer);
 
-// What `mask` covers on `layer`, colour by colour.
+// What `mask`, a canvas mask, covers on `layer`, colour by colour, in canvas
+// space.
 bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out);
 
 // Removes what `mask` covers from every colour on `layer` -- and, with
@@ -99,8 +106,13 @@ struct Floating {
     std::vector<Piece>      pieces;
     std::vector<Shape>      shapes;
     std::vector<ShapeErase> shapeErases;
-    ls::IntervalSet    originalMask;
-    ls::Vec2i          offset { 0, 0 };
+    ls::IntervalSet    originalMask;      // in the layer's own space
+    ls::Vec2i          offset { 0, 0 };   // on the canvas
+    // Where the layer's own space is on the canvas: its transform. Identity
+    // for a layer with none.
+    ls::Mat3f          toCanvas;
+    // The canvas mask it was lifted or pasted by, which Escape puts back.
+    ls::IntervalSet    selected;
 
     bool active() const { return layer.valid(); }
 };

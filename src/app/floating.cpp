@@ -9,6 +9,7 @@
 #include "app/transform.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <iterator>
 
@@ -44,6 +45,40 @@ ls::StrokesDesc mappedMarks(const ls::StrokesDesc& marks, const std::function<ls
         }
     }
     return out;
+}
+
+bool isIdentity(const ls::Mat3f& m) {
+    const ls::Mat3f one;
+    for (int i = 0; i < 9; ++i) {
+        if (std::fabs(m.m[i] - one.m[i]) > 1e-5f) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// A mask of the layer's own pixels, where the layer puts them on the canvas.
+ls::IntervalSet onCanvas(const ls::Mat3f& toCanvas, const ls::IntervalSet& inLayer) {
+    if (isIdentity(toCanvas) || inLayer.empty()) {
+        return inLayer;
+    }
+    return ls::geom::rasterizeAreaThrough(ls::geom::traceArea(inLayer), toCanvas);
+}
+
+// The float's move on the canvas as a move of the layer's own pixels: the
+// canvas step carried back through the layer's turn, to the nearest whole
+// pixel, so marks stay on pixel centres.
+ls::Vec2i layerStep(const Floating& floating) {
+    if (isIdentity(floating.toCanvas)) {
+        return floating.offset;
+    }
+    auto back = floating.toCanvas.inverse();
+    if (back.fail()) {
+        return floating.offset;
+    }
+    const ls::Vec2f step = back.value.transformVector(
+        { static_cast<float>(floating.offset.x), static_cast<float>(floating.offset.y) });
+    return { static_cast<int32_t>(std::lround(step.x)), static_cast<int32_t>(std::lround(step.y)) };
 }
 
 ls::StrokesDesc translatedMarks(const ls::StrokesDesc& marks, ls::Vec2i by) {
@@ -149,11 +184,14 @@ std::vector<std::vector<ls::Vec2i>> stampOf(const PixelClip& clip, ls::Vec2i cen
 }
 
 bool layerTakesSelections(Document& doc, ls::LayerId layer) {
-    return layer.valid() && listTransforms(doc, layer).empty();
+    return layer.valid() && layerTransform(doc, layer).inverse().ok();
 }
 
-bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out) {
-    if (out == nullptr || mask.empty() || !layerTakesSelections(doc, layer)) {
+namespace {
+
+// copyPixels in the layer's own space: `mask` and the clip both.
+bool copyInLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out) {
+    if (out == nullptr || mask.empty()) {
         return false;
     }
     PixelClip clip;
@@ -203,11 +241,41 @@ bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, P
     return true;
 }
 
-bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask,
-                 bool shapesToo) {
-    if (mask.empty() || !layerTakesSelections(doc, layer)) {
+} // namespace
+
+bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out) {
+    if (out == nullptr || mask.empty() || !layerTakesSelections(doc, layer)) {
         return false;
     }
+    const ls::Mat3f toCanvas = layerTransform(doc, layer);
+    if (isIdentity(toCanvas)) {
+        return copyInLayer(doc, layer, mask, out);
+    }
+    // A turned layer: what shows inside the selection, carried out onto the
+    // canvas -- marks and all -- where the clip lives.
+    PixelClip clip;
+    if (!copyInLayer(doc, layer, canvasAreaOnLayer(doc, layer, mask), &clip)) {
+        return false;
+    }
+    clip.mask = {};
+    for (PixelClip::Piece& piece : clip.pieces) {
+        piece.marks = mappedMarks(piece.marks, [&toCanvas](ls::Vec2f p) {
+            return toCanvas.transformPoint(p);
+        });
+        piece.pixels = onCanvas(toCanvas, piece.pixels);
+        clip.mask = ls::geom::unionSets(clip.mask, piece.pixels);
+    }
+    *out = std::move(clip);
+    return true;
+}
+
+
+bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& canvasMask,
+                 bool shapesToo) {
+    if (canvasMask.empty() || !layerTakesSelections(doc, layer)) {
+        return false;
+    }
+    const ls::IntervalSet mask = canvasAreaOnLayer(doc, layer, canvasMask);
     const ls::PenStroke eraser = areaMark(mask);
     bool any = false;
     if (shapesToo) {
@@ -225,12 +293,15 @@ bool clearPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask,
     return any;
 }
 
-bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, Floating* out) {
-    if (out == nullptr || mask.empty() || !layerTakesSelections(doc, layer)) {
+bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& canvasMask,
+                Floating* out) {
+    if (out == nullptr || canvasMask.empty() || !layerTakesSelections(doc, layer)) {
         return false;
     }
+    // Everything below is in the layer's own space.
+    const ls::IntervalSet mask = canvasAreaOnLayer(doc, layer, canvasMask);
     PixelClip clip;
-    const bool anyPixels = copyPixels(doc, layer, mask, &clip);
+    const bool anyPixels = copyInLayer(doc, layer, mask, &clip);
 
     // The shapes the mask holds entirely. One that crosses its edge stays:
     // half a rectangle is not a thing a shape can be.
@@ -283,6 +354,8 @@ bool liftPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, F
     Floating floating;
     floating.layer = layer;
     floating.originalMask = mask;
+    floating.toCanvas = layerTransform(doc, layer);
+    floating.selected = canvasMask;
     floating.shapes = std::move(shapes);
     floating.shapeErases = std::move(erases);
     // Out of the layer first, then into pieces at the top: the pieces are
@@ -307,9 +380,16 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
     if (out == nullptr || clip.empty() || !layerTakesSelections(doc, layer)) {
         return false;
     }
+    // The clip is on the canvas; into the layer's own space, through its
+    // transform when it has one.
+    const ls::Mat3f toCanvas = layerTransform(doc, layer);
+    auto back = toCanvas.inverse();
+    const bool turned = !isIdentity(toCanvas) && back.ok();
     Floating floating;
     floating.layer = layer;
-    floating.originalMask = clip.mask;
+    floating.originalMask = turned ? canvasAreaOnLayer(doc, layer, clip.mask) : clip.mask;
+    floating.toCanvas = toCanvas;
+    floating.selected = clip.mask;
     const bool sameDocument = clip.from == doc.id();
     for (const PixelClip::Piece& taken : clip.pieces) {
         Floating::Piece piece;
@@ -317,12 +397,17 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
         // A dither whose element was deleted since the copy pastes as its
         // colour rather than as nothing.
         const bool ditherLives = dither.valid() && doc.engine().getOperation(dither).ok();
+        const ls::IntervalSet pixels = turned ? canvasAreaOnLayer(doc, layer, taken.pixels)
+                                              : taken.pixels;
         ls::StrokesDesc marks = taken.marks;
         if (marks.strokes.empty()) {
-            marks = ls::geom::traceStrokes(taken.pixels);   // an image's pixels, traced
+            marks = ls::geom::traceStrokes(pixels);   // an image's pixels, traced
+        } else if (turned) {
+            const ls::Mat3f into = back.value;
+            marks = mappedMarks(marks, [into](ls::Vec2f p) { return into.transformPoint(p); });
         }
         if (makePiece(doc, layer, taken.ink, ditherLives ? dither : ls::OperationId{},
-                      marks, taken.pixels, &piece)) {
+                      marks, pixels, &piece)) {
             floating.pieces.push_back(std::move(piece));
         }
     }
@@ -335,14 +420,16 @@ bool moveFloating(Document& doc, Floating& floating, ls::Vec2i offset) {
         return false;
     }
     floating.offset = offset;
+    // The canvas move, as the layer's own pixels move.
+    const ls::Vec2i step = layerStep(floating);
     bool ok = true;
     for (const Floating::Piece& piece : floating.pieces) {
-        ok = writePieceMarks(doc, piece, translatedMarks(piece.marks, offset)) && ok;
+        ok = writePieceMarks(doc, piece, translatedMarks(piece.marks, step)) && ok;
     }
     for (const Floating::ShapeErase& erase : floating.shapeErases) {
-        ok = doc.engine().updateStrokes(erase.strokes, translatedMarks(erase.original, offset)).ok() && ok;
+        ok = doc.engine().updateStrokes(erase.strokes, translatedMarks(erase.original, step)).ok() && ok;
     }
-    const ls::Vec2f by { static_cast<float>(offset.x), static_cast<float>(offset.y) };
+    const ls::Vec2f by { static_cast<float>(step.x), static_cast<float>(step.y) };
     for (const Floating::Shape& taken : floating.shapes) {
         ShapeParams moved = taken.original;
         mapShapePoints(moved, [by](ls::Vec2f p) { return ls::Vec2f{ p.x + by.x, p.y + by.y }; });
@@ -405,7 +492,7 @@ bool turnFloating(Document& doc, Floating& floating, FloatTurn turn) {
 }
 
 ls::IntervalSet floatingMask(const Floating& floating) {
-    return translated(floating.originalMask, floating.offset);
+    return onCanvas(floating.toCanvas, translated(floating.originalMask, layerStep(floating)));
 }
 
 bool dropFloating(Document& doc, Floating& floating) {
@@ -414,7 +501,7 @@ bool dropFloating(Document& doc, Floating& floating) {
     }
     ls::LSContext& engine = doc.engine();
     const ls::LayerId layer = floating.layer;
-    const ls::IntervalSet canvas = canvasMask(doc);
+    const ls::IntervalSet canvas = canvasAreaOnLayer(doc, layer, canvasMask(doc));
 
     // Clipped to the canvas as every editor clips a paste: what was dragged
     // off the edge is gone, not hiding out there.

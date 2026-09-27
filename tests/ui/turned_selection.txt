@@ -1,0 +1,29 @@
+# A selection on a turned layer: a line along row 16, a quarter turn in the
+# Transform panel about the middle of the canvas shows it down column 15; a
+# box drawn round it on the canvas lifts it, and the move tool drags it six
+# across the canvas -- where it is seen to go, not six along the layer.
+tool pencil
+colour e08f40
+drag 12 16 20 16
+expect drawn 9 9
+
+click-on Rotate
+hold ctrl
+click-on ##angle
+let ctrl
+key ctrl+a
+type 90
+key enter
+wait 2
+expect pixel 15 12 e08f40
+expect pixel 15 20 e08f40
+expect pixel 16 16 empty
+
+tool select
+drag 13 10 17 22
+tool move
+drag 15 16 21 16
+expect pixel 21 12 e08f40
+expect pixel 21 20 e08f40
+expect pixel 15 16 empty
+expect drawn 9 9

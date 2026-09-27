@@ -403,19 +403,55 @@ void testAClipStampsAboutItsMiddle() {
     CHECK(stamp[1][0].x == 0 && stamp[1][0].y == 0);
 }
 
-void testTransformedLayersRefuse() {
+// A turned layer takes a selection too: what shows inside it on the canvas is
+// lifted, dragged across the canvas and dropped where it is seen to go, and a
+// copy of it pastes onto a plain layer where it was seen.
+void testTransformedLayersTakeSelections() {
     Document doc;
     REQUIRE(doc.create("turned", kSize, kSize));
     PaintLayer layer;
     REQUIRE(createPaintLayer(doc, doc.sprite(), "body", kRed, &layer));
-    REQUIRE(paint(doc, layer.layer, kRed, {{ 4, 4 }}));
+    // Across row 4 in the layer; a quarter turn about (8, 8) shows it down
+    // column 11 of the canvas.
+    std::vector<ls::Vec2i> row;
+    for (int x = 3; x <= 9; ++x) {
+        row.push_back({ x, 4 });
+    }
+    REQUIRE(paint(doc, layer.layer, kRed, row));
     doc.beginAction("Rotate");
-    addRotate(doc, layer.layer, 30.f, { 8.f, 8.f });
+    addRotate(doc, layer.layer, 90.f, { 8.f, 8.f });
     doc.endAction();
+    CHECK(same(at(doc, 11, 6), kRed) && at(doc, 12, 6).a == 0);
+    CHECK(layerTakesSelections(doc, layer.layer));
+
+    // Lifted by a canvas box round it, moved three across the canvas.
+    doc.beginAction("Move");
     Floating floating;
-    CHECK(!layerTakesSelections(doc, layer.layer));
-    CHECK(!liftPixels(doc, layer.layer, rectangleMask({ 0, 0 }, { 15, 15 }), &floating));
-    CHECK(!floating.active());
+    REQUIRE(liftPixels(doc, layer.layer, rectangleMask({ 10, 2 }, { 12, 10 }), &floating));
+    REQUIRE(moveFloating(doc, floating, { 3, 0 }));
+    const ls::IntervalSet shown = floatingMask(floating);
+    CHECK(ls::geom::contains(shown, { 14, 6 }) && !ls::geom::contains(shown, { 11, 6 }));
+    REQUIRE(dropFloating(doc, floating));
+    doc.endAction();
+    CHECK(same(at(doc, 14, 6), kRed) && same(at(doc, 14, 3), kRed) && same(at(doc, 14, 9), kRed));
+    CHECK(at(doc, 11, 6).a == 0);
+
+    // Copied off the turned layer and pasted onto a plain one: where it was seen.
+    PixelClip clip;
+    REQUIRE(copyPixels(doc, layer.layer, rectangleMask({ 13, 2 }, { 15, 10 }), &clip));
+    doc.beginAction("Clear");
+    REQUIRE(clearPixels(doc, layer.layer, rectangleMask({ 13, 2 }, { 15, 10 })));
+    doc.endAction();
+    CHECK(at(doc, 14, 6).a == 0);
+    PaintLayer plain;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "plain", kRed, &plain));
+    doc.beginAction("Paste");
+    Floating pasted;
+    REQUIRE(floatClip(doc, plain.layer, clip, &pasted));
+    REQUIRE(dropFloating(doc, pasted));
+    doc.endAction();
+    CHECK(same(at(doc, 14, 6), kRed) && same(at(doc, 14, 3), kRed) && same(at(doc, 14, 9), kRed));
+    CHECK(at(doc, 15, 6).a == 0 && at(doc, 13, 6).a == 0);
 }
 
 } // namespace
@@ -458,7 +494,7 @@ int main() {
     testCopyPasteLeavesTheOriginal();
     testClearLeavesShapes();
     testAShapeInsideGoesAlongAsAShape();
-    testTransformedLayersRefuse();
+    testTransformedLayersTakeSelections();
     testAClipStampsAboutItsMiddle();
     if (failures == 0) {
         std::printf("selection: all passed\n");

@@ -92,8 +92,8 @@ bool liftSelection(Editor& editor, const char* label) {
         return false;
     }
     if (!layerTakesSelections(editor.doc, layer->layer)) {
-        editor.say("This layer has a transform; remove it in the Transform panel "
-                   "to move its pixels");
+        editor.say("This layer's transform cannot be undone (a scale of zero), so a "
+                   "selection cannot reach its pixels");
         return false;
     }
     // With nothing selected, the move tool moves the whole layer, which is
@@ -132,7 +132,7 @@ void cancelFloating(Editor& editor) {
         return;
     }
     // Put back exactly as it was, and the selection where it started.
-    const ls::IntervalSet started = editor.floating.originalMask;
+    const ls::IntervalSet started = editor.floating.selected;
     editor.doc.abandonAction();
     editor.floating = Floating{};
     editor.draggingFloat = false;
@@ -180,8 +180,8 @@ bool copySelectionPixels(Editor& editor) {
     if (!copyPixels(editor.doc, layer->layer, mask, &clip)) {
         editor.say(layerTakesSelections(editor.doc, layer->layer)
                        ? "Nothing on this layer inside the selection"
-                       : "This layer has a transform; its pixels cannot be copied "
-                         "through a selection");
+                       : "This layer's transform cannot be undone, so a selection "
+                         "cannot reach its pixels");
         return true;       // it was a pixel copy that found nothing, not a layer copy
     }
     editor.pixelClip = std::move(clip);
