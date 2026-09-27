@@ -3354,7 +3354,11 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
         if (ImGui::Begin(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible,
                          kDockable)) {
-            drawTimelinePanel(editor, canvas);
+            if (gExtension != nullptr && gExtension->timeline) {
+                gExtension->timeline(editor, canvas);
+            } else {
+                drawTimelinePanel(editor, canvas);
+            }
         }
         ImGui::End();
         ImGui::PopStyleVar();
@@ -4805,6 +4809,8 @@ int runSelfTest() {
 
 int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     gExtension = &extension;
+    // Before anything reads a setting.
+    setPreferencesFolder(extension.preferencesFolder);
     // --export makes this a batch run: open, write, exit, with no window --
     // what a build script wants. See app/batch.h for the options.
     {

@@ -19,10 +19,17 @@ class CanvasView;
 
 struct AppExtension {
     std::string title = "Sprit's'fast";
+    // The folder its settings, recent files, layout and recovery copies live
+    // in (see setPreferencesFolder). Empty shares Fast's.
+    std::string preferencesFolder;
     // Inside the main menu bar, after Fast's own menus.
     std::function<void(Editor&, CanvasView&)> menus;
     // Once a frame, after Fast's panels: windows of its own.
     std::function<void(Editor&, CanvasView&)> panels;
+    // Inside the Timeline window, in place of Fast's strip: a program with an
+    // animation system of its own draws it here, where the timeline docks. It
+    // may still call Fast's drawTimelinePanel (ui/panels.h) for any part of it.
+    std::function<void(Editor&, CanvasView&)> timeline;
 };
 
 // Runs the editor: its command line, its window, until it is closed. What

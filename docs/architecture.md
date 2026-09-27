@@ -37,6 +37,27 @@ reasons, and the second matters more than it looks:
 2. The toolkit stays replaceable. If the first choice turns out badly, what gets
    rewritten is `src/ui/`, not the editor.
 
+### A window other programs can run
+
+The window is a library too, `fast_ui`, and `sprits_fast` is only
+`fast_main.cpp` calling `fast::runApp` with nothing added. A program that is
+Fast and more runs the same window with a `fast::AppExtension`
+(`src/ui/app_extension.h`), which is every door it gets:
+
+- its **title**, and a **preferences folder** of its own, so its settings,
+  recent files, layout and recovery copies stay apart from Fast's;
+- **menus** after Fast's, and **panels** that dock beside Fast's;
+- the **timeline**: drawn inside the Timeline window in place of Fast's strip,
+  for a program with an animation system of its own (it can still call
+  `drawTimelinePanel` for any part of it).
+
+Its data in a document goes under a package-entry prefix it claims with
+`fast::claimEntryPrefix` (`src/app/document.h`): from then on those entries
+are companions like Fast's own -- read, changed, carried through undo, saved.
+Unclaimed, another program's entries are foreign, and Fast writes them back
+untouched. Keeping these doors generic is the point: nothing in Fast names a
+program built on it.
+
 ## The document
 
 `fast::Document` owns an `ls::LSContext`, the document inside it, and the undo

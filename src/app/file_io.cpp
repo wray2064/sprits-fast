@@ -206,6 +206,18 @@ bool deleteFile(const std::string& utf8Path) {
 #endif
 }
 
+namespace {
+std::string gPreferencesFolder;
+}
+
+void setPreferencesFolder(const std::string& name) {
+    // One path component, or nothing: this is a folder's name, not a place.
+    if (name.find_first_of("/\\:") != std::string::npos || name == "." || name == "..") {
+        return;
+    }
+    gPreferencesFolder = name;
+}
+
 std::string preferencesDirectory() {
 #if defined(_WIN32)
     wchar_t buffer[MAX_PATH];
@@ -214,7 +226,8 @@ std::string preferencesDirectory() {
         return std::string();
     }
     const std::string base = narrow(std::wstring(buffer, length));
-    const std::string directory = base + "\\SpritsFast";
+    const std::string directory =
+        base + "\\" + (gPreferencesFolder.empty() ? std::string("SpritsFast") : gPreferencesFolder);
     CreateDirectoryW(widen(directory).c_str(), nullptr);
     return directory;
 #else
@@ -225,7 +238,8 @@ std::string preferencesDirectory() {
         if (fallback == nullptr) { return std::string(); }
         base = std::string(fallback) + "/.config";
     }
-    const std::string directory = base + "/sprits-fast";
+    const std::string directory =
+        base + "/" + (gPreferencesFolder.empty() ? std::string("sprits-fast") : gPreferencesFolder);
     mkdir(base.c_str(), 0755);
     mkdir(directory.c_str(), 0755);
     return directory;

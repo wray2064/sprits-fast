@@ -34,6 +34,14 @@ constexpr const char* kUiStateEntry = "fast/ui-state.json";
 // reason the engine owns the container and the applications own the entries.
 constexpr const char* kFastEntryPrefix = "fast/";
 
+// A program built on Fast (Pract) keeps entries of its own the same way, under
+// a prefix of its own -- "pract/" -- claimed once as it starts, before any
+// document opens. A claimed entry is a companion like Fast's: read and written
+// through companion()/setCompanion(), carried through undo. Unclaimed, it is
+// foreign and written back untouched. A prefix ends in '/'; one that does not,
+// or is Fast's own, is ignored.
+void claimEntryPrefix(const std::string& prefix);
+
 // A picture of the first frame, kept in the package so a library or a recent
 // list can show what a file holds without opening it.
 constexpr const char* kThumbnailEntry = "fast/thumbnail.png";
@@ -192,8 +200,9 @@ public:
     // engine's snapshot will not carry them -- the history entries here do,
     // which is what makes an imported reference undo like anything else.
     //
-    // setCompanion refuses a name outside kFastEntryPrefix rather than
-    // letting Fast overwrite another application's entry.
+    // setCompanion refuses a name outside kFastEntryPrefix, or a prefix
+    // claimed with claimEntryPrefix, rather than letting Fast overwrite
+    // another application's entry.
     bool setCompanion(const std::string& name, const std::string& contentType,
                       std::vector<uint8_t> data);
     const std::vector<uint8_t>* companion(const std::string& name) const;

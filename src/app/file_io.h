@@ -74,6 +74,12 @@ std::string documentsDirectory();
 // not there. Empty if the platform will not say.
 std::string preferencesDirectory();
 
+// Names that directory's folder, before anything reads it: a program built on
+// Fast keeps its settings, recent files, layout and recovery copies apart from
+// Fast's. Empty keeps Fast's ("SpritsFast", or "sprits-fast" beside other
+// programs' settings on Linux and macOS).
+void setPreferencesFolder(const std::string& name);
+
 // Path pieces, on UTF-8 paths, accepting either separator.
 std::string fileName(const std::string& utf8Path);       // "art/hero.lsprite" -> "hero.lsprite"
 std::string fileStem(const std::string& utf8Path);       // -> "hero"

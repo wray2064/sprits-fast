@@ -12,7 +12,36 @@ std::string engineError(ls::LSError error) {
     return std::string(ls::lsErrorString(error));
 }
 
+// The prefixes this program keeps entries under: Fast's, and whatever a
+// program built on it claimed.
+std::vector<std::string>& ownedPrefixes() {
+    static std::vector<std::string> prefixes{ kFastEntryPrefix };
+    return prefixes;
+}
+
+// How long the owned prefix `name` starts with is, or 0 when it is not ours.
+size_t ownedPrefixLength(const std::string& name) {
+    for (const std::string& prefix : ownedPrefixes()) {
+        if (name.compare(0, prefix.size(), prefix) == 0) {
+            return prefix.size();
+        }
+    }
+    return 0;
+}
+
 } // namespace
+
+void claimEntryPrefix(const std::string& prefix) {
+    if (prefix.size() < 2 || prefix.back() != '/' || prefix.find('/') != prefix.size() - 1) {
+        return;
+    }
+    for (const std::string& owned : ownedPrefixes()) {
+        if (owned == prefix) {
+            return;
+        }
+    }
+    ownedPrefixes().push_back(prefix);
+}
 
 Document::Document() : engine_(ls::LSContext::create()) {
     // Say what this application works with rather than inheriting a default it
@@ -158,11 +187,10 @@ bool Document::open(const std::string& path, std::string* error) {
     // application's data. This is the whole reason the engine owns the container
     // and the apps own the entries.
     companions_.clear();
-    const std::string prefix = kFastEntryPrefix;
     for (ls::PackageEntry& entry : entries) {
         if (entry.name == kUiStateEntry) {
             uiState_.assign(entry.data.begin(), entry.data.end());
-        } else if (entry.name.compare(0, prefix.size(), prefix) == 0) {
+        } else if (ownedPrefixLength(entry.name) > 0) {
             companions_.push_back(std::move(entry));
         } else {
             foreignEntries_.push_back(std::move(entry));
@@ -178,9 +206,8 @@ bool Document::open(const std::string& path, std::string* error) {
 
 bool Document::setCompanion(const std::string& name, const std::string& contentType,
                             std::vector<uint8_t> data) {
-    const std::string prefix = kFastEntryPrefix;
-    if (name.size() <= prefix.size() || name.compare(0, prefix.size(), prefix) != 0 ||
-        name == kUiStateEntry || name.size() > ls::kPackageMaxNameLength ||
+    const size_t prefix = ownedPrefixLength(name);
+    if (prefix == 0 || name.size() <= prefix || name == kUiStateEntry || name.size() > ls::kPackageMaxNameLength ||
         data.size() > ls::kPackageMaxEntrySize) {
         return false;
     }
