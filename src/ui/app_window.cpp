@@ -28,6 +28,7 @@
 #include "app/sheet.h"
 #include "app/transform.h"
 #include "app/ui_state.h"
+#include "ui/app_extension.h"
 #include "ui/keys.h"
 #include "ui/layout.h"
 #include "app/i18n.h"
@@ -62,6 +63,11 @@
 namespace {
 
 using namespace fast;
+
+namespace {
+// What the program running this window adds to it (see app_extension.h).
+const AppExtension* gExtension = nullptr;
+} // namespace
 
 // ------------------------------------------------------------ file actions --
 
@@ -834,6 +840,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                               "out over the canvas to float."));
         }
         ImGui::EndMenu();
+    }
+    if (gExtension != nullptr && gExtension->menus) {
+        gExtension->menus(editor, canvas);
     }
     ImGui::EndMainMenuBar();
 }
@@ -4794,7 +4803,8 @@ int runSelfTest() {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int fast::runApp(int argc, char** argv, const AppExtension& extension) {
+    gExtension = &extension;
     // --export makes this a batch run: open, write, exit, with no window --
     // what a build script wants. See app/batch.h for the options.
     {
@@ -4823,7 +4833,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("Sprit's'fast", 1440, 900,
+    SDL_Window* window = SDL_CreateWindow(extension.title.c_str(), 1440, 900,
                                           SDL_WINDOW_RESIZABLE |
                                           SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (window == nullptr) {
@@ -5335,6 +5345,9 @@ int main(int argc, char** argv) {
             }
         }
         drawWindow(editor, canvas, window);
+        if (extension.panels) {
+            extension.panels(editor, canvas);
+        }
 
         ImGui::Render();
         if (interactive) {

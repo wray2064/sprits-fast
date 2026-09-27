@@ -155,7 +155,10 @@ option(FAST_BUILD_GUI "Build the windowed editor (fetches SDL3 and Dear ImGui)" 
 if (FAST_BUILD_GUI)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
-    add_executable(sprits_fast WIN32
+    # The window as a library, so a program built on Fast runs the same window
+    # with its own additions (src/ui/app_extension.h); Fast's own program is
+    # the window with nothing added.
+    add_library(fast_ui STATIC
         src/ui/app_window.cpp
         src/ui/canvas_view.cpp
         src/ui/editor.cpp
@@ -176,7 +179,9 @@ if (FAST_BUILD_GUI)
         src/ui/theme.cpp
         src/ui/file_commands.cpp
     )
-    target_link_libraries(sprits_fast PRIVATE fast_core fast::imgui)
+    target_link_libraries(fast_ui PUBLIC fast_core fast::imgui)
+    add_executable(sprits_fast WIN32 src/ui/fast_main.cpp)
+    target_link_libraries(sprits_fast PRIVATE fast_ui)
     # The language catalogues go beside the program, where it looks for them --
     # on every build, since a catalogue edited alone relinks nothing.
     add_custom_target(fast_lang ALL
@@ -186,6 +191,7 @@ if (FAST_BUILD_GUI)
     add_dependencies(fast_lang sprits_fast)
 
     if (MSVC)
+        target_compile_options(fast_ui PRIVATE /W4 /WX /we4062)
         target_compile_options(sprits_fast PRIVATE /W4 /WX /we4062)
         # WIN32 above hides the console for a released build; during development
         # the printf diagnostics on start-up failure are worth more than that.
@@ -193,6 +199,7 @@ if (FAST_BUILD_GUI)
             LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE"
             LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
     else()
+        target_compile_options(fast_ui PRIVATE -Wall -Wextra -Wpedantic -Werror)
         target_compile_options(sprits_fast PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
 endif()
