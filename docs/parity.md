@@ -41,15 +41,14 @@ only output. A feature that bakes pixels to get done faster is not done.
 ### Selection
 - [x] Rectangle marquee, ellipse marquee, lasso, polygon lasso, magic wand
       (contiguous and global, tolerance), select by colour
-      *(done: all but the polygon lasso; the wand's Whole canvas is select by
-      colour)*
+      *(the wand's Whole canvas is select by colour)*
 - [x] Add, subtract and intersect (Shift, Alt, Shift+Alt)
 - [x] Select all, deselect, reselect, invert
 - [x] Marching ants
 - [x] Move the selected pixels (drag, arrow keys); it moves the authored
       pixels, not a raster copy of them
 - [x] Cut, copy, paste (in place, and as a new layer); paste into another frame
-      *(done: in place and into another frame; as a new layer is open)*
+      **(better: shapes go through the clipboard as shapes)**
 - [x] Delete clears the selected pixels on the active layer
 - [x] Flip the selection horizontally and vertically, and rotate it 90/180
 - [x] Tools clip to the selection while one exists
@@ -175,8 +174,7 @@ tiers were done.
 - [x] Tilemap layers: a tileset drawn once, a grid of tile references with
       flips **(better: a tile is live layers every placement draws, so editing
       a tile edits every placement)**; Aseprite tilemaps imported
-      *(done but for importing Aseprite's tilemaps)*
-- [x] Per-cel opacity (Aseprite's cel properties) *(no dedicated test yet)*
+- [x] Per-cel opacity (Aseprite's cel properties)
 
 ---
 
