@@ -119,6 +119,55 @@ void testBlendAndOpacityChangeThePicture() {
     CHECK(s.at(3, 3).b == 100 && s.at(3, 3).g == 0);
 }
 
+// A cel's own opacity fades this frame's drawing of the layer, under the
+// layer's opacity, stays last as more is drawn, goes at 1, and is kept.
+void testCelOpacityFadesTheCel() {
+    Stack s;
+    REQUIRE(s.build());
+    s.doc.beginAction("cel");
+    REQUIRE(setCelOpacity(s.doc, s.top.layer, 0.5f));
+    s.doc.endAction();
+    CHECK(celOpacity(s.doc, s.top.layer) == 0.5f);
+    const ls::Color half = s.at(3, 3);
+    CHECK(half.b > 0 && half.b < 100 && half.g > 0);       // half blue over green
+
+    // Under the layer's own opacity: both at a half is a quarter.
+    s.doc.beginAction("opacity");
+    REQUIRE(setLayerOpacity(s.doc, s.top.layer, 0.5f));
+    s.doc.endAction();
+    const ls::Color quarter = s.at(3, 3);
+    CHECK(quarter.b < half.b && quarter.g > half.g);
+    s.doc.beginAction("opacity");
+    REQUIRE(setLayerOpacity(s.doc, s.top.layer, 1.f));
+    s.doc.endAction();
+
+    // Paint drawn afterwards is faded with the rest: the fade stays last.
+    s.doc.beginAction("more");
+    REQUIRE(paintPixels(s.doc, s.top, { { 3, 3 } }));
+    s.doc.endAction();
+    CHECK(s.at(3, 3).b == half.b && s.at(3, 3).g == half.g);
+
+    // It survives a save.
+    std::string error;
+    const std::string path = "fast_cel_opacity_test.lsprite";
+    REQUIRE(s.doc.save(path, &error));
+    Document again;
+    REQUIRE(again.open(path, &error));
+    std::remove(path.c_str());
+    std::vector<ls::LayerId> layers = layerOrder(again, again.sprite());
+    REQUIRE(layers.size() == 3);
+    CHECK(celOpacity(again, layers.back()) == 0.5f);
+
+    // At 1 it is taken away, and undo brings it back.
+    s.doc.beginAction("cel");
+    REQUIRE(setCelOpacity(s.doc, s.top.layer, 1.f));
+    s.doc.endAction();
+    CHECK(celOpacity(s.doc, s.top.layer) == 1.f);
+    CHECK(s.at(3, 3).b == 100 && s.at(3, 3).g == 0);
+    REQUIRE(s.doc.undo());
+    CHECK(celOpacity(s.doc, s.top.layer) == 0.5f);
+}
+
 // --- order ----------------------------------------------------------------------
 
 void testMovingALayerMovesWhatDrawsOverWhat() {
@@ -579,6 +628,7 @@ int main() {
     testMergeDownAndErasedShapes();
     testATagAndNotesAreKept();
     testBlendAndOpacityChangeThePicture();
+    testCelOpacityFadesTheCel();
     testMovingALayerMovesWhatDrawsOverWhat();
     testADuplicateIsItsOwnAndSitsAbove();
     testPasteLandsInAnotherFrame();

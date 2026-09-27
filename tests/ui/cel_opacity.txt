@@ -1,0 +1,23 @@
+# A cel's own opacity, from the layer's Properties window: typed as a half,
+# the frame's drawing of the layer shows at half strength -- and a stroke
+# drawn afterwards is faded with the rest.
+tool pencil
+colour e08f40
+click 4 4
+expect pixel 4 4 e08f40
+
+right-click-on Layer 1
+click-on Properties...
+hold ctrl
+click-on cel opacity
+let ctrl
+key ctrl+a
+type 0.5
+key enter
+wait 2
+expect pixel 4 4 e08f4080
+
+key escape
+wait 2
+click 6 4
+expect pixel 6 4 e08f4080
