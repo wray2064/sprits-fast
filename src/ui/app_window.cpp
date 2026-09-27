@@ -121,7 +121,7 @@ bool openPath(Editor& editor, CanvasView& canvas, const std::string& path) {
             said += "; some blend modes are the nearest Fast has";
         }
         if (report.skippedTilemaps) {
-            said += "; tilemap layers were left out";
+            said += "; a tilemap whose tileset is kept in another file was left out";
         }
         editor.say(said);
         return true;

@@ -7,6 +7,7 @@
 #include "app/animation.h"
 #include "app/file_io.h"
 #include "app/palette.h"
+#include "app/tilemap.h"
 #include "app/zlib.h"
 
 #include <algorithm>
@@ -23,6 +24,7 @@ constexpr uint16_t kLayerChunk     = 0x2004;
 constexpr uint16_t kCelChunk       = 0x2005;
 constexpr uint16_t kTagsChunk      = 0x2018;
 constexpr uint16_t kPaletteChunk   = 0x2019;
+constexpr uint16_t kTilesetChunk   = 0x2023;
 
 constexpr uint16_t kLayerVisible    = 1;
 constexpr uint16_t kLayerBackground = 8;
@@ -139,8 +141,49 @@ bool parseCel(Reader& chunk, const AseFile& file, AseFile::Cel* cel, uint64_t* b
         cel->linkedFrame = chunk.u16();
         return chunk.ok() || fail(error, "a linked cel is cut short");
     }
+    if (type == 3) {
+        // A tilemap cel: its cells, each a tile number and flips under the
+        // masks the file gives, compressed.
+        cel->tilemap = true;
+        cel->columns = chunk.u16();
+        cel->rows = chunk.u16();
+        const uint16_t bits = chunk.u16();
+        const uint32_t idMask = chunk.u32();
+        const uint32_t xMask = chunk.u32();
+        const uint32_t yMask = chunk.u32();
+        const uint32_t dMask = chunk.u32();
+        chunk.skip(10);
+        if (!chunk.ok() || cel->columns == 0 || cel->rows == 0) {
+            return fail(error, "a tilemap cel is cut short");
+        }
+        if (bits != 32) {
+            return fail(error, "a tilemap cel has tiles of a size Aseprite does not write");
+        }
+        const uint64_t count = static_cast<uint64_t>(cel->columns) * cel->rows;
+        if (count > *budget) {
+            return fail(error, "its cels hold more pixels than Fast will read at once");
+        }
+        *budget -= count;
+        std::vector<uint8_t> raw;
+        if (!zlibInflate(chunk.here(), chunk.left(), static_cast<size_t>(count) * 4u, &raw)) {
+            return fail(error, "a tilemap cel's compressed cells do not decode to its size");
+        }
+        cel->tiles.resize(static_cast<size_t>(count));
+        for (size_t i = 0; i < cel->tiles.size(); ++i) {
+            const uint32_t v = static_cast<uint32_t>(raw[i * 4]) |
+                               static_cast<uint32_t>(raw[i * 4 + 1]) << 8 |
+                               static_cast<uint32_t>(raw[i * 4 + 2]) << 16 |
+                               static_cast<uint32_t>(raw[i * 4 + 3]) << 24;
+            const uint32_t tile = v & idMask & ls::kTileIndexMask;
+            cel->tiles[i] = tile == 0 ? 0u
+                : tile | ((v & xMask) != 0 ? ls::kTileFlipX : 0u) |
+                         ((v & yMask) != 0 ? ls::kTileFlipY : 0u) |
+                         ((v & dMask) != 0 ? ls::kTileFlipD : 0u);
+        }
+        return true;
+    }
     if (type != 0 && type != 2) {
-        return true;                       // a tilemap cel: skipped, and reported
+        return true;                       // a cel of a kind this reader does not know
     }
     cel->width = chunk.u16();
     cel->height = chunk.u16();
@@ -250,6 +293,9 @@ bool parseAseprite(const std::vector<uint8_t>& bytes, AseFile* out, std::string*
                     layer.opacity = chunk.u8();
                     chunk.skip(3);
                     layer.name = chunk.text();
+                    if (layer.type == 2) {
+                        layer.tileset = chunk.u32();
+                    }
                     (void)layerUuids;       // after the name; nothing here needs it
                     if (!chunk.ok()) {
                         return fail(error, "a layer is damaged");
@@ -258,6 +304,45 @@ bool parseAseprite(const std::vector<uint8_t>& bytes, AseFile* out, std::string*
                         return fail(error, "it has more layers than Fast will read");
                     }
                     ase.layers.push_back(layer);
+                    break;
+                }
+                case kTilesetChunk: {
+                    AseFile::Tileset set;
+                    set.id = chunk.u32();
+                    const uint32_t setFlags = chunk.u32();
+                    set.count = chunk.u32();
+                    set.width = chunk.u16();
+                    set.height = chunk.u16();
+                    chunk.skip(2 + 14);
+                    chunk.text();
+                    if (!chunk.ok() || set.width > 1024 || set.height > 1024 ||
+                        set.count > 65536) {
+                        return fail(error, "a tileset is damaged");
+                    }
+                    if ((setFlags & 1) != 0) {
+                        chunk.skip(8);             // where the other file keeps it
+                    }
+                    if ((setFlags & 2) != 0 && set.count > 0 && set.width > 0 && set.height > 0) {
+                        const uint32_t length = chunk.u32();
+                        const uint64_t pixels = static_cast<uint64_t>(set.width) * set.height *
+                                                set.count;
+                        if (!chunk.ok() || length > chunk.left()) {
+                            return fail(error, "a tileset's tiles are cut short");
+                        }
+                        if (pixels > budget) {
+                            return fail(error, "its tiles hold more pixels than Fast will read at once");
+                        }
+                        budget -= pixels;
+                        if (!zlibInflate(chunk.here(), length,
+                                         static_cast<size_t>(pixels) * static_cast<size_t>(ase.depth / 8),
+                                         &set.pixels)) {
+                            return fail(error, "a tileset's tiles do not decode to their size");
+                        }
+                    }
+                    if (ase.tilesets.size() >= 256) {
+                        return fail(error, "it has more tilesets than Fast will read");
+                    }
+                    ase.tilesets.push_back(std::move(set));
                     break;
                 }
                 case kCelChunk: {
@@ -428,6 +513,106 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
         return nullptr;
     };
 
+    // A block of the file's pixels, one colour per region -- or per index, for
+    // an indexed sprite, so two indices sharing a colour stay two slots --
+    // placed with its top-left at (x0, y0).
+    const auto coloursOf = [&](const uint8_t* pixels, uint32_t width, uint32_t height,
+                               int32_t x0, int32_t y0, bool background) {
+        std::map<uint64_t, ls::IntervalSet> runs;     // key: role or 1<<40 | rgba
+        const int bytesPer = file.depth / 8;
+        for (uint32_t y = 0; y < height; ++y) {
+            uint64_t runKey = 0;
+            int32_t runStart = 0;
+            bool inRun = false;
+            const auto close = [&](int32_t end) {
+                if (inRun) {
+                    runs[runKey].intervals.push_back(
+                        { y0 + static_cast<int32_t>(y), x0 + runStart, x0 + end });
+                }
+                inRun = false;
+            };
+            for (uint32_t x = 0; x < width; ++x) {
+                const uint8_t* p = pixels + (static_cast<size_t>(y) * width + x) * bytesPer;
+                uint64_t key = 0;
+                bool opaque = true;
+                if (file.depth == 8) {
+                    opaque = background || p[0] != file.transparentIndex;
+                    key = p[0];
+                } else {
+                    const ls::Color c = file.depth == 32
+                        ? ls::Color{ p[0], p[1], p[2], p[3] }
+                        : ls::Color{ p[0], p[0], p[0], p[1] };
+                    opaque = c.a != 0;
+                    const uint32_t rgba = static_cast<uint32_t>(c.r) << 24 |
+                                          static_cast<uint32_t>(c.g) << 16 |
+                                          static_cast<uint32_t>(c.b) << 8 | c.a;
+                    auto slot = slotOf.find(rgba);
+                    key = slot != slotOf.end() ? slot->second : (1ull << 40) | rgba;
+                }
+                if (!opaque) {
+                    close(static_cast<int32_t>(x));
+                    continue;
+                }
+                if (inRun && key == runKey) {
+                    continue;
+                }
+                close(static_cast<int32_t>(x));
+                inRun = true;
+                runKey = key;
+                runStart = static_cast<int32_t>(x);
+            }
+            close(static_cast<int32_t>(width));
+        }
+        std::vector<ImportedColour> laid;
+        for (auto& [key, set] : runs) {
+            ImportedColour colour;
+            colour.pixels = ls::geom::normalize(set);
+            ls::FillSolidOp& fill = colour.fill;
+            if (key & (1ull << 40)) {
+                const uint32_t rgba = static_cast<uint32_t>(key);
+                fill.fallbackColor = { static_cast<uint8_t>(rgba >> 24),
+                                       static_cast<uint8_t>(rgba >> 16),
+                                       static_cast<uint8_t>(rgba >> 8),
+                                       static_cast<uint8_t>(rgba) };
+            } else {
+                fill.paletteRole = static_cast<ls::ColorRole>(key);
+                fill.fallbackColor = key < file.palette.size() ? file.palette[key]
+                                                               : ls::Color{ 0, 0, 0, 255 };
+            }
+            laid.push_back(std::move(colour));
+        }
+        return laid;
+    };
+
+    // The tilesets, after the frames: each tile traced like a cel. Tile 0 is
+    // Aseprite's empty tile, so tile k of the file is tile k here.
+    std::map<uint32_t, ls::SpriteId> tilesetOf;
+    for (const AseFile::Tileset& set : file.tilesets) {
+        if (set.pixels.empty()) {
+            said.skippedTilemaps = true;           // its tiles are in another file
+            continue;
+        }
+        const ls::SpriteId made = createTileset(doc, set.width, set.height);
+        if (!made.valid()) {
+            return fail(error, "a tileset could not be made");
+        }
+        const size_t tileBytes = static_cast<size_t>(set.width) * set.height *
+                                 static_cast<size_t>(file.depth / 8);
+        for (uint32_t k = 1; k < set.count; ++k) {
+            const uint32_t number = addTile(doc, made);
+            const ls::LayerId tile = tileLayer(doc, made, number);
+            if (number == 0 || !tile.valid()) {
+                return fail(error, "a tile could not be made");
+            }
+            const std::vector<ImportedColour> colours =
+                coloursOf(set.pixels.data() + k * tileBytes, set.width, set.height, 0, 0, false);
+            if (!colours.empty() && !layDownImported(doc, tile, colours)) {
+                return fail(error, "a tile's pixels could not be read in");
+            }
+        }
+        tilesetOf[set.id] = made;
+    }
+
     for (size_t f = 0; f < file.frames.size(); ++f) {
         const ls::SpriteId sprite = sprites[f];
         // The group each layer sits in. The engine's groups are one level
@@ -455,7 +640,45 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
                 continue;
             }
             if (layer.type == 2) {
-                said.skippedTilemaps = true;
+                // A tilemap layer: a grid over the canvas, each cell its tile.
+                auto set = tilesetOf.find(layer.tileset);
+                if (set == tilesetOf.end()) {
+                    said.skippedTilemaps = true;
+                    continue;
+                }
+                const ls::LayerId made = createTilemapLayer(doc, sprite, set->second, layer.name, -1);
+                if (!made.valid()) {
+                    return fail(error, "a tilemap layer could not be made");
+                }
+                setLayerVisible(doc, made, visible);
+                setLayerOpacity(doc, made, opacity);
+                setLayerBlend(doc, made, blendFor(layer.blend, &said.approximatedBlends));
+                if (openGroup.valid() && layer.childLevel > 0) {
+                    engine.addLayerToGroup(openGroup, made);
+                }
+                const AseFile::Cel* cel = celOf(f, l);
+                TilemapLayer map;
+                if (cel != nullptr && cel->tilemap && readTilemapLayer(doc, made, &map)) {
+                    const int32_t tw = static_cast<int32_t>(map.grid.tileWidth);
+                    const int32_t th = static_cast<int32_t>(map.grid.tileHeight);
+                    for (uint32_t r = 0; r < cel->rows; ++r) {
+                        for (uint32_t c = 0; c < cel->columns; ++c) {
+                            const uint32_t value = cel->tiles[static_cast<size_t>(r) * cel->columns + c];
+                            ls::Vec2i cell;
+                            if (value != 0 &&
+                                cellAt(map, { cel->x + static_cast<int32_t>(c) * tw,
+                                              cel->y + static_cast<int32_t>(r) * th }, &cell)) {
+                                setCell(doc, map, cell, value);
+                            }
+                        }
+                    }
+                    if (cel->opacity < 255) {
+                        setCelOpacity(doc, made, cel->opacity / 255.f);
+                    }
+                }
+                if (f == 0) {
+                    ++said.layers;
+                }
                 continue;
             }
             ls::LayerDesc desc;
@@ -471,80 +694,12 @@ bool documentFromAseprite(Document& doc, const AseFile& file, const std::string&
                 engine.addLayerToGroup(openGroup, made.value);
             }
 
-            // The cel's pixels, one region per colour -- or per index, for an
-            // indexed sprite, so two indices sharing a colour stay two slots.
-            std::map<uint64_t, ls::IntervalSet> runs;     // key: role or 1<<40 | rgba
             const AseFile::Cel* cel = celOf(f, l);
             const bool background = (layer.flags & kLayerBackground) != 0;
-            if (cel != nullptr && !cel->pixels.empty()) {
-                const int bytesPer = file.depth / 8;
-                for (uint32_t y = 0; y < cel->height; ++y) {
-                    uint64_t runKey = 0;
-                    int32_t runStart = 0;
-                    bool inRun = false;
-                    const auto close = [&](int32_t end) {
-                        if (inRun) {
-                            runs[runKey].intervals.push_back(
-                                { cel->y + static_cast<int32_t>(y), cel->x + runStart, cel->x + end });
-                        }
-                        inRun = false;
-                    };
-                    for (uint32_t x = 0; x < cel->width; ++x) {
-                        const uint8_t* p = cel->pixels.data() +
-                                           (static_cast<size_t>(y) * cel->width + x) * bytesPer;
-                        uint64_t key = 0;
-                        bool opaque = true;
-                        if (file.depth == 8) {
-                            opaque = background || p[0] != file.transparentIndex;
-                            key = p[0];
-                        } else {
-                            const ls::Color c = file.depth == 32
-                                ? ls::Color{ p[0], p[1], p[2], p[3] }
-                                : ls::Color{ p[0], p[0], p[0], p[1] };
-                            opaque = c.a != 0;
-                            const uint32_t rgba = static_cast<uint32_t>(c.r) << 24 |
-                                                  static_cast<uint32_t>(c.g) << 16 |
-                                                  static_cast<uint32_t>(c.b) << 8 | c.a;
-                            auto slot = slotOf.find(rgba);
-                            key = slot != slotOf.end() ? slot->second
-                                                       : (1ull << 40) | rgba;
-                        }
-                        if (!opaque) {
-                            close(static_cast<int32_t>(x));
-                            continue;
-                        }
-                        if (inRun && key == runKey) {
-                            continue;
-                        }
-                        close(static_cast<int32_t>(x));
-                        inRun = true;
-                        runKey = key;
-                        runStart = static_cast<int32_t>(x);
-                    }
-                    close(static_cast<int32_t>(cel->width));
-                }
-            }
-
             const float celOpacity = cel != nullptr ? cel->opacity / 255.f : 1.f;
-            std::vector<ImportedColour> laid;
-            for (auto& [key, set] : runs) {
-                ImportedColour colour;
-                colour.pixels = ls::geom::normalize(set);
-                ls::FillSolidOp& fill = colour.fill;
-
-                if (key & (1ull << 40)) {
-                    const uint32_t rgba = static_cast<uint32_t>(key);
-                    fill.fallbackColor = { static_cast<uint8_t>(rgba >> 24),
-                                           static_cast<uint8_t>(rgba >> 16),
-                                           static_cast<uint8_t>(rgba >> 8),
-                                           static_cast<uint8_t>(rgba) };
-                } else {
-                    fill.paletteRole = static_cast<ls::ColorRole>(key);
-                    fill.fallbackColor = key < file.palette.size() ? file.palette[key]
-                                                                   : ls::Color{ 0, 0, 0, 255 };
-                }
-                laid.push_back(std::move(colour));
-            }
+            const std::vector<ImportedColour> laid = cel == nullptr || cel->pixels.empty()
+                ? std::vector<ImportedColour>{}
+                : coloursOf(cel->pixels.data(), cel->width, cel->height, cel->x, cel->y, background);
             // Lines as paths and solid parts as faces between them (see
             // layDownImported), so a turned cel keeps its lines.
             if (!laid.empty() && !layDownImported(doc, made.value, laid)) {

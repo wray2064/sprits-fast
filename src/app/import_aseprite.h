@@ -12,9 +12,11 @@
 // and recolouring a swatch recolours what Aseprite painted with that index.
 //
 // Read from the published format description (aseprite/docs/ase-file-specs.md),
-// not from Aseprite's code. What does not carry over is said in the report
-// rather than dropped silently: tilemap layers, and the blend modes the engine
-// does not have, which are brought to the nearest one it does.
+// not from Aseprite's code. Tilemap layers come in as tilemap layers: each
+// tileset a tileset whose tiles are traced like any cel, each cell naming its
+// tile with its flips. What does not carry over is said in the report rather
+// than dropped silently: a tileset kept in another file, and the blend modes
+// the engine does not have, which are brought to the nearest one it does.
 //
 // The file is untrusted input like every other. Every chunk is bounded by the
 // frame that holds it and every frame by the file; sizes are checked before
@@ -35,7 +37,7 @@ struct AsepriteReport : ImportReport {
     size_t tags = 0;
     bool   indexed = false;
     bool   approximatedBlends = false;   // a blend mode brought to the nearest the engine has
-    bool   skippedTilemaps = false;
+    bool   skippedTilemaps = false;      // one whose tileset lives in another file
 };
 
 // What the file holds, before anything is built from it.
@@ -47,6 +49,7 @@ struct AseFile {
         uint16_t    childLevel = 0;
         uint16_t    blend = 0;
         uint8_t     opacity = 255;
+        uint32_t    tileset = 0;       // a tilemap layer's tileset
     };
     struct Cel {
         int      layer = 0;
@@ -57,6 +60,21 @@ struct AseFile {
         uint32_t width = 0;
         uint32_t height = 0;
         std::vector<uint8_t> pixels;   // depth/8 bytes a pixel, as stored
+        // A tilemap cel: its cells row by row, each a tile number with the
+        // engine's flip bits (0 empty), `columns` x `rows` of them.
+        bool     tilemap = false;
+        uint32_t columns = 0;
+        uint32_t rows = 0;
+        std::vector<uint32_t> tiles;
+    };
+    // A tileset: `count` tiles of `width` x `height`, stacked down one image,
+    // tile 0 the empty one. No pixels when they live in another file.
+    struct Tileset {
+        uint32_t id = 0;
+        uint32_t count = 0;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        std::vector<uint8_t> pixels;
     };
     struct Frame {
         int              durationMs = 100;
@@ -80,6 +98,7 @@ struct AseFile {
     std::vector<Layer>       layers;   // bottom first, as the file lists them
     std::vector<Frame>       frames;
     std::vector<Tag>         tags;
+    std::vector<Tileset>     tilesets;
 };
 
 bool parseAseprite(const std::vector<uint8_t>& bytes, AseFile* out, std::string* error);

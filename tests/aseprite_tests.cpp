@@ -17,6 +17,7 @@
 #include "app/import_aseprite.h"
 #include "app/layers.h"
 #include "app/palette.h"
+#include "app/tilemap.h"
 #include "app/zlib.h"
 
 #include <cstdio>
@@ -271,6 +272,64 @@ void testGroupsAndHiddenLayers() {
     CHECK(!ghost.visible);
 }
 
+// A tilemap: a tileset of 4x4 tiles (tile 0 empty, tile 1 a red corner and a
+// blue row) and a 2x2 grid naming tile 1 plainly and flipped across. It comes
+// in as a tilemap layer over a tileset, each cell its tile.
+void testTilemapsComeInAsTilemaps() {
+    const ls::Color red { 220, 30, 30, 255 };
+    const ls::Color blue { 30, 30, 220, 255 };
+    Bytes tiles(4 * 8 * 4, 0);                        // two 4x4 RGBA tiles, stacked
+    const auto put = [&tiles](int x, int y, ls::Color c) {
+        uint8_t* p = tiles.data() + (static_cast<size_t>(y) * 4 + x) * 4;
+        p[0] = c.r; p[1] = c.g; p[2] = c.b; p[3] = c.a;
+    };
+    put(0, 4, red);                                   // tile 1 starts at row 4
+    for (int x = 0; x < 4; ++x) { put(x, 6, blue); }
+    Bytes packedTiles;
+    zlibDeflate(tiles, &packedTiles);
+    Bytes set;
+    u32(set, 0); u32(set, 2 | 4); u32(set, 2);        // id, tiles inside and 0 empty, count
+    u16(set, 4); u16(set, 4); u16(set, 1); zeros(set, 14);
+    text(set, "ground");
+    u32(set, static_cast<uint32_t>(packedTiles.size()));
+    set.insert(set.end(), packedTiles.begin(), packedTiles.end());
+
+    Bytes layer;
+    u16(layer, 1); u16(layer, 2); u16(layer, 0); u16(layer, 0); u16(layer, 0);
+    u16(layer, 0); u8(layer, 255); zeros(layer, 3); text(layer, "map");
+    u32(layer, 0);                                    // its tileset
+
+    Bytes cells;
+    for (uint32_t v : { 1u, 0u, 0u, 1u | 0x20000000u }) { u32(cells, v); }
+    Bytes packedCells;
+    zlibDeflate(cells, &packedCells);
+    Bytes cel = celHead(0, 0, 0, 3);
+    u16(cel, 2); u16(cel, 2); u16(cel, 32);
+    u32(cel, 0x1fffffff); u32(cel, 0x20000000); u32(cel, 0x40000000); u32(cel, 0x80000000);
+    zeros(cel, 10);
+    cel.insert(cel.end(), packedCells.begin(), packedCells.end());
+
+    const Bytes bytes = file(8, 8, 32, { frame(100, {
+        chunk(0x2023, set), chunk(0x2004, layer), chunk(0x2005, cel) }) });
+    AseFile ase;
+    std::string error;
+    REQUIRE(parseAseprite(bytes, &ase, &error));
+    REQUIRE(ase.tilesets.size() == 1 && ase.layers.size() == 1 && ase.layers[0].tileset == 0);
+    Document doc;
+    AsepriteReport report;
+    REQUIRE(documentFromAseprite(doc, ase, "tiles", &report, &error));
+    CHECK(!report.skippedTilemaps);
+    auto info = doc.engine().getSpriteInfo(doc.sprite());
+    REQUIRE(info.ok() && info.value.layers.size() == 1);
+    CHECK(isTilemapLayer(doc, info.value.layers[0]));
+    CHECK(same(pixel(doc, doc.sprite(), 0, 0), red));       // cell (0,0): tile 1
+    CHECK(same(pixel(doc, doc.sprite(), 2, 2), blue));
+    CHECK(pixel(doc, doc.sprite(), 4, 0).a == 0);           // cell (1,0): empty
+    CHECK(same(pixel(doc, doc.sprite(), 7, 4), red));       // cell (1,1): flipped across
+    CHECK(pixel(doc, doc.sprite(), 4, 4).a == 0);
+    CHECK(same(pixel(doc, doc.sprite(), 5, 6), blue));
+}
+
 void testDamageIsRefused() {
     Bytes good = indexedSprite();
     AseFile ase;
@@ -294,6 +353,7 @@ int main() {
     testIndexedCelsLandAndBecomeSlots();
     testRgbaPixelsMatchSlotsWhereTheyCan();
     testGroupsAndHiddenLayers();
+    testTilemapsComeInAsTilemaps();
     testDamageIsRefused();
     if (failures == 0) {
         std::printf("aseprite: all passed\n");
