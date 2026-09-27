@@ -14,6 +14,7 @@
 
 #include "app/clip_image.h"
 #include "app/document.h"
+#include "app/element.h"
 #include "app/floating.h"
 #include "app/image_io.h"
 #include "app/ink.h"
@@ -223,6 +224,28 @@ void testAPastedImageFloatsAndFollowsThePalette() {
     // Larger than the canvas: at its corner.
     const ls::Vec2i big = pastePosition(40, 4, kSize, kSize);
     CHECK(big.x == 0 && big.y == 6);
+
+    // A solid block of an image lands as an import does: a face, found again
+    // between what it touches when the layer turns -- not an area.
+    ls::RasterBuffer block = ls::makeRaster(3, 3);
+    for (int y = 0; y < 3; ++y) {
+        for (int x = 0; x < 3; ++x) {
+            ls::writePixel(block, x, y, kRed);
+        }
+    }
+    PixelClip solid;
+    REQUIRE(clipFromImage(block, { 1, 1 }, paletteEntries(doc), &solid, nullptr));
+    doc.beginAction("Paste");
+    Floating pasted;
+    REQUIRE(floatClip(doc, layer.layer, solid, &pasted));
+    REQUIRE(dropFloating(doc, pasted));
+    doc.endAction();
+    CHECK(same(at(doc, 2, 2), kRed) && same(at(doc, 3, 3), kRed) && at(doc, 4, 4).a == 0);
+    int faces = 0;
+    for (const Element& element : elementsOf(doc, layer.layer)) {
+        faces += element.kind == ElementKind::Fill ? 1 : 0;
+    }
+    CHECK(faces == 1);
 }
 
 } // namespace

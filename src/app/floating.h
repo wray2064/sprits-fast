@@ -111,6 +111,9 @@ struct Floating {
         ls::RegionId    region;
         ls::IntervalSet original;     // where it was lifted or pasted, before any move
         ls::StrokesDesc marks;        // its marks there
+        // Pixels from outside -- a pasted image -- traced to float. Dropped,
+        // they are laid down as an import is: lines, and faces between them.
+        bool            fromImage = false;
     };
     // A shape the selection wholly contains goes along with the pixels -- as a
     // shape: its geometry is moved, so it is still a rectangle when it lands.

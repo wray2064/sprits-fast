@@ -493,7 +493,8 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
         const ls::IntervalSet pixels = turned ? canvasAreaOnLayer(doc, layer, taken.pixels)
                                               : taken.pixels;
         ls::StrokesDesc marks = taken.marks;
-        if (marks.strokes.empty()) {
+        const bool fromImage = marks.strokes.empty();
+        if (fromImage) {
             marks = ls::geom::traceStrokes(pixels);   // an image's pixels, traced
         } else if (turned) {
             const ls::Mat3f into = back.value;
@@ -501,6 +502,7 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
         }
         if (makePiece(doc, layer, taken.ink, ditherLives ? dither : ls::OperationId{},
                       marks, pixels, &piece)) {
+            piece.fromImage = fromImage && !ditherLives;
             floating.pieces.push_back(std::move(piece));
         }
     }
@@ -648,6 +650,34 @@ bool dropFloating(Document& doc, Floating& floating) {
         if (readStrokes(doc, piece.region, &strokes, &marks)) {
             engine.updateStrokes(strokes, keptInside(marks, canvas));
         }
+    }
+
+    // A pasted image's pieces, where they landed, laid down as an import is:
+    // each colour's lines a run, its solid parts a face between them.
+    std::vector<ImportedColour> image;
+    for (const Floating::Piece& piece : floating.pieces) {
+        ls::StrokesDesc marks;
+        Ink ink;
+        if (!piece.fromImage || !inkOfElement(doc, piece.fill, &ink) ||
+            !readStrokes(doc, piece.region, nullptr, &marks)) {
+            continue;
+        }
+        ImportedColour colour;
+        colour.fill.fallbackColor = ink.colour;
+        colour.fill.paletteRole = ink.role;
+        colour.pixels = ls::geom::rasterizeStrokes(marks);
+        engine.removeOperation(layer, piece.fill);
+        deleteRegionAndShapes(doc, piece.region);
+        if (!colour.pixels.empty()) {
+            image.push_back(std::move(colour));
+        }
+    }
+    floating.pieces.erase(std::remove_if(floating.pieces.begin(), floating.pieces.end(),
+                                         [](const Floating::Piece& piece) { return piece.fromImage; }),
+                          floating.pieces.end());
+    if (!image.empty()) {
+        layDownImported(doc, layer, image);
+        keepEffectsLast(doc, layer);
     }
 
     // A solid piece straight above a run of its own colour joins it, rather
