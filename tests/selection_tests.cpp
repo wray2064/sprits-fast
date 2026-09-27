@@ -403,6 +403,58 @@ void testAClipStampsAboutItsMiddle() {
     CHECK(stamp[1][0].x == 0 && stamp[1][0].y == 0);
 }
 
+// A rectangle the selection holds whole is copied as a rectangle and pastes
+// as one, erase and all; half of one is copied as what shows.
+void testShapesGoThroughTheClipboard() {
+    Document doc;
+    REQUIRE(doc.create("shapes", kSize, kSize));
+    PaintLayer layer;
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "body", kRed, &layer));
+    ShapeParams params;
+    params.from = { 1, 1 };
+    params.to = { 4, 4 };
+    ShapeLayer rect;
+    REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Rectangle, params, kBlue,
+                       ls::kColorRoleNone, &rect));
+    doc.beginAction("Delete");
+    REQUIRE(clearPixels(doc, layer.layer, rectangleMask({ 1, 1 }, { 1, 1 })));
+    doc.endAction();
+    const auto rectangles = [&doc, &layer]() {
+        int count = 0;
+        for (const Element& element : elementsOf(doc, layer.layer)) {
+            count += element.kind == ElementKind::Rectangle ? 1 : 0;
+        }
+        return count;
+    };
+
+    PixelClip clip;
+    REQUIRE(copyPixels(doc, layer.layer, rectangleMask({ 0, 0 }, { 5, 5 }), &clip));
+    CHECK(clip.shapes.size() == 1 && clip.pieces.empty());
+    doc.beginAction("Paste");
+    Floating pasted;
+    REQUIRE(floatClip(doc, layer.layer, clip, &pasted));
+    REQUIRE(moveFloating(doc, pasted, { 8, 0 }));
+    REQUIRE(dropFloating(doc, pasted));
+    doc.endAction();
+    CHECK(rectangles() == 2);
+    CHECK(same(at(doc, 10, 1), kBlue) && at(doc, 9, 1).a == 0);   // its erase came along
+    CHECK(same(at(doc, 2, 1), kBlue) && at(doc, 1, 1).a == 0);    // the first is as it was
+
+    // Half of one: what shows of it, as marks.
+    PixelClip half;
+    REQUIRE(copyPixels(doc, layer.layer, rectangleMask({ 9, 0 }, { 10, 5 }), &half));
+    CHECK(half.shapes.empty() && half.pieces.size() == 1);
+
+    // Cut takes a shape it holds whole, as it copied it.
+    PixelClip cut;
+    REQUIRE(copyPixels(doc, layer.layer, rectangleMask({ 8, 0 }, { 13, 5 }), &cut));
+    doc.beginAction("Cut");
+    CHECK(removeShapesInside(doc, layer.layer, rectangleMask({ 8, 0 }, { 13, 5 })) == 1);
+    doc.endAction();
+    CHECK(rectangles() == 1);
+    CHECK(at(doc, 10, 1).a == 0);
+}
+
 // A turned layer takes a selection too: what shows inside it on the canvas is
 // lifted, dragged across the canvas and dropped where it is seen to go, and a
 // copy of it pastes onto a plain layer where it was seen.
@@ -495,6 +547,7 @@ int main() {
     testClearLeavesShapes();
     testAShapeInsideGoesAlongAsAShape();
     testTransformedLayersTakeSelections();
+    testShapesGoThroughTheClipboard();
     testAClipStampsAboutItsMiddle();
     if (failures == 0) {
         std::printf("selection: all passed\n");

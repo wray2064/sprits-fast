@@ -166,6 +166,11 @@ program -- which is the argument for having them.
   replace through the Tool panel; `tests/ink_tests.cpp` checks each mode
   leaves one path. The ink list is named "Ink mode" for scripts, since ImGui
   gives a combo no label of its own.
+- **Copying left shapes out.** A copy took only freehand colours, so a
+  rectangle inside the selection was simply not copied, and a line was
+  known only by its bounding box. Shapes held whole now go as shapes, the
+  rest as traced marks of what shows; Cut takes what it copied.
+  `tests/ui/copy_shapes.txt` copies, pastes, drags and cuts a rectangle.
 - **A turned layer refused every selection.** A selection is drawn over the
   canvas and a turned layer's marks are not where the canvas shows them, so
   lifting, moving, copying and clearing were all refused. The selection is

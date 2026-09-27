@@ -217,7 +217,8 @@ bool liftOntoOwnLayer(Editor& editor, const char* action, const char* name, Pain
     const ls::IntervalSet mask = editor.selection.mask;
     *box = ls::geom::bounds(mask);
     PixelClip clip;
-    if (!copyPixels(editor.doc, layer->layer, mask, &clip)) {
+    // The freehand colours only: shapes stay whole where they are.
+    if (!copyPixels(editor.doc, layer->layer, mask, &clip, false)) {
         editor.say("Nothing on this layer inside the selection");
         return false;
     }
@@ -510,6 +511,7 @@ bool brushFromSelection(Editor& editor) {
         editor.say("Nothing on this layer inside the selection to make a brush of");
         return false;
     }
+    shapesAsMarks(clip);            // a brush stamps colours
     const ls::Rect2i box = ls::geom::bounds(clip.mask);
     if (box.width() > 64 || box.height() > 64) {
         editor.say("A brush is at most 64 pixels on a side");
@@ -526,7 +528,7 @@ bool brushFromSelection(Editor& editor) {
 
 namespace {
 
-bool removeSelectionPixels(Editor& editor, bool shapesToo);
+bool removeSelectionPixels(Editor& editor, bool shapesToo, bool cutting = false);
 
 } // namespace
 
@@ -534,9 +536,10 @@ bool cutSelectionPixels(Editor& editor) {
     if (!copySelectionPixels(editor) || !editor.clipHoldsPixels) {
         return false;
     }
-    // What was copied is the pixels, so what goes is the pixels: a shape
-    // under the selection stays whole, as it stayed out of the clip.
-    return removeSelectionPixels(editor, false);
+    // What was copied goes: the shapes held whole, which the clip carries as
+    // shapes, and the pixels -- a shape the selection cuts keeps the cut as
+    // what was erased from it.
+    return removeSelectionPixels(editor, true, true);
 }
 
 bool deleteSelectionPixels(Editor& editor) {
@@ -545,7 +548,7 @@ bool deleteSelectionPixels(Editor& editor) {
 
 namespace {
 
-bool removeSelectionPixels(Editor& editor, bool shapesToo) {
+bool removeSelectionPixels(Editor& editor, bool shapesToo, bool cutting) {
     PaintLayer* layer = editor.active();
     if (layer == nullptr || editor.selection.empty()) {
         return false;
@@ -565,16 +568,20 @@ bool removeSelectionPixels(Editor& editor, bool shapesToo) {
         editor.say("This layer is locked -- unlock it in the Layers panel");
         return true;
     }
-    editor.doc.beginAction(shapesToo ? "Delete" : "Cut");
-    if (!clearPixels(editor.doc, layer->layer, editor.selection.mask, shapesToo)) {
+    editor.doc.beginAction(cutting ? "Cut" : shapesToo ? "Delete" : "Cut");
+    const int shapesTaken = cutting ? removeShapesInside(editor.doc, layer->layer,
+                                                         editor.selection.mask) : 0;
+    if (!clearPixels(editor.doc, layer->layer, editor.selection.mask, shapesToo) &&
+        shapesTaken == 0) {
         editor.doc.abandonAction();
         editor.say("Nothing on this layer inside the selection");
         return true;
     }
     editor.doc.endAction();
     resyncLayers(editor);
-    editor.say(shapesToo ? "Deleted the selected pixels; shapes under them stay shapes, erased there"
-                         : "Cut the selected pixels; shapes are left whole");
+    editor.say(cutting ? "Cut -- shapes wholly inside went with it, as shapes"
+               : shapesToo ? "Deleted the selected pixels; shapes under them stay shapes, erased there"
+                           : "Cut the selected pixels; shapes are left whole");
     return true;
 }
 

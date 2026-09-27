@@ -54,11 +54,22 @@ struct PixelClip {
         // a piece that came from an image, which is its pixels.
         ls::StrokesDesc marks;
     };
+    // A shape the selection held whole goes as a shape: pasted, it is a shape
+    // again, with what was erased from it. In canvas space.
+    struct Shape {
+        ShapeKind       kind = ShapeKind::Rectangle;
+        ShapeParams     params;
+        ls::Color       colour { 0, 0, 0, 255 };
+        ls::ColorRole   role = ls::kColorRoleNone;
+        ls::StrokesDesc erased;
+        ls::IntervalSet pixels;       // what it showed, for a layer it cannot go onto as a shape
+    };
     std::vector<Piece> pieces;
+    std::vector<Shape> shapes;
     ls::IntervalSet    mask;          // everything copied, for re-selecting on paste
     ls::DocumentId     from;          // which document the dithers belong to
 
-    bool empty() const { return pieces.empty(); }
+    bool empty() const { return pieces.empty() && shapes.empty(); }
 };
 
 // A clip as a brush: each piece's pixels placed so the middle of what was
@@ -71,8 +82,20 @@ std::vector<std::vector<ls::Vec2i>> stampOf(const PixelClip& clip, ls::Vec2i cen
 bool layerTakesSelections(Document& doc, ls::LayerId layer);
 
 // What `mask`, a canvas mask, covers on `layer`, colour by colour, in canvas
-// space.
-bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out);
+// space -- and, with `shapesToo`, the shapes it holds whole as shapes, and
+// what it shows of a shape it cuts, or of text, as traced marks: what was
+// seen. Without, only the freehand colours.
+bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out,
+                bool shapesToo = true);
+
+// A clip's shapes made the marks they showed, for what stamps colours (a
+// custom brush).
+void shapesAsMarks(PixelClip& clip);
+
+// Removes every shape and text `mask`, a canvas mask, holds whole from
+// `layer`, with what it was made of. What Cut does to what it copied as a
+// shape. Returns how many went. Does not bracket an action.
+int removeShapesInside(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask);
 
 // Removes what `mask` covers from every colour on `layer` -- and, with
 // `shapesToo`, from its shapes, through an erase that leaves them shapes (see

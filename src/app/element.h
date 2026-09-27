@@ -65,7 +65,7 @@ struct Element {
 std::vector<Element> elementsOf(Document& doc, ls::LayerId layer);
 
 // The pixels an element covers, in its layer's own space: a region's own, or
-// for a line or a curve the box around it.
+// a line's or a curve's own pixels.
 ls::IntervalSet elementCoverage(Document& doc, const Element& element);
 
 // The element the panel is editing as a shape.

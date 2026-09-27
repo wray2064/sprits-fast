@@ -183,14 +183,71 @@ std::vector<std::vector<ls::Vec2i>> stampOf(const PixelClip& clip, ls::Vec2i cen
     return out;
 }
 
+void shapesAsMarks(PixelClip& clip) {
+    for (const PixelClip::Shape& shape : clip.shapes) {
+        PixelClip::Piece piece;
+        piece.ink.colour = shape.colour;
+        piece.ink.role = shape.role;
+        piece.pixels = shape.pixels;
+        piece.marks = ls::geom::traceStrokes(shape.pixels);
+        clip.pieces.push_back(std::move(piece));
+    }
+    clip.shapes.clear();
+}
+
+int removeShapesInside(Document& doc, ls::LayerId layer, const ls::IntervalSet& canvasMask) {
+    const ls::IntervalSet mask = canvasAreaOnLayer(doc, layer, canvasMask);
+    int removed = 0;
+    for (const Element& element : elementsOf(doc, layer)) {
+        const bool shape = element.isGeometry() || element.kind == ElementKind::Text;
+        if (!shape) {
+            continue;
+        }
+        const ls::IntervalSet drawn = elementCoverage(doc, element);
+        if (drawn.empty() || !ls::geom::subtractSets(drawn, mask).empty()) {
+            continue;
+        }
+        removed += removeElement(doc, layer, element) ? 1 : 0;
+    }
+    return removed;
+}
+
 bool layerTakesSelections(Document& doc, ls::LayerId layer) {
     return layer.valid() && layerTransform(doc, layer).inverse().ok();
 }
 
 namespace {
 
-// copyPixels in the layer's own space: `mask` and the clip both.
-bool copyInLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out) {
+// The colour an element paints with, whatever draws it: a fill, a line.
+bool colourOf(Document& doc, ls::OperationId op, ls::Color* colour, ls::ColorRole* role) {
+    ls::LSContext& engine = doc.engine();
+    auto c = engine.getOperationParameter(op, "fallbackColor");
+    auto r = engine.getOperationParameter(op, "paletteRole");
+    const ls::Color* got = c.ok() ? std::get_if<ls::Color>(&c.value) : nullptr;
+    if (got == nullptr) {
+        return false;
+    }
+    *colour = *got;
+    const int64_t* slot = r.ok() ? std::get_if<int64_t>(&r.value) : nullptr;
+    *role = slot == nullptr ? ls::kColorRoleNone : static_cast<ls::ColorRole>(*slot);
+    return true;
+}
+
+// What was erased from a shape: its region's erase, or a line's own.
+ls::GeometryId erasedFrom(Document& doc, const Element& element) {
+    if (element.region.valid()) {
+        auto erase = doc.engine().getRegionErase(element.region);
+        return erase.ok() ? erase.value : ls::GeometryId{};
+    }
+    return pathEraseOf(doc, element.fill);
+}
+
+// copyPixels in the layer's own space: `mask` and the clip both. With
+// `everything`, what a selection lift leaves -- a shape the mask cuts, text
+// -- is copied too, as marks traced from what shows, and a shape the mask
+// holds whole goes as a shape, so a copy is what was seen.
+bool copyInLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out,
+                 bool everything = false) {
     if (out == nullptr || mask.empty()) {
         return false;
     }
@@ -207,7 +264,40 @@ bool copyInLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, 
         const ls::IntervalSet inside = ls::geom::subtractSets(
             ls::geom::intersectSets(drawn, mask), covered);
         covered = ls::geom::unionSets(covered, drawn);
-        if (!carriesPixels(element) || inside.empty()) {
+        if (inside.empty() || element.kind == ElementKind::Erase) {
+            continue;
+        }
+        if (!carriesPixels(element)) {
+            if (!everything) {
+                continue;
+            }
+            PixelClip::Shape shape;
+            if (!colourOf(doc, element.fill, &shape.colour, &shape.role)) {
+                continue;
+            }
+            shape.pixels = inside;
+            if (element.isGeometry() && ls::geom::subtractSets(drawn, mask).empty() &&
+                readShapeParams(doc, shapeOfElement(layer, element), &shape.params)) {
+                // Whole inside the selection: a shape still.
+                shape.kind = shapeOfElement(layer, element).kind;
+                const ls::GeometryId erased = erasedFrom(doc, element);
+                if (erased.valid()) {
+                    auto marks = doc.engine().getStrokes(erased);
+                    if (marks.ok()) {
+                        shape.erased = marks.value;
+                    }
+                }
+                clip.shapes.push_back(std::move(shape));
+            } else {
+                // Cut by the selection, or text: what shows, traced.
+                PixelClip::Piece piece;
+                piece.ink.colour = shape.colour;
+                piece.ink.role = shape.role;
+                piece.pixels = inside;
+                piece.marks = ls::geom::traceStrokes(inside);
+                topFirst.push_back(std::move(piece));
+            }
+            clip.mask = ls::geom::unionSets(clip.mask, inside);
             continue;
         }
         PixelClip::Piece piece;
@@ -243,20 +333,23 @@ bool copyInLayer(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, 
 
 } // namespace
 
-bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out) {
+bool copyPixels(Document& doc, ls::LayerId layer, const ls::IntervalSet& mask, PixelClip* out,
+                bool shapesToo) {
     if (out == nullptr || mask.empty() || !layerTakesSelections(doc, layer)) {
         return false;
     }
     const ls::Mat3f toCanvas = layerTransform(doc, layer);
     if (isIdentity(toCanvas)) {
-        return copyInLayer(doc, layer, mask, out);
+        return copyInLayer(doc, layer, mask, out, shapesToo);
     }
     // A turned layer: what shows inside the selection, carried out onto the
-    // canvas -- marks and all -- where the clip lives.
+    // canvas -- marks and all -- where the clip lives. A turned rectangle is
+    // not a rectangle on the canvas, so shapes go as the marks they show.
     PixelClip clip;
-    if (!copyInLayer(doc, layer, canvasAreaOnLayer(doc, layer, mask), &clip)) {
+    if (!copyInLayer(doc, layer, canvasAreaOnLayer(doc, layer, mask), &clip, shapesToo)) {
         return false;
     }
+    shapesAsMarks(clip);
     clip.mask = {};
     for (PixelClip::Piece& piece : clip.pieces) {
         piece.marks = mappedMarks(piece.marks, [&toCanvas](ls::Vec2f p) {
@@ -411,8 +504,52 @@ bool floatClip(Document& doc, ls::LayerId layer, const PixelClip& clip, Floating
             floating.pieces.push_back(std::move(piece));
         }
     }
+    for (const PixelClip::Shape& taken : clip.shapes) {
+        if (turned) {
+            // Not a shape on this layer's turn: the marks it showed.
+            Floating::Piece piece;
+            const ls::IntervalSet pixels = canvasAreaOnLayer(doc, layer, taken.pixels);
+            Ink ink;
+            ink.colour = taken.colour;
+            ink.role = taken.role;
+            if (makePiece(doc, layer, ink, ls::OperationId{}, ls::geom::traceStrokes(pixels),
+                          pixels, &piece)) {
+                floating.pieces.push_back(std::move(piece));
+            }
+            continue;
+        }
+        Floating::Shape made;
+        if (!addShapeTo(doc, layer, taken.kind, taken.params, taken.colour, taken.role,
+                        &made.shape)) {
+            continue;
+        }
+        made.original = taken.params;
+        if (!taken.erased.strokes.empty()) {
+            auto strokes = doc.engine().createStrokes(doc.id(), taken.erased);
+            if (strokes.ok()) {
+                bool kept = false;
+                if (made.shape.paint.region.valid()) {
+                    kept = doc.engine().setRegionErase(made.shape.paint.region, strokes.value).ok();
+                } else {
+                    auto op = doc.engine().getOperation(made.shape.paint.fill);
+                    if (op.ok()) {
+                        if (auto* line = std::get_if<ls::StrokePolylineOp>(&op.value)) {
+                            line->erase = strokes.value;
+                        } else if (auto* path = std::get_if<ls::StrokePixelPathOp>(&op.value)) {
+                            path->erase = strokes.value;
+                        }
+                        kept = doc.engine().updateOperation(made.shape.paint.fill, op.value).ok();
+                    }
+                }
+                if (kept) {
+                    floating.shapeErases.push_back({ strokes.value, taken.erased });
+                }
+            }
+        }
+        floating.shapes.push_back(std::move(made));
+    }
     *out = std::move(floating);
-    return !out->pieces.empty();
+    return !out->pieces.empty() || !out->shapes.empty();
 }
 
 bool moveFloating(Document& doc, Floating& floating, ls::Vec2i offset) {

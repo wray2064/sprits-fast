@@ -1,0 +1,27 @@
+# A rectangle through the clipboard: boxed with the marquee, copied, pasted
+# and dragged aside, it lands as a second rectangle -- a shape, not its
+# pixels. Cut takes it along as it copied it.
+tool rectangle
+colour 3060d0
+drag 2 2 8 8
+expect elements Rectangle 1
+
+tool select
+drag 1 1 9 9
+key ctrl+c
+key ctrl+v
+tool move
+drag 5 5 17 5
+key enter
+wait 2
+expect elements Rectangle 2
+expect pixel 14 2 3060d0
+expect pixel 2 2 3060d0
+
+tool select
+drag 13 1 21 9
+key ctrl+x
+wait 2
+expect elements Rectangle 1
+expect pixel 14 2 empty
+expect pixel 2 2 3060d0

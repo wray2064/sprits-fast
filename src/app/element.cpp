@@ -114,6 +114,11 @@ ls::IntervalSet elementCoverage(Document& doc, const Element& element) {
         return pixels.ok() ? pixels.value : ls::IntervalSet{};
     }
     if (element.geometry.valid()) {
+        // A line or a curve: its own pixels, asked of what draws it.
+        auto drawn = engine.getOperationCoverage(element.fill);
+        if (drawn.ok()) {
+            return drawn.value;
+        }
         auto bounds = engine.getGeometryBounds(element.geometry);
         if (bounds.ok() && !bounds.value.pixelBounds.empty()) {
             const ls::Rect2i box = bounds.value.pixelBounds;
