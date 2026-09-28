@@ -211,6 +211,10 @@ bool UiScript::load(const std::string& path, std::string* error) {
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
+        // A file saved as UTF-8 by some editors starts with a byte-order mark.
+        if (number == 1 && line.compare(0, 3, "\xEF\xBB\xBF") == 0) {
+            line.erase(0, 3);
+        }
         // A comment is a # starting the line or followed by a space -- so a
         // widget called ##slot1 is a label, not a comment.
         for (size_t hash = line.find('#'); hash != std::string::npos;
@@ -575,7 +579,21 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         std::printf("FAIL script:%d: expect %s -- %s\n", step.line, step.text.c_str(), what.c_str());
         ++failures_;
     };
+    // What the canvas shows: the frame, or a puppet being posed.
     const auto picture = [&](ls::RasterBuffer* out) {
+        if (const ls::SpriteId root = canvas.assemblyShown(); root.valid()) {
+            auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
+            auto compiled = size.ok() ? editor.doc.engine().compileAssembly(
+                root, compileProfile(ls::CompileProfileType::Export,
+                                     static_cast<uint32_t>(size.value.x),
+                                     static_cast<uint32_t>(size.value.y)))
+                                      : ls::Result<ls::CompileResult>::err(ls::LSError::InvalidId);
+            if (compiled.fail()) {
+                return false;
+            }
+            *out = std::move(compiled.value.raster);
+            return true;
+        }
         return compileForExport(editor.doc, editor.sprite, 1, out, nullptr);
     };
     const std::vector<std::string>& a = step.args;

@@ -443,6 +443,44 @@ ls::Mat3f partPlacement(Document& doc, ls::SpriteId part) {
     return world.ok() ? world.value : ls::Mat3f::identity();
 }
 
+ls::SpriteId partAt(Document& doc, ls::SpriteId root, ls::Vec2f point) {
+    auto size = doc.engine().getCanvasSize(doc.id());
+    if (size.fail()) {
+        return ls::SpriteId{};
+    }
+    const ls::CompileProfile profile = compileProfile(
+        ls::CompileProfileType::Preview, static_cast<uint32_t>(size.value.x),
+        static_cast<uint32_t>(size.value.y));
+    std::vector<ls::SpriteId> order = puppetOrder(doc, root);
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        // The point where the part's own picture has it: its own transform
+        // is in that picture, the chain above it is not.
+        auto own = doc.engine().getSpriteTransform(*it);
+        auto undo = partPlacement(doc, *it).inverse();
+        if (own.fail() || undo.fail()) {
+            continue;
+        }
+        const ls::Vec2f local = own.value.mul(undo.value).transformPoint(point);
+        auto compiled = doc.engine().compileSprite(*it, profile);
+        if (compiled.ok() &&
+            ls::readPixel(compiled.value.raster, static_cast<int32_t>(std::floor(local.x)),
+                          static_cast<int32_t>(std::floor(local.y))).a != 0) {
+            return *it;
+        }
+    }
+    return ls::SpriteId{};
+}
+
+int hangingDepth(Document& doc, ls::SpriteId part) {
+    int depth = 0;
+    std::set<uint64_t> seen { part.value };
+    for (ls::SpriteId up = parentPart(doc, part); up.valid() && seen.insert(up.value).second;
+         up = parentPart(doc, up)) {
+        ++depth;
+    }
+    return depth;
+}
+
 // ---------------------------------------------------------------- capture --
 
 int capturePose(Document& doc, ls::SpriteId root, int after) {

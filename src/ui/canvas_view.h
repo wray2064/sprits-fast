@@ -88,6 +88,11 @@ public:
               const Underlay& underlay = nullptr,
               const Underlay& overlay = nullptr);
 
+    // Draws the puppet under `root` as posed in place of the sprite given to
+    // draw, until set back to null: what the Puppet panel's Pose shows.
+    void showAssembly(ls::SpriteId root) { assembly_ = root; }
+    ls::SpriteId assemblyShown() const { return assembly_; }
+
     // The pixel under the pointer as of the last draw, whether or not it is on
     // the artwork. A marquee dragged past the edge, or a selection dragged
     // half off the canvas, needs to know where the pointer went, not only
@@ -242,6 +247,7 @@ private:
     uint32_t      textureWidth_  = 0;
     uint32_t      textureHeight_ = 0;
     const ls::RasterBuffer* raster_ = nullptr;
+    ls::SpriteId assembly_;
     mutable ls::Color sampled_;
 
     bool   grid_  = true;

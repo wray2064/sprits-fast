@@ -75,6 +75,11 @@ public:
     // extra compile per edit rather than one per UI frame.
     const Entry* entryForLayer(Document& doc, ls::SpriteId sprite, ls::LayerId layer);
 
+    // A puppet as posed: the assembly under `root`, compiled again only when
+    // the engine says it is no longer current (isAssemblyCurrent) -- a part
+    // compiled on its own does not hide a change from it.
+    const Entry* assemblyEntryFor(Document& doc, ls::SpriteId root);
+
     // Drops layer thumbnails for layers not in `live`, the way retainOnly
     // drops frames. The panel calls it with the frame it is showing.
     void retainOnlyLayers(const std::vector<ls::LayerId>& live);
@@ -107,6 +112,7 @@ private:
     SDL_Renderer* renderer_ = nullptr;
     std::map<uint64_t, Entry> entries_;
     std::map<uint64_t, LayerEntry> layers_;
+    std::map<uint64_t, Entry> assemblies_;
     std::map<uint64_t, uint64_t> generations_;   // per sprite: how many times compiled
     int    compilesThisFrame_ = 0;
     double lastCompileMs_ = 0.0;

@@ -54,6 +54,10 @@ void singleAction(Editor& editor, const char* label) {
 
 } // namespace
 
+void holdForUndo(Editor& editor, bool& flag, const char* label) {
+    bracketDrag(editor, flag, label);
+}
+
 // ---------------------------------------------------------------- toolbar --
 
 void drawToolbar(Editor& editor) {

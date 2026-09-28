@@ -19,6 +19,12 @@ void FrameCache::clear() {
         }
     }
     entries_.clear();
+    for (auto& [id, assembly] : assemblies_) {
+        if (assembly.texture != nullptr) {
+            SDL_DestroyTexture(assembly.texture);
+        }
+    }
+    assemblies_.clear();
     for (auto& [id, layer] : layers_) {
         if (layer.entry.texture != nullptr) {
             SDL_DestroyTexture(layer.entry.texture);
@@ -124,6 +130,31 @@ const FrameCache::Entry* FrameCache::entryFor(Document& doc, ls::SpriteId sprite
         return &entry;
     }
     return compile(doc, sprite, entry);
+}
+
+const FrameCache::Entry* FrameCache::assemblyEntryFor(Document& doc, ls::SpriteId root) {
+    auto size = doc.engine().getCanvasSize(doc.id());
+    if (!root.valid() || size.fail() || size.value.x <= 0 || size.value.y <= 0) {
+        return nullptr;
+    }
+    const uint32_t width  = static_cast<uint32_t>(size.value.x);
+    const uint32_t height = static_cast<uint32_t>(size.value.y);
+    const ls::CompileProfile profile =
+        compileProfile(ls::CompileProfileType::Preview, width, height);
+    Entry& entry = assemblies_[root.value];
+    if (entry.texture != nullptr && entry.width == width && entry.height == height &&
+        doc.engine().isAssemblyCurrent(root, profile)) {
+        return &entry;
+    }
+    const auto started = std::chrono::steady_clock::now();
+    auto compiled = doc.engine().compileAssembly(root, profile);
+    lastCompileMs_ = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - started).count();
+    ++compilesThisFrame_;
+    if (compiled.fail()) {
+        return entry.texture != nullptr ? &entry : nullptr;
+    }
+    return upload(entry, std::move(compiled.value.raster), width, height);
 }
 
 FrameCache::Entry* FrameCache::compile(Document& doc, ls::SpriteId sprite, Entry& into) {

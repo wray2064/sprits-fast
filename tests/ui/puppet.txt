@@ -1,0 +1,56 @@
+# A cutout puppet by hand: two layers made parts, the arm hung on the torso
+# where it is drawn, its joint placed in Draw part, the arm turned a quarter
+# with the ring in Pose (Shift: it stops on 90, every pixel where a quarter
+# turn sends it), and the pose captured as a frame of its own.
+key ctrl+0
+expect zoom 20
+tool rectangle
+colour 3060d0
+drag 6 16 13 28
+click-on Add
+colour e08f40
+drag 20 12 21 24
+expect pixel 20 24 e08f40
+
+click-on Puppet @1
+wait 2
+click-on Part from layer
+click-on Layer 1
+click-on Part from layer
+wait 2
+
+# The arm (Layer 2) hangs on the torso (Layer 1) where it is drawn.
+click-on Layer 2
+click-on Hangs from
+wait 2
+click-on Layer 1 @2
+wait 2
+
+# Its joint at the top of the arm: the middle of pixel (20, 12).
+click-on Draw part
+click-on Place joint
+click 20 12
+wait 2
+
+# A quarter turn about (20.5, 12.5): 48 px out along x is script point
+# 22.4 12, 48 px down is 20 14.4.
+click-on Pose
+hold shift
+drag 22.4 12 20 14.4 24
+let shift
+wait 2
+# (x, y) turned about (20.5, 12.5) is (32 - y, x - 8).
+expect pixel 8 12 e08f40
+expect pixel 20 13 e08f40
+expect pixel 20 24 empty
+expect pixel 6 16 3060d0
+
+click-on Capture pose
+wait 2
+expect frames 2
+expect frame 2
+click-on Frames
+wait 2
+expect pixel 8 12 e08f40
+expect pixel 20 24 empty
+expect pixel 6 16 3060d0

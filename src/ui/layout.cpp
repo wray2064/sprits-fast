@@ -37,6 +37,7 @@ constexpr Flag kFlags[] = {
     { "elements", &Editor::Panels::elements },
     { "properties", &Editor::Panels::properties },
     { "transform", &Editor::Panels::transform },
+    { "puppet", &Editor::Panels::puppet },
     { "references", &Editor::Panels::references },
 };
 
@@ -110,6 +111,7 @@ void buildDefault(ImGuiID dockspace, ImVec2 size) {
     ImGui::DockBuilderDockWindow(panel::kElements, elements);
     ImGui::DockBuilderDockWindow(panel::kProperties, properties);
     ImGui::DockBuilderDockWindow(panel::kTransform, transform);
+    ImGui::DockBuilderDockWindow(panel::kPuppet, properties);
     ImGui::DockBuilderDockWindow(panel::kTimeline, bottom);
     ImGui::DockBuilderDockWindow(panel::kCanvas, centre);
     ImGui::DockBuilderFinish(dockspace);

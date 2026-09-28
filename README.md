@@ -570,6 +570,32 @@ Playback is a function of elapsed time rather than a playhead that is stepped,
 so a dropped frame costs nothing and scrubbing lands on exactly what playing
 showed.
 
+### Puppets: a character in parts, posed by hand
+
+Cutout animation, the way a hand does it: draw each limb on a layer of its own,
+and in the **Puppet** panel make each layer a **part** -- it leaves the frame
+and becomes a piece of its own, drawn where it was. Hang each part from the one
+it moves with (an arm from the torso, a forearm from the arm): it hangs where it
+is drawn, so the character is unchanged, pixel for pixel. In **Draw part** the
+canvas is that part, with every tool, and its **joint** -- where it turns -- and
+its **sockets** -- where others hang -- are marks to click into place or drag.
+
+In **Pose** the canvas shows the whole puppet. Click a part to pick it; the ring
+round its joint turns it (Shift for steps of 15 degrees, so a limb stops on
+90 -- and a joint in the middle of a pixel sends every pixel of it exactly
+where a quarter turn goes); the square on the root moves the whole puppet by
+whole pixels. **Capture pose** makes a frame of it after the one showing, and
+the next capture goes after that: pose, capture, pose, capture. A captured
+frame is the parts' own shapes placed where the pose put them -- not a picture
+of them -- and after that a frame like any other, to fix by hand. Each part is
+a row of the timeline, the same in every capture.
+
+The puppet is made of the engine's own pivots, sockets and attachments, and the
+pose each frame was captured from is written on it, so a program that animates
+puppets itself -- Sprit's'pract, with its solvers and key poses -- opens a Fast
+puppet as it is. Turning or flipping the canvas turns the puppet and every
+capture with it.
+
 ### Cycles
 
 A cycle is a named run of frames -- "walk", "hurt" -- with its own loop mode, so

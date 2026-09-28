@@ -30,6 +30,7 @@ constexpr const char* kLayers     = "###layers";
 constexpr const char* kElements   = "###elements";
 constexpr const char* kProperties = "###properties";
 constexpr const char* kTransform  = "###transform";
+constexpr const char* kPuppet     = "###puppet";
 constexpr const char* kReferences = "###references";
 constexpr const char* kTimeline   = "###timeline";
 constexpr const char* kCanvas     = "###canvas";

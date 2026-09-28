@@ -44,6 +44,7 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 #include "ui/transform_gizmo.h"
+#include "ui/puppet_panel.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -827,6 +828,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         toggle("Elements", &editor.panels.elements, nullptr);
         toggle("Properties", &editor.panels.properties, nullptr);
         toggle("Transform", &editor.panels.transform, nullptr);
+        toggle("Puppet", &editor.panels.puppet, nullptr);
         toggle("Timeline", &editor.timeline.visible, "view.timeline");
         ImGui::Separator();
         toggle("References", &editor.panels.references, "view.references");
@@ -2405,6 +2407,11 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
         handleReferenceDrag(editor, canvas, overCanvas, pixel)) {
         return;
     }
+    // A puppet being drawn on or posed: its joints, sockets and rings come
+    // first, and while posing nothing draws.
+    if (handlePuppetInput(editor, canvas, overCanvas)) {
+        return;
+    }
     // A shape's handles come before the tool: a press on one edits the
     // shape whatever the tool would have done there.
     if (handleTransformGizmo(editor, canvas, overCanvas)) {
@@ -3245,6 +3252,13 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         ImGui::End();
     }
+    if (editor.panels.puppet) {
+        if (ImGui::Begin(title("Puppet", panel::kPuppet).c_str(), &editor.panels.puppet,
+                         kDockable)) {
+            drawPuppetPanel(editor, canvas);
+        }
+        ImGui::End();
+    }
     // References float over everything, opened when wanted: a picture to
     // draw from is looked at beside the canvas, not kept in a column.
     if (editor.panels.references) {
@@ -3284,10 +3298,14 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     canvas.setPanWithPrimary(editor.tool == Tool::Hand);
     canvas.setZoomOnClick(editor.tool == Tool::Zoom);
     const int showing = frameToShow(editor, SDL_GetTicks());
+    // A puppet shown in the Puppet panel's Draw part or Pose takes the canvas.
+    settlePuppetView(editor, canvas);
     const ls::SpriteId onScreen =
-        (showing >= 0 && showing < static_cast<int>(editor.frames.size()))
-            ? editor.frames[static_cast<size_t>(showing)].sprite
-            : editor.sprite;
+        editor.puppet.mode == Editor::PuppetView::Mode::DrawPart
+            ? editor.activeSprite()
+            : (showing >= 0 && showing < static_cast<int>(editor.frames.size()))
+                  ? editor.frames[static_cast<size_t>(showing)].sprite
+                  : editor.sprite;
     const bool overCanvas = canvas.draw(
         editor.doc, onScreen, &hovered,
         [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
@@ -3301,6 +3319,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawShapeOverlay(editor, canvas, draw, origin, zoom);
             drawFreeScaleOverlay(editor, canvas, draw, origin, zoom);
             drawTransformGizmo(editor, canvas, draw, origin, zoom);
+            drawPuppetOverlay(editor, canvas, draw, origin, zoom);
             drawTilemapOverlay(editor, canvas, draw, origin, zoom);
             drawSliceOverlay(editor, canvas, draw, origin, zoom);
             drawGuides(editor, canvas, draw, origin, zoom);

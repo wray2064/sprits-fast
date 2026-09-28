@@ -64,6 +64,10 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas);
 // compiles.
 void drawTimelinePanel(Editor& editor, CanvasView& canvas);
 
+// One undo step for as long as the control just drawn is held: begun when it
+// is grabbed, ended when it is let go. `flag` says whether one is open.
+void holdForUndo(Editor& editor, bool& flag, const char* label);
+
 // How tall the strip needs to be. It grows when a cycle is selected, because a
 // cycle's steps are a second row: the frames are what was drawn, the steps are
 // the order they play in, and those are different lists.

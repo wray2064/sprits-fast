@@ -94,7 +94,8 @@ void CanvasView::drawSample(ImDrawList* draw, ImVec2 at, float scale,
 bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
                       const Underlay& underlay, const Underlay& overlay) {
     // One lookup, and a compile only if the engine says this frame changed.
-    const FrameCache::Entry* entry = frames_.entryFor(doc, sprite);
+    const FrameCache::Entry* entry = assembly_.valid() ? frames_.assemblyEntryFor(doc, assembly_)
+                                                       : frames_.entryFor(doc, sprite);
     if (entry == nullptr || entry->texture == nullptr) {
         ImGui::TextUnformatted("nothing to compile");
         texture_ = nullptr;

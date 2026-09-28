@@ -133,6 +133,13 @@ bool restPose(Document& doc, ls::SpriteId root);
 // Where `part` lands on the canvas as posed: the whole chain above it.
 ls::Mat3f partPlacement(Document& doc, ls::SpriteId part);
 
+// The part of the puppet under `root` drawn at `point` on the canvas as
+// posed -- the topmost -- or null over none of them.
+ls::SpriteId partAt(Document& doc, ls::SpriteId root, ls::Vec2f point);
+
+// How many parts `part` hangs below: 0 for a root.
+int hangingDepth(Document& doc, ls::SpriteId part);
+
 // ---------------------------------------------------------------- capture --
 
 // A new frame after frame `after` holding the puppet as posed (see the top of

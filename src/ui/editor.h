@@ -271,6 +271,29 @@ struct Editor {
     int        scaleHandle = -1;
     ls::Rect2f scaleFrom;
     ls::Vec2f  scaleGrab { 0.f, 0.f };
+    // The Puppet panel (puppet_panel.h): the part it has picked, what the
+    // canvas shows -- the frames, that part to draw on, or its whole puppet
+    // to pose -- and a pose or a joint being dragged.
+    struct PuppetView {
+        enum class Mode { Frames, DrawPart, Pose };
+        enum class Placing { None, Joint, Socket };
+        Mode            mode = Mode::Frames;
+        ls::SpriteId    part;
+        Placing         placing = Placing::None;
+        int             frameEntered = -1;   // the frame showing when it left Frames
+        // A drag: -1 none, 0 the ring, 1 the root's middle, 2 the joint,
+        // 3 a socket.
+        int             dragging = -1;
+        ls::SocketId    socket;
+        float           startAngle = 0.f;
+        float           turned = 0.f;
+        float           lastPointer = 0.f;
+        ls::Vec2f       startOffset { 0.f, 0.f };
+        ls::Vec2f       grab { 0.f, 0.f };
+        char            nameBuffer[64] = {};
+        ls::SpriteId    naming;              // whose name nameBuffer holds
+    } puppet;
+
     // The transform gizmo (transform_gizmo.h): the part held -- -1 none, 0
     // the ring, 1 the arrow across, 2 the arrow down, 3 the middle (a move)
     // -- the operation it drives, and what that was when grabbed.
@@ -492,6 +515,7 @@ struct Editor {
         bool elements = true;
         bool properties = true;
         bool transform = true;
+        bool puppet = true;
         bool references = false;
         bool resetLayout = false;   // the default arrangement, on the next frame
     } panels;
@@ -610,13 +634,18 @@ struct Editor {
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
                adjustDialog.open || draggingSlice || editingSlice || draggingGuide >= 0 ||
                selecting || draggingFloat || drawingContour || drawingGradient ||
-               scaleHandle >= 0 || gizmoPart >= 0 || placingDrag || tilemapDialog.open;
+               scaleHandle >= 0 || gizmoPart >= 0 || puppet.dragging >= 0 || placingDrag ||
+               tilemapDialog.open;
     }
 
     // The frame being edited, which is the sprite every tool draws into. Falls
     // back to the document's first frame, so a stale index can never point a
     // tool at nothing.
     ls::SpriteId activeSprite() const {
+        // Drawing on a puppet's part: that part is what every tool draws into.
+        if (puppet.mode == PuppetView::Mode::DrawPart && puppet.part.valid()) {
+            return puppet.part;
+        }
         if (timeline.activeFrame >= 0 &&
             timeline.activeFrame < static_cast<int>(frames.size())) {
             return frames[static_cast<size_t>(timeline.activeFrame)].sprite;
