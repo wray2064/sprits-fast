@@ -476,7 +476,8 @@ exporting that frame alone would give, at the same whole-number scale.
 
 ### The thing to try first
 
-Draw something, add a **Rotate** in the Transform panel, and drag the angle.
+Draw something, add a **Rotate** in the Transform panel, and turn it with the
+ring that appears on the canvas.
 
 ![Rotating and returning](docs/rotation.png)
 
@@ -486,9 +487,17 @@ editor that resamples, five turns would have left it soft and chewed.
 
 Nothing is spent because nothing accumulates: the rotation is an entry in the
 layer's operation list, and every compile resolves it against the pixels that
-were drawn, not against the last frame. Drag the slider through two hundred
+were drawn, not against the last frame. Drag the ring through two hundred
 angles and there is still exactly one operation. Set it back to zero, or delete
 the entry, and the original returns exactly.
+
+The ring is one part of a gizmo the Move tool shows at the pivot of a layer
+that has a Rotate or a Scale: drag the **ring** to turn, holding **Shift** for
+steps of 15 degrees (so 90 is where it stops, and a quarter turn lands every
+pixel exactly where a quarter turn sends it); drag the **red arrow** to stretch
+across, the **green arrow** down, the **square** between them for both, Shift
+for quarter steps; **Esc** mid-drag puts it back. The Transform panel's fields
+take the same numbers typed.
 
 The same idea one control over: select a colour's row in the Elements panel and
 change it, and the drawing is not repainted. The colour lives on the fill rule

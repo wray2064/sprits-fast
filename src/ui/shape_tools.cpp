@@ -7,6 +7,7 @@
 #include "app/grid_snap.h"
 #include "app/layers.h"
 #include "app/palette.h"
+#include "app/transform.h"
 
 #include <algorithm>
 #include <cmath>
@@ -45,12 +46,26 @@ ls::Vec2f pointHere(const Editor& editor, const CanvasView& canvas) {
     return linePoint(at);
 }
 
+// A shape's point where it shows: through its layer's transforms, so a
+// turned or scaled layer's handles sit on the shape as drawn.
+ls::Vec2f shownAt(Editor& editor, ls::LayerId layer, ls::Vec2f p) {
+    return layerTransform(editor.doc, layer).transformPoint(p);
+}
+
+// The pointer in a layer's own space: where on the untransformed shape it is.
+ls::Vec2f pointerOn(Editor& editor, const CanvasView& canvas, ls::LayerId layer) {
+    const ls::Vec2f at = canvas.pointerExact();
+    ls::Vec2f mapped = at;
+    return mapCanvasPointToLayer(editor.doc, layer, at, &mapped) ? mapped : at;
+}
+
 // Where a dragged handle lands, by the same rule each kind was drawn with:
 // a box's corners on whole pixels, a line's ends and a path's points in the
-// middle of one.
-ls::Vec2f handleTarget(const Editor& editor, const CanvasView& canvas, ShapeKind kind,
-                       bool control) {
-    const ls::Vec2f at = canvas.pointerExact();
+// middle of one -- in the layer's own space, under the pointer however the
+// layer is turned.
+ls::Vec2f handleTarget(Editor& editor, const CanvasView& canvas, ls::LayerId layer,
+                       ShapeKind kind, bool control) {
+    const ls::Vec2f at = pointerOn(editor, canvas, layer);
     if (control) {
         return at;                              // control points go anywhere
     }
@@ -294,7 +309,8 @@ bool handleShapeHandles(Editor& editor, CanvasView& canvas, bool overCanvas) {
             const size_t index = static_cast<size_t>(editor.draggingHandle);
             ShapeParams params = editor.handleStart;
             moveShapeHandle(editor.handleShape.kind, params, index,
-                            handleTarget(editor, canvas, editor.handleShape.kind,
+                            handleTarget(editor, canvas, editor.handleShape.paint.layer,
+                                         editor.handleShape.kind,
                                          isControlHandle(editor.handleShape.kind, index)));
             updateShape(editor.doc, editor.handleShape, params);
             canvas.invalidate();
@@ -321,7 +337,8 @@ bool handleShapeHandles(Editor& editor, CanvasView& canvas, bool overCanvas) {
     int hit = -1;
     for (int pass = 0; pass < 2 && hit < 0; ++pass) {
         for (size_t i = 0; i < handles.size(); ++i) {
-            if ((pass == 0) == isControlHandle(shape.kind, i) && near(at, handles[i], canvas.zoom())) {
+            if ((pass == 0) == isControlHandle(shape.kind, i) &&
+                near(at, shownAt(editor, shape.paint.layer, handles[i]), canvas.zoom())) {
                 hit = static_cast<int>(i);
                 break;
             }
@@ -402,7 +419,14 @@ void drawShapeOverlay(Editor& editor, CanvasView& canvas, ImDrawList* draw, ImVe
     if (!activeShape(editor, &shape) || !readShapeParams(editor.doc, shape, &params)) {
         return;
     }
-    const std::vector<ls::Vec2f> handles = shapeHandles(shape.kind, params);
+    std::vector<ls::Vec2f> handles = shapeHandles(shape.kind, params);
+    for (ls::Vec2f& h : handles) {
+        h = shownAt(editor, shape.paint.layer, h);
+    }
+    std::vector<ls::Vec2f> anchors = params.points;
+    for (ls::Vec2f& a : anchors) {
+        a = shownAt(editor, shape.paint.layer, a);
+    }
     const auto hot = [&](size_t i) {
         return editor.draggingHandle == static_cast<int>(i) ||
                (editor.draggingHandle < 0 && near(pointer, handles[i], zoom));
@@ -414,9 +438,9 @@ void drawShapeOverlay(Editor& editor, CanvasView& canvas, ImDrawList* draw, ImVe
                 continue;
             }
             const size_t anchor = i % 3 == 1 ? i - 1 : i + 1;
-            if (anchor < params.points.size()) {
+            if (anchor < anchors.size()) {
                 drawControl(draw, screen(origin, zoom, handles[i]),
-                            screen(origin, zoom, params.points[anchor]), hot(i));
+                            screen(origin, zoom, anchors[anchor]), hot(i));
             }
         }
     }

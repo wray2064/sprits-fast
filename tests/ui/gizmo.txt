@@ -1,0 +1,56 @@
+# The transform gizmo by hand: a Rotate added in the Transform panel brings
+# the Move tool and the gizmo; the ring dragged with Shift stops on 90
+# exactly, and the line lands on exactly its pixels turned; Esc drops a drag;
+# a typed angle is the angle; the arrow across stretches across only.
+#
+# At this zoom (20) the pivot, the canvas's middle (16, 16), is script point
+# 15.5 15.5 -- a script point p is canvas p + 0.5 -- and the ring is 64
+# screen pixels, 3.2 canvas pixels, round it.
+key ctrl+0
+expect zoom 20
+tool line
+colour 3060d0
+drag 12 17 26 3
+expect pixel 12 17 3060d0
+expect pixel 26 3 3060d0
+
+click-on Rotate
+expect tool move
+expect rotation 0
+
+# From 2.5 right and 1.5 down of the pivot (58 px out: on the ring) round to
+# 1.5 left and 2.5 down -- a quarter turn, clockwise -- with Shift.
+hold shift
+drag 18 17 14 18 24
+let shift
+expect rotation 90
+# (x, y) turned a quarter about the middle is (31 - y, x).
+expect pixel 14 12 3060d0
+expect pixel 28 26 3060d0
+expect pixel 12 17 empty
+
+# Esc in the middle of a drag: as it was, nothing to undo.
+move 18 17
+press
+move 14 14
+key escape
+release
+expect rotation 90
+
+# Typed.
+click-on ##angle
+key ctrl+a
+type 180
+key enter
+wait 2
+expect rotation 180
+expect pixel 19 14 3060d0
+expect pixel 5 28 3060d0
+
+# The arrow across, grabbed 30 px out and pulled to 60: twice as wide.
+click-on Scale
+expect scale 1 1
+drag 17 15.5 18.5 15.5 24
+expect scale 2 1
+key ctrl+z
+expect scale 1 1

@@ -43,6 +43,7 @@
 #include "ui/editor.h"
 #include "ui/panels.h"
 #include "ui/theme.h"
+#include "ui/transform_gizmo.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -2406,6 +2407,9 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
     }
     // A shape's handles come before the tool: a press on one edits the
     // shape whatever the tool would have done there.
+    if (handleTransformGizmo(editor, canvas, overCanvas)) {
+        return;
+    }
     if (handleFreeScale(editor, canvas, overCanvas)) {
         return;
     }
@@ -3296,6 +3300,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             drawSymmetryAxes(editor, canvas, draw, origin, zoom);
             drawShapeOverlay(editor, canvas, draw, origin, zoom);
             drawFreeScaleOverlay(editor, canvas, draw, origin, zoom);
+            drawTransformGizmo(editor, canvas, draw, origin, zoom);
             drawTilemapOverlay(editor, canvas, draw, origin, zoom);
             drawSliceOverlay(editor, canvas, draw, origin, zoom);
             drawGuides(editor, canvas, draw, origin, zoom);

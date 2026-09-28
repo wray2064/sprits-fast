@@ -165,6 +165,7 @@ if (FAST_BUILD_GUI)
         src/ui/frame_cache.cpp
         src/ui/reference_cache.cpp
         src/ui/selection_tools.cpp
+        src/ui/transform_gizmo.cpp
         src/ui/keys.cpp
         src/ui/layout.cpp
         src/ui/os_clipboard.cpp

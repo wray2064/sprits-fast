@@ -3088,10 +3088,14 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     const float third = (ImGui::GetContentRegionAvail().x -
                          theme::metrics().itemSpacing * 3.f) / 4.f;
 
+    // A rotation or a scale comes with the gizmo to drive it: the Move tool
+    // shows it on the canvas (transform_gizmo.h).
     if (ImGui::Button(tr("Rotate"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add rotate");
         addRotate(editor.doc, layer->layer, 0.f, centre, ls::SamplingPolicy::RotSprite);
         editor.doc.endAction();
+        editor.tool = Tool::Move;
+        editor.say("Drag the ring to turn it, Shift for steps of 15 degrees -- or type the angle");
         canvas.invalidate();
     }
     ImGui::SameLine();
@@ -3099,6 +3103,8 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
         editor.doc.beginAction("Add scale");
         addScale(editor.doc, layer->layer, {1.f, 1.f}, centre);
         editor.doc.endAction();
+        editor.tool = Tool::Move;
+        editor.say("Drag an arrow to stretch it, the square for both, Shift for quarter steps");
         canvas.invalidate();
     }
     ImGui::SameLine();
@@ -3126,10 +3132,10 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
     if (transforms.empty()) {
         ImGui::Dummy(ImVec2(0.f, 6.f));
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
-        ImGui::TextWrapped("%s", tr("Nothing applied. Add a rotation and drag it: the "
-                           "picture is rebuilt from the drawing each time, so "
-                           "returning to zero returns the original pixels "
-                           "exactly."));
+        ImGui::TextWrapped("%s", tr("Nothing applied. Add a rotation and turn it with the "
+                           "ring on the canvas, or type its angle: the picture "
+                           "is rebuilt from the drawing each time, so returning "
+                           "to zero returns the original pixels exactly."));
         ImGui::PopStyleColor();
         return;
     }
@@ -3147,25 +3153,29 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
 
         bool changed = false;
         ImGui::SetNextItemWidth(-30.f);
+        // Numbers typed, not slid: a slider's steps are the panel's width,
+        // and 90 is where a typed 90 lands. The gizmo drags them by hand.
         if (entry.kind == TransformKind::Rotate) {
             float angle = entry.angleDegrees;
-            if (ImGui::SliderFloat("##angle", &angle, -360.f, 360.f, "%.1f deg")) {
+            if (ImGui::InputFloat("##angle", &angle, 0.f, 0.f, "%.2f deg")) {
                 setRotateAngle(editor.doc, entry.id, angle);
                 changed = true;
             }
             bracketDrag(editor, editor.draggingTransform, "Rotate");
         } else if (entry.kind == TransformKind::Scale) {
             float factor[2] = { entry.factor.x, entry.factor.y };
-            if (ImGui::SliderFloat2("##factor", factor, 0.1f, 8.f, "%.2f")) {
-                setScaleFactor(editor.doc, entry.id, {factor[0], factor[1]});
+            if (ImGui::InputFloat2("##factor", factor, "%.3f")) {
+                setScaleFactor(editor.doc, entry.id,
+                               { std::clamp(factor[0], 0.05f, 64.f), std::clamp(factor[1], 0.05f, 64.f) });
                 changed = true;
             }
             bracketDrag(editor, editor.draggingTransform, "Scale");
         } else if (entry.kind == TransformKind::Offset) {
             float delta[2] = { entry.delta.x, entry.delta.y };
-            if (ImGui::DragFloat2("##delta", delta, 0.25f, -4096.f, 4096.f, "%.0f px")) {
+            if (ImGui::InputFloat2("##delta", delta, "%.0f px")) {
                 setOffsetDelta(editor.doc, entry.id,
-                               { std::round(delta[0]), std::round(delta[1]) });
+                               { std::round(std::clamp(delta[0], -4096.f, 4096.f)),
+                                 std::round(std::clamp(delta[1], -4096.f, 4096.f)) });
                 changed = true;
             }
             bracketDrag(editor, editor.draggingTransform, "Offset");

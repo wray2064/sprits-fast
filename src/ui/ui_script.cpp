@@ -9,12 +9,14 @@
 #include "app/file_io.h"
 #include "app/layers.h"
 #include "app/slices.h"
+#include "app/transform.h"
 #include "ui/canvas_view.h"
 #include "ui/tabs.h"
 
 #include <imgui_internal.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -703,6 +705,32 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
     } else if (step.text == "zoom") {
         if (canvas.zoom() != static_cast<float>(std::atof(a[0].c_str()))) {
             failed("zoom is " + std::to_string(canvas.zoom()));
+        }
+    } else if (step.text == "rotation" || step.text == "scale") {
+        // The active layer's last Rotate or Scale (the Transform panel's).
+        const bool rotation = step.text == "rotation";
+        const TransformEntry* last = nullptr;
+        std::vector<TransformEntry> entries;
+        if (const PaintLayer* layer = editor.active()) {
+            entries = listTransforms(editor.doc, layer->layer);
+        }
+        for (const TransformEntry& entry : entries) {
+            if (entry.kind == (rotation ? TransformKind::Rotate : TransformKind::Scale)) {
+                last = &entry;
+            }
+        }
+        const auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+        if (last == nullptr) {
+            failed(rotation ? "the layer has no rotation" : "the layer has no scale");
+        } else if (rotation) {
+            if (!near(last->angleDegrees, static_cast<float>(std::atof(a[0].c_str())))) {
+                failed("the rotation is " + std::to_string(last->angleDegrees));
+            }
+        } else if (a.size() < 2 ||
+                   !near(last->factor.x, static_cast<float>(std::atof(a[0].c_str()))) ||
+                   !near(last->factor.y, static_cast<float>(std::atof(a[1].c_str())))) {
+            failed("the scale is " + std::to_string(last->factor.x) + " x " +
+                   std::to_string(last->factor.y));
         }
     } else if (step.text == "brush") {
         if (editor.brush.size != std::atoi(a[0].c_str())) {

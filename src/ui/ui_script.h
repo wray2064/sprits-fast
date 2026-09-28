@@ -44,6 +44,8 @@
 //     expect slices 1 / expect zoom 12 / expect brush 3
 //     expect pointer 3 4          the canvas pixel under the pointer
 //     expect frame 2              the frame being edited, from 1
+//     expect rotation 90          the active layer's last Rotate, in degrees
+//     expect scale 2 1            and its last Scale, across and down
 //     expect playing yes|no
 //     expect canvas 64 64 / expect tabs 2
 //     shot path.bmp               a screenshot of the next frame
