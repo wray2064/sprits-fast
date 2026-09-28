@@ -495,9 +495,10 @@ The ring is one part of a gizmo the Move tool shows at the pivot of a layer
 that has a Rotate or a Scale: drag the **ring** to turn, holding **Shift** for
 steps of 15 degrees (so 90 is where it stops, and a quarter turn lands every
 pixel exactly where a quarter turn sends it); drag the **red arrow** to stretch
-across, the **green arrow** down, the **square** between them for both, Shift
-for quarter steps; **Esc** mid-drag puts it back. The Transform panel's fields
-take the same numbers typed.
+across, the **green arrow** down, Shift for quarter steps; drag the **square**
+between them to move the sprite on the canvas by whole pixels, Shift to keep to
+one axis -- the gizmo goes with it; **Esc** mid-drag puts it back. The Transform
+panel's fields take the same numbers typed.
 
 The same idea one control over: select a colour's row in the Elements panel and
 change it, and the drawing is not repainted. The colour lives on the fill rule

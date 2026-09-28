@@ -272,14 +272,15 @@ struct Editor {
     ls::Rect2f scaleFrom;
     ls::Vec2f  scaleGrab { 0.f, 0.f };
     // The transform gizmo (transform_gizmo.h): the part held -- -1 none, 0
-    // the ring, 1 the arrow across, 2 the arrow down, 3 the middle -- the
-    // operation it drives, and what that was when grabbed.
+    // the ring, 1 the arrow across, 2 the arrow down, 3 the middle (a move)
+    // -- the operation it drives, and what that was when grabbed.
     int             gizmoPart = -1;
     ls::OperationId gizmoOp;
     float           gizmoStartAngle = 0.f;
     float           gizmoTurned = 0.f;        // degrees the pointer has gone round
     float           gizmoLastPointer = 0.f;   // the pointer's angle last frame
     ls::Vec2f       gizmoStartFactor { 1.f, 1.f };
+    ls::Vec2f       gizmoStartDelta { 0.f, 0.f };
     ls::Vec2f       gizmoGrab { 0.f, 0.f };   // where it was grabbed, on screen
     // A name field just opened: it takes the keyboard on its first frame, so
     // what is typed next is the name rather than a string of shortcuts.

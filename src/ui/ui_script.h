@@ -46,6 +46,7 @@
 //     expect frame 2              the frame being edited, from 1
 //     expect rotation 90          the active layer's last Rotate, in degrees
 //     expect scale 2 1            and its last Scale, across and down
+//     expect offset 3 1           and its last Offset, in pixels
 //     expect playing yes|no
 //     expect canvas 64 64 / expect tabs 2
 //     shot path.bmp               a screenshot of the next frame

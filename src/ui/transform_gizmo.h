@@ -12,12 +12,17 @@
 //   - a ring round it: drag it and the layer turns with the pointer, Shift
 //     for steps of fifteen degrees -- 90 is then where it stops;
 //   - a cross at its middle: the red arrow stretches across, the green one
-//     down, the square between them both at once; Shift for quarter steps;
+//     down, Shift for quarter steps; the square between them moves the
+//     sprite on the canvas, by whole pixels, Shift along one axis;
 //   - Esc while dragging puts things back as they were.
+//
+// The gizmo sits where the pivot shows -- carried by a move after the turn --
+// so it stays on the sprite.
 //
 // What it drives is the same operation the panel's number fields edit, so a
 // turn made here is one to type over there, and the other way round. A layer
-// with a Rotate and no Scale grows one from the arrows, at the same pivot.
+// with a Rotate and no Scale grows one from the arrows, at the same pivot, and
+// a move is an Offset at the end of the list -- the last one, or a new one.
 
 #include <imgui.h>
 

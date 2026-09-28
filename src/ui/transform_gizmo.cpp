@@ -30,18 +30,44 @@ constexpr float kPi = 3.14159265f;
 constexpr float kMinFactor = 0.05f;
 constexpr float kMaxFactor = 64.f;
 
-enum Part { kNone = -1, kRingPart = 0, kAcross = 1, kDown = 2, kBoth = 3 };
+enum Part { kNone = -1, kRingPart = 0, kAcross = 1, kDown = 2, kMove = 3 };
 
-// What the gizmo acts on: the layer's last Rotate and last Scale, and the
-// pivot it sits on -- the rotation's, or else the scale's.
+// What the gizmo acts on: the layer's last Rotate and last Scale, the pivot
+// they turn and stretch about -- the rotation's, or else the scale's -- and
+// where that pivot shows: carried by whatever the layer does after it (a
+// move above all), so the gizmo stays on the sprite it drives.
 struct Target {
     ls::LayerId    layer;
     bool           hasRotate = false;
     TransformEntry rotate;
     bool           hasScale = false;
     TransformEntry scale;
+    bool           endsWithOffset = false;   // the list's last entry is an Offset
+    TransformEntry offset;                   // that one
     ls::Vec2f      pivot;
+    ls::Vec2f      shown;
 };
+
+// Where one transform sends a point.
+ls::Vec2f through(const TransformEntry& entry, ls::Vec2f p) {
+    const ls::Vec2f c = entry.pivot;
+    switch (entry.kind) {
+        case TransformKind::Offset:
+            return { p.x + entry.delta.x, p.y + entry.delta.y };
+        case TransformKind::Scale:
+            return { c.x + (p.x - c.x) * entry.factor.x, c.y + (p.y - c.y) * entry.factor.y };
+        case TransformKind::Mirror:
+            return entry.axis == ls::MirrorAxis::X ? ls::Vec2f{ 2.f * c.x - p.x, p.y }
+                                                   : ls::Vec2f{ p.x, 2.f * c.y - p.y };
+        case TransformKind::Rotate: {
+            const float a = entry.angleDegrees * 3.14159265f / 180.f;
+            const float x = p.x - c.x;
+            const float y = p.y - c.y;
+            return { c.x + x * std::cos(a) - y * std::sin(a), c.y + x * std::sin(a) + y * std::cos(a) };
+        }
+    }
+    return p;
+}
 
 bool targetOf(Editor& editor, Target* out) {
     if (editor.tool != Tool::Move) {
@@ -58,19 +84,36 @@ bool targetOf(Editor& editor, Target* out) {
     }
     Target t;
     t.layer = layer->layer;
-    for (const TransformEntry& entry : listTransforms(editor.doc, layer->layer)) {
+    const std::vector<TransformEntry> entries = listTransforms(editor.doc, layer->layer);
+    size_t pivotAt = 0;
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const TransformEntry& entry = entries[i];
         if (entry.kind == TransformKind::Rotate) {
             t.hasRotate = true;
             t.rotate = entry;
+            pivotAt = i;
         } else if (entry.kind == TransformKind::Scale) {
             t.hasScale = true;
             t.scale = entry;
+            if (!t.hasRotate) {
+                pivotAt = i;
+            }
         }
     }
     if (!t.hasRotate && !t.hasScale) {
         return false;
     }
     t.pivot = t.hasRotate ? t.rotate.pivot : t.scale.pivot;
+    // The pivot is where its own transform leaves it; what comes after
+    // carries it on.
+    t.shown = t.pivot;
+    for (size_t i = pivotAt + 1; i < entries.size(); ++i) {
+        t.shown = through(entries[i], t.shown);
+    }
+    t.endsWithOffset = !entries.empty() && entries.back().kind == TransformKind::Offset;
+    if (t.endsWithOffset) {
+        t.offset = entries.back();
+    }
     *out = t;
     return true;
 }
@@ -99,7 +142,7 @@ float distanceToSegment(ImVec2 p, ImVec2 a, ImVec2 b) {
 Part partAt(ImVec2 centre, ImVec2 pointer) {
     const ImVec2 d(pointer.x - centre.x, pointer.y - centre.y);
     if (std::fabs(d.x) <= kCentre + 2.f && std::fabs(d.y) <= kCentre + 2.f) {
-        return kBoth;
+        return kMove;
     }
     if (distanceToSegment(pointer, ImVec2(centre.x + kCentre, centre.y),
                           ImVec2(centre.x + kArrow, centre.y)) <= kArrowReach) {
@@ -147,7 +190,7 @@ bool handleTransformGizmo(Editor& editor, CanvasView& canvas, bool overCanvas) {
         return false;
     }
     const ImGuiIO& io = ImGui::GetIO();
-    const ImVec2 centre = onScreen(canvas, t.pivot);
+    const ImVec2 centre = onScreen(canvas, t.shown);
     const ImVec2 pointer = io.MousePos;
 
     if (editor.gizmoPart < 0) {
@@ -165,8 +208,14 @@ bool handleTransformGizmo(Editor& editor, CanvasView& canvas, bool overCanvas) {
             editor.say("This layer is locked -- unlock it in the Layers panel");
             return true;
         }
-        editor.doc.beginAction(part == kRingPart ? "Rotate" : "Scale");
-        if (part == kRingPart) {
+        editor.doc.beginAction(part == kRingPart ? "Rotate" : part == kMove ? "Move" : "Scale");
+        if (part == kMove) {
+            // The move is the list's last say, so the sprite goes where the
+            // pointer takes it whatever it was turned and stretched by.
+            editor.gizmoOp = t.endsWithOffset ? t.offset.id
+                                              : addOffset(editor.doc, t.layer, { 0.f, 0.f });
+            editor.gizmoStartDelta = t.endsWithOffset ? t.offset.delta : ls::Vec2f{ 0.f, 0.f };
+        } else if (part == kRingPart) {
             editor.gizmoOp = t.hasRotate
                 ? t.rotate.id
                 : addRotate(editor.doc, t.layer, 0.f, t.pivot, ls::SamplingPolicy::RotSprite);
@@ -200,7 +249,18 @@ bool handleTransformGizmo(Editor& editor, CanvasView& canvas, bool overCanvas) {
 
     const Part part = static_cast<Part>(editor.gizmoPart);
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-        if (part == kRingPart) {
+        if (part == kMove) {
+            // By whole pixels, as the pointer has gone; Shift keeps to the
+            // axis it has gone further along.
+            const float zoom = std::max(canvas.zoom(), 0.0001f);
+            float dx = std::round((pointer.x - editor.gizmoGrab.x) / zoom);
+            float dy = std::round((pointer.y - editor.gizmoGrab.y) / zoom);
+            if (io.KeyShift) {
+                if (std::fabs(dx) >= std::fabs(dy)) { dy = 0.f; } else { dx = 0.f; }
+            }
+            setOffsetDelta(editor.doc, editor.gizmoOp,
+                           { editor.gizmoStartDelta.x + dx, editor.gizmoStartDelta.y + dy });
+        } else if (part == kRingPart) {
             // Round with the pointer, however many times: each frame's step,
             // taken the short way, added up.
             const float now = degreesOf(centre, pointer);
@@ -218,19 +278,13 @@ bool handleTransformGizmo(Editor& editor, CanvasView& canvas, bool overCanvas) {
             const ls::Vec2f grab = editor.gizmoGrab;
             const ls::Vec2f from = editor.gizmoStartFactor;
             ls::Vec2f factor = from;
-            if (part == kAcross || part == kDown) {
-                // As far along the arrow as the pointer is, against where it
-                // was grabbed.
-                const bool across = part == kAcross;
-                const float was = std::max(4.f, across ? grab.x - centre.x : grab.y - centre.y);
-                const float is = across ? pointer.x - centre.x : pointer.y - centre.y;
-                const float ratio = is / was;
-                if (across) { factor.x = from.x * ratio; } else { factor.y = from.y * ratio; }
-            } else {
-                // The middle: both at once, larger to the right.
-                const float ratio = std::exp((pointer.x - grab.x) / 120.f);
-                factor = { from.x * ratio, from.y * ratio };
-            }
+            // As far along the arrow as the pointer is, against where it was
+            // grabbed.
+            const bool across = part == kAcross;
+            const float was = std::max(4.f, across ? grab.x - centre.x : grab.y - centre.y);
+            const float is = across ? pointer.x - centre.x : pointer.y - centre.y;
+            const float ratio = is / was;
+            if (across) { factor.x = from.x * ratio; } else { factor.y = from.y * ratio; }
             if (io.KeyShift) {
                 factor = { snapped(factor.x, 0.25f), snapped(factor.y, 0.25f) };
             }
@@ -243,7 +297,13 @@ bool handleTransformGizmo(Editor& editor, CanvasView& canvas, bool overCanvas) {
     }
 
     editor.doc.endAction();
-    if (part == kRingPart) {
+    if (part == kMove) {
+        const ls::Vec2f d = t.endsWithOffset ? t.offset.delta : ls::Vec2f{ 0.f, 0.f };
+        char text[96];
+        std::snprintf(text, sizeof(text), "Moved to %d, %d from where it was drawn -- the drawing is untouched",
+                      static_cast<int>(d.x), static_cast<int>(d.y));
+        editor.say(text);
+    } else if (part == kRingPart) {
         editor.say("Turned to " + angleText(t.hasRotate ? t.rotate.angleDegrees : 0.f) +
                    " -- the drawing is untouched, so any angle comes back exactly");
     } else {
@@ -264,7 +324,7 @@ void drawTransformGizmo(Editor& editor, CanvasView& canvas, ImDrawList* draw, Im
     if (!targetOf(editor, &t)) {
         return;
     }
-    const ImVec2 centre(origin.x + t.pivot.x * zoom, origin.y + t.pivot.y * zoom);
+    const ImVec2 centre(origin.x + t.shown.x * zoom, origin.y + t.shown.y * zoom);
     const Part held = static_cast<Part>(editor.gizmoPart);
     const Part hovered = held != kNone ? held : partAt(centre, ImGui::GetIO().MousePos);
     const ImU32 shadow = IM_COL32(0, 0, 0, 170);
@@ -310,12 +370,20 @@ void drawTransformGizmo(Editor& editor, CanvasView& canvas, ImDrawList* draw, Im
     arrow(ImVec2(1.f, 0.f), across, kAcross);
     arrow(ImVec2(0.f, 1.f), down, kDown);
 
-    // The middle: both axes at once.
+    // The middle: the sprite itself, moved.
     const ImVec2 a(centre.x - kCentre, centre.y - kCentre);
     const ImVec2 b(centre.x + kCentre, centre.y + kCentre);
-    draw->AddRectFilled(a, b, hovered == kBoth ? bright : IM_COL32(230, 230, 236, 220));
+    draw->AddRectFilled(a, b, hovered == kMove ? bright : IM_COL32(230, 230, 236, 220));
     draw->AddRect(a, b, shadow, 0.f, 0, 1.5f);
-    if (held == kAcross || held == kDown || held == kBoth) {
+    if (held == kMove && t.endsWithOffset) {
+        char text[48];
+        std::snprintf(text, sizeof(text), "%d, %d", static_cast<int>(t.offset.delta.x),
+                      static_cast<int>(t.offset.delta.y));
+        const ImVec2 at(centre.x + 12.f, centre.y + 12.f);
+        draw->AddText(ImVec2(at.x + 1.f, at.y + 1.f), shadow, text);
+        draw->AddText(at, bright, text);
+    }
+    if (held == kAcross || held == kDown) {
         char text[48];
         std::snprintf(text, sizeof(text), "%.2f x %.2f",
                       static_cast<double>(t.hasScale ? t.scale.factor.x : 1.f),

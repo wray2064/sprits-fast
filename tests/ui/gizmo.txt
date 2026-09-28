@@ -1,7 +1,8 @@
 # The transform gizmo by hand: a Rotate added in the Transform panel brings
 # the Move tool and the gizmo; the ring dragged with Shift stops on 90
 # exactly, and the line lands on exactly its pixels turned; Esc drops a drag;
-# a typed angle is the angle; the arrow across stretches across only.
+# a typed angle is the angle; the arrow across stretches across only; the
+# middle moves the sprite, and the gizmo goes with it.
 #
 # At this zoom (20) the pivot, the canvas's middle (16, 16), is script point
 # 15.5 15.5 -- a script point p is canvas p + 0.5 -- and the ring is 64
@@ -54,3 +55,28 @@ drag 17 15.5 18.5 15.5 24
 expect scale 2 1
 key ctrl+z
 expect scale 1 1
+
+# The middle: the sprite moved by whole pixels -- 3 across, 1 down.
+drag 15.5 15.5 18.5 16.5 24
+expect offset 3 1
+# The line turned 180 had (19, 14); moved, (22, 15).
+expect pixel 22 15 3060d0
+expect pixel 19 14 empty
+
+# Esc on a move: where it was.
+move 18.5 16.5
+press
+move 12 12
+key escape
+release
+expect offset 3 1
+
+# The gizmo went with the sprite: its ring, round (19, 17) now, turns it a
+# further quarter -- 270 -- about where it is. (x, y) turned 270 about the
+# middle is (y, 31 - x); moved, (y + 3, 32 - x).
+hold shift
+drag 21 18 17 19 24
+let shift
+expect rotation 270
+expect pixel 20 20 3060d0
+expect pixel 6 6 3060d0

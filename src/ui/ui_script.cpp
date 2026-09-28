@@ -706,22 +706,32 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         if (canvas.zoom() != static_cast<float>(std::atof(a[0].c_str()))) {
             failed("zoom is " + std::to_string(canvas.zoom()));
         }
-    } else if (step.text == "rotation" || step.text == "scale") {
-        // The active layer's last Rotate or Scale (the Transform panel's).
+    } else if (step.text == "rotation" || step.text == "scale" || step.text == "offset") {
+        // The active layer's last Rotate, Scale or Offset (the Transform
+        // panel's).
         const bool rotation = step.text == "rotation";
+        const TransformKind kind = rotation ? TransformKind::Rotate
+                                 : step.text == "scale" ? TransformKind::Scale
+                                                        : TransformKind::Offset;
         const TransformEntry* last = nullptr;
         std::vector<TransformEntry> entries;
         if (const PaintLayer* layer = editor.active()) {
             entries = listTransforms(editor.doc, layer->layer);
         }
         for (const TransformEntry& entry : entries) {
-            if (entry.kind == (rotation ? TransformKind::Rotate : TransformKind::Scale)) {
+            if (entry.kind == kind) {
                 last = &entry;
             }
         }
         const auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
         if (last == nullptr) {
-            failed(rotation ? "the layer has no rotation" : "the layer has no scale");
+            failed("the layer has no " + step.text);
+        } else if (kind == TransformKind::Offset) {
+            if (a.size() < 2 || !near(last->delta.x, static_cast<float>(std::atof(a[0].c_str()))) ||
+                !near(last->delta.y, static_cast<float>(std::atof(a[1].c_str())))) {
+                failed("the offset is " + std::to_string(last->delta.x) + ", " +
+                       std::to_string(last->delta.y));
+            }
         } else if (rotation) {
             if (!near(last->angleDegrees, static_cast<float>(std::atof(a[0].c_str())))) {
                 failed("the rotation is " + std::to_string(last->angleDegrees));
