@@ -2,5 +2,6 @@
 * text=auto eol=lf
 
 *.png     binary
+*.ico     binary
 *.lsprite binary
 third_party/*.h -text

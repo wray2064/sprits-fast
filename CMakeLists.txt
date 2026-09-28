@@ -180,7 +180,20 @@ if (FAST_BUILD_GUI)
         src/ui/file_commands.cpp
     )
     target_link_libraries(fast_ui PUBLIC fast_core fast::imgui)
-    add_executable(sprits_fast WIN32 src/ui/fast_main.cpp)
+    # The icon, compiled in: the window's at every size a platform asks for
+    # (app_window.cpp), and on Windows the executable's own (sprits_fast.rc).
+    # assets/icon/ has how they are made from the logo.
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_file.cmake)
+    embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/sprits_fast_256.png
+               kFastIcon256 ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_icon_256.h)
+    embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/sprits_fast_32.png
+               kFastIcon32 ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_icon_32.h)
+    target_include_directories(fast_ui PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+    if (WIN32)
+        add_executable(sprits_fast WIN32 src/ui/fast_main.cpp src/ui/sprits_fast.rc)
+    else()
+        add_executable(sprits_fast WIN32 src/ui/fast_main.cpp)
+    endif()
     target_link_libraries(sprits_fast PRIVATE fast_ui)
     # The language catalogues go beside the program, where it looks for them --
     # on every build, since a catalogue edited alone relinks nothing.

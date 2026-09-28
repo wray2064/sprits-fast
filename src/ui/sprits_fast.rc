@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 the Sprit's'fast authors
+
+// sprits_fast.rc -- what Windows shows for the program before it runs: the
+// icon in Explorer, on a shortcut and pinned to the taskbar. The first icon
+// in the executable is the one Windows takes. SDL registers the window with
+// it too; app_window.cpp still sets the window's own from the PNGs, which is
+// what every other platform uses.
+
+1 ICON "../../assets/icon/sprits_fast.ico"

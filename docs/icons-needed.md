@@ -64,5 +64,5 @@ Added here as each tool is built; the placeholder is drawn in the meantime.
 | Onion skin | Timeline | planned; now a checkbox |
 | Add frame, duplicate frame, delete | Timeline | planned; now text buttons |
 | New layer, new group, delete layer | Layer panel | planned; now text buttons |
-| App icon (window and file association) | OS | needed before any release |
+| App icon (window and executable) | OS | **done**: from the logo (`assets/icon/logo.png`, `tools/make_icons.py`); the window's at 256 and 32, the executable's `.ico` 16-256 on Windows. Still to do: a macOS `.icns` and a Linux `.desktop` entry, with packaging |
 | `.lsprite` document icon | OS file association | needed before any release |

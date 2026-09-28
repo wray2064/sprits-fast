@@ -51,6 +51,9 @@
 
 #include <SDL3/SDL.h>
 
+#include "fast_icon_256.h"
+#include "fast_icon_32.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -4807,6 +4810,49 @@ int runSelfTest() {
 
 } // namespace
 
+namespace {
+
+// The program's icon on its window: the title bar, the task switcher, and
+// wherever a platform has no icon in the executable, the taskbar or dock.
+// Each size is decoded from a PNG compiled into the program; a small one is
+// offered beside the large so the title bar need not shrink 256 to 16.
+void setWindowIcon(SDL_Window* window, const AppExtension& extension) {
+    std::vector<std::vector<uint8_t>> pngs;
+    if (!extension.icon.empty()) {
+        pngs.push_back(extension.icon);
+    } else {
+        pngs.emplace_back(kFastIcon256, kFastIcon256 + kFastIcon256_size);
+        pngs.emplace_back(kFastIcon32, kFastIcon32 + kFastIcon32_size);
+    }
+    std::vector<ls::RasterBuffer> images(pngs.size());
+    SDL_Surface* icon = nullptr;
+    for (size_t i = 0; i < pngs.size(); ++i) {
+        ls::RasterBuffer& image = images[i];
+        std::string why;
+        if (!decodeImage(pngs[i], &image, &why) || image.empty()) {
+            continue;
+        }
+        SDL_Surface* surface = SDL_CreateSurfaceFrom(
+            static_cast<int>(image.width), static_cast<int>(image.height),
+            SDL_PIXELFORMAT_RGBA32, image.pixels.data(), static_cast<int>(image.stride));
+        if (surface == nullptr) {
+            continue;
+        }
+        if (icon == nullptr) {
+            icon = surface;
+        } else {
+            SDL_AddSurfaceAlternateImage(icon, surface);
+            SDL_DestroySurface(surface);   // the alternate list holds its own reference
+        }
+    }
+    if (icon != nullptr) {
+        SDL_SetWindowIcon(window, icon);
+        SDL_DestroySurface(icon);
+    }
+}
+
+} // namespace
+
 int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     gExtension = &extension;
     // Before anything reads a setting.
@@ -4847,6 +4893,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         SDL_Quit();
         return 1;
     }
+    setWindowIcon(window, extension);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     if (renderer == nullptr) {

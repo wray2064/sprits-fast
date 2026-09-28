@@ -182,6 +182,7 @@ tiers were done.
 
 Newest first. One line per landed item, with the commit.
 
+- The app icon, from the logo: the window's (compiled in, 256 and 32, set through SDL on every platform; a program built on the window may pass its own) and on Windows the executable's (an .ico, 16 to 256, as a resource); `tools/make_icons.py` makes them all from `assets/icon/logo.png`.
 - Localisation, second pass: buttons, checkboxes, radio buttons, slider and field labels, and one-piece tooltips and hints go through tr() (299 strings); a label with a "##" ID is translated by its words and keeps its ID; the Spanish catalogue grows to about 420 entries; the catalogues are copied beside the program on every build. Still English: status messages, strings built at run time, slider number formats.
 - A pasted image, dropped, is laid down as an import is: each colour's lines a run of paths, its solid parts a face walled by what it touches (it floats as traced marks until then). clip_image_tests.
 - Aseprite tilemaps open as tilemaps: each tileset (tiles inside the file) becomes a tileset whose tiles are traced like any cel, each tilemap layer a tilemap layer whose cells name their tiles with X, Y and diagonal flips, at the cel's place; a tileset kept in another file is reported and left out. aseprite_tests builds a tileset and a flipped cell by hand.

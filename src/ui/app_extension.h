@@ -9,8 +9,10 @@
 // the title bar, menus after Fast's, panels beside Fast's that dock like
 // them. Fast itself runs with nothing added (fast_main.cpp).
 
+#include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace fast {
 
@@ -22,6 +24,10 @@ struct AppExtension {
     // The folder its settings, recent files, layout and recovery copies live
     // in (see setPreferencesFolder). Empty shares Fast's.
     std::string preferencesFolder;
+    // The window's icon, as PNG bytes (square; 256 on a side does for every
+    // size). Empty: Fast's. The icon Windows shows for the executable itself
+    // is a resource in that executable (see sprits_fast.rc).
+    std::vector<uint8_t> icon;
     // Inside the main menu bar, after Fast's own menus.
     std::function<void(Editor&, CanvasView&)> menus;
     // Once a frame, after Fast's panels: windows of its own.

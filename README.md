@@ -1,3 +1,5 @@
+<img src="assets/icon/sprits_fast_256.png" alt="Sprit's'fast" width="128" align="right">
+
 # Sprit's'fast
 
 A lightweight sprite editor built on the [LiveSprite engine](https://github.com/wray2064/livesprite-engine).
