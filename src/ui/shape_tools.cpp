@@ -33,19 +33,20 @@ bool handlesLive(const Editor& editor) {
     }
 }
 
-// Where a point is placed: on the grid when snapping, otherwise the middle of
-// the pixel pressed -- so a corner clicked on a pixel is that pixel.
+// Where a point is placed: the middle of the pixel pressed -- so a corner
+// clicked on a pixel is that pixel -- or when snapping, of the pixel the grid
+// point is the top left of (see linePoint).
 ls::Vec2f pointHere(const Editor& editor, const CanvasView& canvas) {
     const ls::Vec2f at = canvas.pointerExact();
     if (editor.snapToGrid) {
         const ls::Vec2i p = nearestGridPoint(at, editor.snapGrid);
-        return { static_cast<float>(p.x), static_cast<float>(p.y) };
+        return linePoint({ static_cast<float>(p.x), static_cast<float>(p.y) });
     }
-    return { std::floor(at.x) + 0.5f, std::floor(at.y) + 0.5f };
+    return linePoint(at);
 }
 
 // Where a dragged handle lands, by the same rule each kind was drawn with:
-// a box's corners and a line's ends on whole pixels, a path's points in the
+// a box's corners on whole pixels, a line's ends and a path's points in the
 // middle of one.
 ls::Vec2f handleTarget(const Editor& editor, const CanvasView& canvas, ShapeKind kind,
                        bool control) {
@@ -53,15 +54,15 @@ ls::Vec2f handleTarget(const Editor& editor, const CanvasView& canvas, ShapeKind
     if (control) {
         return at;                              // control points go anywhere
     }
+    const bool points = kind == ShapeKind::Polygon || kind == ShapeKind::Curve ||
+                        kind == ShapeKind::Line;
     if (editor.snapToGrid) {
         const ls::Vec2i p = nearestGridPoint(at, editor.snapGrid);
-        return { static_cast<float>(p.x), static_cast<float>(p.y) };
+        const ls::Vec2f corner { static_cast<float>(p.x), static_cast<float>(p.y) };
+        return points ? linePoint(corner) : corner;
     }
-    if (kind == ShapeKind::Polygon || kind == ShapeKind::Curve) {
-        return { std::floor(at.x) + 0.5f, std::floor(at.y) + 0.5f };
-    }
-    if (kind == ShapeKind::Line) {
-        return { std::floor(at.x), std::floor(at.y) };
+    if (points) {
+        return linePoint(at);
     }
     return { std::round(at.x), std::round(at.y) };
 }

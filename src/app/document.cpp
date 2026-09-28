@@ -4,6 +4,7 @@
 #include "app/document.h"
 #include "app/file_io.h"
 #include "app/paint.h"
+#include "app/shape.h"
 
 namespace fast {
 namespace {
@@ -201,6 +202,9 @@ bool Document::open(const std::string& path, std::string* error) {
     // A drawing from before freehand marks were kept as strokes becomes
     // shapes as it opens: the same picture, now moving as shapes move.
     upgradePixelRegions(*this);
+    // Lines from before their ends were kept in the middle of pixels: the
+    // same picture, now turning exactly.
+    upgradeLineEnds(*this);
     return true;
 }
 

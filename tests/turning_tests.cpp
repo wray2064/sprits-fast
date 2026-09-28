@@ -12,11 +12,13 @@
 // under it as it was.
 
 #include "app/bucket.h"
+#include "app/canvas_ops.h"
 #include "app/dither.h"
 #include "app/element.h"
 #include "app/import_image.h"
 #include "app/ink.h"
 #include "app/paint.h"
+#include "app/shape.h"
 #include "app/transform.h"
 
 #include <cstdio>
@@ -425,9 +427,229 @@ void testAFillMeetsAnOutlineOnAnotherLayer() {
     }
 }
 
+
+// ------------------------------------------------------- quarter turns --
+//
+// A quarter turn or a flip about the canvas's centre sends every pixel to a
+// pixel, so the math has no excuse: what it draws turned must be what it drew,
+// turned, pixel for pixel. The report: a sword of one-pixel lines, turned 90,
+// came out with every line a pixel off -- each end was kept on a pixel's
+// corner, four pixels at once, and which one it drew changed with the turn.
+// Here one of every kind of mark, drawn as the tools draw it, turned both
+// ways Fast turns things: the canvas (its geometry rewritten) and a Rotate or
+// Mirror on the layer (the geometry moved as it compiles).
+
+enum class Turn { Quarter, Half, ThreeQuarters, Across, Down };
+
+// Where the picture's pixel (x, y) lands.
+ls::Vec2i landed(Turn turn, int x, int y) {
+    switch (turn) {
+        case Turn::Quarter:       return { kSize - 1 - y, x };
+        case Turn::Half:          return { kSize - 1 - x, kSize - 1 - y };
+        case Turn::ThreeQuarters: return { y, kSize - 1 - x };
+        case Turn::Across:        return { kSize - 1 - x, y };
+        case Turn::Down:          return { x, kSize - 1 - y };
+    }
+    return { x, y };
+}
+
+// How many pixels of `after` are not `before` turned.
+int offBy(const ls::RasterBuffer& before, const ls::RasterBuffer& after, Turn turn) {
+    if (after.width != kSize || after.height != kSize) {
+        return kSize * kSize;
+    }
+    int off = 0;
+    for (int y = 0; y < kSize; ++y) {
+        for (int x = 0; x < kSize; ++x) {
+            const ls::Vec2i to = landed(turn, x, y);
+            const ls::Color was = ls::readPixel(before, x, y);
+            const ls::Color is = ls::readPixel(after, to.x, to.y);
+            if (!same(was, is)) {
+                // The first few, to say where the math went wrong.
+                if (++off <= 6) {
+                    std::printf("    (%d,%d) %02x%02x%02x%02x lands on (%d,%d) %02x%02x%02x%02x\n",
+                                x, y, was.r, was.g, was.b, was.a, to.x, to.y, is.r, is.g, is.b, is.a);
+                }
+            }
+        }
+    }
+    return off;
+}
+
+// Lines of every slope pixel art uses, a polygon, a curve, a box and an oval,
+// and the pencil: each as the tool makes it (a line's ends and a path's points
+// in the middle of their pixels -- linePoint -- a box by its corners).
+bool drawEveryKind(Document& doc, ls::LayerId layer) {
+    const ls::Color colours[] = {
+        { 170, 180, 196, 255 }, { 238, 244, 248, 255 }, { 111, 125, 140, 255 },
+        { 233, 185, 73, 255 },  { 122, 74, 40, 255 },   { 43, 47, 58, 255 },
+    };
+    int next = 0;
+    const auto colour = [&] { return colours[next++ % 6]; };
+    const auto line = [&](ls::Vec2i a, ls::Vec2i b) {
+        ShapeParams params;
+        params.from = linePoint({ static_cast<float>(a.x), static_cast<float>(a.y) });
+        params.to = linePoint({ static_cast<float>(b.x), static_cast<float>(b.y) });
+        ShapeLayer made;
+        return addShapeTo(doc, layer, ShapeKind::Line, params, colour(), ls::kColorRoleNone, &made);
+    };
+    const auto path = [&](ShapeKind kind, std::vector<ls::Vec2i> points) {
+        ShapeParams params;
+        for (ls::Vec2i p : points) {
+            params.points.push_back(linePoint({ static_cast<float>(p.x), static_cast<float>(p.y) }));
+        }
+        ShapeLayer made;
+        return addShapeTo(doc, layer, kind, params, colour(), ls::kColorRoleNone, &made);
+    };
+    const auto box = [&](ShapeKind kind, ls::Vec2i from, ls::Vec2i to) {
+        ShapeParams params;
+        params.from = { static_cast<float>(from.x), static_cast<float>(from.y) };
+        params.to = { static_cast<float>(to.x), static_cast<float>(to.y) };
+        ShapeLayer made;
+        return addShapeTo(doc, layer, kind, params, colour(), ls::kColorRoleNone, &made);
+    };
+    // The sword's diagonals, then shallow, steep, level and upright lines.
+    if (!line({ 12, 17 }, { 26, 3 }) || !line({ 12, 18 }, { 26, 4 }) || !line({ 13, 18 }, { 27, 4 }) ||
+        !line({ 4, 40 }, { 24, 50 }) || !line({ 30, 4 }, { 36, 22 }) || !line({ 40, 30 }, { 60, 30 }) ||
+        !line({ 58, 2 }, { 58, 20 }) || !line({ 2, 60 }, { 26, 52 }) || !line({ 44, 44 }, { 47, 62 })) {
+        return false;
+    }
+    if (!path(ShapeKind::Polygon, { { 40, 36 }, { 56, 40 }, { 50, 54 }, { 38, 48 } }) ||
+        !path(ShapeKind::Curve, { { 4, 30 }, { 10, 20 }, { 18, 36 }, { 26, 26 } }) ||
+        !box(ShapeKind::Rectangle, { 44, 4 }, { 52, 9 }) ||
+        !box(ShapeKind::Ellipse, { 20, 54 }, { 29, 61 }) ||
+        !box(ShapeKind::Ellipse, { 3, 3 }, { 7, 7 })) {
+        return false;
+    }
+    Ink ink;
+    ink.colour = kOutline;
+    doc.beginAction("Pencil");
+    InkStroke stroke;
+    if (!beginInkStroke(doc, layer, ink, &stroke) ||
+        !strokeAlong(doc, stroke, 0, linePixels({ 32, 58 }, { 40, 62 }), PenBrush{})) {
+        doc.abandonAction();
+        return false;
+    }
+    doc.endAction();
+    return true;
+}
+
+void testQuarterTurnsAndFlipsAreExact() {
+    Document doc;
+    PaintLayer layer;
+    REQUIRE(doc.create("turns", kSize, kSize));
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "Layer 1", kOutline, &layer));
+    REQUIRE(drawEveryKind(doc, layer.layer));
+    const ls::RasterBuffer before = picture(doc);
+    REQUIRE(!before.empty());
+
+    // The canvas turned and flipped: its geometry rewritten.
+    std::string error;
+    const struct { Turn turn; int quarters; bool flip; bool across; const char* name; } canvas[] = {
+        { Turn::Quarter, 1, false, false, "canvas 90" },
+        { Turn::Half, 2, false, false, "canvas 180" },
+        { Turn::ThreeQuarters, 3, false, false, "canvas 270" },
+        { Turn::Across, 0, true, true, "canvas flipped across" },
+        { Turn::Down, 0, true, false, "canvas flipped down" },
+    };
+    for (const auto& c : canvas) {
+        REQUIRE(c.flip ? flipCanvas(doc, c.across, &error) : rotateCanvas(doc, c.quarters, &error));
+        const int off = offBy(before, picture(doc), c.turn);
+        if (off != 0) {
+            std::printf("  %s: %d pixel(s) off\n", c.name, off);
+        }
+        CHECK(off == 0);
+        REQUIRE(doc.undo());
+    }
+    CHECK(picture(doc).pixels == before.pixels);   // and undone, as it was
+
+    // The layer turned and mirrored as it compiles, about the canvas's centre,
+    // with the sampling a Rotate starts with.
+    const ls::Vec2f centre { kSize * 0.5f, kSize * 0.5f };
+    const struct { Turn turn; float degrees; const char* name; } rotations[] = {
+        { Turn::Quarter, 90.f, "Rotate 90" },
+        { Turn::Half, 180.f, "Rotate 180" },
+        { Turn::ThreeQuarters, 270.f, "Rotate 270" },
+        { Turn::ThreeQuarters, -90.f, "Rotate -90" },
+    };
+    for (const auto& r : rotations) {
+        doc.beginAction("Rotate");
+        const ls::OperationId op = addRotate(doc, layer.layer, r.degrees, centre,
+                                             ls::SamplingPolicy::RotSprite);
+        doc.endAction();
+        REQUIRE(op.valid());
+        const int off = offBy(before, picture(doc), r.turn);
+        if (off != 0) {
+            std::printf("  %s: %d pixel(s) off\n", r.name, off);
+        }
+        CHECK(off == 0);
+        REQUIRE(doc.undo());
+    }
+    const struct { Turn turn; ls::MirrorAxis axis; const char* name; } mirrors[] = {
+        { Turn::Across, ls::MirrorAxis::X, "Mirror across" },
+        { Turn::Down, ls::MirrorAxis::Y, "Mirror down" },
+    };
+    for (const auto& m : mirrors) {
+        doc.beginAction("Mirror");
+        const ls::OperationId op = addMirror(doc, layer.layer, m.axis, centre);
+        doc.endAction();
+        REQUIRE(op.valid());
+        const int off = offBy(before, picture(doc), m.turn);
+        if (off != 0) {
+            std::printf("  %s: %d pixel(s) off\n", m.name, off);
+        }
+        CHECK(off == 0);
+        REQUIRE(doc.undo());
+    }
+}
+
+// A document from before a line's ends were kept in the middle of pixels
+// opens looking as it did, and then turns exactly.
+void testALineSavedOnCornersOpensCentred() {
+    Document doc;
+    PaintLayer layer;
+    REQUIRE(doc.create("old line", kSize, kSize));
+    REQUIRE(createPaintLayer(doc, doc.sprite(), "Layer 1", kOutline, &layer));
+    ShapeParams params;
+    params.from = { 12.f, 17.f };           // on corners, as lines once were
+    params.to = { 26.f, 3.f };
+    ShapeLayer made;
+    REQUIRE(addShapeTo(doc, layer.layer, ShapeKind::Line, params, kOutline, ls::kColorRoleNone,
+                       &made));
+    const ls::RasterBuffer drawn = picture(doc);
+    const std::string path = "fast_old_line.lsprite";
+    std::string error;
+    REQUIRE(doc.save(path, &error));
+
+    Document opened;
+    REQUIRE(opened.open(path, &error));
+    CHECK(picture(opened).pixels == drawn.pixels);
+    // Its ends, read from the reopened file (whose ids are its own).
+    std::vector<ls::Vec2f> ends;
+    auto info = opened.engine().getSpriteInfo(opened.sprite());
+    REQUIRE(info.ok() && !info.value.layers.empty());
+    auto operations = opened.engine().getLayerOperations(info.value.layers.front());
+    REQUIRE(operations.ok());
+    for (const ls::OperationInfo& op : operations.value) {
+        auto found = opened.engine().getOperation(op.id);
+        if (const auto* stroke = found.ok() ? std::get_if<ls::StrokePolylineOp>(&found.value) : nullptr) {
+            auto line = opened.engine().getPolyline(stroke->polyline);
+            REQUIRE(line.ok());
+            ends = line.value.points;
+        }
+    }
+    REQUIRE(ends.size() == 2);
+    CHECK(ends[0].x == 12.5f && ends[0].y == 17.5f && ends[1].x == 26.5f && ends[1].y == 3.5f);
+    REQUIRE(rotateCanvas(opened, 1, &error));
+    CHECK(offBy(drawn, picture(opened), Turn::Quarter) == 0);
+    std::remove(path.c_str());
+}
+
 } // namespace
 
 int main() {
+    testQuarterTurnsAndFlipsAreExact();
+    testALineSavedOnCornersOpensCentred();
     testAFillMeetsAnOutlineOnAnotherLayer();
     testAnImportedOutlineTurns();
     testAnOldDrawingOpensAsShapes();

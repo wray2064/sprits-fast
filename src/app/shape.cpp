@@ -880,4 +880,51 @@ OutlineSettings outlineOf(Document& doc, const PaintLayer& layer) {
     return settings;
 }
 
+int upgradeLineEnds(Document& doc) {
+    ls::LSContext& engine = doc.engine();
+    auto info = engine.getDocumentInfo(doc.id());
+    if (info.fail()) {
+        return 0;
+    }
+    int moved = 0;
+    for (ls::SpriteId sprite : info.value.sprites) {
+        auto spriteInfo = engine.getSpriteInfo(sprite);
+        if (spriteInfo.fail()) {
+            continue;
+        }
+        for (ls::LayerId layer : spriteInfo.value.layers) {
+            auto operations = engine.getLayerOperations(layer);
+            if (operations.fail()) {
+                continue;
+            }
+            for (const ls::OperationInfo& op : operations.value) {
+                auto found = engine.getOperation(op.id);
+                const auto* stroke = found.ok() ? std::get_if<ls::StrokePolylineOp>(&found.value)
+                                                : nullptr;
+                // Only a line drawn on pixel centres: its snap already draws
+                // each end on the pixel floor(p) is in, which is where
+                // linePoint puts it.
+                if (stroke == nullptr || stroke->snap != ls::SnapPolicy::HalfGrid) {
+                    continue;
+                }
+                auto line = engine.getPolyline(stroke->polyline);
+                if (line.fail()) {
+                    continue;
+                }
+                ls::PolylineDesc desc = line.value;
+                bool changed = false;
+                for (ls::Vec2f& point : desc.points) {
+                    const ls::Vec2f centred = linePoint(point);
+                    changed = changed || centred.x != point.x || centred.y != point.y;
+                    point = centred;
+                }
+                if (changed && engine.updatePolyline(stroke->polyline, desc).ok()) {
+                    ++moved;
+                }
+            }
+        }
+    }
+    return moved;
+}
+
 } // namespace fast

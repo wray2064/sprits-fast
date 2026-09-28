@@ -2478,6 +2478,13 @@ void handleStroke(Editor& editor, CanvasView& canvas, bool overCanvas, ls::Vec2i
             const ls::Vec2i point = nearestGridPoint(canvas.pointerExact(), editor.snapGrid);
             here = { static_cast<float>(point.x), static_cast<float>(point.y) };
         }
+        // A box's corners are corners, but a line's ends are pixels: the
+        // middle of the one pressed, or of the one a grid point is the top
+        // left of. A point on a corner would be four pixels at once, and
+        // which of them it draws would change with every turn and flip.
+        if (kind == ShapeKind::Line) {
+            here = linePoint(here);
+        }
 
         if (overCanvas && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             ShapeParams params;
@@ -5028,7 +5035,12 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     if (options.autosaveSeconds > 0) {
         editor.recovery.setIntervalSeconds(options.autosaveSeconds);
     }
-    editor.recovered = findRecoveredWork();
+    // The person's own unfinished work is theirs to be asked about, in a
+    // session of theirs: a scripted or captured run leaves it where it is for
+    // them -- and does not stop at a dialog that depends on what they left.
+    if (!headless) {
+        editor.recovered = findRecoveredWork();
+    }
     editor.askingToRecover = !editor.recovered.empty();
 
     if (options.library) {

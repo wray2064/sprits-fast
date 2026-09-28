@@ -24,6 +24,7 @@
 #include "app/document.h"
 #include "app/paint.h"
 
+#include <cmath>
 #include <functional>
 #include <string>
 #include <vector>
@@ -49,6 +50,17 @@ struct ShapeParams {
     std::vector<ls::Vec2f> points;
     bool      closed = false;       // a curve that returns to where it began, filled
 };
+
+// Where a line's end, a polygon's corner or a curve's point sits for the
+// pixel whose top-left corner is `pixel`: in its middle. These points name
+// pixels, and a point in the middle of one names it however it is moved,
+// turned or flipped; a point on a corner is on four pixels at once, and the
+// one it resolves to changes with the turn (a line turned a quarter came out
+// a pixel off). Boxes -- rectangles, ellipses -- are the other convention:
+// their corners are corners.
+inline ls::Vec2f linePoint(ls::Vec2f pixel) {
+    return { std::floor(pixel.x) + 0.5f, std::floor(pixel.y) + 0.5f };
+}
 
 // Every point of a shape moved by one mapping: its corners and each of its
 // points. What a move, a flip or a turn does to a shape of any kind.
@@ -118,6 +130,13 @@ bool shapeIsOutlined(Document& doc, ls::OperationId op, float* width);
 // Reads a shape's current parameters back, so the interface shows the shape's
 // own values rather than whatever was last dragged.
 bool readShapeParams(Document& doc, const ShapeLayer& shape, ShapeParams* out);
+
+// Puts every line's ends in the middle of their pixels (linePoint), for a
+// document drawn before they were kept there: each end moves to the middle of
+// the pixel it was already drawn on, so the picture does not change -- what
+// changes is that turning or flipping it now lands exactly. Called on
+// opening. Returns how many lines it moved.
+int upgradeLineEnds(Document& doc);
 
 // Recognises an editable shape on a layer, or reports that there is none.
 //

@@ -1547,16 +1547,25 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                     }
                 }
             } else {
+                // A line's ends are the middles of pixels (linePoint); shown
+                // and typed as the pixels themselves.
+                const bool line = shape.kind == ShapeKind::Line;
+                const auto shown = [line](float v) { return line ? std::floor(v) : v; };
+                const auto stored = [line](float a, float b) {
+                    return line ? linePoint({ std::round(a), std::round(b) }) : ls::Vec2f{ a, b };
+                };
+                from[0] = shown(from[0]); from[1] = shown(from[1]);
+                to[0] = shown(to[0]);     to[1] = shown(to[1]);
                 ImGui::SetNextItemWidth(-42.f);
                 if (ImGui::DragFloat2("from", from, 0.25f, 0.f, 0.f, "%.0f")) {
-                    params.from = { from[0], from[1] };
+                    params.from = stored(from[0], from[1]);
                     changed = true;
                 }
                 bracketDrag(editor, editor.editingShape, "Edit shape");
 
                 ImGui::SetNextItemWidth(-42.f);
                 if (ImGui::DragFloat2("to", to, 0.25f, 0.f, 0.f, "%.0f")) {
-                    params.to = { to[0], to[1] };
+                    params.to = stored(to[0], to[1]);
                     changed = true;
                 }
                 bracketDrag(editor, editor.editingShape, "Edit shape");
