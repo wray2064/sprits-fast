@@ -675,6 +675,15 @@ std::string trackKey(Document& doc, ls::LayerId layer) {
     return meta(doc, layer.value, kTrackKey);
 }
 
+std::string ensureTrackKey(Document& doc, ls::LayerId layer) {
+    std::string key = meta(doc, layer.value, kTrackKey);
+    if (key.empty()) {
+        key = newKey();
+        setMeta(doc, layer.value, kTrackKey, key);
+    }
+    return key;
+}
+
 void markTrackCopy(Document& doc, ls::LayerId copy, ls::LayerId source) {
     std::string from = meta(doc, source.value, kTrackKey);
     if (from.empty()) {

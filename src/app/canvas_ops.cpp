@@ -35,6 +35,76 @@ struct Remap {
     bool  swapsAxes = false;     // a quarter turn: x and y trade places
 };
 
+// The mapping as a matrix, read off where it sends three points: every one
+// here is affine. `linear` leaves the move out, for what is carried in a
+// frame of its own (a joint's turn).
+ls::Mat3f matrixOf(const Remap& remap, bool linear = false) {
+    const ls::Vec2f o = remap.point({ 0.f, 0.f });
+    const ls::Vec2f x = remap.point({ 1.f, 0.f });
+    const ls::Vec2f y = remap.point({ 0.f, 1.f });
+    ls::Mat3f m;
+    m.m[0] = x.x - o.x;  m.m[1] = y.x - o.x;  m.m[2] = linear ? 0.f : o.x;
+    m.m[3] = x.y - o.y;  m.m[4] = y.y - o.y;  m.m[5] = linear ? 0.f : o.y;
+    return m;
+}
+
+// `inner` as seen after the mapping: F inner F^-1.
+ls::Mat3f conjugated(const ls::Mat3f& inner, const ls::Mat3f& outer) {
+    auto undo = outer.inverse();
+    return undo.ok() ? outer.mul(inner).mul(undo.value) : inner;
+}
+
+bool identity(const ls::Mat3f& m) {
+    const ls::Mat3f one;
+    for (int i = 0; i < 9; ++i) {
+        if (std::fabs(m.m[i] - one.m[i]) > 1e-6f) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// A sprite's rig moved with the canvas (see puppet.h): its joint and sockets
+// go where their points go; its own placement, and the turn at the joint it
+// hangs by, are the same move seen from the mapped canvas -- so a posed
+// puppet is the same pose, turned or flipped, and hangs together.
+void remapRig(Document& doc, ls::SpriteId sprite, const Remap& remap) {
+    ls::LSContext& engine = doc.engine();
+    auto info = engine.getSpriteInfo(sprite);
+    if (info.fail()) {
+        return;
+    }
+    if (auto joint = engine.getPivot(info.value.pivot); joint.ok()) {
+        engine.setPivot(info.value.pivot, remap.point(joint.value));
+    }
+    for (ls::SocketId socket : info.value.sockets) {
+        auto desc = engine.getSocket(socket);
+        if (desc.fail()) {
+            continue;
+        }
+        engine.moveSocket(socket, remap.point(desc.value.position));
+        if (remap.mirrors) {
+            engine.rotateSocket(socket, -desc.value.angle);
+        }
+        if (remap.swapsAxes) {
+            engine.setSocketScale(socket, { desc.value.scale.y, desc.value.scale.x });
+        }
+    }
+    auto own = engine.getSpriteTransform(sprite);
+    if (own.ok() && !identity(own.value)) {
+        engine.setSpriteTransform(sprite, conjugated(own.value, matrixOf(remap)));
+    }
+    auto hung = engine.getAttachment(sprite);
+    if (hung.ok() && !identity(hung.value.localOffset)) {
+        ls::AttachmentDesc desc;
+        desc.socket = hung.value.socket;
+        desc.childPivot = hung.value.childPivot;
+        desc.behindParent = hung.value.behindParent;
+        desc.localOffset = conjugated(hung.value.localOffset, matrixOf(remap, true));
+        engine.attachSprite(sprite, desc);
+    }
+}
+
 // A per-pixel mapping as a mask mapping, for the ones that are bijections.
 std::function<ls::IntervalSet(const ls::IntervalSet&)>
 eachPixel(std::function<ls::Vec2i(ls::Vec2i)> map) {
@@ -392,6 +462,16 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
                         }
                     }
                 }
+                // A captured puppet part is placed by a matrix on the canvas
+                // (puppet.h): the same placement seen from the mapped canvas.
+                if (op.type == "MatrixTransformOp") {
+                    auto value = engine.getOperationParameter(op.id, "matrix");
+                    if (const ls::Mat3f* matrix = value.ok() ? std::get_if<ls::Mat3f>(&value.value)
+                                                             : nullptr) {
+                        engine.setOperationParameter(op.id, "matrix", ls::ParameterValue{
+                            conjugated(*matrix, matrixOf(remap)) });
+                    }
+                }
                 // A dithered gradient's axis is in canvas coordinates.
                 if (op.type == "FillDitherOp") {
                     ls::Vec2f start, end;
@@ -421,6 +501,7 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
                 }
             }
         }
+        remapRig(doc, sprite, remap);
     }
 
     // Guides go where the canvas takes them: a line down the canvas can come

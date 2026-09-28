@@ -45,6 +45,10 @@ std::string trackKey(Document& doc, ls::LayerId layer);
 // source. Clears the copy's own key. What duplicating a layer calls.
 void markTrackCopy(Document& doc, ls::LayerId copy, ls::LayerId source);
 
+// A layer's track key, made now if it has none: what a layer that stands
+// for a track from outside the frames (a puppet part's) carries into each.
+std::string ensureTrackKey(Document& doc, ls::LayerId layer);
+
 // Marks a layer as a new track of its own, arriving empty in other frames:
 // clears the key a clone carried. What pasting a layer calls.
 void markNewTrack(Document& doc, ls::LayerId layer);

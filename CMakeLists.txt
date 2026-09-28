@@ -105,6 +105,7 @@ add_library(fast_core STATIC
     src/app/grid_snap.cpp
     src/app/webp.cpp
     src/app/tracks.cpp
+    src/app/puppet.cpp
     src/app/adjust.cpp
     src/app/slices.cpp
     src/app/guides.cpp
@@ -299,6 +300,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_tilemap_tests tests/tilemap_tests.cpp)
     target_link_libraries(fast_tilemap_tests PRIVATE fast_core)
     add_test(NAME fast_tilemap COMMAND fast_tilemap_tests)
+
+    add_executable(fast_puppet_tests tests/puppet_tests.cpp)
+    target_link_libraries(fast_puppet_tests PRIVATE fast_core)
+    add_test(NAME fast_puppet COMMAND fast_puppet_tests)
 
     add_executable(fast_i18n_tests tests/i18n_tests.cpp)
     target_link_libraries(fast_i18n_tests PRIVATE fast_core)

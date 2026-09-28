@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/animation.h"
+#include "app/puppet.h"
 #include "app/tilemap.h"
 
 #include <algorithm>
@@ -22,7 +23,7 @@ int clampDuration(int64_t milliseconds) {
 }
 
 // The document's sprite list, which is the frame list.
-// The frames: every sprite of the document but a tileset.
+// The frames: every sprite of the document but a tileset or a puppet's part.
 std::vector<ls::SpriteId> spritesOf(Document& doc) {
     auto info = doc.engine().getDocumentInfo(doc.id());
     if (info.fail()) {
@@ -30,18 +31,22 @@ std::vector<ls::SpriteId> spritesOf(Document& doc) {
     }
     std::vector<ls::SpriteId> frames;
     for (ls::SpriteId sprite : info.value.sprites) {
-        if (!isTileset(doc, sprite)) {
+        if (!isTileset(doc, sprite) && !isPart(doc, sprite)) {
             frames.push_back(sprite);
         }
     }
     return frames;
 }
 
-// The frames put in `order`, the tilesets after them, where they always are,
-// so the first sprite of a document is always its first frame.
+// The frames put in `order`, the tilesets and then the parts after them,
+// where they always are, so the first sprite of a document is always its
+// first frame.
 ls::VoidResult setFrameOrder(Document& doc, std::vector<ls::SpriteId> order) {
     for (ls::SpriteId tileset : tilesetsOf(doc)) {
         order.push_back(tileset);
+    }
+    for (ls::SpriteId part : partsOf(doc)) {
+        order.push_back(part);
     }
     return doc.engine().setSpriteOrder(doc.id(), order);
 }
