@@ -46,6 +46,11 @@ drew it with -- a button, a menu, a menu item -- through ImGui's test-engine
 hooks, which only a script turns on; a canvas pixel the view does not show is
 a failure rather than a click on whatever is there instead.
 
+`--stay` keeps the window open once the script has run, and hands it to the
+person: a script that draws something, then a person trying things on it by
+hand. (It still starts from the default settings and layout, as every
+scripted run does.)
+
 ## What they found
 
 Everything below was caught by writing the system tests, not by using the

@@ -3430,6 +3430,9 @@ struct Options {
     // mouse takes -- so what a drag does can be captured and checked.
     float       drag[4] = { -1.f, -1.f, -1.f, -1.f };
     std::string script;                  // --script FILE: see ui_script.h
+    // --stay: when the script has run, the window stays open and is the
+    // person's -- a scripted start for trying something by hand.
+    bool        stay = false;
     int         expectDrawn = -1;        // --expect-drawn N: fail unless N pixels are drawn
     int         expectAtMost = -1;       // --expect-at-most N: fail if more than N are
     float       rectangle[4] = { -1.f, -1.f, -1.f, -1.f };  // --rectangle X0,Y0,X1,Y1: a shape to start with
@@ -3482,6 +3485,8 @@ Options parseOptions(int argc, char** argv) {
             options.tween = true;
         } else if (arg == "--script" && i + 1 < argc) {
             options.script = argv[++i];
+        } else if (arg == "--stay") {
+            options.stay = true;
         } else if (arg == "--expect-drawn" && i + 1 < argc) {
             options.expectDrawn = std::atoi(argv[++i]);
         } else if (arg == "--expect-at-most" && i + 1 < argc) {
@@ -5439,7 +5444,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         }
 
         SDL_RenderPresent(renderer);
-        if (script.finished()) {
+        if (script.finished() && !options.stay) {
             idleBroken = idleBroken || script.failures() > 0;
             running = false;
         }
