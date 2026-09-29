@@ -4,6 +4,7 @@
 #include "ui/panels.h"
 #include "app/i18n.h"
 #include "ui/os_clipboard.h"
+#include "ui/reference_section.h"
 #include "ui/theme.h"
 #include "ui/tile_tools.h"
 #include "ui/ui_script.h"
@@ -2663,15 +2664,33 @@ void drawReferences(Editor& editor, CanvasView& canvas, ImDrawList* draw,
         }
         // Placement is in canvas pixels, so it lines up with the drawing at
         // every zoom and stays lined up when the view moves.
+        // Only the part shown (Reference::clip*): its size on the canvas, and
+        // its place in the image as the texture's coordinates.
         const ImVec2 at = canvas.pixelToScreen(origin, reference.x, reference.y);
         const ImVec2 corner = canvas.pixelToScreen(
             origin,
-            reference.x + static_cast<float>(reference.width) * reference.scale,
-            reference.y + static_cast<float>(reference.height) * reference.scale);
+            reference.x + static_cast<float>(reference.shownWidth()) * reference.scale,
+            reference.y + static_cast<float>(reference.shownHeight()) * reference.scale);
         const ImU32 tint = IM_COL32(255, 255, 255,
                                     static_cast<int>(reference.opacity * 255.f + 0.5f));
-        draw->AddImage(reinterpret_cast<ImTextureID>(entry->texture), at, corner,
-                       ImVec2(0.f, 0.f), ImVec2(1.f, 1.f), tint);
+        const float w = static_cast<float>(std::max(1u, reference.width));
+        const float h = static_cast<float>(std::max(1u, reference.height));
+        const ImVec2 uv0(static_cast<float>(reference.shownX()) / w,
+                         static_cast<float>(reference.shownY()) / h);
+        const ImVec2 uv1(static_cast<float>(reference.shownX() + reference.shownWidth()) / w,
+                         static_cast<float>(reference.shownY() + reference.shownHeight()) / h);
+        // Magnified on screen -- a sprite sheet on a zoomed canvas nearly
+        // always is -- a reference is drawn pixel for pixel, as the canvas is,
+        // which also keeps a section from picking up the edge of the cell
+        // beside it; a photograph shrunk to fit stays smooth.
+        const bool sharp = reference.scale * zoom >= 1.f;
+        if (sharp) {
+            draw->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
+        }
+        draw->AddImage(reinterpret_cast<ImTextureID>(entry->texture), at, corner, uv0, uv1, tint);
+        if (sharp) {
+            draw->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
+        }
 
         // The selected one gets a border, so "which am I moving" is answered
         // without hiding the others.
@@ -2758,7 +2777,12 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
             editor.activeReference = reference.id;
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%u x %u", reference.width, reference.height);
+            if (reference.clipped()) {
+                ImGui::SetTooltip("%u x %u of %u x %u", reference.shownWidth(),
+                                  reference.shownHeight(), reference.width, reference.height);
+            } else {
+                ImGui::SetTooltip("%u x %u", reference.width, reference.height);
+            }
         }
         ImGui::SameLine();
         if (ImGui::SmallButton(tr("x"))) {
@@ -2813,6 +2837,13 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("Centre it on the canvas at the largest size that fits."));
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(tr("Section..."))) {
+        openReferenceSection(editor, edited.id, false);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", tr("Show only part of the image: a cell of a sprite sheet."));
     }
     ImGui::SameLine();
     if (ImGui::Checkbox(tr("behind"), &edited.behind)) {

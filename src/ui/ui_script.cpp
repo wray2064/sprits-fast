@@ -11,6 +11,7 @@
 #include "app/slices.h"
 #include "app/transform.h"
 #include "ui/canvas_view.h"
+#include "ui/reference_section.h"
 #include "ui/tabs.h"
 
 #include <imgui_internal.h>
@@ -257,7 +258,12 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
                                                         : ImGuiMouseButton_Left;
     };
     const std::string& verb = w[0];
-    if (verb == "tool" && w.size() == 2) {
+    if (verb == "reference" && w.size() >= 2) {
+        Step r; r.kind = Step::Reference;
+        r.text = line.substr(line.find("reference") + 10);
+        while (!r.text.empty() && r.text.back() == ' ') { r.text.pop_back(); }
+        add(r);
+    } else if (verb == "tool" && w.size() == 2) {
         Step s; s.kind = Step::Tool; s.text = w[1]; add(s);
     } else if (verb == "colour" && w.size() == 2) {
         ls::Color c;
@@ -460,6 +466,16 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
     while (next_ < steps_.size()) {
         const Step& step = steps_[next_++];
         switch (step.kind) {
+            case Step::Reference: {
+                std::string error;
+                if (!importReferenceToPick(editor, canvas, step.text, &error)) {
+                    std::printf("FAIL script:%d: could not import %s: %s\n", step.line,
+                                step.text.c_str(), error.c_str());
+                    ++failures_;
+                    ++checks_;
+                }
+                return;
+            }
             case Step::Tool: {
                 Tool tool;
                 if (toolFromName(step.text, &tool)) {
@@ -723,6 +739,19 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
     } else if (step.text == "zoom") {
         if (canvas.zoom() != static_cast<float>(std::atof(a[0].c_str()))) {
             failed("zoom is " + std::to_string(canvas.zoom()));
+        }
+    } else if (step.text == "section" && a.size() == 4) {
+        const Reference* shown = activeReference(editor);
+        if (shown == nullptr) {
+            failed("no reference is picked");
+        } else {
+            char seen[64];
+            std::snprintf(seen, sizeof(seen), "%u %u %u %u", shown->shownX(), shown->shownY(),
+                          shown->shownWidth(), shown->shownHeight());
+            const std::string wanted = a[0] + " " + a[1] + " " + a[2] + " " + a[3];
+            if (wanted != seen) {
+                failed(std::string("the section is ") + seen);
+            }
         }
     } else if (step.text == "rotation" || step.text == "scale" || step.text == "offset") {
         // The active layer's last Rotate, Scale or Offset (the Transform

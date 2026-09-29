@@ -68,6 +68,22 @@ struct Reference {
     bool  behind = true;       // under the artwork, or over it
     bool  locked = false;      // dragging the canvas will not move it
 
+    // The part of the image shown -- one cell of a sprite sheet, a face in a
+    // crowd -- in the image's own pixels. None (all zero) shows all of it.
+    // The whole image is kept, so another part can be shown later, the next
+    // cell stepped to, without importing anything again.
+    uint32_t clipX = 0;
+    uint32_t clipY = 0;
+    uint32_t clipWidth = 0;
+    uint32_t clipHeight = 0;
+
+    bool     clipped() const { return clipWidth > 0 && clipHeight > 0; }
+    // What is shown: where in the image, and how large, in its own pixels.
+    uint32_t shownX() const { return clipped() ? clipX : 0u; }
+    uint32_t shownY() const { return clipped() ? clipY : 0u; }
+    uint32_t shownWidth() const { return clipped() ? clipWidth : width; }
+    uint32_t shownHeight() const { return clipped() ? clipHeight : height; }
+
     std::string entryName() const { return std::string(kReferencePrefix) + id + ".png"; }
 };
 
@@ -112,8 +128,21 @@ bool removeReference(Document& doc, const Reference& reference);
 // How many bytes the references are costing the document.
 size_t referenceBytesUsed(Document& doc);
 
-// Placement that fits `reference` inside a canvas of this size, centred.
+// Placement that fits what `reference` shows inside a canvas of this size,
+// centred.
 void fitReference(Reference& reference, uint32_t canvasWidth, uint32_t canvasHeight);
+
+// Shows only part of the image: the rectangle given, kept inside the image;
+// one of no size shows all of it. Where the reference sits is unchanged --
+// the part shown starts where the shown part started. Does not write.
+void setReferenceSection(Reference& reference, uint32_t x, uint32_t y, uint32_t width,
+                         uint32_t height);
+
+// The section `by` cells on from the cell the shown part starts in, on a grid
+// of `cellWidth` x `cellHeight` cells `gap` apart: row after row, from the
+// last cell round to the first. Nothing when the grid has no size.
+void stepReferenceSection(Reference& reference, int by, uint32_t cellWidth, uint32_t cellHeight,
+                          uint32_t gap);
 
 // The text in kReferenceListEntry, exposed for the tests: a list a person
 // could read, and untrusted input on the way back in.

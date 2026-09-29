@@ -557,8 +557,8 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
         for (Reference& reference : references) {
             ls::Vec2f min, max;
             mappedBox(remap, { reference.x, reference.y },
-                      { reference.x + static_cast<float>(reference.width) * reference.scale,
-                        reference.y + static_cast<float>(reference.height) * reference.scale },
+                      { reference.x + static_cast<float>(reference.shownWidth()) * reference.scale,
+                        reference.y + static_cast<float>(reference.shownHeight()) * reference.scale },
                       &min, &max);
             reference.x = min.x;
             reference.y = min.y;

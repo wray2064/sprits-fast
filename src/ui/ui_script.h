@@ -47,6 +47,9 @@
 //     expect rotation 90          the active layer's last Rotate, in degrees
 //     expect scale 2 1            and its last Scale, across and down
 //     expect offset 3 1           and its last Offset, in pixels
+//     reference tests/ui/sheet.png  an image imported as a reference, as File >
+//                                 Import reference does once the file is chosen
+//     expect section 9 0 8 8      the picked reference's part shown: x y w h
 //     expect playing yes|no
 //     expect canvas 64 64 / expect tabs 2
 //     shot path.bmp               a screenshot of the next frame
@@ -91,6 +94,7 @@ public:
 private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
+                    Reference,
                     Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;

@@ -49,6 +49,7 @@ void letGo(Editor& editor) {
     settleFloating(editor);
     // A picked part is the old document's; the new one shows its frames.
     editor.puppet = Editor::PuppetView{};
+    editor.referenceSection.open = false;
     editor.placingPath = false;
     editor.pullingHandle = false;
     editor.pathPoints.clear();

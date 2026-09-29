@@ -144,6 +144,13 @@ std::string encodeReferences(const std::vector<Reference>& references) {
         out += reference.visible ? '1' : '0';
         out += reference.behind ? '1' : '0';
         out += reference.locked ? '1' : '0';
+        // The part shown, after everything an older build reads: it stops
+        // at the ninth field and shows the whole image.
+        if (reference.clipped()) {
+            out += '|' + std::to_string(reference.clipX) + '|' + std::to_string(reference.clipY) +
+                   '|' + std::to_string(reference.clipWidth) + '|' +
+                   std::to_string(reference.clipHeight);
+        }
         out += '\n';
     }
     return out;
@@ -197,6 +204,10 @@ bool decodeReferences(const std::string& text, std::vector<Reference>* out) {
         // A reference with no size names no picture that can be drawn.
         if (reference.width == 0 || reference.height == 0) {
             continue;
+        }
+        if (fields.size() >= 13) {
+            setReferenceSection(reference, toUnsigned(fields[9], 0), toUnsigned(fields[10], 0),
+                                toUnsigned(fields[11], 0), toUnsigned(fields[12], 0));
         }
         out->push_back(std::move(reference));
         if (out->size() >= kMaxReferences) {
@@ -259,19 +270,59 @@ size_t referenceBytesUsed(Document& doc) {
 }
 
 void fitReference(Reference& reference, uint32_t canvasWidth, uint32_t canvasHeight) {
-    if (reference.width == 0 || reference.height == 0 ||
-        canvasWidth == 0 || canvasHeight == 0) {
+    const uint32_t shownW = reference.shownWidth();
+    const uint32_t shownH = reference.shownHeight();
+    if (shownW == 0 || shownH == 0 || canvasWidth == 0 || canvasHeight == 0) {
         return;
     }
-    const float byWidth = static_cast<float>(canvasWidth) /
-                          static_cast<float>(reference.width);
-    const float byHeight = static_cast<float>(canvasHeight) /
-                           static_cast<float>(reference.height);
+    const float byWidth = static_cast<float>(canvasWidth) / static_cast<float>(shownW);
+    const float byHeight = static_cast<float>(canvasHeight) / static_cast<float>(shownH);
     reference.scale = std::clamp(std::min(byWidth, byHeight), 0.01f, 64.f);
     reference.x = (static_cast<float>(canvasWidth) -
-                   static_cast<float>(reference.width) * reference.scale) * 0.5f;
+                   static_cast<float>(shownW) * reference.scale) * 0.5f;
     reference.y = (static_cast<float>(canvasHeight) -
-                   static_cast<float>(reference.height) * reference.scale) * 0.5f;
+                   static_cast<float>(shownH) * reference.scale) * 0.5f;
+}
+
+void setReferenceSection(Reference& reference, uint32_t x, uint32_t y, uint32_t width,
+                         uint32_t height) {
+    // Inside the image, or nothing: a section off its edge shows no picture.
+    if (x >= reference.width || y >= reference.height || width == 0 || height == 0) {
+        reference.clipX = reference.clipY = reference.clipWidth = reference.clipHeight = 0;
+        return;
+    }
+    width = std::min(width, reference.width - x);
+    height = std::min(height, reference.height - y);
+    if (x == 0 && y == 0 && width == reference.width && height == reference.height) {
+        reference.clipX = reference.clipY = reference.clipWidth = reference.clipHeight = 0;
+        return;
+    }
+    reference.clipX = x;
+    reference.clipY = y;
+    reference.clipWidth = width;
+    reference.clipHeight = height;
+}
+
+void stepReferenceSection(Reference& reference, int by, uint32_t cellWidth, uint32_t cellHeight,
+                          uint32_t gap) {
+    if (cellWidth == 0 || cellHeight == 0 || cellWidth > reference.width ||
+        cellHeight > reference.height) {
+        return;
+    }
+    const uint32_t stepX = cellWidth + gap;
+    const uint32_t stepY = cellHeight + gap;
+    // Every cell whole inside the image.
+    const int64_t columns = (static_cast<int64_t>(reference.width) + gap) / stepX;
+    const int64_t rows = (static_cast<int64_t>(reference.height) + gap) / stepY;
+    const int64_t cells = std::max<int64_t>(1, columns * rows);
+    const int64_t at = std::min<int64_t>(reference.shownY() / stepY, rows - 1) * columns +
+                       std::min<int64_t>(reference.shownX() / stepX, columns - 1);
+    int64_t index = (at + by) % cells;
+    if (index < 0) {
+        index += cells;
+    }
+    setReferenceSection(reference, static_cast<uint32_t>((index % columns) * stepX),
+                        static_cast<uint32_t>((index / columns) * stepY), cellWidth, cellHeight);
 }
 
 bool addReference(Document& doc, const std::string& name,
@@ -377,6 +428,25 @@ bool removeReference(Document& doc, const Reference& reference) {
     return true;
 }
 
+namespace {
+
+// The last reference image decoded, kept: the picker asks for a pixel of the
+// same image click after click, and decoding a large one each time is the
+// whole cost of the question.
+const ls::RasterBuffer* decodedOnce(const std::vector<uint8_t>& bytes) {
+    static std::vector<uint8_t> key;
+    static ls::RasterBuffer image;
+    static bool good = false;
+    if (key != bytes) {
+        key = bytes;
+        std::string error;
+        good = decodeImage(bytes, &image, &error);
+    }
+    return good ? &image : nullptr;
+}
+
+} // namespace
+
 bool referenceColourAt(Document& doc, ls::Vec2i pixel, ls::Color* out) {
     if (out == nullptr) {
         return false;
@@ -389,21 +459,21 @@ bool referenceColourAt(Document& doc, ls::Vec2i pixel, ls::Color* out) {
             if (!reference.visible || reference.behind != behind || reference.scale <= 0.f) {
                 continue;
             }
-            // The middle of the canvas pixel, in the reference's own pixels.
+            // The middle of the canvas pixel, in the shown part's own pixels.
             const float u = (static_cast<float>(pixel.x) + 0.5f - reference.x) / reference.scale;
             const float v = (static_cast<float>(pixel.y) + 0.5f - reference.y) / reference.scale;
-            if (u < 0.f || v < 0.f || u >= static_cast<float>(reference.width) ||
-                v >= static_cast<float>(reference.height)) {
+            if (u < 0.f || v < 0.f || u >= static_cast<float>(reference.shownWidth()) ||
+                v >= static_cast<float>(reference.shownHeight())) {
                 continue;
             }
             const std::vector<uint8_t>* bytes = referenceBytes(doc, reference);
-            ls::RasterBuffer image;
-            std::string error;
-            if (bytes == nullptr || !decodeImage(*bytes, &image, &error)) {
+            const ls::RasterBuffer* image = bytes != nullptr ? decodedOnce(*bytes) : nullptr;
+            if (image == nullptr) {
                 continue;
             }
-            const ls::Color colour = ls::readPixel(image, static_cast<int32_t>(std::floor(u)),
-                                                   static_cast<int32_t>(std::floor(v)));
+            const ls::Color colour = ls::readPixel(
+                *image, static_cast<int32_t>(reference.shownX()) + static_cast<int32_t>(std::floor(u)),
+                static_cast<int32_t>(reference.shownY()) + static_cast<int32_t>(std::floor(v)));
             if (colour.a == 0) {
                 continue;
             }

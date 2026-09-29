@@ -168,6 +168,7 @@ if (FAST_BUILD_GUI)
         src/ui/selection_tools.cpp
         src/ui/transform_gizmo.cpp
         src/ui/puppet_panel.cpp
+        src/ui/reference_section.cpp
         src/ui/keys.cpp
         src/ui/layout.cpp
         src/ui/os_clipboard.cpp

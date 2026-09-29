@@ -495,3 +495,17 @@ A posed root is drawn where the pose puts it; put the puppet at rest to draw on 
 A puppet is a character in parts: draw each limb on a layer of its own, pick the layer, and make it a part. Hang each part from the one it moves with, then pose and capture frames. = Una marioneta es un personaje en piezas: dibuja cada miembro en su propia capa, elige la capa y hazla pieza. Cuelga cada pieza de aquella con la que se mueve; luego posa y captura fotogramas.
 Joint and sockets are placed in Draw part: click where they go, or drag their marks. = La articulación y los anclajes se ponen en Dibujar pieza: haz clic donde van o arrastra sus marcas.
 The frame's picked layer becomes a part, drawn where it was (Frames). = La capa elegida del fotograma pasa a ser una pieza, dibujada donde estaba (Fotogramas).
+
+# --- secciones de referencia -----------------------------------------------------
+Reference section = Sección de la referencia
+Section... = Sección...
+cell = celda
+gap = separación
+x y w h = x y an al
+< Cell = < Celda
+Cell > = Celda >
+Whole image = Imagen entera
+of = de
+Done = Listo
+Show only part of the image: a cell of a sprite sheet. = Mostrar solo una parte de la imagen: una celda de una hoja de sprites.
+Show only part of the image -- one cell of a sprite sheet, say. The whole image is kept, so another part can be picked later. = Muestra solo una parte de la imagen -- una celda de una hoja de sprites, por ejemplo. Se guarda la imagen entera, así que luego se puede elegir otra parte.

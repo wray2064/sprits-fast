@@ -276,6 +276,15 @@ The pictures come from a thumbnail written into each document on save, read
 back through the package without opening the document -- so a folder of thirty
 sprites is thirty entry reads rather than thirty full loads.
 
+**Part of an image.** A sprite sheet is usually wanted for one cell of it, so
+importing a reference opens the **Reference section** window: drag across the
+preview to pick a part, type it, or give the sheet's cell size and the gap
+between cells and click a cell. **Cell >** and **< Cell** step through the sheet
+a cell at a time (by the part picked, when no grid is given) -- a walk cycle to
+draw from, frame by frame. The whole image stays in the document, so the part
+shown can be changed any time (References panel, **Section...**). A reference
+magnified on screen is drawn pixel for pixel, as the canvas is.
+
 ### Selecting, and moving what is selected
 
 `M` is the marquee (`Shift+M` the ellipse), `Q` the lasso, `W` the magic wand

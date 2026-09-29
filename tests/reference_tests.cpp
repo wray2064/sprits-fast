@@ -375,11 +375,94 @@ void testFolderHelpers() {
 
 } // namespace
 
+
+// Part of a sheet: a cell shown, the whole image kept. The picker, fitting,
+// saving and a file from before sections all see the part shown.
+void testAReferenceShowsASectionOfItsImage() {
+    Document doc;
+    REQUIRE(build(doc));
+    // A sheet of 4 x 2 cells, 8 x 8, a pixel apart, each one colour.
+    const ls::Color colours[8] = {
+        { 220, 40, 40, 255 }, { 40, 180, 60, 255 }, { 40, 80, 220, 255 }, { 230, 210, 40, 255 },
+        { 200, 60, 200, 255 }, { 40, 200, 210, 255 }, { 240, 240, 240, 255 }, { 240, 140, 30, 255 },
+    };
+    ls::RasterBuffer sheet = ls::makeRaster(35, 17);
+    for (int i = 0; i < 8; ++i) {
+        for (int y = 0; y < 8; ++y) {
+            for (int x = 0; x < 8; ++x) {
+                ls::writePixel(sheet, (i % 4) * 9 + x, (i / 4) * 9 + y, colours[i]);
+            }
+        }
+    }
+    std::vector<uint8_t> png;
+    std::string error;
+    REQUIRE(encodeImageAsPng(sheet, &png, &error));
+    Reference reference;
+    REQUIRE(addReference(doc, "sheet.png", png, &reference, &error));
+    CHECK(!reference.clipped());
+    CHECK(reference.shownWidth() == 35 && reference.shownHeight() == 17);
+
+    // The second cell of the second row, placed at the canvas's corner.
+    setReferenceSection(reference, 9, 9, 8, 8);
+    CHECK(reference.clipped());
+    CHECK(reference.shownX() == 9 && reference.shownY() == 9 && reference.shownWidth() == 8);
+    reference.x = 0.f;
+    reference.y = 0.f;
+    reference.scale = 1.f;
+    REQUIRE(updateReference(doc, reference));
+    ls::Color picked;
+    REQUIRE(referenceColourAt(doc, { 3, 3 }, &picked));
+    CHECK(picked.r == colours[5].r && picked.g == colours[5].g && picked.b == colours[5].b);
+    CHECK(!referenceColourAt(doc, { 8, 3 }, &picked));        // past the cell, not the sheet
+
+    // Fitted, it is the cell that fills the canvas.
+    fitReference(reference, 32, 32);
+    CHECK(reference.scale == 4.f && reference.x == 0.f && reference.y == 0.f);
+
+    // Kept inside the image; nothing, or all of it, is no section.
+    Reference edge = reference;
+    setReferenceSection(edge, 30, 12, 20, 20);
+    CHECK(edge.shownWidth() == 5 && edge.shownHeight() == 5);
+    setReferenceSection(edge, 40, 0, 4, 4);
+    CHECK(!edge.clipped());
+    setReferenceSection(edge, 0, 0, 35, 17);
+    CHECK(!edge.clipped());
+
+    // Stepped a cell at a time, row after row, round from the last to the
+    // first -- and on a grid with no size, not at all.
+    Reference walk = reference;
+    stepReferenceSection(walk, 1, 8, 8, 1);
+    CHECK(walk.shownX() == 18 && walk.shownY() == 9);
+    stepReferenceSection(walk, 1, 8, 8, 1);
+    stepReferenceSection(walk, 1, 8, 8, 1);
+    CHECK(walk.shownX() == 0 && walk.shownY() == 0);          // the last cell, then the first
+    stepReferenceSection(walk, -1, 8, 8, 1);
+    CHECK(walk.shownX() == 27 && walk.shownY() == 9 && walk.shownWidth() == 8);
+    stepReferenceSection(walk, 3, 0, 8, 1);
+    CHECK(walk.shownX() == 27 && walk.shownY() == 9);
+
+    // Saved and read back; and a list from before sections shows it whole.
+    std::vector<Reference> decoded;
+    REQUIRE(decodeReferences(encodeReferences({ reference }), &decoded));
+    REQUIRE(decoded.size() == 1);
+    CHECK(decoded[0].clipX == 9 && decoded[0].clipY == 9 && decoded[0].clipWidth == 8 &&
+          decoded[0].clipHeight == 8);
+    REQUIRE(decodeReferences("lsfast-references 1\n1|old|35|17|0|0|1|0.5|110\n", &decoded));
+    REQUIRE(decoded.size() == 1);
+    CHECK(!decoded[0].clipped() && decoded[0].shownWidth() == 35);
+    // A section a hostile file claims past the image is kept inside it.
+    REQUIRE(decodeReferences("lsfast-references 1\n1|x|35|17|0|0|1|0.5|110|30|9|99|99\n",
+                             &decoded));
+    REQUIRE(decoded.size() == 1);
+    CHECK(decoded[0].shownWidth() == 5 && decoded[0].shownHeight() == 8);
+}
+
 int main() {
     testTheDecoderIsBounded();
     testDownscaleKeepsWholePixels();
     testAReferenceTravelsAndChangesNoPixel();
     testThePickerTakesTheReferencesOwnColour();
+    testAReferenceShowsASectionOfItsImage();
     testImportingAReferenceUndoes();
     testTheLimitsHold();
     testAHostileListIsNotTrusted();

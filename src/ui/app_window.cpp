@@ -45,6 +45,7 @@
 #include "ui/theme.h"
 #include "ui/transform_gizmo.h"
 #include "ui/puppet_panel.h"
+#include "ui/reference_section.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -1943,16 +1944,8 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
     }
 
     if (kind == DialogResult::Kind::ImportReference) {
-        Reference made;
         std::string error;
-        if (importReference(editor.doc, path, &made, &error)) {
-            resyncReferences(editor, canvas);
-            editor.activeReference = made.id;
-            // Floating, and opened when there is something in it to look at.
-            editor.panels.references = true;
-            canvas.invalidate();
-            editor.say("Imported " + made.name + " -- it travels with this file");
-        } else {
+        if (!importReferenceToPick(editor, canvas, path, &error)) {
             editor.say("Could not import " + fileName(path) + ": " + error);
         }
         return;
@@ -3272,6 +3265,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         ImGui::End();
     }
+    drawReferenceSectionWindow(editor, canvas);
 
     // The canvas: the middle of the dock space, which nothing covers, with no
     // tab of its own and no way to drag it out.
@@ -3479,6 +3473,7 @@ struct Options {
     uint32_t    autosaveSeconds = 0;     // override the interval, for testing
     bool        selfTest = false;
     std::string openPath;
+    std::string reference;               // --reference FILE: imported at start
 };
 
 Options parseOptions(int argc, char** argv) {
@@ -3522,6 +3517,8 @@ Options parseOptions(int argc, char** argv) {
             options.expectDrawn = std::atoi(argv[++i]);
         } else if (arg == "--expect-at-most" && i + 1 < argc) {
             options.expectAtMost = std::atoi(argv[++i]);
+        } else if (arg == "--reference" && i + 1 < argc) {
+            options.reference = argv[++i];
         } else if (arg == "--rectangle" && i + 1 < argc) {
             const char* text = argv[++i];
             for (float& value : options.rectangle) {
@@ -4978,6 +4975,14 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     canvas.requestFit();
     initTabs(editor);
     attachTracks(editor);
+    if (!options.reference.empty()) {
+        // A picture to draw from, imported as the window opens: a scripted
+        // run's reference, or a sheet to start from.
+        std::string error;
+        if (!importReferenceToPick(editor, canvas, options.reference, &error)) {
+            std::printf("--reference %s: %s\n", options.reference.c_str(), error.c_str());
+        }
+    }
     if (!options.openPath.empty()) {
         openPath(editor, canvas, options.openPath);
     }

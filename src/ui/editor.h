@@ -274,6 +274,19 @@ struct Editor {
     // The Puppet panel (puppet_panel.h): the part it has picked, what the
     // canvas shows -- the frames, that part to draw on, or its whole puppet
     // to pose -- and a pose or a joint being dragged.
+    // The Reference section window (reference_section.h): which reference, a
+    // sprite sheet's grid, and a drag across the preview.
+    struct ReferenceSectionView {
+        bool        open = false;
+        std::string reference;
+        bool        fit = false;
+        int         cellWidth = 0;
+        int         cellHeight = 0;
+        int         gap = 0;
+        bool        dragging = false;
+        ImVec2      from { 0.f, 0.f };
+    } referenceSection;
+
     struct PuppetView {
         enum class Mode { Frames, DrawPart, Pose };
         enum class Placing { None, Joint, Socket };
@@ -634,7 +647,8 @@ struct Editor {
                draggingLayerProperties || pullingHandle || draggingHandle >= 0 ||
                adjustDialog.open || draggingSlice || editingSlice || draggingGuide >= 0 ||
                selecting || draggingFloat || drawingContour || drawingGradient ||
-               scaleHandle >= 0 || gizmoPart >= 0 || puppet.dragging >= 0 || placingDrag ||
+               scaleHandle >= 0 || gizmoPart >= 0 || puppet.dragging >= 0 ||
+               referenceSection.dragging || placingDrag ||
                tilemapDialog.open;
     }
 

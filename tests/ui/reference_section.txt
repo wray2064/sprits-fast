@@ -1,0 +1,20 @@
+# A sprite sheet imported as a reference opens the section window; the part
+# shown can be changed afterwards from the References panel, stepped a cell
+# at a time, and put back to the whole image. (The sheet: 4 x 2 cells of
+# 8 x 8, a pixel apart -- tests/ui/sheet.png.)
+key ctrl+0
+reference tests/ui/sheet.png
+wait 2
+expect item Reference section###referencesection
+expect section 0 0 35 17
+# No part picked yet: nothing to step by.
+click-on Done
+wait 2
+expect missing Done
+
+click-on Section...
+wait 2
+expect item Whole image
+click-on Whole image
+expect section 0 0 35 17
+click-on Done
