@@ -15,4 +15,6 @@ CMakeFiles/
 .ninja_log
 build/
 build-gui/
+build-release/
+dist/
 imgui.ini
