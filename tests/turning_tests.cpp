@@ -645,9 +645,162 @@ void testALineSavedOnCornersOpensCentred() {
     std::remove(path.c_str());
 }
 
+
+// ------------------------------------------------------------ a thin limb --
+//
+// The report: an arm drawn with the pencil round its edge and filled with the
+// bucket in the same skin colour, turned with the ring, showed the reference
+// through pinholes in it. A limb is thin -- a few pixels across along most of
+// it -- which a blob never is. Every pixel inside the turned shape must be
+// drawn: holes are the undrawn pixels nothing outside can reach.
+
+constexpr int kLimbCanvas = 96;
+const ls::Color kSkin { 238, 208, 160, 255 };
+
+ls::RasterBuffer limbPicture(Document& doc) {
+    ls::CompileProfile p;
+    p.type = ls::CompileProfileType::Export;
+    p.outputWidth = kLimbCanvas;
+    p.outputHeight = kLimbCanvas;
+    p.palette = ls::PalettePolicy::Unconstrained;
+    auto compiled = doc.engine().compileSprite(doc.sprite(), p);
+    return compiled.ok() ? compiled.value.raster : ls::RasterBuffer{};
+}
+
+// Undrawn pixels that a 4-connected walk from the border cannot reach.
+int holesIn(const ls::RasterBuffer& raster, int* drawn) {
+    const int n = kLimbCanvas;
+    std::vector<uint8_t> outside(static_cast<size_t>(n * n), 0);
+    std::vector<ls::Vec2i> stack;
+    for (int i = 0; i < n; ++i) {
+        stack.push_back({ i, 0 });
+        stack.push_back({ i, n - 1 });
+        stack.push_back({ 0, i });
+        stack.push_back({ n - 1, i });
+    }
+    while (!stack.empty()) {
+        const ls::Vec2i p = stack.back();
+        stack.pop_back();
+        if (p.x < 0 || p.y < 0 || p.x >= n || p.y >= n) {
+            continue;
+        }
+        const size_t at = static_cast<size_t>(p.y * n + p.x);
+        if (outside[at] || ls::readPixel(raster, p.x, p.y).a != 0) {
+            continue;
+        }
+        outside[at] = 1;
+        stack.push_back({ p.x + 1, p.y });
+        stack.push_back({ p.x - 1, p.y });
+        stack.push_back({ p.x, p.y + 1 });
+        stack.push_back({ p.x, p.y - 1 });
+    }
+    int holes = 0;
+    *drawn = 0;
+    for (int y = 0; y < n; ++y) {
+        for (int x = 0; x < n; ++x) {
+            const bool painted = ls::readPixel(raster, x, y).a != 0;
+            *drawn += painted ? 1 : 0;
+            holes += !painted && !outside[static_cast<size_t>(y * n + x)] ? 1 : 0;
+        }
+    }
+    return holes;
+}
+
+// An arm down and across the canvas, a shoulder at the top, tapering to a
+// wrist: its edge drawn with the pencil in drags, as a hand draws it.
+// Thin: two pixels across inside the line, as a forearm is -- where the
+// line's two sides, redrawn at an angle, come within a pixel of each other.
+bool drawLimb(Document& doc, ls::LayerId layer, ls::Color colour, bool thin) {
+    const std::vector<ls::Vec2i> wide {
+        { 36, 8 }, { 34, 20 }, { 38, 34 }, { 44, 50 }, { 50, 66 }, { 54, 82 }, { 56, 88 },
+        { 61, 87 }, { 60, 78 }, { 56, 62 }, { 50, 46 }, { 46, 30 }, { 44, 16 }, { 42, 8 },
+    };
+    const std::vector<ls::Vec2i> narrow {
+        { 38, 8 }, { 36, 20 }, { 40, 34 }, { 46, 50 }, { 52, 66 }, { 56, 82 }, { 58, 88 },
+        { 61, 87 }, { 59, 82 }, { 55, 66 }, { 49, 50 }, { 43, 34 }, { 39, 20 }, { 41, 8 },
+    };
+    const std::vector<ls::Vec2i>& edge = thin ? narrow : wide;
+    const int count = static_cast<int>(edge.size());
+    Ink ink;
+    ink.colour = colour;
+    for (int i = 0; i < count; ++i) {
+        doc.beginAction("Pencil");
+        InkStroke stroke;
+        if (!beginInkStroke(doc, layer, ink, &stroke) ||
+            !strokeAlong(doc, stroke, 0,
+                         linePixels(edge[static_cast<size_t>(i)],
+                                    edge[static_cast<size_t>((i + 1) % count)]), PenBrush{})) {
+            doc.abandonAction();
+            return false;
+        }
+        doc.endAction();
+    }
+    return true;
+}
+
+void testAThinLimbTurnsWithoutHoles() {
+    for (int shape = 0; shape < 4; ++shape) {
+        const bool sameColour = shape % 2 == 0;
+        const bool thin = shape >= 2;
+        Document doc;
+        REQUIRE(doc.create("limb", kLimbCanvas, kLimbCanvas));
+        PaintLayer layer;
+        REQUIRE(createPaintLayer(doc, doc.sprite(), "arm", kSkin, &layer));
+        REQUIRE(drawLimb(doc, layer.layer, sameColour ? kSkin : kOutline, thin));
+        Ink fill;
+        fill.colour = kSkin;
+        doc.beginAction("Fill");
+        InkStroke bucket;
+        REQUIRE(beginInkStroke(doc, layer.layer, fill, &bucket));
+        const ls::Vec2i seed = thin ? ls::Vec2i{ 37, 20 } : ls::Vec2i{ 39, 20 };
+        REQUIRE(bucketFill(doc, doc.sprite(), bucket, seed, BucketSettings{}));
+        pruneEmptyInks(doc, layer.layer);
+        doc.endAction();
+        // And filled again where it was filled, as a hand does to be sure: in
+        // one colour the flood runs over the fill and the line alike -- the
+        // whole limb -- so this fill is walled in by nothing, and turned it
+        // is found again against the line redrawn at the angle.
+        doc.beginAction("Fill");
+        InkStroke again;
+        REQUIRE(beginInkStroke(doc, layer.layer, fill, &again));
+        REQUIRE(bucketFill(doc, doc.sprite(), again, seed, BucketSettings{}));
+        pruneEmptyInks(doc, layer.layer);
+        doc.endAction();
+        int drawn = 0;
+        CHECK(holesIn(limbPicture(doc), &drawn) == 0);
+        const int flat = drawn;
+        CHECK(flat > (thin ? 250 : 350));
+
+        const ls::OperationId turn = addRotate(doc, layer.layer, 1.f, { 48.f, 48.f },
+                                               ls::SamplingPolicy::RotSprite);
+        REQUIRE(turn.valid());
+        int holes = 0;
+        int angles = 0;
+        std::string where;
+        for (int angle = 1; angle < 360; angle += 3) {
+            REQUIRE(setRotateAngle(doc, turn, static_cast<float>(angle)));
+            const int found = holesIn(limbPicture(doc), &drawn);
+            if (found != 0) {
+                holes += found;
+                ++angles;
+                if (where.size() < 120) {
+                    where += " " + std::to_string(angle) + ":" + std::to_string(found);
+                }
+            }
+        }
+        if (holes != 0) {
+            std::printf("    %s %s: %d holes over %d angles (angle:holes)%s\n",
+                        thin ? "thin," : "wide,", sameColour ? "one colour" : "outlined", holes,
+                        angles, where.c_str());
+        }
+        CHECK(holes == 0);
+    }
+}
+
 } // namespace
 
 int main() {
+    testAThinLimbTurnsWithoutHoles();
     testQuarterTurnsAndFlipsAreExact();
     testALineSavedOnCornersOpensCentred();
     testAFillMeetsAnOutlineOnAnotherLayer();
