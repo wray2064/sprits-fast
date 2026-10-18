@@ -95,7 +95,14 @@ bool button(const char* label, ButtonStyle style, ImVec2 size) {
         case ButtonStyle::Secondary:
             break;
     }
+    // A ghost button has no box until it is pointed at.
+    if (style == ButtonStyle::Ghost) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+    }
     const bool clicked = ImGui::Button(tr(label), size);
+    if (style == ButtonStyle::Ghost) {
+        ImGui::PopStyleVar();
+    }
     ImGui::PopStyleColor(colours);
     return clicked;
 }

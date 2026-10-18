@@ -96,13 +96,13 @@ void buildDefault(ImGuiID dockspace, ImVec2 size) {
     const ImGuiID bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down,
                                                        170.f / size.y, nullptr, &centre);
     ImGuiID palette = 0;
-    const ImGuiID tool = ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.52f, nullptr, &palette);
+    const ImGuiID tool = ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.40f, nullptr, &palette);
     ImGuiID below = 0;
-    const ImGuiID layers = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.24f, nullptr, &below);
+    const ImGuiID layers = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.30f, nullptr, &below);
     ImGuiID rest = 0;
-    const ImGuiID elements = ImGui::DockBuilderSplitNode(below, ImGuiDir_Up, 0.17f, nullptr, &rest);
+    const ImGuiID elements = ImGui::DockBuilderSplitNode(below, ImGuiDir_Up, 0.16f, nullptr, &rest);
     ImGuiID transform = 0;
-    const ImGuiID properties = ImGui::DockBuilderSplitNode(rest, ImGuiDir_Up, 0.74f, nullptr,
+    const ImGuiID properties = ImGui::DockBuilderSplitNode(rest, ImGuiDir_Up, 0.70f, nullptr,
                                                            &transform);
 
     ImGui::DockBuilderDockWindow(panel::kTool, tool);

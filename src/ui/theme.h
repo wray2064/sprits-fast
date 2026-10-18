@@ -88,7 +88,7 @@ struct Metrics {
     float panelPadding  = 10.f;
     float itemSpacing   = 6.f;
     float sectionGap    = 14.f;
-    float sidebarWidth  = 248.f;
+    float sidebarWidth  = 276.f;
     float toolbarHeight = 40.f;
     float rounding      = 3.f;
 };

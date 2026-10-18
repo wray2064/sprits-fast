@@ -165,7 +165,11 @@ void apply() {
     style.TabRounding       = m.rounding;
 
     style.WindowBorderSize  = 1.f;
-    style.FrameBorderSize   = 0.f;      // borders on every input is noise
+    // A hairline round every control. Without it a control is a fill a few
+    // percent off the panel, which fails the "can I see where it is" test in
+    // the light themes and on a dim screen; with it the edge is always there,
+    // in the border colour, which each theme sets to be seen and no more.
+    style.FrameBorderSize   = 1.f;
     style.PopupBorderSize   = 1.f;
 
     style.WindowPadding     = ImVec2(m.panelPadding, m.panelPadding);
@@ -338,9 +342,10 @@ bool foldingHeader(const char* label) {
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, gPalette.controlHovered);
     ImGui::PushStyleColor(ImGuiCol_HeaderActive, gPalette.controlActive);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.f, 2.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);   // a heading is not a control
     const std::string id = std::string(shown) + "###fold" + label;
     const bool open = ImGui::CollapsingHeader(id.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(4);
     popText();
     const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -762,7 +767,9 @@ bool toolButton(Icon icon, const char* name, const char* shortcutHint,
 
     ImGui::PushID(name);
     const ImVec2 at = ImGui::GetCursorScreenPos();
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);   // the rail is not boxed
     const bool pressed = ImGui::Button("##tool", ImVec2(side, side));
+    ImGui::PopStyleVar();
     const bool hovered = ImGui::IsItemHovered();
     ImGui::PopID();
     ImGui::PopStyleColor(3);

@@ -31,8 +31,14 @@ decisions. Progress:
       value, a thin handle, the value written in it), a hint is a circled
       question mark that brightens, a hint no longer pushes its row off the
       panel, palette swatches follow the font, and the palette has SHADES,
-      RECENT and PALETTE headings. To do: 3c Layers / Elements / Properties /
-      Transform, 3d Timeline, 3e the other dialogs.
+      RECENT and PALETTE headings. **3c, the frame and the layout:** every
+      control has a hairline in the border colour (a control that is a fill a
+      few percent off the panel cannot be seen in the light themes), except
+      the tool rail, headings and ghost buttons; the default layout gives the
+      sidebars 276 px and the Palette more height (Tool 40%, Palette 60%;
+      Layers 30%) so the palette no longer needs a scroll. A saved layout is
+      kept, so Window > Reset layout shows the new one. To do: 3d Timeline,
+      3e the other dialogs.
 - [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
       export).
 - [ ] Stage 5, layout and icons.
