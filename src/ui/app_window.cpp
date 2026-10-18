@@ -1375,15 +1375,25 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             }
 
             theme::sectionHeader(tr("LOOK"));
-            int look = prefs.lightTheme ? 1 : 0;
-            const char* looks[] = { "Slate (dark)", "Paper (light)" };
-            ImGui::SetNextItemWidth(200.f);
-            if (ImGui::Combo(tr("theme"), &look, looks, 2)) {
-                prefs.lightTheme = look == 1;
-                theme::setLight(prefs.lightTheme);
-                canvasDefaultsFor(prefs.lightTheme, &prefs);
-                applyViewPreferences(prefs, canvas);
-                changed = true;
+            {
+                // Every theme there is, dark first; the one in force is shown.
+                const std::vector<Theme>& themes = builtinThemes();
+                const Theme* shown = findBuiltinTheme(prefs.themeId);
+                ImGui::SetNextItemWidth(220.f);
+                if (ImGui::BeginCombo(tr("theme"), shown != nullptr ? shown->name.c_str() : "")) {
+                    for (const Theme& choice : themes) {
+                        if (ImGui::Selectable(choice.name.c_str(), choice.id == prefs.themeId)) {
+                            prefs.themeId = choice.id;
+                            prefs.lightTheme = !choice.dark;
+                            theme::setTheme(choice);
+                            canvasDefaultsFor(prefs.lightTheme, &prefs);
+                            applyViewPreferences(prefs, canvas);
+                            changed = true;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                nameForScripts("theme");
             }
 
             {
@@ -5060,6 +5070,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     }
     if (options.light) {
         editor.prefs.lightTheme = true;
+        editor.prefs.themeId = "paper";
         theme::setLight(true);
         canvasDefaultsFor(true, &editor.prefs);
         applyViewPreferences(editor.prefs, canvas);
@@ -5101,8 +5112,8 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         editor.autosaveOn = editor.prefs.autosaveOn;
         editor.recovery.setIntervalSeconds(editor.prefs.autosaveSeconds);
     }
-    if (editor.prefs.lightTheme) {
-        theme::setLight(true);
+    if (const Theme* chosen = findBuiltinTheme(editor.prefs.themeId)) {
+        theme::setTheme(*chosen);
     }
     theme::setScale(static_cast<float>(editor.prefs.uiScale) / 100.f);
     applyViewPreferences(editor.prefs, canvas);

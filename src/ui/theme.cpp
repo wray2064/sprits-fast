@@ -17,62 +17,62 @@ namespace {
 
 float gScale = 1.f;     // the person's interface scale; see setScale
 
-constexpr ImVec4 rgb(int r, int g, int b, float a = 1.f) {
-    return ImVec4(static_cast<float>(r) / 255.f, static_cast<float>(g) / 255.f,
-                  static_cast<float>(b) / 255.f, a);
+ImVec4 vec(Rgba colour) {
+    return ImVec4(static_cast<float>(colour.r) / 255.f, static_cast<float>(colour.g) / 255.f,
+                  static_cast<float>(colour.b) / 255.f, static_cast<float>(colour.a) / 255.f);
 }
 
-// Slate and amber.
-//
-// The reference is Source-era Valve: a cold, desaturated blue-grey shell with
-// one hot amber running through it. The two work because they are opposites --
-// the slate is cool and almost colourless, so the amber reads as light rather
-// than as another surface. Warming the greys would put them in competition with
-// the accent and make both look muddy.
-//
-// The greys are tinted blue on purpose, by a few points only. Enough that they
-// read as slate rather than as neutral grey; not enough to become a colour and
-// start arguing with whatever is on the canvas.
-const Palette kDark {
-    /* windowBackground */ rgb(20, 24, 29),
-    /* panelBackground  */ rgb(29, 34, 41),
-    /* canvasBackground */ rgb(14, 17, 21),
-    /* control          */ rgb(43, 51, 61),
-    /* controlHovered   */ rgb(57, 68, 81),
-    /* controlActive    */ rgb(70, 83, 98),
-    /* border           */ rgb(50, 60, 71),
-    /* text             */ rgb(190, 202, 214),
-    /* textDim          */ rgb(116, 130, 146),
-    /* textBright       */ rgb(228, 238, 248),
-    /* accent           */ rgb(255, 158, 38),
-    /* accentDim        */ rgb(255, 158, 38, 0.22f),
-    /* danger           */ rgb(214, 84, 68),
-    /* checkerLight     */ rgb(56, 64, 74),
-    /* checkerDark      */ rgb(44, 51, 60),
-};
+// The window's colours are the theme's roles (app/theme_tokens.h), turned into
+// what ImGui draws with. The first seven names are the ones the panels have
+// always used; the rest are the roles the overhaul adds, which the panels move
+// onto as each is rebuilt.
+Palette paletteFor(const Theme& t) {
+    Palette p {};
+    p.windowBackground = vec(t[Token::App]);
+    p.panelBackground = vec(t[Token::Panel]);
+    p.canvasBackground = vec(t[Token::Canvas]);
+    p.control = vec(t[Token::Control]);
+    p.controlHovered = vec(t[Token::ControlHover]);
+    p.controlActive = vec(t[Token::ControlPressed]);
+    p.border = vec(t[Token::Border]);
+    p.text = vec(t[Token::TextPrimary]);
+    p.textDim = vec(t[Token::TextSecondary]);
+    p.textBright = vec(t[Token::TextStrong]);
+    p.accent = vec(t[Token::Accent]);
+    p.accentDim = vec(t[Token::AccentSubtle]);
+    p.danger = vec(t[Token::Danger]);
+    p.checkerLight = vec(t[Token::CheckerA]);
+    p.checkerDark = vec(t[Token::CheckerB]);
 
-// Paper and amber: the same arrangement turned over for a bright room. The
-// greys keep their few points of blue; the amber is darkened so it still
-// reads as the one colour against a light ground.
-const Palette kLight {
-    /* windowBackground */ rgb(214, 219, 225),
-    /* panelBackground  */ rgb(233, 236, 240),
-    /* canvasBackground */ rgb(196, 202, 210),
-    /* control          */ rgb(216, 221, 228),
-    /* controlHovered   */ rgb(202, 209, 218),
-    /* controlActive    */ rgb(188, 197, 208),
-    /* border           */ rgb(186, 194, 204),
-    /* text             */ rgb(38, 44, 52),
-    /* textDim          */ rgb(100, 110, 122),
-    /* textBright       */ rgb(8, 12, 16),
-    /* accent           */ rgb(206, 112, 8),
-    /* accentDim        */ rgb(206, 112, 8, 0.24f),
-    /* danger           */ rgb(186, 58, 46),
-    /* checkerLight     */ rgb(238, 240, 243),
-    /* checkerDark      */ rgb(214, 218, 224),
-};
+    p.raised = vec(t[Token::Raised]);
+    p.inset = vec(t[Token::Inset]);
+    p.textMuted = vec(t[Token::TextMuted]);
+    p.textDisabled = vec(t[Token::TextDisabled]);
+    p.textOnAccent = vec(t[Token::TextOnAccent]);
+    p.separator = vec(t[Token::Separator]);
+    p.focus = vec(t[Token::Focus]);
+    p.selected = vec(t[Token::Selected]);
+    p.selectedText = vec(t[Token::SelectedText]);
+    p.accentText = vec(t[Token::AccentText]);
+    p.accentHover = vec(t[Token::AccentHover]);
+    p.accentPressed = vec(t[Token::AccentPressed]);
+    p.success = vec(t[Token::Success]);
+    p.warning = vec(t[Token::Warning]);
+    p.info = vec(t[Token::Info]);
+    p.successSubtle = vec(t[Token::SuccessSubtle]);
+    p.warningSubtle = vec(t[Token::WarningSubtle]);
+    p.dangerSubtle = vec(t[Token::DangerSubtle]);
+    p.infoSubtle = vec(t[Token::InfoSubtle]);
+    p.gridLine = vec(t[Token::GridLine]);
+    p.selectionLine = vec(t[Token::SelectionLine]);
+    p.guide = vec(t[Token::Guide]);
+    p.onionPast = vec(t[Token::OnionPast]);
+    p.onionFuture = vec(t[Token::OnionFuture]);
+    return p;
+}
 
-const Palette* gActive = &kDark;
+Theme gTheme = *findBuiltinTheme("slate");
+Palette gPalette = paletteFor(gTheme);
 
 const Metrics kMetrics {};
 
@@ -96,13 +96,20 @@ const char* const kFontPaths[] = {
 
 } // namespace
 
-const Palette& palette() { return *gActive; }
+const Palette& palette() { return gPalette; }
 
-bool isLight() { return gActive == &kLight; }
+const Theme& current() { return gTheme; }
+
+bool isLight() { return !gTheme.dark; }
+
+void setTheme(const Theme& theme) {
+    gTheme = theme;
+    gPalette = paletteFor(gTheme);
+    apply();
+}
 
 void setLight(bool light) {
-    gActive = light ? &kLight : &kDark;
-    apply();
+    setTheme(*findBuiltinTheme(light ? "paper" : "slate"));
 }
 const Metrics& metrics() { return kMetrics; }
 
@@ -112,7 +119,7 @@ void apply() {
     // twice is not applied on top of itself.
     static const ImGuiStyle pristine = ImGui::GetStyle();
     style = pristine;
-    const Palette& c = (*gActive);
+    const Palette& c = gPalette;
     const Metrics& m = kMetrics;
 
     // Geometry. Slightly rounded rather than pill-shaped: this is a tool for
@@ -146,12 +153,12 @@ void apply() {
     ImVec4* colours = style.Colors;
     colours[ImGuiCol_WindowBg]             = c.panelBackground;
     colours[ImGuiCol_ChildBg]              = ImVec4(0, 0, 0, 0);
-    colours[ImGuiCol_PopupBg]              = c.panelBackground;
+    colours[ImGuiCol_PopupBg]              = c.raised;
     colours[ImGuiCol_Border]               = c.border;
     colours[ImGuiCol_BorderShadow]         = ImVec4(0, 0, 0, 0);
 
     colours[ImGuiCol_Text]                 = c.text;
-    colours[ImGuiCol_TextDisabled]         = c.textDim;
+    colours[ImGuiCol_TextDisabled]         = c.textMuted;
 
     colours[ImGuiCol_FrameBg]              = c.control;
     colours[ImGuiCol_FrameBgHovered]       = c.controlHovered;
@@ -177,11 +184,11 @@ void apply() {
     colours[ImGuiCol_ButtonHovered]        = c.controlHovered;
     colours[ImGuiCol_ButtonActive]         = c.controlActive;
 
-    colours[ImGuiCol_Header]               = c.accentDim;
+    colours[ImGuiCol_Header]               = c.selected;
     colours[ImGuiCol_HeaderHovered]        = c.controlHovered;
-    colours[ImGuiCol_HeaderActive]         = c.accentDim;
+    colours[ImGuiCol_HeaderActive]         = c.selected;
 
-    colours[ImGuiCol_Separator]            = c.border;
+    colours[ImGuiCol_Separator]            = c.separator;
     colours[ImGuiCol_SeparatorHovered]     = c.accentDim;
     colours[ImGuiCol_SeparatorActive]      = c.accent;
 
@@ -203,7 +210,7 @@ void apply() {
     colours[ImGuiCol_DockingEmptyBg]       = c.windowBackground;
 
     colours[ImGuiCol_TextSelectedBg]       = c.accentDim;
-    colours[ImGuiCol_NavCursor]            = c.accent;
+    colours[ImGuiCol_NavCursor]            = c.focus;
     colours[ImGuiCol_ModalWindowDimBg]     = ImVec4(0.f, 0.f, 0.f, 0.55f);
 
     // The person's interface scale: text and every spacing, not the canvas.
@@ -241,15 +248,15 @@ void loadFonts(float scale) {
 
 bool foldingHeader(const char* label) {
     const char* shown = tr(label);
-    const ImVec4 muted { (*gActive).accent.x, (*gActive).accent.y, (*gActive).accent.z,
+    const ImVec4 muted { gPalette.accent.x, gPalette.accent.y, gPalette.accent.z,
                          0.72f };
     ImGui::Dummy(ImVec2(0.f, 2.f));
     // No box behind it, as with a plain section header: a filled bar would
     // read as a selected row.
     ImGui::PushStyleColor(ImGuiCol_Text, muted);
     ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 0.f, 0.f, 0.f));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, (*gActive).controlHovered);
-    ImGui::PushStyleColor(ImGuiCol_HeaderActive, (*gActive).controlActive);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, gPalette.controlHovered);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, gPalette.controlActive);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.f, 2.f));
     const std::string id = std::string(shown) + "###fold" + label;
     const bool open = ImGui::CollapsingHeader(id.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
@@ -259,7 +266,7 @@ bool foldingHeader(const char* label) {
     const float width = ImGui::GetContentRegionAvail().x;
     ImGui::GetWindowDrawList()->AddLine(
         ImVec2(at.x, at.y + 1.f), ImVec2(at.x + width, at.y + 1.f),
-        ImGui::GetColorU32((*gActive).border));
+        ImGui::GetColorU32(gPalette.border));
     ImGui::Dummy(ImVec2(0.f, 3.f));
     return open;
 }
@@ -270,7 +277,7 @@ void sectionHeader(const char* label) {
     // accent earns its keep: it separates the structure of the panel from its
     // contents at a glance, and it is dim enough not to pull the eye off the
     // canvas. Anything brighter here and the panel starts shouting.
-    const ImVec4 muted { (*gActive).accent.x, (*gActive).accent.y, (*gActive).accent.z,
+    const ImVec4 muted { gPalette.accent.x, gPalette.accent.y, gPalette.accent.z,
                          0.72f };
     ImGui::Dummy(ImVec2(0.f, 2.f));
     ImGui::PushStyleColor(ImGuiCol_Text, muted);
@@ -283,7 +290,7 @@ void sectionHeader(const char* label) {
     const float width = ImGui::GetContentRegionAvail().x;
     ImGui::GetWindowDrawList()->AddLine(
         ImVec2(at.x, at.y + 1.f), ImVec2(at.x + width, at.y + 1.f),
-        ImGui::GetColorU32((*gActive).border));
+        ImGui::GetColorU32(gPalette.border));
     ImGui::Dummy(ImVec2(0.f, 3.f));
 }
 
@@ -344,7 +351,7 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             // The ferrule, a band across the barrel near the tail. Drawn in the
             // panel colour so it reads as a gap rather than another shape.
             axisQuad(draw, s, ImVec2(0.68f, 0.32f), ImVec2(0.735f, 0.265f), 0.115f,
-                     ImGui::GetColorU32((*gActive).panelBackground));
+                     ImGui::GetColorU32(gPalette.panelBackground));
             break;
         }
 
@@ -355,7 +362,7 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             axisQuad(draw, s, ImVec2(0.22f, 0.76f), ImVec2(0.78f, 0.28f), 0.185f,
                      colour);
             draw->AddLine(s(0.36f, 0.75f), s(0.66f, 0.43f),
-                          ImGui::GetColorU32((*gActive).panelBackground),
+                          ImGui::GetColorU32(gPalette.panelBackground),
                           std::max(1.5f, size * 0.075f));
             break;
         }
@@ -647,7 +654,7 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
             axisQuad(draw, s, ImVec2(0.60f, 0.40f), ImVec2(0.66f, 0.34f), 0.105f,
                      colour);
             draw->AddLine(s(0.585f, 0.415f), s(0.675f, 0.325f),
-                          ImGui::GetColorU32((*gActive).panelBackground),
+                          ImGui::GetColorU32(gPalette.panelBackground),
                           std::max(1.2f, size * 0.055f));
 
             axisQuad(draw, s, ImVec2(0.28f, 0.72f), ImVec2(0.60f, 0.40f), 0.062f,
@@ -664,7 +671,7 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
 
 bool toolButton(Icon icon, const char* name, const char* shortcutHint,
                 bool selected, const char* description) {
-    const Palette& c = (*gActive);
+    const Palette& c = gPalette;
     const float side = 30.f;
 
     ImGui::PushStyleColor(ImGuiCol_Button,
@@ -746,12 +753,12 @@ bool swatch(const char* id, ImU32 colour, bool selected, float size) {
     // rather than as a dark colour.
     if ((colour >> IM_COL32_A_SHIFT) < 255) {
         const float half = size * 0.5f;
-        draw->AddRectFilled(at, to, ImGui::GetColorU32((*gActive).checkerDark),
+        draw->AddRectFilled(at, to, ImGui::GetColorU32(gPalette.checkerDark),
                             kMetrics.rounding);
         draw->AddRectFilled(ImVec2(at.x + half, at.y), ImVec2(to.x, at.y + half),
-                            ImGui::GetColorU32((*gActive).checkerLight));
+                            ImGui::GetColorU32(gPalette.checkerLight));
         draw->AddRectFilled(ImVec2(at.x, at.y + half), ImVec2(at.x + half, to.y),
-                            ImGui::GetColorU32((*gActive).checkerLight));
+                            ImGui::GetColorU32(gPalette.checkerLight));
     }
     draw->AddRectFilled(at, to, colour, kMetrics.rounding);
 
@@ -759,11 +766,11 @@ bool swatch(const char* id, ImU32 colour, bool selected, float size) {
         // A ring outside the swatch rather than a border inside it: an inset
         // border eats the colour it is meant to identify.
         draw->AddRect(ImVec2(at.x - 2.f, at.y - 2.f), ImVec2(to.x + 2.f, to.y + 2.f),
-                      ImGui::GetColorU32((*gActive).accent), kMetrics.rounding + 1.f,
+                      ImGui::GetColorU32(gPalette.accent), kMetrics.rounding + 1.f,
                       0, 2.f);
     } else {
         draw->AddRect(at, to, ImGui::GetColorU32(
-                          hovered ? (*gActive).text : (*gActive).border),
+                          hovered ? gPalette.text : gPalette.border),
                       kMetrics.rounding, 0, 1.f);
     }
 
@@ -772,18 +779,18 @@ bool swatch(const char* id, ImU32 colour, bool selected, float size) {
 }
 
 void statusItem(const char* label, const char* value, bool bright) {
-    ImGui::PushStyleColor(ImGuiCol_Text, (*gActive).textDim);
+    ImGui::PushStyleColor(ImGuiCol_Text, gPalette.textDim);
     ImGui::TextUnformatted(label);
     ImGui::PopStyleColor();
     ImGui::SameLine(0.f, 5.f);
     ImGui::PushStyleColor(ImGuiCol_Text,
-                          bright ? (*gActive).textBright : (*gActive).text);
+                          bright ? gPalette.textBright : gPalette.text);
     ImGui::TextUnformatted(value);
     ImGui::PopStyleColor();
 }
 
 void hint(const char* text) {
-    ImGui::PushStyleColor(ImGuiCol_Text, (*gActive).textDim);
+    ImGui::PushStyleColor(ImGuiCol_Text, gPalette.textDim);
     ImGui::TextUnformatted("?");
     ImGui::PopStyleColor();
     if (ImGui::IsItemHovered()) {

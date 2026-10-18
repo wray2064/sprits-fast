@@ -1,0 +1,56 @@
+# The themes: each can be chosen in Preferences, takes effect at once, and the
+# window still works in it (the menus and the preferences are there to be read).
+expect theme slate
+click-on Edit
+click-on Preferences...
+wait 2
+
+click-on theme
+wait 2
+click-on Graphite
+wait 2
+expect theme graphite
+expect item File
+
+click-on theme
+wait 2
+click-on Midnight
+wait 2
+expect theme midnight
+
+click-on theme
+wait 2
+click-on OLED
+wait 2
+expect theme oled
+
+click-on theme
+wait 2
+click-on High contrast dark
+wait 2
+expect theme high-contrast-dark
+
+click-on theme
+wait 2
+click-on Warm paper
+wait 2
+expect theme warm-paper
+
+click-on theme
+wait 2
+click-on High contrast light
+wait 2
+expect theme high-contrast-light
+
+click-on theme
+wait 2
+click-on Paper
+wait 2
+expect theme paper
+
+# And back to where it began.
+click-on theme
+wait 2
+click-on Slate
+wait 2
+expect theme slate

@@ -29,6 +29,8 @@
 // glow that redraws half the panel. A tool that flickers while you work is a
 // tool you stop trusting.
 
+#include "app/theme_tokens.h"
+
 #include <imgui.h>
 
 #include <cstdint>
@@ -54,12 +56,30 @@ struct Palette {
     ImVec4 danger;              // destructive actions and failures
     ImVec4 checkerLight;        // the transparency checkerboard
     ImVec4 checkerDark;
+
+    // The roles of app/theme_tokens.h that the panels above did not have names
+    // for. New and rebuilt panels use these; the ones above stay as aliases
+    // until the last panel has moved.
+    ImVec4 raised, inset;
+    ImVec4 textMuted, textDisabled, textOnAccent;
+    ImVec4 separator, focus;
+    ImVec4 selected, selectedText;
+    ImVec4 accentText, accentHover, accentPressed;
+    ImVec4 success, warning, info;
+    ImVec4 successSubtle, warningSubtle, dangerSubtle, infoSubtle;
+    ImVec4 gridLine, selectionLine, guide, onionPast, onionFuture;
 };
 
 const Palette& palette();
 
-// Slate (the default) or paper. Switching re-applies the ImGui style.
+// The theme in force: its colours are what palette() says.
+const Theme& current();
+// Puts a theme in force and re-applies the ImGui style. The built-in ones are
+// in app/theme_tokens.h; a person's come from `*.lstheme` files.
+void setTheme(const Theme& theme);
+
 bool isLight();
+// Slate or Paper, for callers that only know light and dark.
 void setLight(bool light);
 
 // Spacing, in pixels, so panels line up without magic numbers scattered about.

@@ -761,6 +761,10 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         if (width < std::atof(a[1].c_str()) || width > std::atof(a[2].c_str())) {
             failed(a[0] + " is " + std::to_string(width) + " wide");
         }
+    } else if (step.text == "theme" && a.size() == 1) {
+        if (theme::current().id != a[0]) {
+            failed("the theme is " + theme::current().id);
+        }
     } else if (step.text == "uiscale" && a.size() == 1) {
         const int percent = static_cast<int>(std::lround(theme::scale() * 100.f));
         if (percent != std::atoi(a[0].c_str())) {

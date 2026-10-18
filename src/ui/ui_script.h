@@ -55,6 +55,7 @@
 //                                 open, save-as, export-png, export-sheet, export-animation
 //     remove FILE                 a file deleted (a test cleaning up after itself)
 //     expect uiscale 150          the interface scale, in percent
+//     expect theme oled           the theme in force, by its id
 //     expect file FILE            a file exists / expect nofile FILE: it does not
 //     expect section 9 0 8 8      the picked reference's part shown: x y w h
 //     expect playing yes|no

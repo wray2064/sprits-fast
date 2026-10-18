@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "app/preferences.h"
+#include "app/theme_tokens.h"
 
 #include "app/document.h"
 #include "app/file_io.h"
@@ -77,7 +78,7 @@ std::string savePreferences(const Preferences& p) {
     out += "view.checker-size = " + std::to_string(p.checkerSize) + "\n";
     out += "view.grid-colour = " + hexColour(p.gridColour) + "\n";
     out += "view.grid-opacity = " + std::to_string(p.gridOpacity) + "\n";
-    out += "view.theme = " + std::string(p.lightTheme ? "light" : "dark") + "\n";
+    out += "view.theme = " + p.themeId + "\n";
     out += "start.show = " + std::string(p.showStart ? "1" : "0") + "\n";
     out += "colour.recent = " + p.recentColours + "\n";
     out += "view.scale = " + std::to_string(p.uiScale) + "\n";
@@ -131,7 +132,11 @@ Preferences loadPreferences(const std::string& text) {
         } else if (name == "view.grid-opacity") {
             p.gridOpacity = static_cast<int>(number(value, 0, 255, 16));
         } else if (name == "view.theme") {
-            p.lightTheme = value == "light";
+            // "light" and "dark" are what older versions wrote.
+            const std::string id = value == "light" ? "paper" : value == "dark" ? "slate" : value;
+            const Theme* theme = findBuiltinTheme(id);
+            p.themeId = theme != nullptr ? theme->id : "slate";
+            p.lightTheme = theme != nullptr && !theme->dark;
         } else if (name == "start.tip") {
             p.tipIndex = static_cast<uint32_t>(number(value, 0, 1000000, 0));
         } else if (name == "view.scale") {

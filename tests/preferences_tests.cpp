@@ -8,6 +8,7 @@
 // back to the default.
 
 #include "app/preferences.h"
+#include "app/theme_tokens.h"
 
 #include <cstdio>
 
@@ -63,8 +64,21 @@ int main() {
     // The theme is kept, and a canvas left at one theme's defaults follows
     // the theme; one the person chose stays.
     fast::Preferences themed;
-    themed.lightTheme = true;
+    themed.themeId = "paper";
+    CHECK(fast::loadPreferences(fast::savePreferences(themed)).themeId == "paper");
     CHECK(fast::loadPreferences(fast::savePreferences(themed)).lightTheme);
+    // Each built-in theme comes back as itself, with its light or dark.
+    for (const fast::Theme& theme : fast::builtinThemes()) {
+        themed.themeId = theme.id;
+        const fast::Preferences back = fast::loadPreferences(fast::savePreferences(themed));
+        CHECK(back.themeId == theme.id && back.lightTheme == !theme.dark);
+    }
+    // What older versions wrote still means what it did; a theme that is not
+    // there falls back to the default rather than to nothing.
+    CHECK(fast::loadPreferences("view.theme = light").themeId == "paper");
+    CHECK(fast::loadPreferences("view.theme = dark").themeId == "slate");
+    CHECK(fast::loadPreferences("view.theme = ../../evil").themeId == "slate");
+    CHECK(fast::loadPreferences("").themeId == "slate");
 
     // The interface scale is kept, and a value out of range is brought into it
     // rather than trusted: a scale of 5000 would make the program unusable.

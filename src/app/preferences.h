@@ -33,6 +33,10 @@ struct Preferences {
     int      checkerSize = 8;
     uint32_t gridColour = 0xFFFFFF;
     int      gridOpacity = 16;
+    // The theme in force (app/theme_tokens.h): a built-in id. `lightTheme` follows
+    // from it on load and from setTheme; it is kept for the callers that only
+    // ask whether the chrome is light.
+    std::string themeId = "slate";
     bool     lightTheme = false;
     bool     showStart = true;        // the start screen when the program opens
     int      uiScale = 100;           // interface scale, percent: text and spacing
