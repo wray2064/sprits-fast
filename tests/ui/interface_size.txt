@@ -1,0 +1,40 @@
+# The interface size in Preferences: typed into the slider, applied at once,
+# kept to its range, and put back.
+expect uiscale 100
+click-on Edit
+click-on Preferences...
+wait 2
+expect item interface size
+
+# Ctrl+click types a value into a slider.
+hold ctrl
+click-on interface size
+let ctrl
+key ctrl+a
+type 125
+key enter
+wait 2
+expect uiscale 125
+
+# The menus are still there at that size.
+expect item File
+
+# Typing past the end of the range stops at the end.
+hold ctrl
+click-on interface size
+let ctrl
+key ctrl+a
+type 400
+key enter
+wait 2
+expect uiscale 150
+
+# And back to the size it was drawn at.
+hold ctrl
+click-on interface size
+let ctrl
+key ctrl+a
+type 100
+key enter
+wait 2
+expect uiscale 100

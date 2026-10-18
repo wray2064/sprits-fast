@@ -12,6 +12,13 @@ expect item Library...
 expect item Start with a blank canvas
 expect item shape_test.lsprite
 
+# A tip is shown, and Next tip steps to another (it must not close the screen).
+expect item Next tip
+click-on Next tip
+wait 2
+expect item Next tip
+expect item New file...
+
 # A recent file is already open here, so choosing it shows that tab.
 click-on shape_test.lsprite
 wait 2

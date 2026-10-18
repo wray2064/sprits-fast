@@ -6,7 +6,10 @@
 #include "app/file_io.h"
 #include "app/i18n.h"
 #include "app/image_io.h"
+#include "app/library.h"
 #include "app/templates.h"
+#include "app/tips.h"
+#include "ui/reference_cache.h"
 #include "ui/tabs.h"
 #include "ui/theme.h"
 
@@ -22,11 +25,11 @@ namespace {
 
 constexpr const char* kPopup = "Start";
 
-// What the program is called and its picture, as the window has them; the
-// logo becomes a texture the first time it is drawn, because only then is a
-// renderer to hand. A logo that will not decode is simply not drawn.
+// The program's own name, links and picture, as configureProgram was given
+// them; the logo becomes a texture the first time it is wanted, because only
+// then is a renderer to hand. A logo that will not decode is simply not drawn.
 struct Branding {
-    std::string          title = "Sprit's'fast";
+    ProgramInfo          info;
     std::vector<uint8_t> logoPng;
     SDL_Texture*         logo = nullptr;
     bool                 tried = false;
@@ -35,28 +38,6 @@ struct Branding {
 Branding& branding() {
     static Branding b;
     return b;
-}
-
-SDL_Texture* logoTexture(SDL_Window* window) {
-    Branding& b = branding();
-    if (b.tried || b.logoPng.empty()) {
-        return b.logo;
-    }
-    b.tried = true;
-    SDL_Renderer* renderer = SDL_GetRenderer(window);
-    ls::RasterBuffer image;
-    std::string why;
-    if (renderer == nullptr || !decodeImage(b.logoPng, &image, &why) || image.empty()) {
-        return nullptr;
-    }
-    b.logo = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
-                               static_cast<int>(image.width), static_cast<int>(image.height));
-    if (b.logo != nullptr) {
-        SDL_UpdateTexture(b.logo, nullptr, image.pixels.data(), static_cast<int>(image.stride));
-        SDL_SetTextureBlendMode(b.logo, SDL_BLENDMODE_BLEND);
-        SDL_SetTextureScaleMode(b.logo, SDL_SCALEMODE_LINEAR);
-    }
-    return b.logo;
 }
 
 // A new file from a template is File > New with that template's answers, so
@@ -147,7 +128,7 @@ void drawTemplates(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::TextColored(theme::palette().textDim, "%s", tr("New from a template"));
     ImGui::Dummy(ImVec2(0.f, 2.f));
 
-    const ImVec2 card(150.f, 112.f);
+    const ImVec2 card(140.f, 92.f);
     const float gap = ImGui::GetStyle().ItemSpacing.x;
     const float available = ImGui::GetContentRegionAvail().x;
     const int perRow = std::max(1, static_cast<int>((available + gap) / (card.x + gap)));
@@ -184,10 +165,56 @@ void drawRecent(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
     std::string chosen;
     std::string removed;
+    // A few thumbnails are decoded a frame, so a list of ten fills in over the
+    // next few frames instead of stalling the one that opened the screen.
+    int budget = 3;
+    const float thumb = 48.f;
     for (size_t i = 0; i < editor.startRecent.size(); ++i) {
         const RecentInfo& info = editor.startRecent[i];
         ImGui::PushID(static_cast<int>(i));
 
+        // The picture each save leaves in the file, read without opening it.
+        const ReferenceCache::Entry* picture = nullptr;
+        if (info.exists) {
+            ReferenceCache& cache = canvas.libraryThumbnails();
+            if (cache.holds(info.path)) {
+                std::vector<uint8_t> none;
+                picture = cache.entryForBytes(info.path, none);
+            } else if (budget > 0) {
+                std::vector<uint8_t> png;
+                if (readThumbnail(info.path, &png)) {
+                    picture = cache.entryForBytes(info.path, png, &budget);
+                } else {
+                    --budget;
+                }
+            }
+        }
+
+        ImGui::BeginDisabled(!info.exists);
+        const bool onThumb = ImGui::InvisibleButton("##thumb", ImVec2(thumb, thumb));
+        ImGui::EndDisabled();
+        const ImVec2 from = ImGui::GetItemRectMin();
+        const ImVec2 to = ImGui::GetItemRectMax();
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        draw->AddRectFilled(from, to, ImGui::GetColorU32(theme::palette().canvasBackground));
+        if (picture != nullptr && picture->texture != nullptr && picture->width > 0 &&
+            picture->height > 0) {
+            // Fitted inside the square in its own proportions.
+            const float fit = std::min((thumb - 4.f) / static_cast<float>(picture->width),
+                                       (thumb - 4.f) / static_cast<float>(picture->height));
+            const float w = static_cast<float>(picture->width) * fit;
+            const float h = static_cast<float>(picture->height) * fit;
+            const ImVec2 at(from.x + (thumb - w) * 0.5f, from.y + (thumb - h) * 0.5f);
+            draw->AddImage(reinterpret_cast<ImTextureID>(picture->texture), at,
+                           ImVec2(at.x + w, at.y + h));
+        }
+        draw->AddRect(from, to, ImGui::GetColorU32(theme::palette().textDim), 2.f);
+        if (onThumb) {
+            chosen = info.path;
+        }
+        ImGui::SameLine(0.f, 12.f);
+
+        ImGui::BeginGroup();
         std::string label = fileName(info.path);
         if (!info.exists) {
             label += " (missing)";
@@ -213,6 +240,7 @@ void drawRecent(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             detail += detail.empty() ? age : "   " + age;
         }
         ImGui::TextDisabled("%s", detail.c_str());
+        ImGui::EndGroup();
         ImGui::Dummy(ImVec2(0.f, 4.f));
         ImGui::PopID();
     }
@@ -241,15 +269,53 @@ void drawRecent(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
 } // namespace
 
-void configureStartScreen(const std::string& title, const std::vector<uint8_t>& logoPng) {
+void configureProgram(const AppExtension& extension, const std::vector<uint8_t>& logoPng) {
     Branding& b = branding();
-    b.title = title;
+    b.info.title = extension.title;
+#ifdef FAST_VERSION
+    b.info.version = extension.version.empty() ? std::string(FAST_VERSION) : extension.version;
+#else
+    b.info.version = extension.version;
+#endif
+    b.info.homepage = extension.homepage;
+    b.info.issues = extension.issues;
+    b.info.licence = extension.licence;
     b.logoPng = logoPng;
     b.tried = false;
     b.logo = nullptr;       // a texture belongs to a renderer; the old one is not reused
 }
 
+const ProgramInfo& programInfo() {
+    return branding().info;
+}
+
+SDL_Texture* programLogo(SDL_Window* window) {
+    Branding& b = branding();
+    if (b.tried || b.logoPng.empty()) {
+        return b.logo;
+    }
+    b.tried = true;
+    SDL_Renderer* renderer = SDL_GetRenderer(window);
+    ls::RasterBuffer image;
+    std::string why;
+    if (renderer == nullptr || !decodeImage(b.logoPng, &image, &why) || image.empty()) {
+        return nullptr;
+    }
+    b.logo = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
+                               static_cast<int>(image.width), static_cast<int>(image.height));
+    if (b.logo != nullptr) {
+        SDL_UpdateTexture(b.logo, nullptr, image.pixels.data(), static_cast<int>(image.stride));
+        SDL_SetTextureBlendMode(b.logo, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(b.logo, SDL_SCALEMODE_LINEAR);
+    }
+    return b.logo;
+}
+
 void openStartScreen(Editor& editor) {
+    // The tip it opens on, and the next one kept for the next time.
+    editor.startTip = editor.prefs.tipIndex;
+    editor.prefs.tipIndex = (editor.prefs.tipIndex + 1) % 1000000;
+    saveSettings(editor);
     editor.startOpen = true;
     editor.startStale = true;
     editor.startTabs = tabCount(editor);
@@ -275,8 +341,8 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::OpenPopup(kPopup);
     }
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const ImVec2 size(std::min(900.f, viewport->WorkSize.x * 0.94f),
-                      std::min(640.f, viewport->WorkSize.y * 0.94f));
+    const ImVec2 size(std::min(960.f, viewport->WorkSize.x * 0.94f),
+                      std::min(700.f, viewport->WorkSize.y * 0.94f));
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
@@ -289,7 +355,7 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // The header: the logo, and the program's name beside it.
     const float logoSize = 56.f;
-    if (SDL_Texture* logo = logoTexture(window)) {
+    if (SDL_Texture* logo = programLogo(window)) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(logo), at,
                                              ImVec2(at.x + logoSize, at.y + logoSize));
@@ -298,13 +364,13 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
     ImGui::BeginGroup();
     ImGui::Dummy(ImVec2(0.f, logoSize * 0.5f - ImGui::GetTextLineHeight() * 0.5f));
-    ImGui::TextColored(theme::palette().textBright, "%s", branding().title.c_str());
+    ImGui::TextColored(theme::palette().textBright, "%s", branding().info.title.c_str());
     ImGui::EndGroup();
     ImGui::Dummy(ImVec2(0.f, 6.f));
     ImGui::Separator();
     ImGui::Dummy(ImVec2(0.f, 6.f));
 
-    const float footer = 56.f;
+    const float footer = 112.f;
     const float actionsWidth = 220.f;
     ImGui::BeginChild("startActions", ImVec2(actionsWidth, -footer), false);
     drawActions(editor, canvas, window);
@@ -317,6 +383,17 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawRecent(editor, canvas, window);
     ImGui::EndChild();
     ImGui::EndChild();
+
+    // One thing worth knowing, and a way to step through the others.
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+    ImGui::TextColored(theme::palette().textDim, "%s", tr("Did you know"));
+    ImGui::SameLine();
+    if (ImGui::SmallButton(tr("Next tip"))) {
+        ++editor.startTip;
+    }
+    ImGui::TextWrapped("%s", tr(tipAt(editor.startTip).c_str()));
+    ImGui::Dummy(ImVec2(0.f, 4.f));
 
     ImGui::Separator();
     ImGui::Dummy(ImVec2(0.f, 4.f));

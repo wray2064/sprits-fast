@@ -36,6 +36,7 @@ void exchange(Editor& editor, DocumentTab& tab) {
     std::swap(editor.activeReference, tab.activeReference);
     std::swap(editor.preview, tab.preview);
     std::swap(editor.recovery, tab.recovery);
+    std::swap(editor.lastExport, tab.lastExport);
     std::swap(editor.symmetryAxisX, tab.symmetryAxisX);
     std::swap(editor.symmetryAxisY, tab.symmetryAxisY);
     std::swap(editor.inkRole, tab.inkRole);

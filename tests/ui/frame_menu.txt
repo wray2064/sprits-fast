@@ -1,0 +1,48 @@
+# Right-click a frame in the timeline: duplicate, add, move, delete.
+key t
+key ctrl+0
+expect frames 1
+
+right-click-on cell
+click-on Duplicate frame
+wait 2
+expect frames 2
+expect frame 2
+
+right-click-on cell @1
+click-on Add empty frame after
+wait 2
+expect frames 3
+expect frame 2
+
+# Move the middle frame right: it becomes the third.
+right-click-on cell @2
+click-on Move right
+wait 2
+expect frames 3
+expect frame 3
+
+# Delete the one that is selected.
+right-click-on cell @3
+click-on Delete frame
+wait 2
+expect frames 2
+
+# A run selected with shift+click is acted on whole: three frames, the first
+# two selected, and Delete frame takes both.
+right-click-on cell @1
+click-on Duplicate frame
+wait 2
+expect frames 3
+click-on cell @1
+hold shift
+click-on cell @2
+let shift
+right-click-on cell @1
+click-on Delete frame
+wait 2
+expect frames 1
+
+# The last frame is never deleted: the item is there but does nothing.
+right-click-on cell @1
+expect item Delete frame

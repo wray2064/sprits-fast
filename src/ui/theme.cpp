@@ -15,6 +15,8 @@ namespace fast {
 namespace theme {
 namespace {
 
+float gScale = 1.f;     // the person's interface scale; see setScale
+
 constexpr ImVec4 rgb(int r, int g, int b, float a = 1.f) {
     return ImVec4(static_cast<float>(r) / 255.f, static_cast<float>(g) / 255.f,
                   static_cast<float>(b) / 255.f, a);
@@ -106,6 +108,10 @@ const Metrics& metrics() { return kMetrics; }
 
 void apply() {
     ImGuiStyle& style = ImGui::GetStyle();
+    // Every call starts from the style as ImGui made it, so a scale applied
+    // twice is not applied on top of itself.
+    static const ImGuiStyle pristine = ImGui::GetStyle();
+    style = pristine;
     const Palette& c = (*gActive);
     const Metrics& m = kMetrics;
 
@@ -199,6 +205,21 @@ void apply() {
     colours[ImGuiCol_TextSelectedBg]       = c.accentDim;
     colours[ImGuiCol_NavCursor]            = c.accent;
     colours[ImGuiCol_ModalWindowDimBg]     = ImVec4(0.f, 0.f, 0.f, 0.55f);
+
+    // The person's interface scale: text and every spacing, not the canvas.
+    if (gScale != 1.f) {
+        style.ScaleAllSizes(gScale);
+    }
+    style.FontScaleMain = gScale;
+}
+
+void setScale(float scale) {
+    gScale = std::clamp(scale, 0.5f, 3.f);
+    apply();
+}
+
+float scale() {
+    return gScale;
 }
 
 void loadFonts(float scale) {

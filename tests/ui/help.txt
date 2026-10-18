@@ -1,0 +1,25 @@
+# The Help menu: About, and the list of shortcuts.
+click-on Help
+click-on About...
+wait 2
+expect item Project page
+expect item Close
+click-on Close
+wait 2
+expect missing Project page
+
+# The shortcut list shows what the keys are, and narrows as it is typed into.
+click-on Help
+click-on Keyboard shortcuts...
+wait 2
+expect item Spray
+click-on ##shortcutFilter
+type swap
+wait 2
+expect item Swap the two colours
+expect missing Spray
+
+# A row is a way to change that key: it opens the Keys tab of Preferences.
+click-on Swap the two colours
+wait 2
+expect item Preferences

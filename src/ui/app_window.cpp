@@ -34,6 +34,7 @@
 #include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
+#include "ui/help.h"
 #include "ui/start_screen.h"
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
@@ -366,6 +367,8 @@ void fast::requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
 
 namespace {
 
+void exportAgain(Editor& editor);
+
 // ------------------------------------------------------------------- menu --
 
 void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
@@ -479,6 +482,16 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem(tr("Export animation..."), nullptr, false,
                             !editor.frames.empty())) {
             editor.animationPanelOpen = true;
+        }
+        if (ImGui::MenuItem(tr("Export again"), keysLabel(editor.keys, "file.export-again").c_str(),
+                            false, editor.lastExport.kind != DialogResult::Kind::None)) {
+            exportAgain(editor);
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("%s", editor.lastExport.kind == DialogResult::Kind::None
+                ? tr("Export once first; this then repeats it, to the same file,\n"
+                     "with the settings as they are now.")
+                : editor.lastExport.path.c_str());
         }
         ImGui::Separator();
         if (ImGui::MenuItem(tr("Close tab"), keysLabel(editor.keys, "file.close").c_str())) {
@@ -855,6 +868,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (gExtension != nullptr && gExtension->menus) {
         gExtension->menus(editor, canvas);
     }
+    drawHelpMenu(editor);
     ImGui::EndMainMenuBar();
 }
 
@@ -1279,6 +1293,28 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
     bool changed = false;
     if (ImGui::BeginTabBar("preference-tabs")) {
         if (ImGui::BeginTabItem(tr("General"))) {
+            theme::sectionHeader(tr("INTERFACE"));
+            {
+                // Text and spacing, as a percentage, applied as it is dragged
+                // so the result is seen at once. First on the tab: it is the
+                // control that has to stay reachable when it is turned up.
+                ImGui::SetNextItemWidth(200.f);
+                int percent = prefs.uiScale;
+                if (ImGui::SliderInt(tr("interface size"), &percent, 75, 150, "%d%%",
+                                     ImGuiSliderFlags_AlwaysClamp)) {
+                    percent = std::clamp(percent, 75, 150);
+                    prefs.uiScale = percent;
+                    theme::setScale(static_cast<float>(percent) / 100.f);
+                    changed = true;
+                }
+                nameForScripts("interface size");
+                ImGui::SameLine();
+                if (ImGui::SmallButton(tr("Reset##scale"))) {
+                    prefs.uiScale = 100;
+                    theme::setScale(1.f);
+                    changed = true;
+                }
+            }
             theme::sectionHeader(tr("A NEW DOCUMENT"));
             int size[2] = { static_cast<int>(prefs.newWidth), static_cast<int>(prefs.newHeight) };
             ImGui::SetNextItemWidth(200.f);
@@ -1862,6 +1898,21 @@ void drawSymmetryAxes(Editor& editor, const CanvasView& canvas, ImDrawList* draw
     }
 }
 
+// Repeats the last export, to the same file, as if the dialog had just been
+// answered with it: the answer goes in the same place a native dialog's does,
+// so the one handler below does the work and says what happened.
+void exportAgain(Editor& editor) {
+    if (editor.lastExport.kind == DialogResult::Kind::None) {
+        return;
+    }
+    SDL_LockMutex(editor.files.dialog.mutex);
+    editor.files.dialog.kind = editor.lastExport.kind;
+    editor.files.dialog.path = editor.lastExport.path;
+    editor.files.dialog.cancelled = false;
+    editor.files.dialog.ready = true;
+    SDL_UnlockMutex(editor.files.dialog.mutex);
+}
+
 // Picks up whatever a native dialog came back with. The callback runs on SDL's
 // terms -- possibly another thread, certainly another frame -- so the answer is
 // read here under the lock and acted on in the main loop's own time.
@@ -1931,6 +1982,7 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
             ? exportSpriteToIndexedPng(editor.doc, editor.sprite, path, settings, &report, &error)
             : exportSpriteToPng(editor.doc, editor.sprite, path, settings, &error);
         if (done) {
+            editor.lastExport = { kind, path };
             std::string said = "Exported " + fileName(path) + " at " +
                                std::to_string(editor.exportScale) + "x";
             if (editor.exportIndexed) {
@@ -2029,6 +2081,7 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         std::string error;
         if (exportAnimation(editor.doc, editor.frames, cycle, target, editor.animation,
                             &report, &error)) {
+            editor.lastExport = { kind, target };
             std::string said = "Wrote " + fileName(target) + ": " +
                                std::to_string(report.frames) + " frame(s)";
             if (report.reducedColours) {
@@ -2048,6 +2101,7 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         std::string error;
         if (exportSheetToPng(editor.doc, editor.frames, steps, editor.cycles,
                              withExtension(path, ".png"), editor.sheet, &error)) {
+            editor.lastExport = { kind, withExtension(path, ".png") };
             editor.say("Wrote " + fileName(path) + ": " +
                        std::to_string(steps.size()) + " cells at " +
                        std::to_string(editor.sheet.scale) + "x");
@@ -3019,7 +3073,18 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // the person can rebind in Preferences. A chord fires only with exactly
     // its modifiers, so Shift+] is the brush and ] alone is the zoom.
     const Keymap& keys = editor.keys;
-    const auto fired = [&keys](const char* id) { return commandPressed(keys, id); };
+    // A command chosen in Command search is carried out here, once, as if its
+    // key had been pressed -- so it does exactly what the key does.
+    struct ForgetCommand {
+        std::string& command;
+        ~ForgetCommand() { command.clear(); }
+    } forgetCommand{ editor.runCommand };
+    const auto fired = [&keys, &editor](const char* id) {
+        return commandPressed(keys, id) || editor.runCommand == id;
+    };
+    if (fired("app.search")) {
+        openCommandSearch(editor);
+    }
     const auto pick = [&editor](Tool tool) {
         if (tool == Tool::Picker && editor.tool != Tool::Picker) {
             editor.toolBeforePicker = editor.tool;
@@ -3066,6 +3131,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (fired("file.library")) {
         editor.libraryOpen = !editor.libraryOpen;
         editor.libraryStale = editor.libraryStale || editor.libraryOpen;
+    }
+    if (fired("file.export-again") && editor.lastExport.kind != DialogResult::Kind::None) {
+        exportAgain(editor);
     }
     if (fired("file.quit")) { requestAction(editor, canvas, window, PendingAction::Quit); }
     if (fired("file.close")) { requestAction(editor, canvas, window, PendingAction::CloseTab); }
@@ -3421,6 +3489,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);
     drawStartScreen(editor, canvas, window);
+    drawHelpWindows(editor, window);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -4935,10 +5004,10 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         return 1;
     }
     setWindowIcon(window, extension);
-    configureStartScreen(extension.title,
-                         extension.icon.empty()
-                             ? std::vector<uint8_t>(kFastIcon256, kFastIcon256 + kFastIcon256_size)
-                             : extension.icon);
+    configureProgram(extension,
+                     extension.icon.empty()
+                         ? std::vector<uint8_t>(kFastIcon256, kFastIcon256 + kFastIcon256_size)
+                         : extension.icon);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     if (renderer == nullptr) {
@@ -5057,6 +5126,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     const bool headless = options.selfTest || options.frames > 0 || !options.script.empty();
     if (!headless) {
         loadSettings(editor);
+        editor.settingsLoaded = true;
     }
     editor.systemClipboard = !headless;
     initSystemClipboard(window);
@@ -5071,6 +5141,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     if (editor.prefs.lightTheme) {
         theme::setLight(true);
     }
+    theme::setScale(static_cast<float>(editor.prefs.uiScale) / 100.f);
     applyViewPreferences(editor.prefs, canvas);
     editor.doc.setHistoryLimit(editor.prefs.historyLimit);
     if (options.autosaveSeconds > 0) {

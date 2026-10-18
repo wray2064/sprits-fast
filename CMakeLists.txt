@@ -113,6 +113,8 @@ add_library(fast_core STATIC
     src/app/tilemap.cpp
     src/app/recent_files.cpp
     src/app/templates.cpp
+    src/app/recent_colours.cpp
+    src/app/tips.cpp
     src/app/shape.cpp
     src/app/text.cpp
     src/app/sheet.cpp
@@ -176,6 +178,7 @@ if (FAST_BUILD_GUI)
         src/ui/shape_tools.cpp
         src/ui/tabs.cpp
         src/ui/start_screen.cpp
+        src/ui/help.cpp
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
         src/ui/ui_script.cpp
@@ -195,6 +198,8 @@ if (FAST_BUILD_GUI)
     embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/sprits_fast_32.png
                kFastIcon32 ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_icon_32.h)
     target_include_directories(fast_ui PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+    # Help > About says which version this is, from the project's own.
+    target_compile_definitions(fast_ui PRIVATE FAST_VERSION="${PROJECT_VERSION}")
     if (WIN32)
         add_executable(sprits_fast WIN32 src/ui/fast_main.cpp src/ui/sprits_fast.rc)
     else()
@@ -332,6 +337,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_templates_tests tests/templates_tests.cpp)
     target_link_libraries(fast_templates_tests PRIVATE fast_core)
     add_test(NAME fast_templates COMMAND fast_templates_tests)
+
+    add_executable(fast_recent_colours_tests tests/recent_colours_tests.cpp)
+    target_link_libraries(fast_recent_colours_tests PRIVATE fast_core)
+    add_test(NAME fast_recent_colours COMMAND fast_recent_colours_tests)
 
     add_executable(fast_ui_state_tests tests/ui_state_tests.cpp)
     target_link_libraries(fast_ui_state_tests PRIVATE fast_core)

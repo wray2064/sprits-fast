@@ -51,6 +51,11 @@
 //                                 Import reference does once the file is chosen
 //     open shape_test.lsprite     a file opened, as a recent entry or a drop does
 //     start                       the start screen brought up, as File > Start screen does
+//     answer export-png FILE      a native file dialog answered, as the system's would:
+//                                 open, save-as, export-png, export-sheet, export-animation
+//     remove FILE                 a file deleted (a test cleaning up after itself)
+//     expect uiscale 150          the interface scale, in percent
+//     expect file FILE            a file exists / expect nofile FILE: it does not
 //     expect section 9 0 8 8      the picked reference's part shown: x y w h
 //     expect playing yes|no
 //     expect canvas 64 64 / expect tabs 2
@@ -96,7 +101,7 @@ public:
 private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
-                    Reference, Open, Start,
+                    Reference, Open, Start, Answer, Remove,
                     Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;

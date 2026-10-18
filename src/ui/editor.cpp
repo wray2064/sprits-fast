@@ -281,6 +281,7 @@ void loadSettings(Editor& editor) {
         editor.keys.load(std::string(bytes.begin(), bytes.end()));
     }
     applyLanguage(editor.prefs.language);
+    editor.recentColours.set(decodeRecentColours(editor.prefs.recentColours));
     // What the preferences say a new document is, the New window starts from.
     editor.files.newDocument.width = editor.prefs.newWidth;
     editor.files.newDocument.height = editor.prefs.newHeight;
@@ -332,6 +333,11 @@ bool applyLanguage(const std::string& code) {
 }
 
 void saveSettings(const Editor& editor) {
+    // A run that never read the person's settings would write back its own
+    // defaults over them.
+    if (!editor.settingsLoaded) {
+        return;
+    }
     std::string error;
     const std::string prefs = preferencesPath();
     if (!prefs.empty()) {

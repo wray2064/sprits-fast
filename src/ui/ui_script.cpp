@@ -14,6 +14,7 @@
 #include "ui/reference_section.h"
 #include "ui/start_screen.h"
 #include "ui/tabs.h"
+#include "ui/theme.h"
 
 #include <imgui_internal.h>
 
@@ -269,6 +270,18 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         o.text = line.substr(line.find("open") + 5);
         while (!o.text.empty() && o.text.back() == ' ') { o.text.pop_back(); }
         add(o);
+    } else if (verb == "answer" && w.size() >= 3) {
+        Step a; a.kind = Step::Answer;
+        a.args.push_back(w[1]);
+        const size_t at = line.find(w[1]) + w[1].size() + 1;
+        a.text = line.substr(at);
+        while (!a.text.empty() && a.text.back() == ' ') { a.text.pop_back(); }
+        add(a);
+    } else if (verb == "remove" && w.size() >= 2) {
+        Step r; r.kind = Step::Remove;
+        r.text = line.substr(line.find("remove") + 7);
+        while (!r.text.empty() && r.text.back() == ' ') { r.text.pop_back(); }
+        add(r);
     } else if (verb == "start" && w.size() == 1) {
         Step s; s.kind = Step::Start; add(s);
     } else if (verb == "tool" && w.size() == 2) {
@@ -491,6 +504,34 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::Start:
                 openStartScreen(editor);
                 return;
+            case Step::Answer: {
+                // What a native dialog's callback would have left, put where it
+                // would have left it.
+                using Kind = DialogResult::Kind;
+                const std::string& which = step.args[0];
+                const Kind kind = which == "open" ? Kind::Open
+                                : which == "save-as" ? Kind::SaveAs
+                                : which == "export-png" ? Kind::ExportPng
+                                : which == "export-sheet" ? Kind::ExportSheet
+                                : which == "export-animation" ? Kind::ExportAnimation
+                                : Kind::None;
+                if (kind == Kind::None) {
+                    std::printf("FAIL script:%d: no dialog called %s\n", step.line, which.c_str());
+                    ++failures_;
+                    ++checks_;
+                    return;
+                }
+                SDL_LockMutex(editor.files.dialog.mutex);
+                editor.files.dialog.kind = kind;
+                editor.files.dialog.path = step.text;
+                editor.files.dialog.cancelled = false;
+                editor.files.dialog.ready = true;
+                SDL_UnlockMutex(editor.files.dialog.mutex);
+                return;
+            }
+            case Step::Remove:
+                deleteFile(step.text);
+                continue;
             case Step::Tool: {
                 Tool tool;
                 if (toolFromName(step.text, &tool)) {
@@ -719,6 +760,16 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         const float width = window != nullptr ? window->Size.x : -1.f;
         if (width < std::atof(a[1].c_str()) || width > std::atof(a[2].c_str())) {
             failed(a[0] + " is " + std::to_string(width) + " wide");
+        }
+    } else if (step.text == "uiscale" && a.size() == 1) {
+        const int percent = static_cast<int>(std::lround(theme::scale() * 100.f));
+        if (percent != std::atoi(a[0].c_str())) {
+            failed("the interface is at " + std::to_string(percent) + "%");
+        }
+    } else if ((step.text == "file" || step.text == "nofile") && a.size() == 1) {
+        const bool there = fileExists(a[0]);
+        if (there != (step.text == "file")) {
+            failed(a[0] + (there ? " exists" : " is not there"));
         }
     } else if (step.text == "canvas" && a.size() == 2) {
         auto size = editor.doc.engine().getCanvasSize(editor.doc.id());

@@ -28,6 +28,12 @@ struct AppExtension {
     // size). Empty: Fast's. The icon Windows shows for the executable itself
     // is a resource in that executable (see sprits_fast.rc).
     std::vector<uint8_t> icon;
+    // What Help > About says. Fast's own unless a program built on it names
+    // its own; an empty link is not shown.
+    std::string version;                       // empty: the version Fast was built as
+    std::string homepage = "https://github.com/wray2064/sprits-fast";
+    std::string issues = "https://github.com/wray2064/sprits-fast/issues";
+    std::string licence = "Apache License 2.0";
     // Inside the main menu bar, after Fast's own menus.
     std::function<void(Editor&, CanvasView&)> menus;
     // Once a frame, after Fast's panels: windows of its own.

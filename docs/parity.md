@@ -182,12 +182,35 @@ tiers were done.
       a tile edits every placement)**; Aseprite tilemaps imported
 - [x] Per-cel opacity (Aseprite's cel properties)
 
+## Tier 5 — the conventions around the editor
+Found by asking what Aseprite and Photoshop do that is not drawing: how a
+program greets, explains itself, remembers and is handed to someone.
+- [x] Start screen at launch: logo, New, Open, Import sprite sheet, Library,
+      template cards with previews, recent files with thumbnails, a tip
+- [x] Help menu: Keyboard shortcuts (every command with a key, from the same
+      table Preferences edits), About (version, licence, what it is built on,
+      links), Search commands
+- [x] Command search (Ctrl+Shift+P): a few letters, the commands that match,
+      Enter carries out the first
+- [x] Recent colours: colours painted with that are not palette slots, newest
+      first, kept between sessions
+- [x] Right-click menu on a frame in the timeline
+- [x] Export again (Ctrl+Shift+E): the last export, to the same file, with
+      the settings as they are now, per document
+- [x] Interface size in Preferences (75-150%, text and spacing)
+- [x] A per-user install: `Install.ps1` copies the program, opens `.lsprite`
+      files with it, adds a Start menu shortcut and an entry in Settings >
+      Apps; `Uninstall.ps1` removes exactly that (`-DryRun` on both)
+- [ ] Code signing and updates: need a certificate and a place to host them
+- [ ] Interface size past 150%: several panels use fixed pixel widths and clip
+
 ---
 
 ## Log
 
 Newest first. One line per landed item, with the commit.
 
+- Tier 5, the conventions around the editor: Help menu (ui/help: About with version/licence/credits/links from the AppExtension, a shortcuts window read from commandList and the person's keymap, Search commands); command search (Ctrl+Shift+P; the chosen command runs through the same `fired` as its key, via Editor::runCommand); recent colours (app/recent_colours: not slots, bounded, kept as `colour.recent`); a frame's right-click menu; Export again (Editor::lastExport per tab, answered through the dialog's own result so one handler does the work); interface size (theme::setScale over a pristine ImGuiStyle, 75-150%, `view.scale`); start-screen thumbnails (the picture each save writes, read without opening) and a tip (app/tips, `start.tip`); installer/Install.ps1 and Uninstall.ps1, copied into dist by build-release.bat. saveSettings now does nothing in a run that never loaded the person's settings (scripts and captures), so they cannot overwrite them. Script commands: answer, remove, expect file/nofile/uiscale. New suites fast_recent_colours (templates also covers tips); scripts help, frame_menu, recent_colours, export_again, interface_size, command_search.
 - Start screen, templates and logo: template cards (app/templates: name, size, background, palette; templateLabel is what a card is called and a script clicks) replace the quick-size buttons, each previewed as a drawn rectangle on the canvas chequer in its proportions; a card is File > New with its answers and leaves the New window's own choices as they were. The header shows the program's logo and name as the window has them (configureStartScreen, so a program built on Fast greets in its own). Templates test (fast_templates); start_screen.txt extended.
 - Start screen (ui/start_screen): a modal over the blank document the program always starts with, so every choice goes through requestAction like the File menu's; shows at a person's start (Preferences::showStart, `start.show`), never in a scripted run unless `--start`; recent entries looked up when it opens (describeRecent, ageText in app/recent_files), missing files shown but not openable; any change of document closes it. Script commands `open FILE` and `start`; tests/ui/start_screen.txt; recent_files and preferences tests; Spanish catalogue.
 - Reference sections: a reference shows part of its image (Reference::clip*, kept in the list after the fields older builds read; the whole image stays in the document). Importing opens the Reference section window: drag on the preview, type x y w h, or a sheet's cell size and gap and click a cell; < Cell / Cell > step through the sheet (stepReferenceSection). The picker, fitting, canvas ops and Pract's toolkit read the part shown; references magnified on screen are drawn with sharp sampling. Scripts: `reference FILE`, `expect section`; `--reference FILE` imports at start. reference_tests, tests/ui/reference_section.txt.

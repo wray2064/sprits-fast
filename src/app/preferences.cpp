@@ -79,6 +79,9 @@ std::string savePreferences(const Preferences& p) {
     out += "view.grid-opacity = " + std::to_string(p.gridOpacity) + "\n";
     out += "view.theme = " + std::string(p.lightTheme ? "light" : "dark") + "\n";
     out += "start.show = " + std::string(p.showStart ? "1" : "0") + "\n";
+    out += "colour.recent = " + p.recentColours + "\n";
+    out += "view.scale = " + std::to_string(p.uiScale) + "\n";
+    out += "start.tip = " + std::to_string(p.tipIndex) + "\n";
     out += "view.language = " + p.language + "\n";
     return out;
 }
@@ -129,6 +132,15 @@ Preferences loadPreferences(const std::string& text) {
             p.gridOpacity = static_cast<int>(number(value, 0, 255, 16));
         } else if (name == "view.theme") {
             p.lightTheme = value == "light";
+        } else if (name == "start.tip") {
+            p.tipIndex = static_cast<uint32_t>(number(value, 0, 1000000, 0));
+        } else if (name == "view.scale") {
+            p.uiScale = static_cast<int>(number(value, 75, 150, 100));
+        } else if (name == "colour.recent") {
+            // Decoded and bounded by app/recent_colours; only kept short here.
+            if (value.size() <= 16 * 9) {
+                p.recentColours = value;
+            }
         } else if (name == "start.show") {
             p.showStart = number(value, 0, 1, 1) == 1;
         } else if (name == "view.language") {

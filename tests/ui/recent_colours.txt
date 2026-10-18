@@ -1,0 +1,24 @@
+# Recent colours: a colour painted with that is not a palette slot is kept,
+# newest first, and one click paints with it again.
+tool pencil
+colour 123456
+click 3 3
+wait 2
+colour 654321
+click 5 3
+wait 2
+expect pixel 3 3 123456
+expect pixel 5 3 654321
+expect item ##recent @1
+expect item ##recent @2
+
+# The second is the older: 123456. Picking it paints with it.
+click-on ##recent @2
+click 7 3
+expect pixel 7 3 123456
+
+# Using one moves it to the front, so 654321 is the second now.
+wait 2
+click-on ##recent @2
+click 9 3
+expect pixel 9 3 654321

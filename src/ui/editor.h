@@ -25,6 +25,7 @@
 #include "app/layers.h"
 #include "app/library.h"
 #include "app/paint.h"
+#include "app/recent_colours.h"
 #include "app/recent_files.h"
 #include "app/recovery.h"
 #include "app/reference.h"
@@ -126,8 +127,17 @@ struct TimelineSettings {
 // A document that is open but not on screen: everything the editor holds
 // about it, parked while another tab shows, and the view it was left at. The
 // id names the tab itself and stays with it (see tabs.h).
+// The last export a document made -- a PNG, a sheet or an animation -- and
+// where it went, so File > Export again repeats it with the settings now in
+// force and without asking. It belongs to the document, so it moves with its tab.
+struct LastExport {
+    DialogResult::Kind kind = DialogResult::Kind::None;
+    std::string        path;
+};
+
 struct DocumentTab {
     uint32_t                 id = 0;
+    LastExport               lastExport;
     Document                 doc;
     ls::SpriteId             sprite;
     std::vector<PaintLayer>  layers;
@@ -156,6 +166,7 @@ struct DocumentTab {
 };
 
 struct Editor {
+    LastExport              lastExport;
     Document                doc;
     ls::SpriteId            sprite;
     std::vector<PaintLayer> layers;
@@ -176,6 +187,14 @@ struct Editor {
     // is being picked from.
     ls::Color shadeBase { 92, 140, 199, 255 };
     ls::Color shadePicked { 0, 0, 0, 0 };
+    // Colours painted with that the palette does not have (see
+    // app/recent_colours.h), and the one last settled on, so a slider being
+    // dragged adds one entry and not a hundred.
+    RecentColours recentColours;
+    // Whether the person's own settings were read, so writing them back cannot
+    // overwrite what a scripted or captured run never loaded.
+    bool          settingsLoaded = false;
+    ls::Color     recentSeen { 0, 0, 0, 0 };
     ls::ColorRole backRole     = ls::kColorRoleNone;
 
     // The stroke in progress: which element gains the pixels and which lose
@@ -438,6 +457,7 @@ struct Editor {
     bool                    startOpen = false;
     bool                    startStale = true;
     std::vector<RecentInfo> startRecent;
+    unsigned                startTip = 0;        // the tip it is showing (see app/tips.h)
     size_t                  startTabs = 0;       // what was on screen when it opened:
     std::string             startPath;           // any change closes it
 
@@ -447,6 +467,19 @@ struct Editor {
     Keymap      keys;
     Preferences prefs;
     bool        preferencesOpen = false;
+    // Help: the About window and the list of shortcuts, with what is typed to
+    // narrow the list.
+    bool        aboutOpen = false;
+    bool        shortcutsOpen = false;
+    char        shortcutsFilter[64] = {};
+    // Command search: type a few letters of what you want done and do it.
+    // `runCommand` is the command chosen, for the next frame's shortcut
+    // handling to carry out as if its key had been pressed.
+    bool        commandSearchOpen = false;
+    bool        commandSearchFresh = false;
+    char        commandSearchText[64] = {};
+    int         commandSearchRow = 0;
+    std::string runCommand;
     bool        preferencesShowKeys = false;   // open on the Keys tab, once
     std::string rebinding;
     int         rebindingChord = -1;

@@ -191,6 +191,7 @@ build-gui/sprits_fast hero.lsprite
 ./build-gui.bat         # the editor — fetches and builds SDL3, minutes
 build-gui/sprits_fast
 ./build-release.bat     # a copy to hand out: dist/SpritsFast, runtime included
+                        # (Install.ps1 in it installs for the current user; Uninstall.ps1 removes it)
 ```
 
 The core and the interface build separately on purpose. `fast_core` — the

@@ -786,6 +786,81 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
 
 } // namespace
 
+// The colours painted with lately that the palette lacks: a colour is kept
+// once it has settled (no button down, so a slider being dragged is one
+// colour and not a hundred) and only when it is not a slot, which is already
+// one click away. Click one to paint with it, right-click for the right button.
+static void drawRecentColours(Editor& editor) {
+    const ls::Color painting = toColor(editor.color);
+    if (editor.recentSeen.a == 0) {
+        editor.recentSeen = painting;      // the colour it started with was not chosen
+    }
+    if (!(painting == editor.recentSeen) && !ImGui::IsMouseDown(ImGuiMouseButton_Left) &&
+        !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+        editor.recentSeen = painting;
+        bool inPalette = false;
+        for (const PaletteEntry& entry :
+             paletteEntries(editor.doc, paletteFor(editor.doc, editor.sprite))) {
+            inPalette = inPalette || entry.color == painting;
+        }
+        if (editor.inkRole == ls::kColorRoleNone && !inPalette) {
+            editor.recentColours.add(painting);
+            editor.prefs.recentColours = encodeRecentColours(editor.recentColours.entries());
+            if (editor.settingsLoaded) {
+                saveSettings(editor);
+            }
+        }
+    }
+    if (editor.recentColours.entries().empty()) {
+        return;
+    }
+    ImGui::TextColored(theme::palette().textDim, "%s", tr("Recent colours"));
+    const float gap = 2.f;
+    const float swatch = 16.f;
+    const float width = ImGui::GetContentRegionAvail().x;
+    const int perRow = std::max(1, static_cast<int>((width + gap) / (swatch + gap)));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
+    int column = 0;
+    for (size_t i = 0; i < editor.recentColours.entries().size(); ++i) {
+        const ls::Color colour = editor.recentColours.entries()[i];
+        if (column > 0) {
+            ImGui::SameLine();
+        }
+        ImGui::PushID(static_cast<int>(2000 + i));
+        const bool current = colour == painting && editor.inkRole == ls::kColorRoleNone;
+        if (current) {
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.f);
+            ImGui::PushStyleColor(ImGuiCol_Border, theme::palette().accent);
+        }
+        if (ImGui::ColorButton("##recent",
+                               ImVec4(colour.r / 255.f, colour.g / 255.f, colour.b / 255.f,
+                                      colour.a / 255.f),
+                               ImGuiColorEditFlags_NoTooltip, ImVec2(swatch, swatch))) {
+            Ink ink;
+            ink.colour = colour;
+            setForegroundInk(editor, ink);
+        }
+        nameForScripts("##recent");
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+            Ink ink;
+            ink.colour = colour;
+            setBackgroundInk(editor, ink);
+        }
+        if (current) {
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("#%02X%02X%02X -- click to paint with it, right-click "
+                              "for the right button", colour.r, colour.g, colour.b);
+        }
+        ImGui::PopID();
+        column = (column + 1) % perRow;
+    }
+    ImGui::PopStyleVar();
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+}
+
 void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     PaintLayer* layer = editor.active();
     const std::vector<PaletteInfo> palettes = listPalettes(editor.doc);
@@ -1036,6 +1111,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
     }
     ImGui::Dummy(ImVec2(0.f, 4.f));
+
+    drawRecentColours(editor);
 
     if (ImGui::Button(tr("Add current colour"), ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("Add palette colour");

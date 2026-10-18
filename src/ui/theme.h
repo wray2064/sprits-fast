@@ -79,6 +79,12 @@ const Metrics& metrics();
 // after the context is created.
 void apply();
 
+// The person's interface scale: 1 is as drawn, 1.5 is half as big again --
+// text and every spacing, never the canvas. Applied at once, and kept by
+// every later apply() (a change of theme, say).
+void setScale(float scale);
+float scale();
+
 // Loads a readable interface font.
 //
 // ImGui's built-in font is a 13px bitmap face designed for debug output, and it

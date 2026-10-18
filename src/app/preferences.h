@@ -35,6 +35,9 @@ struct Preferences {
     int      gridOpacity = 16;
     bool     lightTheme = false;
     bool     showStart = true;        // the start screen when the program opens
+    int      uiScale = 100;           // interface scale, percent: text and spacing
+    uint32_t tipIndex = 0;            // which tip the start screen shows next (see app/tips.h)
+    std::string recentColours;        // see app/recent_colours.h: "e08f40ff 3060d0ff"
     std::string language;            // a catalogue's name, "es"; empty is English
 };
 

@@ -1,0 +1,32 @@
+# Command search: find a command by a few letters and do it.
+expect tool pencil
+
+# Opened by its key, typed into, and the first match carried out with Enter.
+key ctrl+shift+p
+wait 3
+expect item ##commandSearch
+type ellipse
+wait 2
+key enter
+wait 3
+expect tool ellipse
+expect missing ##commandSearch
+
+# Opened from the Help menu; a row clicked does that command.
+click-on Help
+click-on Search commands...
+wait 3
+type pencil
+wait 2
+click-on Pencil
+wait 3
+expect tool pencil
+
+# Escape closes it without doing anything.
+key ctrl+shift+p
+wait 3
+expect item ##commandSearch
+key escape
+wait 3
+expect missing ##commandSearch
+expect tool pencil

@@ -66,6 +66,24 @@ int main() {
     themed.lightTheme = true;
     CHECK(fast::loadPreferences(fast::savePreferences(themed)).lightTheme);
 
+    // The interface scale is kept, and a value out of range is brought into it
+    // rather than trusted: a scale of 5000 would make the program unusable.
+    CHECK(fast::loadPreferences("").uiScale == 100);
+    fast::Preferences big;
+    big.uiScale = 150;
+    CHECK(fast::loadPreferences(fast::savePreferences(big)).uiScale == 150);
+    CHECK(fast::loadPreferences("view.scale = 5000").uiScale == 150);
+    CHECK(fast::loadPreferences("view.scale = 3").uiScale == 75);
+    CHECK(fast::loadPreferences("view.scale = wide").uiScale == 100);
+
+    // Which tip comes next is kept, so the greeting changes from one start to
+    // the next; a hand-edited value is brought into range.
+    CHECK(fast::loadPreferences("").tipIndex == 0);
+    fast::Preferences tipped;
+    tipped.tipIndex = 7;
+    CHECK(fast::loadPreferences(fast::savePreferences(tipped)).tipIndex == 7);
+    CHECK(fast::loadPreferences("start.tip = -5").tipIndex == 0);
+
     // The start screen is on until the person turns it off, and stays off.
     CHECK(fast::loadPreferences("").showStart);
     fast::Preferences quiet;

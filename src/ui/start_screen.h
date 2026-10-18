@@ -15,7 +15,12 @@
 // It shows at start when Preferences::showStart says so, and any time from
 // File > Start screen. It never opens in a scripted or captured run unless
 // asked (--start), so what those check does not depend on it.
+//
+// This file also holds what the program calls itself -- its name, version,
+// links and logo -- because the start screen was the first thing to need
+// them; Help > About reads them from here.
 
+#include "ui/app_extension.h"
 #include "ui/canvas_view.h"
 #include "ui/editor.h"
 
@@ -24,13 +29,26 @@
 #include <vector>
 
 struct SDL_Window;
+struct SDL_Texture;
 
 namespace fast {
 
-// The name and the logo (PNG bytes) the screen shows: the program's own, as
-// the window has them, so a program built on Fast greets in its own name.
-// Once, after the window exists.
-void configureStartScreen(const std::string& title, const std::vector<uint8_t>& logoPng);
+struct ProgramInfo {
+    std::string title;
+    std::string version;
+    std::string homepage;
+    std::string issues;
+    std::string licence;
+};
+
+// The program as the window has it: the extension's name and links, and the
+// logo (PNG bytes). Once, after the window exists.
+void configureProgram(const AppExtension& extension, const std::vector<uint8_t>& logoPng);
+const ProgramInfo& programInfo();
+
+// The logo as a texture, made on first use; null when there is none or it
+// will not decode.
+SDL_Texture* programLogo(SDL_Window* window);
 
 // Brings the start screen up: re-reads what the recent files are now, and
 // remembers what was on screen so that any change of document closes it.

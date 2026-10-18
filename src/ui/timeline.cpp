@@ -720,6 +720,75 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         }
         const bool hovered = ImGui::IsItemHovered();
 
+        // Right-click a frame for what the buttons above do to it. The frame
+        // under the pointer is the one acted on, unless it is inside the run
+        // already selected, which is acted on whole.
+        bool changedFrames = false;
+        if (ImGui::BeginPopupContextItem("framemenu")) {
+            const bool inRun = ranged && i >= first && i <= last;
+            if (i != timeline.activeFrame && !inRun) {
+                timeline.playing = false;
+                timeline.rangeAnchor = -1;
+                selectFrame(editor, i);
+            }
+            const int from = inRun ? first : i;
+            const int to = inRun ? last : i;
+            if (ImGui::MenuItem(tr("Duplicate frame"), "Ctrl+Shift+D")) {
+                const int at = inRun ? duplicateFrames(editor.doc, from, to)
+                                     : duplicateFrame(editor.doc, i);
+                if (at >= 0) {
+                    resyncFrames(editor);
+                    selectFrame(editor, inRun ? at + (to - from) : at);
+                    changedFrames = true;
+                }
+            }
+            if (ImGui::MenuItem(tr("Add empty frame after"))) {
+                const int at = addEmptyFrame(editor, i);
+                if (at >= 0) {
+                    resyncFrames(editor);
+                    selectFrame(editor, at);
+                    changedFrames = true;
+                }
+            }
+            if (ImGui::MenuItem(tr("Delete frame"), nullptr, false, editor.frames.size() > 1)) {
+                if (deleteFrames(editor.doc, from, to)) {
+                    timeline.rangeAnchor = -1;
+                    resyncFrames(editor);
+                    selectFrame(editor, from - 1 < 0 ? 0 : from - 1);
+                    changedFrames = true;
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(tr("Move left"), nullptr, false, !inRun && i > 0)) {
+                if (moveFrame(editor.doc, i, i - 1)) {
+                    resyncFrames(editor);
+                    selectFrame(editor, i - 1);
+                    changedFrames = true;
+                }
+            }
+            if (ImGui::MenuItem(tr("Move right"), nullptr, false,
+                                !inRun && i + 1 < static_cast<int>(editor.frames.size()))) {
+                if (moveFrame(editor.doc, i, i + 1)) {
+                    resyncFrames(editor);
+                    selectFrame(editor, i + 1);
+                    changedFrames = true;
+                }
+            }
+            if (ImGui::MenuItem(tr("Reverse selected frames"), nullptr, false, inRun)) {
+                if (reverseFrames(editor.doc, from, to)) {
+                    resyncFrames(editor);
+                    changedFrames = true;
+                }
+            }
+            ImGui::EndPopup();
+        }
+        if (changedFrames) {
+            // The list this loop walks has changed under it; the next frame
+            // draws the new one.
+            ImGui::PopID();
+            break;
+        }
+
         // Dragging a frame onto another reorders them. The cycles that name
         // them are renumbered with it, so a cycle still plays the same
         // pictures in the same order afterwards.

@@ -16,6 +16,56 @@ Open... = Abrir...
 Open recent = Abrir reciente
 Start screen = Pantalla de inicio
 
+Did you know = ¿Sabías que
+Next tip = Otro consejo
+Right-click on the canvas paints with the second colour, and X swaps the two. = El clic derecho sobre el lienzo pinta con el segundo color, y X intercambia los dos.
+Hold Space and drag, or drag with the middle button, to pan the canvas. = Mantén Espacio y arrastra, o arrastra con el botón central, para desplazar el lienzo.
+Alt+click a layer's eye to show or hide all the other layers. = Alt+clic en el ojo de una capa muestra u oculta todas las demás.
+Shift+click a second frame in the timeline to select a run, then reverse or tween it. = Mayús+clic en un segundo fotograma de la línea de tiempo selecciona un tramo, que luego puedes invertir o interpolar.
+Right-click a frame in the timeline to duplicate, add, move or delete it. = Clic derecho en un fotograma de la línea de tiempo para duplicarlo, añadir, mover o eliminar.
+Select pixels and press Ctrl+B to make them a brush. = Selecciona píxeles y pulsa Ctrl+B para convertirlos en un pincel.
+Drop a file onto the window to open it, as a tab beside your work. = Suelta un archivo sobre la ventana para abrirlo en una pestaña junto a tu trabajo.
+Ctrl+Shift+E exports again, to the same file, with the settings as they are now. = Ctrl+Mayús+E exporta de nuevo, al mismo archivo, con los ajustes actuales.
+Edit > Fill selection and Stroke selection use the current colour. = Edición > Rellenar selección y Contornear selección usan el color actual.
+A colour that is a palette slot repaints everywhere it was used when the slot changes. = Un color que es una casilla de la paleta se repinta en todas partes donde se usó cuando la casilla cambia.
+Help > Keyboard shortcuts lists every key, and a click on one opens Preferences to change it. = Ayuda > Atajos de teclado muestra todas las teclas, y un clic en una abre Preferencias para cambiarla.
+Drag a panel by its tab to dock it beside another, share its place, or float it over the canvas. = Arrastra un panel por su pestaña para acoplarlo junto a otro, compartir su lugar o dejarlo flotando sobre el lienzo.
+INTERFACE = INTERFAZ
+interface size = tamaño de la interfaz
+Reset = Restablecer
+Recent colours = Colores recientes
+Export again = Exportar de nuevo
+Export once first; this then repeats it, to the same file,\nwith the settings as they are now. = Exporta una vez primero; después esto lo repite, en el mismo archivo,\ncon los ajustes actuales.
+
+# --- menú de un fotograma -------------------------------------------------------
+Duplicate frame = Duplicar fotograma
+Add empty frame after = Añadir fotograma vacío después
+Delete frame = Eliminar fotograma
+Move left = Mover a la izquierda
+Move right = Mover a la derecha
+Reverse selected frames = Invertir los fotogramas seleccionados
+
+# --- ayuda----------------------------------------------------------------------
+Help = Ayuda
+Search commands... = Buscar comandos...
+Search commands = Buscar comandos
+Type what you want to do = Escribe lo que quieres hacer
+No command matches. = Ningún comando coincide.
+Keyboard shortcuts... = Atajos de teclado...
+Keyboard shortcuts = Atajos de teclado
+About... = Acerca de...
+About = Acerca de
+Version = Versión
+Licence = Licencia
+Built on = Construido sobre
+Project page = Página del proyecto
+Report a problem = Informar de un problema
+Close = Cerrar
+Type to narrow the list = Escribe para filtrar la lista
+No shortcut matches. = Ningún atajo coincide.
+Change shortcuts... = Cambiar atajos...
+Every mark is kept as geometry and only turned into pixels when it is shown or exported. = Cada trazo se guarda como geometría y solo se convierte en píxeles al mostrarse o exportarse.
+
 # --- pantalla de inicio --------------------------------------------------------
 Start = Inicio
 New file... = Archivo nuevo...

@@ -1,0 +1,30 @@
+# File > Export again repeats the last export, to the same file, with no dialog.
+tool pencil
+colour 123456
+click 3 3
+
+# Before anything is exported there is nothing to repeat.
+click-on File
+expect item Export again
+click-on File
+wait 2
+
+# An export answered as the native dialog would answer it.
+answer export-png export_again_test.png
+wait 3
+expect file export_again_test.png
+remove export_again_test.png
+expect nofile export_again_test.png
+
+# Again, from the menu: the same file is written.
+click-on File
+click-on Export again
+wait 3
+expect file export_again_test.png
+remove export_again_test.png
+
+# And from the key.
+key ctrl+shift+e
+wait 3
+expect file export_again_test.png
+remove export_again_test.png

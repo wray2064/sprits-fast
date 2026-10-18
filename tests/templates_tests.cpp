@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
-// templates_tests.cpp — the sizes a new file usually starts at.
+// templates_tests.cpp — the sizes a new file usually starts at, and the tips
+// shown beside them on the start screen.
 
 #include "app/document.h"
 #include "app/palette_tools.h"
 #include "app/templates.h"
+#include "app/tips.h"
 
 #include <cstdio>
 #include <set>
@@ -56,11 +58,28 @@ void testLabelsAreUniqueAndSayTheSize() {
     CHECK(fast::templateLabel(t) == "Character 64 x 64");
 }
 
+// Any number is a place in the list, and every tip is a sentence that fits a
+// line of the start screen.
+void testTipsWrapAndAreShort() {
+    CHECK(!fast::tips().empty());
+    std::set<std::string> seen;
+    for (const std::string& tip : fast::tips()) {
+        CHECK(!tip.empty());
+        CHECK(tip.size() <= 120);
+        CHECK(seen.insert(tip).second);      // none twice
+    }
+    const size_t count = fast::tips().size();
+    CHECK(&fast::tipAt(0) == &fast::tipAt(static_cast<unsigned>(count)));
+    CHECK(&fast::tipAt(1) == &fast::tipAt(static_cast<unsigned>(count) + 1));
+    CHECK(&fast::tipAt(0xFFFFFFFFu) == &fast::tips()[0xFFFFFFFFu % count]);
+}
+
 } // namespace
 
 int main() {
     testEveryTemplateIsMakeable();
     testLabelsAreUniqueAndSayTheSize();
+    testTipsWrapAndAreShort();
 
     if (failures == 0) {
         std::printf("fast_templates: all checks passed\n");
