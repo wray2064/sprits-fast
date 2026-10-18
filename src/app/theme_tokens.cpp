@@ -220,6 +220,23 @@ std::vector<Theme> makeThemes() {
         c(246, 240, 228), c(228, 218, 202),
         c(0, 0, 0, 30), c(0, 0, 0), c(200, 40, 40, 220), c(210, 60, 60, 96), c(40, 100, 220, 96) }));
 
+    // Famicom: the cream plastic and deep red of a Family Computer -- warm
+    // cream surfaces, a near-black brown for text (the controller's buttons),
+    // and one crimson accent. A light theme, with the red kept dark enough to
+    // carry white text and to read as text itself. The selected fill is the
+    // console's gold lettering turned down to a tint.
+    themes.push_back(build(Seed{
+        "famicom", "Famicom", false, false,
+        c(212, 203, 176), c(236, 229, 208), c(246, 241, 226), c(226, 218, 194), c(190, 182, 158),
+        c(34, 22, 20), c(56, 40, 36), c(96, 72, 58), c(112, 88, 72), c(140, 118, 98),
+        c(214, 202, 176), c(190, 176, 148),
+        c(222, 211, 186), c(208, 196, 168), c(192, 179, 150),
+        c(222, 188, 140), c(40, 20, 16),
+        c(170, 30, 40), c(170, 30, 40),
+        c(22, 104, 50), c(132, 88, 0), c(176, 46, 0), c(24, 84, 160),
+        c(240, 234, 214), c(222, 213, 188),
+        c(0, 0, 0, 30), c(0, 0, 0), c(170, 30, 40, 220), c(200, 60, 60, 96), c(40, 90, 200, 96) }));
+
     // High contrast light: white, black and one blue.
     themes.push_back(build(Seed{
         "high-contrast-light", "High contrast light", false, true,

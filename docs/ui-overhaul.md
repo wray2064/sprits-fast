@@ -214,7 +214,7 @@ so Pract can rebase onto any of them.
      accent), **Midnight** (deep blue-black), **OLED** (true black app and
      canvas, near-black panels, no large bright areas, so unlit pixels stay
      off), **High contrast dark**;
-   - light: **Paper** (today's), **Warm paper** (sepia), **High contrast
-     light**.
+   - light: **Paper** (today's), **Warm paper** (sepia), **Famicom** (cream
+     and crimson, added at the user's request), **High contrast light**.
 4. **Accent:** amber stays the default (Graphite and the high-contrast themes
    carry their own), with presets and a free picker in Appearance.

@@ -1391,7 +1391,9 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 const std::vector<Theme>& themes = builtinThemes();
                 const Theme* shown = findBuiltinTheme(prefs.themeId);
                 ImGui::SetNextItemWidth(220.f);
-                if (ImGui::BeginCombo(tr("theme"), shown != nullptr ? shown->name.c_str() : "")) {
+                // Tall enough to show every theme without scrolling.
+                if (ImGui::BeginCombo(tr("theme"), shown != nullptr ? shown->name.c_str() : "",
+                                      ImGuiComboFlags_HeightLargest)) {
                     for (const Theme& choice : themes) {
                         if (ImGui::Selectable(choice.name.c_str(), choice.id == prefs.themeId)) {
                             prefs.themeId = choice.id;

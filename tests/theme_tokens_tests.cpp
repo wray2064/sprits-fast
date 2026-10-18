@@ -78,7 +78,7 @@ void testTokenNamesRoundTrip() {
 
 void testTheBuiltInsAreAsPromised() {
     const std::vector<fast::Theme>& themes = fast::builtinThemes();
-    CHECK(themes.size() == 8);
+    CHECK(themes.size() == 9);
     std::set<std::string> ids;
     int dark = 0;
     int light = 0;
@@ -88,7 +88,7 @@ void testTheBuiltInsAreAsPromised() {
         CHECK(fast::findBuiltinTheme(theme.id) == &theme);
         (theme.dark ? dark : light)++;
     }
-    CHECK(dark == 5 && light == 3);
+    CHECK(dark == 5 && light == 4);
     CHECK(fast::findBuiltinTheme("slate") != nullptr);
     CHECK(fast::findBuiltinTheme("paper") != nullptr);
     CHECK(fast::findBuiltinTheme("oled") != nullptr);

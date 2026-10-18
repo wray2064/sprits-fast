@@ -38,6 +38,12 @@ expect theme warm-paper
 
 click-on theme
 wait 2
+click-on Famicom
+wait 2
+expect theme famicom
+
+click-on theme
+wait 2
 click-on High contrast light
 wait 2
 expect theme high-contrast-light
