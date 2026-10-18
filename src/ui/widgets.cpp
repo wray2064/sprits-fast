@@ -399,6 +399,36 @@ void endDialog() {
     ImGui::EndPopup();
 }
 
+bool beginModal(const char* name, bool* open, ImGuiWindowFlags flags) {
+    const float k = scaleFactor();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(22.f * k, 18.f * k));
+    const bool visible = ImGui::BeginPopupModal(
+        name, open,
+        flags | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::PopStyleVar();
+    if (!visible) {
+        return false;
+    }
+    std::string title = name;
+    const size_t id = title.find("###");
+    if (id != std::string::npos) {
+        title.resize(id);
+    }
+    theme::pushText(theme::TextStyle::Title);
+    ImGui::TextColored(theme::palette().textBright, "%s", tr(title.c_str()));
+    theme::popText();
+    ImGui::Dummy(ImVec2(0.f, 2.f));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    if (open != nullptr && ImGui::IsKeyPressed(ImGuiKey_Escape) &&
+        !ImGui::GetIO().WantTextInput) {
+        *open = false;
+        ImGui::CloseCurrentPopup();
+    }
+    return true;
+}
+
 int dialogButtons(const char* primary, const char* secondary, bool primaryEnabled) {
     const float k = scaleFactor();
     ImGui::Dummy(ImVec2(0.f, 10.f * k));

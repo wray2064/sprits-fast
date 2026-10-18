@@ -42,7 +42,14 @@ decisions. Progress:
       Hold and Speed have labels, Onion is a switch, the totals are muted, and
       the controls wrap onto a second row instead of running into each other
       when the panel is narrow; the default timeline is taller (214 px).
-      To do: 3e the other dialogs.
+      **3e, the dialogs:** every modal in the program is on the one frame
+      (`widgets::beginModal`, a drop-in for BeginPopupModal: padding, the
+      title above a hairline, Escape), and About is a real kit dialog with the
+      program's name in the display size. Their footers, still written the
+      older way, move onto `dialogButtons` as each dialog is next touched.
+      Stage 3 is therefore done except those footers and Preferences'
+      labels-to-the-left rows, which wait for stage 4 (the Appearance tab is
+      rebuilt then).
 - [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
       export).
 - [ ] Stage 5, layout and icons.

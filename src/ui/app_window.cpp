@@ -940,7 +940,7 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
         return;
     }
     ImGui::OpenPopup("Canvas size");
-    if (!ImGui::BeginPopupModal("Canvas size", &dialog.open,
+    if (!widgets::beginModal("Canvas size", &dialog.open,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
@@ -1035,7 +1035,7 @@ void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::OpenPopup("Adjust colours");
     ImGui::SetNextWindowSize(ImVec2(380.f, 0.f), ImGuiCond_Appearing);
-    if (!ImGui::BeginPopupModal("Adjust colours", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginModal("Adjust colours", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
     const char* scopes[] = { "This layer", "Every layer of this frame", "Every frame" };
@@ -1109,7 +1109,7 @@ void drawModifyPanel(Editor& editor) {
                                                                 : "Border of the selection";
     const std::string id = std::string(tr(title)) + "###modify";
     ImGui::OpenPopup(id.c_str());
-    if (!ImGui::BeginPopupModal(id.c_str(), &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginModal(id.c_str(), &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
     ImGui::SetNextItemWidth(160.f);
@@ -1155,7 +1155,7 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
         return;
     }
     ImGui::OpenPopup("Sprite size");
-    if (!ImGui::BeginPopupModal("Sprite size", &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginModal("Sprite size", &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
     auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
@@ -1623,7 +1623,7 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
         return;
     }
     ImGui::OpenPopup("Text");
-    if (!ImGui::BeginPopupModal("Text", &editor.textOpen, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginModal("Text", &editor.textOpen, ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
     if (ImGui::IsWindowAppearing()) {
@@ -1721,7 +1721,7 @@ void drawRecoveryPrompt(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
                             ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (!ImGui::BeginPopupModal("Unfinished work", nullptr,
+    if (!widgets::beginModal("Unfinished work", nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
@@ -1805,7 +1805,7 @@ void drawUnsavedPrompt(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
                             ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (!ImGui::BeginPopupModal("Unsaved changes", nullptr,
+    if (!widgets::beginModal("Unsaved changes", nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }

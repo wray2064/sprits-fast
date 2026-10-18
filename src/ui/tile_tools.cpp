@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 #include "ui/tile_tools.h"
+#include "ui/widgets.h"
 
 #include "app/i18n.h"
 #include "app/ink.h"
@@ -490,7 +491,7 @@ void drawTilemapDialog(Editor& editor, CanvasView& canvas) {
     }
     const std::string title = std::string(tr("New tilemap layer")) + "###tilemap";
     ImGui::OpenPopup(title.c_str());
-    if (!ImGui::BeginPopupModal(title.c_str(), &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginModal(title.c_str(), &dialog.open, ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
     const std::vector<ls::SpriteId> sets = tilesetsOf(editor.doc);

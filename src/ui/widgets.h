@@ -85,6 +85,13 @@ enum class DialogSize { Small, Medium, Large };
 bool beginDialog(const char* title, bool* open, DialogSize size = DialogSize::Medium);
 void endDialog();
 
+// The same frame for a modal that is written the older way: a drop-in for
+// ImGui::BeginPopupModal(name, open, flags). It supplies the padding, the
+// title (the part of `name` before any "###") above a hairline, and Escape when
+// `open` is given; the body and the buttons are the caller's, to be moved onto
+// dialogButtons as each dialog is next touched. Close with ImGui::EndPopup().
+bool beginModal(const char* name, bool* open, ImGuiWindowFlags flags = 0);
+
 // The footer: Cancel (or whatever the second is) beside the primary, the
 // primary last, on the right. Returns 1 for the primary, 2 for the other, 0 for
 // neither. A null `secondary` leaves one button.

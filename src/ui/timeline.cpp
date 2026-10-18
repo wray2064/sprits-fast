@@ -939,7 +939,7 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
 
     ImGui::OpenPopup("Export animation");
     ImGui::SetNextWindowSize(ImVec2(430.f, 0.f), ImGuiCond_Appearing);
-    if (!ImGui::BeginPopupModal("Export animation", &editor.animationPanelOpen,
+    if (!widgets::beginModal("Export animation", &editor.animationPanelOpen,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
@@ -1039,7 +1039,7 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
 
     ImGui::OpenPopup("Export sheet");
     ImGui::SetNextWindowSize(ImVec2(430.f, 0.f), ImGuiCond_Appearing);
-    if (!ImGui::BeginPopupModal("Export sheet", &editor.sheetPanelOpen,
+    if (!widgets::beginModal("Export sheet", &editor.sheetPanelOpen,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }

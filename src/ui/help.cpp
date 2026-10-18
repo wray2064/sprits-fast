@@ -7,6 +7,7 @@
 #include "ui/keys.h"
 #include "ui/start_screen.h"
 #include "ui/theme.h"
+#include "ui/widgets.h"
 
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -64,12 +65,7 @@ void drawAbout(Editor& editor, SDL_Window* window) {
         return;
     }
     const ProgramInfo& info = programInfo();
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing,
-                            ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(420.f, 0.f), ImGuiCond_Appearing);
-    if (!ImGui::Begin(tr("About"), &editor.aboutOpen,
-                      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::End();
+    if (!widgets::beginDialog("About", &editor.aboutOpen, widgets::DialogSize::Medium)) {
         return;
     }
     const float logoSize = 64.f;
@@ -81,8 +77,10 @@ void drawAbout(Editor& editor, SDL_Window* window) {
         ImGui::SameLine(0.f, 14.f);
     }
     ImGui::BeginGroup();
-    ImGui::Dummy(ImVec2(0.f, 8.f));
+    ImGui::Dummy(ImVec2(0.f, 4.f));
+    theme::pushText(theme::TextStyle::Display);
     ImGui::TextColored(theme::palette().textBright, "%s", info.title.c_str());
+    theme::popText();
     if (!info.version.empty()) {
         ImGui::TextColored(theme::palette().textDim, "%s %s", tr("Version"), info.version.c_str());
     }
@@ -110,13 +108,11 @@ void drawAbout(Editor& editor, SDL_Window* window) {
         link(tr("Report a problem"), info.issues);
         ImGui::NewLine();
     }
-    ImGui::Dummy(ImVec2(0.f, 4.f));
-    ImGui::Separator();
-    ImGui::Dummy(ImVec2(0.f, 4.f));
-    if (ImGui::Button(tr("Close"), ImVec2(90.f, 0.f))) {
+    if (widgets::dialogButtons("Close", nullptr) != 0) {
         editor.aboutOpen = false;
+        ImGui::CloseCurrentPopup();
     }
-    ImGui::End();
+    widgets::endDialog();
 }
 
 void drawShortcuts(Editor& editor) {
