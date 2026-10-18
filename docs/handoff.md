@@ -62,7 +62,7 @@ From PowerShell in this folder:
 
 | What | Command | Notes |
 |---|---|---|
-| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 43 suites |
+| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 44 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
 | UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 24 scripts; all must pass; CI runs them |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |

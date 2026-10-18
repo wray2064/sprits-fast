@@ -19,12 +19,12 @@ Start screen = Pantalla de inicio
 # --- pantalla de inicio --------------------------------------------------------
 Start = Inicio
 New file... = Archivo nuevo...
-A blank canvas, right now = Un lienzo en blanco, ahora mismo
+New from a template = Nuevo desde una plantilla
 Recent = Recientes
 Files you open or save appear here. = Los archivos que abras o guardes aparecen aquí.
 Remove from this list = Quitar de esta lista
 Clear list = Vaciar la lista
-Show this screen when Sprit's'fast starts = Mostrar esta pantalla al iniciar Sprit's'fast
+Show this screen at start = Mostrar esta pantalla al iniciar
 Start with a blank canvas = Empezar con un lienzo en blanco
 Clear = Vaciar
 Save = Guardar

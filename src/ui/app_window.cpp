@@ -4935,6 +4935,10 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         return 1;
     }
     setWindowIcon(window, extension);
+    configureStartScreen(extension.title,
+                         extension.icon.empty()
+                             ? std::vector<uint8_t>(kFastIcon256, kFastIcon256 + kFastIcon256_size)
+                             : extension.icon);
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     if (renderer == nullptr) {

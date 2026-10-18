@@ -19,9 +19,18 @@
 #include "ui/canvas_view.h"
 #include "ui/editor.h"
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 struct SDL_Window;
 
 namespace fast {
+
+// The name and the logo (PNG bytes) the screen shows: the program's own, as
+// the window has them, so a program built on Fast greets in its own name.
+// Once, after the window exists.
+void configureStartScreen(const std::string& title, const std::vector<uint8_t>& logoPng);
 
 // Brings the start screen up: re-reads what the recent files are now, and
 // remembers what was on screen so that any change of document closes it.

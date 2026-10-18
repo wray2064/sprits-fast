@@ -27,15 +27,32 @@ click-on Start with a blank canvas
 wait 2
 expect missing New file...
 
-# A quick new file is one click, and replaces nothing: the document on screen
-# has work in it (it was opened), so the new one gets a tab of its own.
+# A template card is one click to a canvas of that size, and replaces nothing:
+# the document on screen has work in it (it was opened), so the new one gets a
+# tab of its own.
 click-on File
 click-on Start screen
 wait 2
-click-on 64 x 64
+expect item Icon 16 x 16
+expect item Tile 32 x 32
+expect item Character 64 x 64
+expect item Portrait 128 x 128
+expect item Scene 320 x 180
+expect item Handheld 160 x 144
+click-on Scene 320 x 180
 wait 2
 expect missing New file...
-expect canvas 64 64
+expect canvas 320 180
+expect tabs 2
+
+# The New window is not changed by a card: it still starts from what it said
+# before, so File > New > Create makes the 32 x 32 it began with (replacing
+# the untouched card canvas, so still two tabs).
+click-on File
+click-on New...
+click-on Create
+wait 2
+expect canvas 32 32
 expect tabs 2
 
 # New file... leads to the New window.

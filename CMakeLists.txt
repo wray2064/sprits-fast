@@ -112,6 +112,7 @@ add_library(fast_core STATIC
     src/app/i18n.cpp
     src/app/tilemap.cpp
     src/app/recent_files.cpp
+    src/app/templates.cpp
     src/app/shape.cpp
     src/app/text.cpp
     src/app/sheet.cpp
@@ -327,6 +328,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_recent_tests tests/recent_files_tests.cpp)
     target_link_libraries(fast_recent_tests PRIVATE fast_core)
     add_test(NAME fast_recent COMMAND fast_recent_tests)
+
+    add_executable(fast_templates_tests tests/templates_tests.cpp)
+    target_link_libraries(fast_templates_tests PRIVATE fast_core)
+    add_test(NAME fast_templates COMMAND fast_templates_tests)
 
     add_executable(fast_ui_state_tests tests/ui_state_tests.cpp)
     target_link_libraries(fast_ui_state_tests PRIVATE fast_core)
