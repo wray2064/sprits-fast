@@ -33,9 +33,9 @@ endif()
 #   3. FetchContent              a pinned tag, for a clean CI machine.
 #
 # The default is the sibling checkout, because that is where it is during
-# development.
+# development, under the name a clone of the engine's repository gets.
 
-set(LIVESPRITE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../sprit s pract"
+set(LIVESPRITE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../livesprite-engine"
     CACHE PATH "Path to a LiveSprite engine source checkout")
 set(LIVESPRITE_GIT_REPOSITORY "" CACHE STRING "Engine git URL, for the FetchContent fallback")
 set(LIVESPRITE_GIT_TAG "main" CACHE STRING "Engine git tag to pin")

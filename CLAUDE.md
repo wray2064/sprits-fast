@@ -1,10 +1,10 @@
 # Sprit's'fast — working here
 
-Read `docs/handoff.md` first: what the three products are (the LiveSprite
-engine in `../sprit s pract`, this editor, and Sprit's'pract in
-`../sprits-pract`), the decisions that govern them, the state, what comes
-next, and the traps. Then `docs/parity.md`: the checklist and the log,
-newest first.
+Read `docs/handoff.md` first: the rules the code keeps, how to build and
+test, the state, where everything lives, and the traps. Then
+`docs/parity.md`: the checklist and the log, newest first. The engine is the
+sibling checkout `../livesprite-engine`. When the workspace's own
+`../HANDOFF.md` is there, it covers the plan across all three projects.
 
 The rules, in short:
 
@@ -13,9 +13,8 @@ The rules, in short:
   geometry. Never store pixels as truth, never derive one layer's content
   from a compiled picture, never bake or flatten to get a feature done.
 - Fast has everything a pixel editor has, plus the full cutout puppet system
-  (posed and captured by hand). Pract (proprietary, local only) adds IK, key
-  poses, ramps, 3D, video, extraction and the Arranger. A Fast puppet must
-  open in Pract as it is, so its data stays engine-native in the document.
+  (posed and captured by hand). Puppet data stays engine-native in the
+  document, so other programs built on Fast read it as it is.
 - Commit straight to `main` with prose messages ending in the
   `Co-Authored-By` line, and push. Engine changes are pre-approved: make
   them there, with tests and docs, and push that repo too.
