@@ -94,7 +94,7 @@ void buildDefault(ImGuiID dockspace, ImVec2 size) {
     const ImGuiID right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right,
                                                       side / (size.x - side), nullptr, &centre);
     const ImGuiID bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down,
-                                                       170.f / size.y, nullptr, &centre);
+                                                       214.f / size.y, nullptr, &centre);
     ImGuiID palette = 0;
     const ImGuiID tool = ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.40f, nullptr, &palette);
     ImGuiID below = 0;

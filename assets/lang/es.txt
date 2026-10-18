@@ -45,6 +45,10 @@ Move left = Mover a la izquierda
 Move right = Mover a la derecha
 Reverse selected frames = Invertir los fotogramas seleccionados
 
+Hold = Duración
+Speed = Velocidad
+Play = Reproducir
+Stop = Detener
 SHADES = TONOS
 RECENT = RECIENTES
 PALETTE = PALETA

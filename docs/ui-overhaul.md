@@ -37,8 +37,12 @@ decisions. Progress:
       the tool rail, headings and ghost buttons; the default layout gives the
       sidebars 276 px and the Palette more height (Tool 40%, Palette 60%;
       Layers 30%) so the palette no longer needs a scroll. A saved layout is
-      kept, so Window > Reset layout shows the new one. To do: 3d Timeline,
-      3e the other dialogs.
+      kept, so Window > Reset layout shows the new one. **3d, the timeline:** Play
+      is the primary (Stop an ordinary button), Delete is a danger button,
+      Hold and Speed have labels, Onion is a switch, the totals are muted, and
+      the controls wrap onto a second row instead of running into each other
+      when the panel is narrow; the default timeline is taller (214 px).
+      To do: 3e the other dialogs.
 - [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
       export).
 - [ ] Stage 5, layout and icons.

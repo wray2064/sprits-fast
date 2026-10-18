@@ -449,6 +449,17 @@ void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
     for (int i = timeline.onionAfter;  i >= 1; --i) { ghost(neighbour(i), true,  i); }
 }
 
+// Continues the row if `width` still fits to the right of the last item, and
+// starts a new one if it does not: the controls wrap instead of running into
+// each other when the timeline is narrow.
+static void sameLineIfFits(float width, float gap) {
+    const float right = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() -
+                        ImGui::GetStyle().WindowPadding.x;
+    if (ImGui::GetItemRectMax().x + gap + width <= right) {
+        ImGui::SameLine(0.f, gap);
+    }
+}
+
 void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     if (!editor.timeline.visible) {
         return;
@@ -457,7 +468,12 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     TimelineSettings& timeline = editor.timeline;
 
     // ------------------------------------------------------------ controls --
-    if (ImGui::Button(timeline.playing ? "Stop" : "Play", ImVec2(56.f, 0.f))) {
+    // Play is the one thing to do here, so it is the primary; stopping is an
+    // ordinary button. Its width follows the font, so a longer word fits.
+    if (widgets::button(timeline.playing ? "Stop" : "Play",
+                        timeline.playing ? widgets::ButtonStyle::Secondary
+                                         : widgets::ButtonStyle::Primary,
+                        ImVec2(ImGui::GetFontSize() * 4.2f, 0.f))) {
         timeline.playing = !timeline.playing;
         timeline.startedAtMs = SDL_GetTicks();
         if (!timeline.playing) {
@@ -530,7 +546,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SameLine();
     ImGui::BeginDisabled(editor.frames.size() <= 1);
-    if (ImGui::Button(tr("Delete"))) {
+    if (widgets::button("Delete", widgets::ButtonStyle::Danger)) {
         const int from = ranged ? first : timeline.activeFrame;
         const int to = ranged ? last : timeline.activeFrame;
         if (deleteFrames(editor.doc, from, to)) {
@@ -601,8 +617,12 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     // The duration of the frame being looked at. One number, on the frame it
     // belongs to, rather than a global frame rate -- a hold at the top of a
     // jump is the most ordinary thing in a sprite animation.
+    sameLineIfFits(ImGui::CalcTextSize(tr("Hold")).x + ImGui::GetFontSize() * 7.5f,
+                   ImGui::GetFontSize() * 1.2f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(c.textMuted, "%s", tr("Hold"));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(96.f);
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 6.5f);
     if (timeline.activeFrame < static_cast<int>(editor.frames.size())) {
         int held = editor.frames[static_cast<size_t>(timeline.activeFrame)].durationMs;
         if (ImGui::DragInt("##hold", &held, 5.f, kMinFrameMs, kMaxFrameMs, "%d ms")) {
@@ -620,16 +640,20 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             ImGui::SetTooltip("%s", tr("The hold of every selected frame"));
         }
     }
+    sameLineIfFits(ImGui::CalcTextSize(tr("Speed")).x + ImGui::GetFontSize() * 6.f,
+                   ImGui::GetFontSize() * 0.8f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(c.textMuted, "%s", tr("Speed"));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(70.f);
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5.f);
     ImGui::DragFloat("##speed", &timeline.speed, 0.01f, 0.25f, 4.f, "%.2fx");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("Playback speed: a preview at half speed to judge the "
                           "timing, or faster to see the motion. The holds are "
                           "not changed."));
     }
-    ImGui::SameLine();
-    ImGui::Checkbox(tr("Onion"), &timeline.onion);
+    sameLineIfFits(ImGui::GetFontSize() * 7.f, ImGui::GetFontSize() * 1.2f);
+    widgets::toggle("Onion", &timeline.onion);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("The frames either side, faint, under this one.\n"
                           "Behind in warm, ahead in cool."));
@@ -655,16 +679,19 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         ImGui::EndPopup();
     }
 
-    ImGui::SameLine();
     {
-        // The total, so a person knows what they have made without adding it up.
+        // The total, so a person knows what they have made without adding it up;
+        // at the right edge, where a total is looked for.
         int total = 0;
         for (const Frame& frame : editor.frames) {
             total += frame.durationMs;
         }
         const std::string summary =
             std::to_string(editor.frames.size()) + " frames, " + timingOf(total);
-        ImGui::TextColored(c.textDim, "%s", summary.c_str());
+        const float width = ImGui::CalcTextSize(summary.c_str()).x;
+        sameLineIfFits(width, ImGui::GetFontSize());
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(c.textMuted, "%s", summary.c_str());
     }
 
     // -------------------------------------------------------------- cycle --
