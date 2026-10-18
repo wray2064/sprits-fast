@@ -1,359 +1,344 @@
 # Handoff
 
 Written for whoever picks this up next, human or model, starting cold. It says
-what the three products are, what is actually built against the specification,
-where every part lives, and the traps that have already cost time.
+what the three products are, the decisions the user has made that govern all
+of them, where everything lives, what state each one is in, what comes next,
+and the traps that have already cost time. Last rewritten 2026-10-18, for a
+move to a fresh session.
 
-Two repositories, both public, both green on every platform:
-
-| | Repository | Licence | HEAD at writing |
-|---|---|---|---|
-| **LiveSprite** (engine) | `wray2064/livesprite-engine`, local `C:\Users\wray2\AppDev\sprit s pract` | BSL 1.1, Change Date 2030-09-06 | `cd9cce0` |
-| **Sprit's'fast** (editor) | `wray2064/sprits-fast`, local `C:\Users\wray2\AppDev\sprits-fast` | Apache-2.0 | `4edef05` |
-
-**Sprit's'pract** is the third product: proprietary, not started, no repository.
-The engine specification already reserves work for it — see *Deviations* below,
-because one decision has already brushed against that boundary.
+**Read in this order:** this file; then `docs/parity.md` (Fast's checklist
+and log, newest first); then, for Pract work, `../sprits-pract/CLAUDE.md`
+and `../sprits-pract/docs/plan.md`; for engine work, the engine's
+`docs/concepts.md`.
 
 ---
 
-## 1. Start here
+## 1. The three products
 
-```bash
-cd "C:\Users\wray2\AppDev\sprit s pract" && cmd /c .\build.bat test
-```
+| | Where | Remote | Licence | Tests |
+|---|---|---|---|---|
+| **LiveSprite** (engine) | `C:\Users\wray2\AppDev\sprit s pract` (spaces in the name) | `wray2064/livesprite-engine` (public) | BSL 1.1, Change Date 2030-09-06 | 19 suites |
+| **Sprit's'fast** (free editor) | `C:\Users\wray2\AppDev\sprits-fast` | `wray2064/sprits-fast` (public) | Apache-2.0 | 43 suites + 23 UI scripts |
+| **Sprit's'pract** (paid suite) | `C:\Users\wray2\AppDev\sprits-pract` | **none, ever** | proprietary | 3 suites + 1 UI script |
 
-```bash
-cd C:\Users\wray2\AppDev\sprits-fast && cmd /c .\build-gui.bat
-```
-
-Fast has two build trees on purpose. `build/` is `fast_core` and its tests, and
-takes seconds. `build-gui/` adds SDL3 and Dear ImGui, which take minutes the
-first time. Most work does not need the GUI tree.
-
-Run the editor with content already in it:
-
-```bash
-cd C:\Users\wray2\AppDev\sprits-fast && .\build-gui\sprits_fast.exe --demo-stroke
-```
-
-Headless flags, all of which CI uses: `--frames N` runs a fixed number and
-exits, `--shot <path>` writes what was drawn (a BMP, whatever the extension),
-`--self-test` runs the window's own bookkeeping checks, `--expect-idle` fails
-if anything was still compiling on the last frame, `--play`, `--library`,
-`--sheet <path>`, `--autosave <seconds>`.
+- **The engine** holds a sprite as operations (fills, strokes, faces,
+  transforms, deforms, outlines -- 43 operation types) and compiles them to
+  pixels. Apps hold opaque IDs and never get called back.
+- **Fast** is the editor and the engine's free showcase. It is also the
+  Canvas toolkit of Pract: Pract runs Fast's window as a library.
+- **Pract** is Fast's editor plus what Fast leaves out: References
+  (interpreting source material), the Arranger (atlases, engine exports),
+  a better animation system, and Practipuppets (IK, key poses, ramps).
+- `C:\Users\wray2\AppDev\spritspract` is an old C# prototype. Leave it alone.
 
 Fast finds the engine through `LIVESPRITE_DIR`, defaulting to `../sprit s
-pract`. CI clones it from `vars.LIVESPRITE_REPO` instead.
+pract`; Fast's CI clones it from `vars.LIVESPRITE_REPO`. Pract builds on
+`../sprits-fast` (`fast_core`, `fast_ui`) and through it on the engine.
 
 ---
 
-## 2. The rules that govern everything
+## 2. The user's decisions, which govern everything
 
-Break any of these and the design stops meaning anything. They are not style
-preferences; each one is load-bearing.
+These came from the user directly. They are not style preferences.
 
-**Operations are the truth, pixels are output.** Nothing is ever baked. A
-rectangle drawn an hour ago is still a rectangle with an origin and a corner
-radius. A dither is a rule for colouring a drawing, not the coloured drawing.
-Changing a palette slot recolours every layer that uses it *from the drawing,
-rather than over it*. Any feature that would rasterise and forget is wrong by
-default — see the README's note on why there is no *merge down*.
+**The math is the truth; pixels are only output.** In the user's words, "at
+no point pixels are source of truth, always the math, and the math must
+always resolve to accurate pixels, not the other way around."
+- Strokes are paths with a brush, fills are faces found between walls,
+  erasing is subtractive geometry, transforms move geometry, and patterns and
+  dithers are evaluated at output.
+- Never store pixel sets as truth. Never process a compiled picture to make
+  another layer's content. Never bake or flatten to get a feature done.
+- A defect in what a transform draws is fixed in the geometry and the
+  rasterisers, never by rasterising first and moving pixels -- not even for
+  exact quarter turns.
+- The only pixels that come in are sources: imported images and references.
+  An imported picture is traced into paths and faces on the way in.
 
-**Colours are roles.** An operation names a `ColorRole`; the palette turns it
-into a colour at compile time. This is why palette swapping works at all.
+**What goes where (decided 2026-09-25 and 2026-09-27):**
+- **Fast:** everything Aseprite, LibreSprite, Spriteloop and Pixelorama do,
+  done better wherever the engine allows. That includes a still reference
+  image (now with sections of a sheet), "export as sheet", and the **entire
+  cutout puppet system**: parts, joints, sockets, posing by hand, and
+  capturing each pose as a frame. Animation in Fast is hand-made.
+- **Pract:** multiview, 3D, video, palette and silhouette extraction, the
+  Arranger, and on top of Fast's puppets IK resolvers, movement ramps, key
+  poses and automated motion.
+- **Critical:** a Fast puppet must open in Pract and work as it is. Puppet
+  data stays engine-native, in the document: parts are sprites, joints are
+  pivots, sockets and hanging are engine sockets and attachments, a pose is
+  the joints' rotations. Nothing Pract would need may live in Fast-only side
+  data.
 
-**The engine never calls back into the app.** Data flows one way: app → engine
-→ compiled output. The engine owns all entity storage; apps hold opaque IDs.
-
-**Everything from a file is untrusted.** Packages, palettes, reference images,
-UI state, cycles. The pattern throughout is: bound it before allocating, refuse
-rather than repair, and say why in words a person can act on.
-
-**`ls::Result<T>` everywhere, no exceptions across the API boundary, no RTTI.**
-
-**Determinism.** The same sprite compiles to the same bytes on MSVC, gcc, clang
-and Apple clang. `livesprite_determinism` holds golden hashes; if you change
-rasterisation and that test fails, you have changed what every existing file
-looks like.
+**Rules of work:**
+- Engine and Fast changes are pre-approved. Commit straight to `main` and
+  **push** both (CI gates them). Pract commits locally only: never add a
+  remote, never push, never publish its code.
+- Commit messages are prose explaining the decision, ending with
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (or the line the
+  current harness gives).
+- Never copy GPL code (LibreSprite included) or presets with unclear
+  licences: reimplement from the behaviour. Never write `.aseprite` files;
+  reading them is fine.
+- Every interaction gets a UI script (`tests/ui/*.txt`), because tests that
+  call functions directly missed a broken drag the user then found by hand.
+- UI strings go through `fast::tr()`; the Spanish catalogue is
+  `assets/lang/es.txt`.
+- Docs move with the code: tick `docs/parity.md` and add a log line at the
+  top of its Log in the same commit.
+- Recovery copies and test documents are disposable: "all of this is for
+  testing and can be lost."
 
 ---
 
-## 3. What each part is
+## 3. Build, test, ship
 
-### The engine — `C:\Users\wray2\AppDev\sprit s pract`
+Run the `.bat` files from **PowerShell**, setting the folder first
+(`Set-Location <repo>; .\build.bat test`); `cmd /c` from Bash does not find
+them.
 
-| File | What it is |
-|---|---|
-| `include/livesprite/ls_types.h` | IDs, `Result<T>`, enums, `Vec2i/f`, `Mat3f`, `Color`, `RasterBuffer`, the 2 GiB raster ceiling |
-| `include/livesprite/ls_operations.h` | The 39 operation structs — fills, strokes, outlines, transforms, deforms, `PluginOp` |
-| `include/livesprite/ls_api.h` | `LSContext`, the whole public surface, PIMPL |
-| `include/livesprite/livesprite_c.h` | The C ABI. **Every mirrored enum is pinned by `static_assert`** — see Traps |
-| `src/ls_geometry.cpp` | Rect, ellipse, polyline, curve, interval sets, boolean ops |
-| `src/ls_context.cpp` | CRUD for documents, sprites, layers, groups, palettes, ramps, patterns; `cloneSprite`/`cloneLayer` |
-| `src/ls_dependency.cpp` | The dirty graph and its propagation |
-| `src/ls_compile.cpp` | The pipeline: regions → fills → layers → groups → sampling → quantisation |
-| `src/ls_serialize.cpp` | JSON round trip, unknown-field preservation, version migration |
-| `src/ls_package.cpp` | The ZIP container: stored entries only, validated names, CRCs |
-| `src/ls_c_api.cpp` | The C ABI implementation |
-| `src/ls_reflect.h` | Field tables, so clone and serialize walk operations generically |
+| What | Command (in the repo) | Notes |
+|---|---|---|
+| Engine | `.\build.bat test` | 19 suites |
+| Fast core | `.\build.bat test` | `build\`, no window, seconds; 43 suites |
+| Fast window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
+| Fast UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | all 23 must pass; the language is in `src/ui/ui_script.h` |
+| Fast release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs beside it |
+| Pract | `.\build.bat test` | 3 suites; `.\build\sprits_pract.exe --script tests\ui\pract_window.txt` |
 
-### The editor — `C:\Users\wray2\AppDev\sprits-fast`
+To run every Fast UI script (exit code 0 each):
 
-`src/app/` is `fast_core`: no SDL, no ImGui, fully testable headless.
+```powershell
+foreach ($f in Get-ChildItem tests\ui\*.txt) { $q = Start-Process build-gui\sprits_fast.exe -ArgumentList '--script',"tests\ui\$($f.Name)" -NoNewWindow -Wait -PassThru; if ($q.ExitCode) { $f.Name } }
+```
 
-| File | What it is |
-|---|---|
-| `document.h/.cpp` | The engine handle, the undo stack, the package's companion entries |
-| `paint.h/.cpp` | `PaintLayer`, pencil and eraser, layer adoption from a reopened file |
-| `brush.h/.cpp` | Brush size and shape, the pixel-perfect corner rule, pen pressure |
-| `element.h/.cpp` | Several marks on one layer: its pixels plus any shapes |
-| `shape.h/.cpp` | Rectangles, ellipses, lines that stay editable; outlines |
-| `layers.h/.cpp` | Blend, opacity, order, copies, groups, clipping, locks |
-| `palette.h/.cpp` | Slots as roles; several palettes; the swap |
-| `palette_io.h/.cpp` | `.gpl` and `.hex` in and out |
-| `dither.h/.cpp` | Dithered fills, ramps whose ends can name palette slots |
-| `animation.h/.cpp` | Frames (a frame *is* a sprite), cycles, playback maths |
-| `sheet.h/.cpp` | Sprite sheets and the manifest beside them |
-| `transform.h/.cpp` | The non-destructive transform list |
-| `bucket.h/.cpp` | Flood fill |
-| `reference.h/.cpp` | Images to draw from, stored in the package |
-| `image_io.h/.cpp` | The only place untrusted image bytes meet a parser |
-| `library.h/.cpp` | Folder listings, thumbnails read without opening documents |
-| `recovery.h/.cpp` | Autosave to a copy, and finding what a crash left |
-| `file_io.h/.cpp` | UTF-8 paths, atomic writes, directory listing |
-| `recent_files.h/.cpp` | The File menu's memory |
-| `export_png.h/.cpp` | PNG output |
-| `ui_state.h/.cpp` | View state stored in the package under `fast/ui-state.json` |
+Useful flags: `--self-test`, `--script FILE`, `--shot PATH` (BMP), `--frames
+N`, `--zoom N`, `--light`, `--reference FILE` (imports and opens the section
+window), `--export ... --to ...` (batch export), `--demo-stroke`.
 
-`src/ui/` is the window. It is **not** where behaviour lives — anything the
-self-test needs to drive sits in `editor.cpp`, free of ImGui calls.
+**The test build.** The user took a release build on a train for an offline
+test (2026-09-29); its results have not been reported yet. **Ask for them
+first.** Copies of that build:
+- `D:\SpritsFast` (the USB stick labelled "dropship"; the other folders there
+  belong to other projects);
+- `C:\Users\wray2\OneDrive\Desktop\SpritsFast` and `SpritsFast.zip` beside it
+  (pinned to stay on the device);
+- `C:\Users\wray2\SpritsFast`.
 
-| File | What it is |
-|---|---|
-| `editor.h/.cpp` | All interface state, and the operations panels and shortcuts share |
-| `app_window.cpp` | Main, the loop, layout, menus, shortcuts, tools, the demo, `--self-test` |
-| `panels.cpp` | Tool, palette, layers, shape, transform, references, library |
-| `timeline.cpp` | The frame strip, cycle editor, sheet dialog |
-| `canvas_view.h/.cpp` | Zoom, pan, the artwork, underlay and overlay hooks |
-| `frame_cache.h/.cpp` | One texture per frame, invalidated by the engine's `isDirty` |
-| `reference_cache.h/.cpp` | Textures for reference images and library thumbnails |
-| `file_commands.h/.cpp` | Native dialogs, which are asynchronous, and the unsaved prompt |
-| `theme.h/.cpp` | Palette, metrics, icons |
+All were built from Fast `366738f`, hash-checked, and passed `--self-test`
+and the UI scripts from where they sit. Rebuild with `build-release.bat` when
+Fast changes; `build-release\` and `dist\` are ignored by git.
 
-### Where things are kept
+---
+
+## 4. State
+
+**All green at last run (2026-09-28):** engine 19/19, Fast 43/43, UI scripts
+23/23, Pract 3/3, the release exe's self-test and all 23 scripts.
+
+| Repo | HEAD before this rewrite | Working tree |
+|---|---|---|
+| engine | `d11922a` Look for pockets only when the flood missed something | clean (a stray `imgui.ini` is untracked) |
+| Fast | `366738f` A release build to hand out | clean |
+| Pract | `38499b9` Pract starts at WinMain too | clean, local only |
+
+### Fast
+
+The parity checklist in `docs/parity.md` is **complete**: tiers 1 to 4, from
+selections, inks and the palette to tilemaps, per-cel opacity, Aseprite
+import, RotSprite and tweens. The vector-truth conversion is complete too:
+everything drawn is paths, faces and areas, and old documents are converted
+as they open. The newest work, all in the log:
+
+- **Cutout puppets** (`src/app/puppet.h`, `src/ui/puppet_panel.cpp`; the
+  Puppet panel has Frames / Draw part / Pose):
+  - A part is a sprite out of the timeline, marked `fast.part`. Its joint is
+    its pivot; sockets are named points; a part hangs from a socket by an
+    engine attachment, whose joint transform is the pose.
+  - Pose mode shows the assembled puppet with bones, a ring to turn the
+    picked part (Shift for 15 degrees) and a square to move the root.
+  - **Capture pose** makes a frame of placed shapes (`MatrixTransformOp`,
+    `RoundingPolicy::Exact`), each part a track, with the pose written on the
+    frame under `fast.pose`.
+  - Joints sit in pixel middles (`jointPoint`), so a quarter turn is exact.
+  - A turned limb's fill once showed holes (448 on the user's file); the
+    engine's `faceThrough` now keeps every pocket, and the count is 0.
+- **The transform gizmo**: with the Move tool, a ring turns (Shift for 15
+  degrees), the arrows scale, the middle square moves the sprite, and the
+  Transform panel takes typed numbers.
+- **Exact quarter turns and flips** for every kind of mark: line ends live in
+  pixel middles, and the engine resolves turned shapes from their turned math
+  (`turning_tests`).
+- **Reference sections**: a reference can show one part of its image -- a
+  cell of a sprite sheet (`Reference::clip*`, `setReferenceSection`,
+  `stepReferenceSection`). Importing opens the Reference section window:
+  - drag on the preview, type x y w h, or give a cell size and gap and click
+    a cell;
+  - < Cell / Cell > walk the sheet;
+  - Section... in the References panel reopens the window later.
+  The whole image stays in the document. A magnified reference is drawn with
+  nearest sampling.
+- **The app icon** from the user's logo (`tools/make_icons.py`,
+  `assets/icon/`), and the windowed release build.
+
+Still English: status messages, strings built at run time, slider number
+formats.
+
+### Engine
+
+Spec-complete (`LIVESPRITE_ENGINE_SPEC.md`), with the wider design in
+`Livesprite architecture.txt`, which also defines Pract. The recent
+additions, all documented in `docs/concepts.md` and `docs/operations.md`:
+- pivots, sockets, attachments and assemblies (`compileAssembly`,
+  `isAssemblyCurrent`, `dropAssembliesAbove`);
+- `RoundingPolicy::Exact`;
+- `MatrixTransformOp`;
+- faces with walls and pockets (`FaceDesc`, `fillableIn`);
+- region clips, strokes with erases, `geom::traceStrokes`;
+- tilemaps, `FadeOp`, `ClearRegionOp`.
+
+### Pract
+
+Founded 2026-09-27 on Fast through generic seams (`fast::AppExtension`,
+`fast::claimEntryPrefix`, a preferences folder, the Timeline window). It has:
+- References: palette extraction, silhouette, and trace, all reading the
+  shown section;
+- the Arranger: MaxRects atlases, JSON hash and array, Godot SpriteFrames,
+  `--arrange`;
+- a versioned home for the animation system.
+The roadmap is `docs/plan.md`.
+
+---
+
+## 5. What comes next
+
+1. **Ask how the train test went**, and fix what it found first.
+2. **Pract's animation system**: ask the user what "better" means before
+   designing it; the candidate list is in Pract's `docs/plan.md`. Then
+   Practipuppets on Fast's rig (IK, key poses, ramps). Pract also needs a
+   logo from the user for its own icon.
+3. **GitHub housekeeping**:
+   - Fast issues #2 (selection), #3 (indexed PNG) and #5 (palette) are done
+     according to the parity log but still open; confirm, then close them.
+   - Still genuinely open: Fast #1 (manifest design pass), Fast #4 and
+     engine #3 (`actions/checkout` v5), engine #4 (layer groups in the C
+     ABI).
+   - Engine #1 and #2 are licensing and need the user: the company as
+     Licensor, and a lawyer's review of the Additional Use Grant.
+4. Smaller: the remaining English strings; the hand-run checks in
+   `docs/testing.md`, several of which have never been run at the window.
+
+---
+
+## 6. Where things are
+
+### Fast
+
+`src/app/` is `fast_core` -- no SDL, no ImGui, testable headless. Each file
+starts with a comment saying what it is and why. The main ones:
+- **document and history:** `document`, `recovery`, `file_io`, `ui_state`;
+- **marks:** `paint`, `brush`, `element`, `shape`, `ink`, `text`, `dither`,
+  `bucket`, `floating`, `selection`, `clip_image`;
+- **layers and frames:** `layers`, `tracks`, `transform`, `animation`,
+  `tilemap`, `slices`, `guides`, `grid_snap`;
+- **the palette:** `palette`, `palette_io`, `palette_tools`, `adjust`;
+- **the cutout rig:** `puppet`;
+- **references:** `reference`;
+- **files in and out:** `import_image`, `import_aseprite`, `export_png`,
+  `export_anim`, `webp`, `sheet`, `batch`, `canvas_ops`;
+- **settings and strings:** `keymap`, `preferences`, `i18n`.
+
+`src/ui/` is the window:
+- `editor` holds all interface state and the shared operations, free of
+  ImGui calls;
+- `app_window.cpp` has the loop, menus, shortcuts and flags;
+- the panels: `panels.cpp`, `timeline.cpp`, `puppet_panel`,
+  `reference_section`, `transform_gizmo`;
+- the tools: `shape_tools`, `selection_tools`, `tile_tools`, `slice_tool`;
+- `canvas_view` and `frame_cache` draw the canvas;
+- `ui_script` is the script runner;
+- `app_extension.h` is the seam Pract uses.
+
+The other docs:
+- `docs/architecture.md`: why Fast is built the way it is;
+- `docs/testing.md`: what the automated layers promise, and the hand-run
+  script;
+- `docs/translating.md`: adding a language;
+- `docs/icons-needed.md`: icons the user is to source;
+- `README.md`: the user-facing feature tour.
 
 Inside a `.lsprite` package, under `fast/`: `ui-state.json`, `thumbnail.png`,
-`references.txt`, `ref/<id>.png`. Anything **not** under `fast/` belongs to
-another application and is written back untouched.
+`references.txt` (a reference's section is fields 9-12, written only when it
+is clipped), `ref/<id>.png`. Anything not under `fast/` belongs to another
+application and is written back untouched; Pract claims `pract/`. User
+settings live in Fast's settings folder (`SpritsFast`; Pract uses
+`SpritsPract`): preferences, keys, recent files, libraries, `layout.ini`,
+`recovery/`.
 
-In the user's settings directory: `recent.txt`, `library.txt`, `recovery/`.
+### Engine
 
----
-
-## 4. Completion against the design
-
-There are **two** design documents in the engine repo, and they are not the
-same thing:
-
-- **`Livesprite architecture.txt`** — 1,406 lines, the wider design. It defines
-  the engine in 18 capability sections, then the whole of **Pract**: its
-  philosophy, its four toolkits, and worked scenarios following a sword from
-  first stroke to exported sheet. This is the document that says what the
-  products *are*.
-- **`LIVESPRITE_ENGINE_SPEC.md`** — 333 lines, the implementation contract
-  distilled from it: structure, data model, pipeline, serialization, the build
-  order, the C++ conventions.
-
-Read the architecture first for intent, the spec for what the code must do.
-
-### Against the implementation contract, section by section
-
-| § | Requirement | State |
-|---|---|---|
-| 2 | Operations as source truth | **Done.** The property the whole design rests on, and the editor demonstrates it |
-| 3 | Project structure | **Done**, file for file |
-| 4 | Data model — document/sprite/layer/group, shared geometry, operation stack, roles | **Done** |
-| 5 | Compilation pipeline, profiles, dither coordinate spaces | **Done.** All four spaces; anchoring has its own test and doc |
-| 6 | Dependency graph, dirty propagation, `compileDirtyOnly` | **Done.** One real gap found and fixed in September: a palette write dirtied only sprites bound by name |
-| 7 | Serialization, unknown-field preservation, `migrateVersion`, packages | **Done.** Packages are stored-only ZIPs with validated names and CRCs |
-| 8 | Plugin interface | **Done** for operations and patterns; `livesprite_plugin` covers it |
-| 9 | What the engine must not contain | **Held.** No UI, no timeline, no undo presentation in the engine |
-| 10 | Build order | **Complete**, in the order given |
-| 11 | C++ conventions | **Held**, enforced by the build |
-| 12 | Fast/Pract integration points | **Exercised** by Fast for real, which is how most engine bugs were found |
-
-All 39 declared operations are handled in the compile pipeline — none are
-declared-but-unimplemented. 18 engine tests, 24 Fast tests, all green on
-Windows, Linux, macOS, plus a consume-the-installed-package job and a Python
-`ctypes` job against the C ABI.
-
-**The engine is spec-complete.** What is left there is polish and reach, not
-missing design: the C ABI does not expose layer groups (engine issue #4), and
-indexed PNG is still wanted.
-
-### Against the wider architecture
-
-Its 18 engine sections track the spec closely, at finer grain. Spot-checked
-rather than audited line by line — §12 spatial anchors (pivots, sockets,
-boundaries) and §13 raster resolution (all six sampling policies, every
-resolution control) are both fully present, and §1–11 are the same ground the
-spec covers. **Anyone continuing should read that document rather than trust
-this paragraph**; it is the one place the whole shape of the products is
-written down, and it has not been re-read in full recently.
-
-Where the architecture is unbuilt is **Pract**, entirely:
-
-| Pract toolkit | Purpose | State |
-|---|---|---|
-| References | Interpret source material — images, video, 3D, AI, palette and pose extraction, source overlays | Not started |
-| Canvas | Author sprite appearance | **This is what Fast is**, in a free, smaller form |
-| Animation | Author motion — timelines, puppets, IK | Not started; Fast has frames and cycles, which is not the same thing |
-| Arranger | Sheets, atlases, engine export | Not started; Fast has basic sheet export |
-
-That table is the honest summary of the whole project: **the engine is done,
-one of four toolkits exists as a free editor, and the paid product has not
-begun.**
-
-### The editor against its own README
-
-Fast has no separate specification; its README's *Status* section is the claim.
-That section is now behind — it does not mention elements, the brush, pen
-support, references, the libraries, or autosave. **Updating it is the first
-small job for whoever picks this up**, and a good way to get oriented.
-
-What Fast has that is genuinely unlike other pixel editors: shapes that stay
-shapes, outlines that follow the artwork and can trace a whole figure across
-layers, non-destructive transforms, dithers with pattern anchoring, palette
-roles that recolour from the drawing, several palettes with a swap and a
-per-frame binding, and elements so one layer can hold a rectangle, a line and
-some pixels at once.
-
----
-
-## 5. Deviations and open decisions
-
-**References live in Fast, and both design documents give references to
-Pract.** The spec's section 9 reserves `ImportGLB`, `ScrubVideo`, `ExtractPose`
-and `ExtractPaletteFromPhoto` for the Pract References Toolkit; the
-architecture document lists that toolkit's scope as images, video, 3D models,
-texture photos, AI references, palette extraction, pose extraction and — the
-exact phrase — **source overlays**. A reference image laid over the canvas is
-a source overlay.
-
-The rule both documents are really protecting holds: the *engine* knows
-nothing about it, since references are package entries it never interprets.
-And there is a defensible product split — Fast gets the trivial case, a still
-image you look at, while Pract gets *interpretation*: video, 3D, pose and
-palette extraction. That is a reasonable free-versus-paid line.
-
-But it was not a decision anyone made; it was a feature request answered
-literally. **Unresolved, and worth resolving before more is built on it**,
-because the same question is about to be asked of the sheet exporter (Arranger
-toolkit) and of frames and cycles (Animation toolkit) — Fast already has small
-versions of both.
-
-**A reference is embedded, not linked.** Deliberate: a linked reference breaks
-exactly when a half-finished drawing still needs it. Capped at 8 MB each and
-16 MB per document.
-
-**A project is a folder**, with no project file. Nothing to corrupt and nothing
-to keep in step with the filesystem.
-
-**There is no cut for layers**, only copy, paste and delete. A cut layer would
-have to live somewhere while it waits.
-
-**Elements cannot be reordered within a layer** yet, and a dither applies to
-the freehand element only.
-
-**Licensing**, tracked as engine issues #1 and #2: the Licensor is currently
-the individual, to be renamed once Manic Trash Panda Software Labs is
-registered — and copyright assignment must carry contribution grants. The
-Additional Use Grant needs a lawyer before a commercial licence is sold on it.
-`LICENSING.md` records both.
-
----
-
-## 6. What to do next
-
-Open issues, and the order that makes sense:
-
-1. **Fast README status** — a few minutes, and it orients you.
-2. **Fast #2, selection and move tools** — the largest missing thing in the
-   editor, and the one with real design in it: done *in terms of operations*
-   rather than pixels, or the one rule breaks.
-3. **Fast #5** — palette presets, reorder, sort. Multiple palettes and the swap
-   are done; check the licensing of any preset before shipping it.
-4. **Fast #3 / engine indexed PNG** — smaller files that keep the palette, so a
-   game can swap colours at run time. This is what a palette-native engine is
-   for, and `third_party/README.md` already argues the case.
-5. **Engine #4** — groups in the C ABI. Fast uses the C++ API so it is not
-   blocked; a Python or Pract caller is.
-6. **Fast #1** — the sheet manifest, before a bridge depends on its shape.
-7. **Engine #3 / Fast #4** — bump `actions/checkout` to v5.
-
-Not filed, and worth considering: elements reordering; a "save a copy" menu
-item (`Document::saveCopy` already exists); thumbnail budgeting if canvases
-grow past 256².
+- `include/livesprite/`: the public API (`ls_api.h`), operations
+  (`ls_operations.h`), types, and the C ABI (`livesprite_c.h`);
+- `src/`: geometry, context, dependency graph, compile, serialisation,
+  package, C ABI;
+- `docs/`: concepts, operations, file format, embedding, getting started,
+  performance and limits.
 
 ---
 
 ## 7. Traps that have already cost time
 
-**Heredocs mangle backslashes and `\n`.** Writing C++ through a shell heredoc
-silently ate an escape level more than once, producing `'\'` where `'\\'` was
-meant. Use the Write and Edit tools, or a script file in the scratchpad. This
-has bitten in three separate sessions.
-
-**A failed build leaves a stale executable.** Filtering build output for
-`error` and seeing nothing does not mean it built. An afternoon went into
-debugging a feature that was working, through a binary that was three builds
-old. Check that the link step ran.
-
-**A running app locks its own `.exe`** and the next build fails to link.
-
-**References into `editor.frames` or `editor.cycles` are invalidated by almost
-anything.** `selectFrame` re-reads both lists, so a `const Cycle&` held across
-a click is a dangling reference. This was a real crash on Play. Take copies.
-
-**C ABI enums are hand-mirrored.** `LS_PALETTE_*` was once in the reverse
-order of the C++ enum, so every C caller asking for unconstrained output got
-quantisation, invisibly. Every mirror is now pinned by `static_assert`; keep it
-that way when adding one.
-
-**Sentinel values that collide with real values.** Autosave used
-`lastWriteSeconds_ == 0` to mean "never written", and the clock genuinely is 0
-for the first second, so it re-armed every frame and wrote nothing. The unit
-test had dodged it by starting its clock at 1000.
-
-**The engine's snapshot does not carry Fast's package entries.** `Document`'s
-history entries carry them explicitly; without that, undoing a reference import
-would restore the artwork and leave the image behind.
-
-**Clickable file links only reach inside the working directory.** A session
-started in the engine repo cannot link to a file in the editor repo, and the
-link silently fails rather than erroring. Give a full path or a GitHub URL when
-crossing between the two.
-
-**Dear ImGui's SDL_Renderer backend owns the sampler** from 1.92.8 and
-re-applies linear filtering to every texture it binds, so setting a texture's
-scale mode is not enough. The canvas brackets its artwork with the backend's
-nearest callback.
+- **Shell escapes.** Never write code through a Bash heredoc, `python -c`, or
+  `sed` with `\n` in the replacement: backslashes and backticks get mangled.
+  Use the Edit and Write tools, or a Python script in the scratchpad written
+  with `newline='\n'` (the repos are LF). Heredocs are fine for commit
+  messages only.
+- **PowerShell piping corrupts line endings** (`git diff | git apply`). Use
+  Bash with a patch file.
+- **Never `git checkout <file>` to undo a temporary edit** in a file with
+  other uncommitted work; it once dropped four CMake targets.
+- **Stale objects.** After changing a header in the engine or Fast, delete
+  the `.obj` files in the build tree before trusting a run. For
+  `build-gui\`, deleting `build-gui\livesprite` and the
+  `fast_core`/`sprits_fast` object folders avoids rebuilding SDL.
+- **Stale links.** A crash before `main` prints anything is a stale
+  incremental link: delete the `.exe` and `.ilk` files. Both repos link with
+  `/INCREMENTAL:NO` because of it.
+- **Stale executables.** A failed build leaves the old `.exe` in place:
+  check that the link step ran.
+- **A running window locks its `.exe`.** Check the process before
+  rebuilding; close it only if it is a test window, not the user's.
+- **The compiler is Spanish.** `VSLANG=1033` is set by the build scripts.
+- **WinMain.** A windowed (WIN32-subsystem) build needs WinMain;
+  `#include <SDL3/SDL_main.h>` in the file with `main` supplies it.
+- **ImGui's SDL_Renderer backend owns the sampler** and re-applies linear
+  filtering. The canvas and magnified references bracket their drawing with
+  `DrawCallback_SetSamplerNearest`.
+- **In UI scripts, `nameForScripts` must be called after the widget is
+  drawn.**
+- **References into `editor.frames` or `editor.cycles` dangle** after almost
+  any call (`selectFrame` re-reads them): take copies.
+- **C ABI enums are hand-mirrored**, each pinned by `static_assert`; keep it
+  that way.
+- **Sentinels that collide with real values.** For example, a clock that
+  really is 0 in the first second.
+- **The engine's snapshot does not carry Fast's package entries.**
+  `Document`'s history carries them, or undoing an import would leave its
+  image behind.
+- **The Desktop is in OneDrive.** Files there can become online-only, so
+  anything needed offline goes outside OneDrive as well.
 
 ---
 
 ## 8. How the work is done here
 
-Worth matching, because the codebase is consistent about it:
-
-- **Comments say why, not what.** Most explain a decision or name the bug that
-  forced it. Match the density; it is high on purpose.
-- **Every promise gets a test that can fail.** `tests/system_tests.cpp` in Fast
-  holds one realistic document to a few promises through everything at once —
-  it is where seams get caught, and most recent bugs were found there rather
-  than by using the program.
-- **Commit messages are prose** explaining the decision, ending with the
-  `Co-Authored-By` line.
-- **CI is the gate**, six jobs on the engine and four on Fast.
-- `docs/testing.md` is the script for what only a person at the window can
-  judge. Several flows there have never been run by hand.
+- Comments say why, not what, and the density is high on purpose. Match it.
+- Every promise gets a test that can fail. Interactions get a UI script.
+  `tests/system_tests.cpp` holds one realistic document to several promises
+  at once.
+- One undo step per user action; a drag is bracketed into one.
+- Everything from a file is untrusted: bound it before allocating, refuse
+  rather than repair, and say why in words a person can act on.
+- `ls::Result<T>` throughout the engine: no exceptions across the API, no
+  RTTI. The same sprite compiles to the same bytes on every compiler;
+  `livesprite_determinism` holds the golden hashes.
