@@ -37,6 +37,7 @@
 #include "ui/help.h"
 #include "ui/new_document.h"
 #include "ui/start_screen.h"
+#include "ui/widgets.h"
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
 #include "ui/tabs.h"
@@ -854,6 +855,7 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::Separator();
         toggle("References", &editor.panels.references, "view.references");
         ImGui::MenuItem(tr("Preview"), "P", &editor.preview.visible);
+        ImGui::MenuItem(tr("Interface kit"), nullptr, &editor.kitOpen);
         ImGui::Separator();
         if (ImGui::MenuItem(tr("Reset layout"))) {
             editor.panels = Editor::Panels{};
@@ -1317,6 +1319,15 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                     theme::setScale(1.f);
                     changed = true;
                 }
+                // How much air: Compact fits more on a small screen. The type
+                // does not change, only the spacing and the height of a control.
+                const char* densities[] = { "Compact", "Comfortable", "Spacious" };
+                if (widgets::segmented("density", &prefs.density, densities, 3)) {
+                    theme::setDensity(static_cast<theme::Density>(prefs.density));
+                    changed = true;
+                }
+                ImGui::SameLine();
+                ImGui::TextUnformatted(tr("density"));
             }
             theme::sectionHeader(tr("A NEW DOCUMENT"));
             int size[2] = { static_cast<int>(prefs.newWidth), static_cast<int>(prefs.newHeight) };
@@ -1677,26 +1688,21 @@ void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
         return;
     }
     FileState::NewDocument& spec = editor.files.newDocument;
-    ImGui::OpenPopup("New document");
-    if (!ImGui::BeginPopupModal("New document", &editor.newDocumentOpen,
-                                ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginDialog("New document", &editor.newDocumentOpen,
+                              widgets::DialogSize::Medium)) {
         return;
     }
     const bool fits = drawNewDocumentFields(spec);
-    ImGui::Dummy(ImVec2(0.f, 6.f));
-    ImGui::BeginDisabled(!fits);
-    if (ImGui::Button(tr("Create"), ImVec2(110.f, 0.f))) {
+    const int choice = widgets::dialogButtons("Create", "Cancel", fits);
+    if (choice == 1) {
         editor.newDocumentOpen = false;
         ImGui::CloseCurrentPopup();
         requestAction(editor, canvas, window, PendingAction::NewDocument);
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
+    } else if (choice == 2) {
         editor.newDocumentOpen = false;
         ImGui::CloseCurrentPopup();
     }
-    ImGui::EndPopup();
+    widgets::endDialog();
 }
 
 // What was found waiting from a session that did not end normally.
@@ -3463,6 +3469,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawRecoveryPrompt(editor, canvas);
     drawStartScreen(editor, canvas, window);
     drawHelpWindows(editor, window);
+    widgets::drawGallery(&editor.kitOpen);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -3495,6 +3502,7 @@ struct Options {
     bool        paths = false;           // --paths: a polygon and a curve, handles showing
     bool        tabs = false;            // --tabs: two more documents open beside the first
     bool        start = false;           // --start: the start screen up, as at a person's start
+    bool        kit = false;             // --kit: the interface kit up (ui/widgets.h)
     bool        adjust = false;          // --adjust: the colour window, hue turned
     bool        shadow = false;          // --shadow: the figure casts a shadow
     bool        tween = false;           // --tween: a figure turned and moved across five frames
@@ -3587,6 +3595,8 @@ Options parseOptions(int argc, char** argv) {
             options.tabs = true;
         } else if (arg == "--start") {
             options.start = true;
+        } else if (arg == "--kit") {
+            options.kit = true;
         } else if (arg == "--paths") {
             options.paths = true;
         } else if (arg == "--layer-properties") {
@@ -5115,6 +5125,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     if (const Theme* chosen = findBuiltinTheme(editor.prefs.themeId)) {
         theme::setTheme(*chosen);
     }
+    theme::setDensity(static_cast<theme::Density>(editor.prefs.density));
     theme::setScale(static_cast<float>(editor.prefs.uiScale) / 100.f);
     applyViewPreferences(editor.prefs, canvas);
     editor.doc.setHistoryLimit(editor.prefs.historyLimit);
@@ -5134,6 +5145,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     if (options.start || (interactive && editor.prefs.showStart && options.openPath.empty())) {
         openStartScreen(editor);
     }
+    editor.kitOpen = options.kit;
 
     if (options.library) {
         editor.libraryOpen = true;

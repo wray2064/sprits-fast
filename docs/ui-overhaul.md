@@ -10,8 +10,15 @@ decisions. Progress:
       force; Preferences > Look lists every theme; `view.theme` keeps the id.
       Panels still carry their own literals until stage 3, so a few elements
       (the toolbar, some borders) do not yet follow a theme.
-- [ ] Stage 2, component kit, typography, density, the font (download asked
-      for there).
+- [x] **Stage 2, component kit, typography, density, the font.** Inter
+      (Regular and SemiBold, OFL, `assets/fonts/`) is compiled in; the type
+      scale (caption 12, body 14, title 17, display 22) is `theme::pushText`;
+      three densities (`view.density`, Preferences > Interface); `ui/widgets.h`
+      has buttons (primary, secondary, ghost, danger), the switch, the
+      segmented control, the label-left `field` row, badges, banners, key caps,
+      the empty state and the dialog frame, and `Window > Interface kit` (or
+      `--kit`) draws every one in every state for review. File > New is the
+      first dialog on the new frame; the rest move in stage 3.
 - [ ] Stage 3, panel by panel.
 - [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
       export).

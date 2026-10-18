@@ -3,6 +3,9 @@
 
 #include "ui/theme.h"
 
+#include "font_inter_regular.h"
+#include "font_inter_semibold.h"
+
 #include "app/i18n.h"
 
 #include <algorithm>
@@ -74,7 +77,30 @@ Palette paletteFor(const Theme& t) {
 Theme gTheme = *findBuiltinTheme("slate");
 Palette gPalette = paletteFor(gTheme);
 
-const Metrics kMetrics {};
+const TypeScale kType {};
+Metrics kMetrics {};                 // set from the density by apply()
+Density gDensity = Density::Comfortable;
+float   gDisplayScale = 1.f;         // the display's own scale (loadFonts)
+ImFont* gRegular = nullptr;
+ImFont* gStrong = nullptr;
+
+// The spacing of each density. Control height follows from the frame padding
+// and the font, so what changes is the air, not the type.
+struct DensitySteps {
+    float framePaddingY;
+    float itemSpacing;
+    float panelPadding;
+    float sectionGap;
+    float rowHeight;
+};
+DensitySteps stepsFor(Density density) {
+    switch (density) {
+        case Density::Compact:  return { 3.f, 4.f, 8.f, 10.f, 22.f };
+        case Density::Spacious: return { 7.f, 8.f, 12.f, 18.f, 28.f };
+        case Density::Comfortable: break;
+    }
+    return { 5.f, 6.f, 10.f, 14.f, 24.f };
+}
 
 // Where an interface font might live. Tried in order; the first that loads wins.
 // Deliberately a short list of the faces these platforms actually ship, rather
@@ -120,6 +146,11 @@ void apply() {
     static const ImGuiStyle pristine = ImGui::GetStyle();
     style = pristine;
     const Palette& c = gPalette;
+    const DensitySteps steps = stepsFor(gDensity);
+    kMetrics.itemSpacing = steps.itemSpacing;
+    kMetrics.panelPadding = steps.panelPadding;
+    kMetrics.sectionGap = steps.sectionGap;
+    kMetrics.rowHeight = steps.rowHeight;
     const Metrics& m = kMetrics;
 
     // Geometry. Slightly rounded rather than pill-shaped: this is a tool for
@@ -137,7 +168,7 @@ void apply() {
     style.PopupBorderSize   = 1.f;
 
     style.WindowPadding     = ImVec2(m.panelPadding, m.panelPadding);
-    style.FramePadding      = ImVec2(8.f, 5.f);
+    style.FramePadding      = ImVec2(8.f, steps.framePaddingY);
     style.ItemSpacing       = ImVec2(m.itemSpacing, m.itemSpacing);
     style.ItemInnerSpacing  = ImVec2(6.f, 4.f);
     style.IndentSpacing     = 16.f;
@@ -218,6 +249,7 @@ void apply() {
         style.ScaleAllSizes(gScale);
     }
     style.FontScaleMain = gScale;
+    style.FontScaleDpi = gDisplayScale;
 }
 
 void setScale(float scale) {
@@ -232,17 +264,64 @@ float scale() {
 void loadFonts(float scale) {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
+    gDisplayScale = scale > 0.f ? scale : 1.f;
+    gRegular = nullptr;
+    gStrong = nullptr;
 
-    const float size = 15.f * (scale > 0.f ? scale : 1.f);
+    // Inter, compiled in: the same face on every machine. The sizes are the
+    // type scale's, unscaled; the display's scale and the person's interface
+    // size are applied by the style (see apply), so a pushed size follows both.
+    ImFontConfig config;
+    config.FontDataOwnedByAtlas = false;          // the bytes are ours, in the program
+    gRegular = io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char*>(kInterRegular),
+                                              static_cast<int>(kInterRegular_size),
+                                              kType.body, &config);
+    gStrong = io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char*>(kInterSemiBold),
+                                             static_cast<int>(kInterSemiBold_size),
+                                             kType.body, &config);
+    if (gRegular != nullptr) {
+        if (gStrong == nullptr) {
+            gStrong = gRegular;
+        }
+        return;
+    }
+
+    // Not expected, but a program that starts beats one that does not: the
+    // platform's own face, and then ImGui's built-in one.
     for (const char* path : kFontPaths) {
-        if (io.Fonts->AddFontFromFileTTF(path, size) != nullptr) {
-            return;
+        gRegular = io.Fonts->AddFontFromFileTTF(path, kType.body + 1.f);
+        if (gRegular != nullptr) {
+            break;
         }
     }
-    // Nothing found. The built-in face is not pretty, but a program that starts
-    // beats a program that does not.
-    io.Fonts->AddFontDefault();
+    if (gRegular == nullptr) {
+        gRegular = io.Fonts->AddFontDefault();
+    }
+    gStrong = gRegular;
 }
+
+void pushText(TextStyle style) {
+    switch (style) {
+        case TextStyle::Caption: ImGui::PushFont(gRegular, kType.caption); break;
+        case TextStyle::Body:    ImGui::PushFont(gRegular, kType.body); break;
+        case TextStyle::Strong:  ImGui::PushFont(gStrong, kType.body); break;
+        case TextStyle::Title:   ImGui::PushFont(gStrong, kType.title); break;
+        case TextStyle::Display: ImGui::PushFont(gStrong, kType.display); break;
+    }
+}
+
+void popText() {
+    ImGui::PopFont();
+}
+
+const TypeScale& type() { return kType; }
+
+void setDensity(Density density) {
+    gDensity = density;
+    apply();
+}
+
+Density density() { return gDensity; }
 
 // ---------------------------------------------------------------- widgets --
 

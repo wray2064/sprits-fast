@@ -82,6 +82,7 @@ std::string savePreferences(const Preferences& p) {
     out += "start.show = " + std::string(p.showStart ? "1" : "0") + "\n";
     out += "colour.recent = " + p.recentColours + "\n";
     out += "view.scale = " + std::to_string(p.uiScale) + "\n";
+    out += "view.density = " + std::to_string(p.density) + "\n";
     out += "start.tip = " + std::to_string(p.tipIndex) + "\n";
     out += "view.language = " + p.language + "\n";
     return out;
@@ -137,6 +138,8 @@ Preferences loadPreferences(const std::string& text) {
             const Theme* theme = findBuiltinTheme(id);
             p.themeId = theme != nullptr ? theme->id : "slate";
             p.lightTheme = theme != nullptr && !theme->dark;
+        } else if (name == "view.density") {
+            p.density = static_cast<int>(number(value, 0, 2, 1));
         } else if (name == "start.tip") {
             p.tipIndex = static_cast<uint32_t>(number(value, 0, 1000000, 0));
         } else if (name == "view.scale") {

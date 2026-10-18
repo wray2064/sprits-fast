@@ -181,6 +181,7 @@ if (FAST_BUILD_GUI)
         src/ui/start_screen.cpp
         src/ui/help.cpp
         src/ui/new_document.cpp
+        src/ui/widgets.cpp
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
         src/ui/ui_script.cpp
@@ -199,6 +200,12 @@ if (FAST_BUILD_GUI)
                kFastIcon256 ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_icon_256.h)
     embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/sprits_fast_32.png
                kFastIcon32 ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_icon_32.h)
+    # The interface font, compiled in (assets/fonts/README.md), so the program
+    # looks the same on every machine and cannot lose it.
+    embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/Inter-Regular.ttf
+               kInterRegular ${CMAKE_CURRENT_BINARY_DIR}/generated/font_inter_regular.h)
+    embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/Inter-SemiBold.ttf
+               kInterSemiBold ${CMAKE_CURRENT_BINARY_DIR}/generated/font_inter_semibold.h)
     target_include_directories(fast_ui PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
     # Help > About says which version this is, from the project's own.
     target_compile_definitions(fast_ui PRIVATE FAST_VERSION="${PROJECT_VERSION}")

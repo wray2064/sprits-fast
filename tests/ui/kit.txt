@@ -1,0 +1,42 @@
+# The interface kit: every component draws, and responds to the mouse.
+click-on Window
+click-on Interface kit
+wait 3
+expect item Primary
+expect item Secondary
+expect item Ghost
+expect item Danger
+expect item Switched on
+expect item 2x
+expect item Open a dialog
+
+# A switch turns over; a segmented control moves its choice.
+click-on Switched off
+wait 2
+click-on 3x
+wait 2
+click-on Round
+wait 2
+
+# The dialog: a title, a body, the primary on the right; Cancel and Escape
+# close it.
+click-on Open a dialog
+wait 3
+expect item Create
+expect item Cancel
+click-on Cancel
+wait 3
+expect missing Create
+
+click-on Open a dialog
+wait 3
+expect item Create
+key escape
+wait 3
+expect missing Create
+
+click-on Open a dialog
+wait 3
+click-on Create
+wait 3
+expect missing Create

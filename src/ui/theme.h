@@ -95,6 +95,28 @@ struct Metrics {
 
 const Metrics& metrics();
 
+// How much air there is: the spacing and the height of a control, never the
+// type. Comfortable is the default; Compact fits more on a small screen.
+enum class Density { Compact = 0, Comfortable = 1, Spacious = 2 };
+void setDensity(Density density);
+Density density();
+
+// --- type -----------------------------------------------------------------------
+//
+// One family (Inter) in two weights, and five styles drawn from them. A panel
+// asks for a style, not a size: pushText(TextStyle::Title) ... popText().
+// Body is what every widget is drawn in unless told otherwise.
+struct TypeScale {
+    float caption = 12.f;       // units, hints, the status bar
+    float body = 14.f;          // labels and values
+    float title = 17.f;         // a dialog's or a panel's title
+    float display = 22.f;       // the program's name on the start screen
+};
+enum class TextStyle { Caption, Body, Strong, Title, Display };
+void pushText(TextStyle style);
+void popText();
+const TypeScale& type();
+
 // Applies the palette and the spacing to the current ImGui context. Called once
 // after the context is created.
 void apply();

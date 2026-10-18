@@ -45,6 +45,24 @@ Move left = Mover a la izquierda
 Move right = Mover a la derecha
 Reverse selected frames = Invertir los fotogramas seleccionados
 
+# --- kit de interfaz --------------------------------------------------------------
+Interface kit = Kit de interfaz
+density = densidad
+Compact = Compacta
+Comfortable = Cómoda
+Spacious = Amplia
+BUTTONS = BOTONES
+CHOICES = OPCIONES
+FIELDS = CAMPOS
+STATUS = ESTADOS
+TYPE = TIPOGRAFÍA
+SURFACES = SUPERFICIES
+DIALOG = DIÁLOGO
+Larger than a canvas Fast works on. = Más grande que un lienzo con el que Fast puede trabajar.
+sizes = tamaños
+palette = paleta
+mode = modo
+
 # --- ayuda----------------------------------------------------------------------
 Help = Ayuda
 Search commands... = Buscar comandos...

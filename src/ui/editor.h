@@ -469,6 +469,7 @@ struct Editor {
     bool        preferencesOpen = false;
     // Help: the About window and the list of shortcuts, with what is typed to
     // narrow the list.
+    bool        kitOpen = false;           // the interface kit (ui/widgets.h)
     bool        aboutOpen = false;
     bool        shortcutsOpen = false;
     char        shortcutsFilter[64] = {};

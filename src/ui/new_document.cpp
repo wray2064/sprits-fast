@@ -7,6 +7,7 @@
 #include "app/i18n.h"
 #include "app/palette_tools.h"
 #include "ui/theme.h"
+#include "ui/widgets.h"
 
 #include <imgui.h>
 
@@ -22,19 +23,21 @@ bool drawNewDocumentFields(FileState::NewDocument& spec) {
     // own, and what Save As offers.
     char name[64];
     std::snprintf(name, sizeof name, "%s", spec.name.c_str());
-    ImGui::SetNextItemWidth(220.f);
+    widgets::field("name");
     if (ImGui::InputText("##newname", name, sizeof name)) {
         spec.name = name;
     }
-    ImGui::SameLine();
-    ImGui::TextUnformatted(tr("name"));
 
     int width = static_cast<int>(spec.width);
     int height = static_cast<int>(spec.height);
-    ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt(tr("width"), &width);
-    ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt(tr("height"), &height);
+    widgets::field("width");
+    ImGui::InputInt("##newwidth", &width);
+    widgets::field("height");
+    ImGui::InputInt("##newheight", &height);
+
+    // The sizes pixel art is usually made at, and portrait to landscape as
+    // Photoshop's orientation does.
+    widgets::field("sizes");
     for (int size : { 16, 24, 32, 48, 64, 128, 256 }) {
         const std::string label = std::to_string(size);
         if (ImGui::SmallButton(label.c_str())) {
@@ -43,7 +46,7 @@ bool drawNewDocumentFields(FileState::NewDocument& spec) {
         ImGui::SameLine();
     }
     ImGui::NewLine();
-    // Portrait to landscape and back, as Photoshop's orientation does.
+    widgets::field("");
     if (ImGui::SmallButton(tr("Swap width and height"))) {
         std::swap(width, height);
     }
@@ -52,16 +55,16 @@ bool drawNewDocumentFields(FileState::NewDocument& spec) {
     const bool fits = static_cast<uint64_t>(spec.width) * spec.height <= kMaxCanvasPixels;
 
     ImGui::Dummy(ImVec2(0.f, 4.f));
+    widgets::field("background");
     const char* backgrounds[] = { "Transparent", "White", "Black", "The palette's first colour" };
-    ImGui::SetNextItemWidth(220.f);
-    ImGui::Combo(tr("background"), &spec.background, backgrounds, 4);
+    ImGui::Combo("##newbackground", &spec.background, backgrounds, 4);
 
+    widgets::field("palette");
     const std::vector<PalettePreset>& presets = palettePresets();
     const char* current = spec.preset < 0 || spec.preset >= static_cast<int>(presets.size())
                               ? "Starter"
                               : presets[static_cast<size_t>(spec.preset)].name.c_str();
-    ImGui::SetNextItemWidth(220.f);
-    if (ImGui::BeginCombo("palette", current)) {
+    if (ImGui::BeginCombo("##newpalette", current)) {
         if (ImGui::Selectable(tr("Starter"), spec.preset < 0)) {
             spec.preset = -1;
         }
@@ -73,7 +76,8 @@ bool drawNewDocumentFields(FileState::NewDocument& spec) {
         ImGui::EndCombo();
     }
     if (!fits) {
-        ImGui::TextColored(theme::palette().danger, "Larger than a canvas Fast works on.");
+        ImGui::Dummy(ImVec2(0.f, 4.f));
+        widgets::banner(widgets::Tone::Danger, "Larger than a canvas Fast works on.");
     }
     return fits;
 }

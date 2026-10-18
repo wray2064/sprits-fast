@@ -25,3 +25,12 @@ was a condition of choosing them.
                       https://github.com/nothings/stb
                       Vendored in third_party/ -- see the README there for the
                       pinned version and hash.
+
+  Inter (Regular, SemiBold)
+                      SIL Open Font License 1.1 -- assets/fonts/Inter-OFL.txt
+                      https://github.com/rsms/inter, release 4.1
+                      Compiled into the program as the interface font. The
+                      licence allows bundling and redistribution with software;
+                      it asks that the licence text travel with the font and
+                      that a modified font not be sold under the same name.
+                      See assets/fonts/README.md for the exact files.

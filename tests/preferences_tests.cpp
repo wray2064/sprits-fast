@@ -90,6 +90,15 @@ int main() {
     CHECK(fast::loadPreferences("view.scale = 3").uiScale == 75);
     CHECK(fast::loadPreferences("view.scale = wide").uiScale == 100);
 
+    // Density is kept, and brought into range.
+    CHECK(fast::loadPreferences("").density == 1);
+    fast::Preferences roomy;
+    roomy.density = 2;
+    CHECK(fast::loadPreferences(fast::savePreferences(roomy)).density == 2);
+    CHECK(fast::loadPreferences("view.density = 9").density == 2);
+    CHECK(fast::loadPreferences("view.density = -4").density == 0);
+    CHECK(fast::loadPreferences("view.density = dense").density == 1);
+
     // Which tip comes next is kept, so the greeting changes from one start to
     // the next; a hand-edited value is brought into range.
     CHECK(fast::loadPreferences("").tipIndex == 0);

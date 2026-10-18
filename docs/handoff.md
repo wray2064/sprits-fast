@@ -64,7 +64,7 @@ From PowerShell in this folder:
 |---|---|---|
 | Core and tests | `.\build.bat test` | `build\`, no window, seconds; 46 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 31 scripts; all must pass; CI runs them |
+| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 32 scripts; all must pass; CI runs them |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |
 
 The engine is found at `../livesprite-engine` (`-DLIVESPRITE_DIR` to point
