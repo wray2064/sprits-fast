@@ -181,6 +181,79 @@ bool segmented(const char* id, int* selected, const char* const* options, int co
     return changed;
 }
 
+namespace {
+
+// The look of every slider: the ImGui slider is drawn with a see-through frame
+// and a thin accent handle, and the well and the fill under it are drawn
+// afterwards into the channel behind, knowing where the value ended up. Doing
+// it afterwards means the fill is never a frame behind a drag.
+template <typename Call>
+bool styledSlider(float (*fraction)(const void*, const void*, const void*),
+                  const void* value, const void* low, const void* high, Call call) {
+    const theme::Palette& p = theme::palette();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    ImDrawListSplitter split;
+    split.Split(draw, 2);
+    split.SetCurrentChannel(draw, 1);
+
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.f, 0.f, 0.f, 0.f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(1.f, 1.f, 1.f, 0.06f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(1.f, 1.f, 1.f, 0.10f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, p.accent);
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, p.accentHover);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 4.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 2.f);
+    const bool changed = call();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(5);
+
+    const ImVec2 from = ImGui::GetItemRectMin();
+    const ImVec2 to = ImGui::GetItemRectMax();
+    const bool active = ImGui::IsItemActive();
+    const float rounding = ImGui::GetStyle().FrameRounding;
+    const float at = std::clamp(fraction(value, low, high), 0.f, 1.f);
+
+    split.SetCurrentChannel(draw, 0);
+    draw->AddRectFilled(from, to, u32(p.inset), rounding);
+    if (at > 0.f) {
+        draw->AddRectFilled(from, ImVec2(from.x + (to.x - from.x) * at, to.y), u32(p.accentDim),
+                            rounding);
+    }
+    draw->AddRect(from, to, u32(active ? p.accent : p.border), rounding);
+    split.Merge(draw);
+    return changed;
+}
+
+float intFraction(const void* value, const void* low, const void* high) {
+    const int v = *static_cast<const int*>(value);
+    const int lo = *static_cast<const int*>(low);
+    const int hi = *static_cast<const int*>(high);
+    return hi > lo ? static_cast<float>(v - lo) / static_cast<float>(hi - lo) : 0.f;
+}
+
+float floatFraction(const void* value, const void* low, const void* high) {
+    const float v = *static_cast<const float*>(value);
+    const float lo = *static_cast<const float*>(low);
+    const float hi = *static_cast<const float*>(high);
+    return hi > lo ? (v - lo) / (hi - lo) : 0.f;
+}
+
+} // namespace
+
+bool sliderInt(const char* label, int* value, int low, int high, const char* format,
+               ImGuiSliderFlags flags) {
+    return styledSlider(intFraction, value, &low, &high, [&] {
+        return ImGui::SliderInt(label, value, low, high, format, flags);
+    });
+}
+
+bool sliderFloat(const char* label, float* value, float low, float high, const char* format,
+                 ImGuiSliderFlags flags) {
+    return styledSlider(floatFraction, value, &low, &high, [&] {
+        return ImGui::SliderFloat(label, value, low, high, format, flags);
+    });
+}
+
 // ----------------------------------------------------------------------- fields --
 
 float fieldLabelWidth() {

@@ -16,6 +16,7 @@
 #include "ui/panels.h"
 #include "app/i18n.h"
 #include "ui/theme.h"
+#include "ui/widgets.h"
 
 #include "app/tracks.h"
 
@@ -639,9 +640,9 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
     if (ImGui::BeginPopup("onion-settings")) {
         ImGui::SetNextItemWidth(120.f);
-        ImGui::SliderInt(tr("behind"), &timeline.onionBefore, 0, 4);
+        widgets::sliderInt(tr("behind"), &timeline.onionBefore, 0, 4);
         ImGui::SetNextItemWidth(120.f);
-        ImGui::SliderInt(tr("ahead"), &timeline.onionAfter, 0, 4);
+        widgets::sliderInt(tr("ahead"), &timeline.onionAfter, 0, 4);
         ImGui::Checkbox(tr("Neighbours in the cycle"), &timeline.onionInCycle);
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("%s", tr("The frames the selected cycle plays either side of "

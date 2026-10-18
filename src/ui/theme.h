@@ -112,7 +112,7 @@ struct TypeScale {
     float title = 17.f;         // a dialog's or a panel's title
     float display = 22.f;       // the program's name on the start screen
 };
-enum class TextStyle { Caption, Body, Strong, Title, Display };
+enum class TextStyle { Caption, Label, Body, Strong, Title, Display };
 void pushText(TextStyle style);
 void popText();
 const TypeScale& type();
@@ -187,6 +187,9 @@ void railDivider();
 
 // A right-aligned help marker that explains something without taking a row.
 void hint(const char* text);
+// The room a hint takes beside a control (for `SetNextItemWidth(-hintWidth())`),
+// so the control and the mark share a row without the mark falling off it.
+float hintWidth();
 
 } // namespace theme
 } // namespace fast

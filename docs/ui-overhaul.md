@@ -24,8 +24,15 @@ decisions. Progress:
       density, tooltips with key caps, secondary-text icons that light to the
       accent), the status bar (caption type, an accent dot for unsaved work,
       a right-hand group that is measured, not given 580 px), and the canvas's
-      origin on a whole screen pixel. To do: 3b Tool and Palette, 3c Layers /
-      Elements / Properties / Transform, 3d Timeline, 3e the other dialogs.
+      origin on a whole screen pixel. **3b, the controls every panel shares**
+      (which is most of the Tool and Palette panels): the section heading is a
+      small semibold label in secondary text (it was amber, putting the accent
+      on every heading), every slider is the kit's (a well, a fill up to the
+      value, a thin handle, the value written in it), a hint is a circled
+      question mark that brightens, a hint no longer pushes its row off the
+      panel, palette swatches follow the font, and the palette has SHADES,
+      RECENT and PALETTE headings. To do: 3c Layers / Elements / Properties /
+      Transform, 3d Timeline, 3e the other dialogs.
 - [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
       export).
 - [ ] Stage 5, layout and icons.

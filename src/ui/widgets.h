@@ -43,6 +43,15 @@ bool toggle(const char* label, bool* value);
 // translated; the one at *selected is lit. True when the choice changed.
 bool segmented(const char* id, int* selected, const char* const* options, int count);
 
+// A slider that shows how far along it is: a well, the part up to the value
+// filled, a thin handle, and the value written in it as `format` says ("size
+// %d"). Typing works as in any ImGui slider (Ctrl+click). The same call as
+// ImGui's, so a panel swaps one for the other and nothing else.
+bool sliderInt(const char* label, int* value, int low, int high, const char* format = "%d",
+               ImGuiSliderFlags flags = 0);
+bool sliderFloat(const char* label, float* value, float low, float high,
+                 const char* format = "%.2f", ImGuiSliderFlags flags = 0);
+
 // --- fields ------------------------------------------------------------------------
 
 // A label in a column on the left, and the control that follows filling the

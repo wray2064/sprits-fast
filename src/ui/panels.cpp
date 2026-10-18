@@ -6,6 +6,7 @@
 #include "ui/os_clipboard.h"
 #include "ui/reference_section.h"
 #include "ui/theme.h"
+#include "ui/widgets.h"
 #include "ui/tile_tools.h"
 #include "ui/ui_script.h"
 
@@ -213,7 +214,7 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
 
     if (settings.modulation == ls::DitherModulation::Constant) {
         ImGui::SetNextItemWidth(-1.f);
-        if (ImGui::SliderFloat("##density", &settings.density, 0.f, 1.f,
+        if (widgets::sliderFloat("##density", &settings.density, 0.f, 1.f,
                                "density  %.2f")) {
             changed = true;
         }
@@ -330,7 +331,7 @@ void drawToolPanel(Editor& editor) {
             theme::hint(tr("Every pixel of the colour clicked, wherever it is, rather "
                         "than only the area touching the click."));
             ImGui::SetNextItemWidth(-1.f);
-            ImGui::SliderInt("##wandtolerance", &editor.wand.tolerance, 0, 64,
+            widgets::sliderInt("##wandtolerance", &editor.wand.tolerance, 0, 64,
                              "tolerance  %d");
         }
         if (!editor.selection.empty()) {
@@ -349,7 +350,7 @@ void drawToolPanel(Editor& editor) {
                     "annoyance."));
         ImGui::Checkbox(tr("Whole canvas"), &editor.bucket.global);
         ImGui::SetNextItemWidth(-1.f);
-        ImGui::SliderInt("##tolerance", &editor.bucket.tolerance, 0, 64,
+        widgets::sliderInt("##tolerance", &editor.bucket.tolerance, 0, 64,
                          "tolerance  %d");
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
@@ -401,16 +402,16 @@ void drawToolPanel(Editor& editor) {
     if (editor.tool == Tool::Spray) {
         theme::sectionHeader(tr("SPRAY"));
         ImGui::SetNextItemWidth(-1.f);
-        ImGui::SliderInt("##sprayradius", &editor.sprayRadius, 1, 32, "reach  %d");
+        widgets::sliderInt("##sprayradius", &editor.sprayRadius, 1, 32, "reach  %d");
         ImGui::SetNextItemWidth(-1.f);
-        ImGui::SliderInt("##spraydensity", &editor.sprayDensity, 1, 60, "density  %d");
+        widgets::sliderInt("##spraydensity", &editor.sprayDensity, 1, 60, "density  %d");
         ImGui::Dummy(ImVec2(0.f, theme::metrics().sectionGap));
     }
 
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser) {
         theme::sectionHeader(tr("BRUSH"));
-        ImGui::SetNextItemWidth(-1.f);
-        ImGui::SliderInt("##size", &editor.brush.size, 1, kMaxBrushSize, "size  %d");
+        ImGui::SetNextItemWidth(-theme::hintWidth());
+        widgets::sliderInt("##size", &editor.brush.size, 1, kMaxBrushSize, "size  %d");
         ImGui::SameLine();
         theme::hint(tr("Shift+] and Shift+[ change it from the keyboard. Even "
                     "sizes hang right and down from the pointer's pixel."));
@@ -445,10 +446,12 @@ void drawToolPanel(Editor& editor) {
                 }
             }
         } else if (editor.tool == Tool::Pencil) {
-            ImGui::TextDisabled("%s", tr("Select pixels and press Ctrl+B for a brush of them."));
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textMuted);
+            ImGui::TextWrapped("%s", tr("Select pixels and press Ctrl+B for a brush of them."));
+            ImGui::PopStyleColor();
         }
         ImGui::SetNextItemWidth(-1.f);
-        ImGui::SliderInt("##stabiliser", &editor.brush.stabiliser, 0, 32,
+        widgets::sliderInt("##stabiliser", &editor.brush.stabiliser, 0, 32,
                          editor.brush.stabiliser == 0 ? "stabiliser off" : "stabiliser %d");
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("%s", tr("The line follows a point pulled along behind the pointer "
@@ -477,7 +480,7 @@ void drawToolPanel(Editor& editor) {
             if (editor.shapeOutline) {
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(-1.f);
-                ImGui::SliderFloat("##outlinewidth", &editor.shapeOutlineWidth, 1.f, 8.f,
+                widgets::sliderFloat("##outlinewidth", &editor.shapeOutlineWidth, 1.f, 8.f,
                                    "width %.0f");
             }
         }
@@ -839,9 +842,9 @@ static void drawRecentColours(Editor& editor) {
     if (editor.recentColours.entries().empty()) {
         return;
     }
-    ImGui::TextColored(theme::palette().textDim, "%s", tr("Recent colours"));
+    theme::sectionHeader("RECENT");
     const float gap = 2.f;
-    const float swatch = 16.f;
+    const float swatch = std::round(ImGui::GetFrameHeight() * 0.7f);
     const float width = ImGui::GetContentRegionAvail().x;
     const int perRow = std::max(1, static_cast<int>((width + gap) / (swatch + gap)));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
@@ -906,8 +909,11 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const ls::ColorRole current = editor.inkRole;
     (void)layer;
 
-    const float swatchSize = 22.f;
-    const float spacing = 5.f;
+    // A swatch is a little under a control tall, and the gap is the panel's
+    // own spacing, so a palette follows the font, the density and the
+    // interface size like everything else.
+    const float swatchSize = std::round(ImGui::GetFrameHeight() * 0.95f);
+    const float spacing = std::max(4.f, theme::metrics().itemSpacing - 1.f);
     const float available = ImGui::GetContentRegionAvail().x;
     const int perRow = (available > 0.f)
         ? static_cast<int>((available + spacing) / (swatchSize + spacing))
@@ -1060,6 +1066,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // Shades of the current colour, hue-shifted the way pixel art ramps are:
     // click one to paint with it, or keep the lot as slots.
+    ImGui::Dummy(ImVec2(0.f, 2.f));
+    theme::sectionHeader("SHADES");
     {
         const ls::Color painting = toColor(editor.color);
         const auto sameColour = [](ls::Color a, ls::Color b) {
@@ -1139,6 +1147,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     drawRecentColours(editor);
 
+    ImGui::Dummy(ImVec2(0.f, 2.f));
+    theme::sectionHeader("PALETTE");
     if (ImGui::Button(tr("Add current colour"), ImVec2(-1.f, 0.f))) {
         editor.doc.beginAction("Add palette colour");
         const ls::ColorRole added =
@@ -1211,7 +1221,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (ImGui::BeginPopup("ramp-palette")) {
         static int steps = 3;
         ImGui::SetNextItemWidth(120.f);
-        ImGui::SliderInt(tr("steps"), &steps, 1, 16);
+        widgets::sliderInt(tr("steps"), &steps, 1, 16);
         if (ImGui::Button(tr("Add the ramp"))) {
             editor.doc.beginAction("Palette ramp");
             const std::vector<ls::ColorRole> made =
@@ -1237,13 +1247,13 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         Editor::PaletteAdjust& adjust = editor.paletteAdjust;
         bool changed = false;
         ImGui::SetNextItemWidth(200.f);
-        changed |= ImGui::SliderFloat(tr("hue"), &adjust.hue, -180.f, 180.f, "%.0f deg");
+        changed |= widgets::sliderFloat(tr("hue"), &adjust.hue, -180.f, 180.f, "%.0f deg");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         ImGui::SetNextItemWidth(200.f);
-        changed |= ImGui::SliderFloat(tr("saturation"), &adjust.saturation, -1.f, 1.f, "%.2f");
+        changed |= widgets::sliderFloat(tr("saturation"), &adjust.saturation, -1.f, 1.f, "%.2f");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         ImGui::SetNextItemWidth(200.f);
-        changed |= ImGui::SliderFloat(tr("lightness"), &adjust.lightness, -1.f, 1.f, "%.2f");
+        changed |= widgets::sliderFloat(tr("lightness"), &adjust.lightness, -1.f, 1.f, "%.2f");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         if (changed) {
             adjustPalette(editor.doc, shown, adjust.base, adjust.hue, adjust.saturation,
@@ -1582,7 +1592,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
             }
             bracketDrag(editor, editor.editingShape, "Move text");
             ImGui::SetNextItemWidth(-42.f);
-            if (ImGui::SliderInt(tr("size"), &spec.scale, 1, 8, "%dx")) {
+            if (widgets::sliderInt(tr("size"), &spec.scale, 1, 8, "%dx")) {
                 changed = true;
             }
             bracketDrag(editor, editor.editingShape, "Text size");
@@ -1683,7 +1693,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 // radius set here is also the one the next rectangle starts
                 // with.
                 ImGui::SetNextItemWidth(-42.f);
-                if (ImGui::SliderFloat(tr("round"), &params.cornerRadius, 0.f, 12.f,
+                if (widgets::sliderFloat(tr("round"), &params.cornerRadius, 0.f, 12.f,
                                        "%.1f")) {
                     editor.shapeCorner = params.cornerRadius;
                     changed = true;
@@ -1715,7 +1725,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 if (outlined) {
                     ImGui::SameLine();
                     ImGui::SetNextItemWidth(-1.f);
-                    if (ImGui::SliderFloat("##elementwidth", &width, 1.f, 8.f, "width %.0f")) {
+                    if (widgets::sliderFloat("##elementwidth", &width, 1.f, 8.f, "width %.0f")) {
                         setShapeOutlined(editor.doc, layer->layer, &op, true, std::round(width));
                         canvas.invalidate();
                     }
@@ -1807,7 +1817,7 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         bracketDrag(editor, editor.editingShape, "Shadow colour");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-60.f);
-        if (ImGui::SliderFloat(tr("opacity##shadow"), &settings.opacity, 0.f, 1.f, "%.2f")) {
+        if (widgets::sliderFloat(tr("opacity##shadow"), &settings.opacity, 0.f, 1.f, "%.2f")) {
             changed = true;
         }
         bracketDrag(editor, editor.editingShape, "Shadow opacity");
@@ -1875,7 +1885,7 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     }
 
     ImGui::SetNextItemWidth(-1.f);
-    ImGui::SliderInt("##thickness", &settings.thickness, 1, kMaxOutlineThickness,
+    widgets::sliderInt("##thickness", &settings.thickness, 1, kMaxOutlineThickness,
                      "thickness  %d");
     bracketDrag(editor, editor.editingShape, "Outline thickness");
 
@@ -2122,7 +2132,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
             }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-1.f);
-            if (ImGui::SliderFloat("##opacity", &opacity, 0.f, 1.f, "opacity %.2f")) {
+            if (widgets::sliderFloat("##opacity", &opacity, 0.f, 1.f, "opacity %.2f")) {
                 if (onGroup) {
                     setGroupOpacity(editor.doc, editor.activeGroup, opacity);
                 } else {
@@ -2645,14 +2655,14 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     }
     float opacity = props.opacity;
     ImGui::SetNextItemWidth(-60.f);
-    if (ImGui::SliderFloat(tr("opacity"), &opacity, 0.f, 1.f, "%.2f")) {
+    if (widgets::sliderFloat(tr("opacity"), &opacity, 0.f, 1.f, "%.2f")) {
         setLayerOpacity(editor.doc, id, opacity);
         canvas.invalidate();
     }
     bracketDrag(editor, editor.draggingLayerProperties, "Layer opacity");
     float cel = celOpacity(editor.doc, id);
     ImGui::SetNextItemWidth(-60.f);
-    if (ImGui::SliderFloat(tr("cel opacity"), &cel, 0.f, 1.f, "%.2f")) {
+    if (widgets::sliderFloat(tr("cel opacity"), &cel, 0.f, 1.f, "%.2f")) {
         setCelOpacity(editor.doc, id, cel);
         canvas.invalidate();
     }
@@ -2909,7 +2919,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     bool changed = false;
 
     ImGui::SetNextItemWidth(-1.f);
-    if (ImGui::SliderFloat("##opacity", &edited.opacity, 0.f, 1.f, "opacity %.2f")) {
+    if (widgets::sliderFloat("##opacity", &edited.opacity, 0.f, 1.f, "opacity %.2f")) {
         changed = true;
     }
     bracketDrag(editor, editor.draggingReference, "Reference opacity");

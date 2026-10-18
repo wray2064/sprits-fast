@@ -1052,15 +1052,15 @@ void drawAdjustPanel(Editor& editor, CanvasView& canvas) {
     ColourAdjust& a = dialog.adjust;
     bool changed = false;
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat(tr("hue"), &a.hue, -180.f, 180.f, "%.0f deg");
+    changed |= widgets::sliderFloat(tr("hue"), &a.hue, -180.f, 180.f, "%.0f deg");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat(tr("saturation"), &a.saturation, -1.f, 1.f, "%.2f");
+    changed |= widgets::sliderFloat(tr("saturation"), &a.saturation, -1.f, 1.f, "%.2f");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat(tr("lightness"), &a.lightness, -1.f, 1.f, "%.2f");
+    changed |= widgets::sliderFloat(tr("lightness"), &a.lightness, -1.f, 1.f, "%.2f");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat(tr("brightness"), &a.brightness, -1.f, 1.f, "%.2f");
+    changed |= widgets::sliderFloat(tr("brightness"), &a.brightness, -1.f, 1.f, "%.2f");
     ImGui::SetNextItemWidth(260.f);
-    changed |= ImGui::SliderFloat(tr("contrast"), &a.contrast, -1.f, 1.f, "%.2f");
+    changed |= widgets::sliderFloat(tr("contrast"), &a.contrast, -1.f, 1.f, "%.2f");
     changed |= ImGui::Checkbox(tr("Invert"), &a.invert);
     if (changed) {
         applyAdjust(editor.doc, dialog.base, a);
@@ -1305,7 +1305,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 // control that has to stay reachable when it is turned up.
                 ImGui::SetNextItemWidth(200.f);
                 int percent = prefs.uiScale;
-                if (ImGui::SliderInt(tr("interface size"), &percent, 75, 150, "%d%%",
+                if (widgets::sliderInt(tr("interface size"), &percent, 75, 150, "%d%%",
                                      ImGuiSliderFlags_AlwaysClamp)) {
                     percent = std::clamp(percent, 75, 150);
                     prefs.uiScale = percent;
@@ -1372,14 +1372,14 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             }
             int minutes = static_cast<int>(prefs.autosaveSeconds / 60);
             ImGui::SetNextItemWidth(200.f);
-            if (ImGui::SliderInt(tr("every"), &minutes, 1, 30, "%d min")) {
+            if (widgets::sliderInt(tr("every"), &minutes, 1, 30, "%d min")) {
                 prefs.autosaveSeconds = static_cast<uint32_t>(minutes) * 60u;
                 editor.recovery.setIntervalSeconds(prefs.autosaveSeconds);
                 changed = true;
             }
             int history = static_cast<int>(prefs.historyLimit);
             ImGui::SetNextItemWidth(200.f);
-            if (ImGui::SliderInt(tr("undo steps"), &history, 10, 2000)) {
+            if (widgets::sliderInt(tr("undo steps"), &history, 10, 2000)) {
                 prefs.historyLimit = static_cast<uint32_t>(history);
                 editor.doc.setHistoryLimit(prefs.historyLimit);
                 changed = true;
@@ -1436,7 +1436,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             view |= editColour("##grid", &prefs.gridColour);
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.f);
-            view |= ImGui::SliderInt(tr("grid opacity"), &prefs.gridOpacity, 0, 255);
+            view |= widgets::sliderInt(tr("grid opacity"), &prefs.gridOpacity, 0, 255);
             view |= editColour("##checker-light", &prefs.checkerLight);
             ImGui::SameLine();
             view |= editColour("##checker-dark", &prefs.checkerDark);
@@ -1444,7 +1444,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
             ImGui::TextUnformatted("chequer");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.f);
-            view |= ImGui::SliderInt(tr("square"), &prefs.checkerSize, 2, 64, "%d px");
+            view |= widgets::sliderInt(tr("square"), &prefs.checkerSize, 2, 64, "%d px");
             if (ImGui::Button(tr("Canvas defaults"))) {
                 const Preferences defaults;
                 prefs.pixelGrid = defaults.pixelGrid;
@@ -1643,7 +1643,7 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::TextDisabled("%s", tr("Enter places it; Ctrl+Enter for a new line"));
     ImGui::SetNextItemWidth(160.f);
-    ImGui::SliderInt(tr("size"), &editor.textScale, 1, 8, "%dx");
+    widgets::sliderInt(tr("size"), &editor.textScale, 1, 8, "%dx");
     int width = 0;
     int height = 0;
     layOutText(editor.textBuffer, editor.textAt, editor.textScale, &width, &height);

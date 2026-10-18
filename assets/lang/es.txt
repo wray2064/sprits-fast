@@ -45,6 +45,10 @@ Move left = Mover a la izquierda
 Move right = Mover a la derecha
 Reverse selected frames = Invertir los fotogramas seleccionados
 
+SHADES = TONOS
+RECENT = RECIENTES
+PALETTE = PALETA
+
 # --- barra de estado ---------------------------------------------------------------
 Canvas = Lienzo
 Cursor = Cursor

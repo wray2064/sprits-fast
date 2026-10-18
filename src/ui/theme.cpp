@@ -304,6 +304,7 @@ void loadFonts(float scale) {
 void pushText(TextStyle style) {
     switch (style) {
         case TextStyle::Caption: ImGui::PushFont(gRegular, kType.caption); break;
+        case TextStyle::Label:   ImGui::PushFont(gStrong, kType.caption); break;
         case TextStyle::Body:    ImGui::PushFont(gRegular, kType.body); break;
         case TextStyle::Strong:  ImGui::PushFont(gStrong, kType.body); break;
         case TextStyle::Title:   ImGui::PushFont(gStrong, kType.title); break;
@@ -328,12 +329,11 @@ Density density() { return gDensity; }
 
 bool foldingHeader(const char* label) {
     const char* shown = tr(label);
-    const ImVec4 muted { gPalette.accent.x, gPalette.accent.y, gPalette.accent.z,
-                         0.72f };
     ImGui::Dummy(ImVec2(0.f, 2.f));
     // No box behind it, as with a plain section header: a filled bar would
     // read as a selected row.
-    ImGui::PushStyleColor(ImGuiCol_Text, muted);
+    pushText(TextStyle::Label);
+    ImGui::PushStyleColor(ImGuiCol_Text, gPalette.textDim);
     ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 0.f, 0.f, 0.f));
     ImGui::PushStyleColor(ImGuiCol_HeaderHovered, gPalette.controlHovered);
     ImGui::PushStyleColor(ImGuiCol_HeaderActive, gPalette.controlActive);
@@ -342,35 +342,35 @@ bool foldingHeader(const char* label) {
     const bool open = ImGui::CollapsingHeader(id.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(4);
+    popText();
     const ImVec2 at = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
     ImGui::GetWindowDrawList()->AddLine(
         ImVec2(at.x, at.y + 1.f), ImVec2(at.x + width, at.y + 1.f),
-        ImGui::GetColorU32(gPalette.border));
+        ImGui::GetColorU32(gPalette.separator));
     ImGui::Dummy(ImVec2(0.f, 3.f));
     return open;
 }
 
 void sectionHeader(const char* label) {
     label = tr(label);
-    // A muted amber rather than grey. It is the one place a second use of the
-    // accent earns its keep: it separates the structure of the panel from its
-    // contents at a glance, and it is dim enough not to pull the eye off the
-    // canvas. Anything brighter here and the panel starts shouting.
-    const ImVec4 muted { gPalette.accent.x, gPalette.accent.y, gPalette.accent.z,
-                         0.72f };
+    // A small semibold label in secondary text. It used to be amber, which put
+    // the accent on every heading in every panel; the accent is for state
+    // (selected, focused, primary), so a heading is now the structure of the
+    // panel and nothing more, and the colour left for the thing that matters.
     ImGui::Dummy(ImVec2(0.f, 2.f));
-    ImGui::PushStyleColor(ImGuiCol_Text, muted);
+    pushText(TextStyle::Label);
+    ImGui::PushStyleColor(ImGuiCol_Text, gPalette.textDim);
     ImGui::TextUnformatted(label);
     ImGui::PopStyleColor();
+    popText();
 
-    // A hairline under it, running to the edge of the panel: the Source-era
-    // habit, and it does the separating so the label does not have to be loud.
+    // A hairline under it, running to the edge of the panel.
     const ImVec2 at = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
     ImGui::GetWindowDrawList()->AddLine(
         ImVec2(at.x, at.y + 1.f), ImVec2(at.x + width, at.y + 1.f),
-        ImGui::GetColorU32(gPalette.border));
+        ImGui::GetColorU32(gPalette.separator));
     ImGui::Dummy(ImVec2(0.f, 3.f));
 }
 
@@ -899,13 +899,32 @@ void statusItem(const char* label, const char* value, bool bright) {
     ImGui::PopStyleColor();
 }
 
+float hintWidth() {
+    return std::round(ImGui::GetFontSize() * 1.1f) + ImGui::GetStyle().ItemSpacing.x;
+}
+
+// A small circle with a question mark, brightening when it is pointed at, and
+// the explanation in a tooltip as wide as the font says.
 void hint(const char* text) {
-    ImGui::PushStyleColor(ImGuiCol_Text, gPalette.textDim);
-    ImGui::TextUnformatted("?");
-    ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered()) {
+    const float d = std::round(ImGui::GetFontSize() * 1.1f);
+    ImGui::PushID(text);
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const float lift = std::round((ImGui::GetFrameHeight() - d) * 0.5f);
+    ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + lift));
+    ImGui::InvisibleButton("##hint", ImVec2(d, d));
+    const bool hovered = ImGui::IsItemHovered();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImU32 ink = ImGui::GetColorU32(hovered ? gPalette.textBright : gPalette.textMuted);
+    const ImVec2 centre(at.x + d * 0.5f, at.y + lift + d * 0.5f);
+    draw->AddCircle(centre, d * 0.5f - 0.5f, ink, 0, 1.2f);
+    pushText(TextStyle::Label);
+    const ImVec2 mark = ImGui::CalcTextSize("?");
+    draw->AddText(ImVec2(centre.x - mark.x * 0.5f, centre.y - mark.y * 0.5f), ink, "?");
+    popText();
+    ImGui::PopID();
+    if (hovered) {
         ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(280.f);
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.f);
         ImGui::TextUnformatted(text);
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
