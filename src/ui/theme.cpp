@@ -7,6 +7,7 @@
 #include "font_inter_semibold.h"
 
 #include "app/i18n.h"
+#include "ui/widgets.h"
 
 #include <algorithm>
 #include <string>
@@ -751,7 +752,7 @@ void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) 
 bool toolButton(Icon icon, const char* name, const char* shortcutHint,
                 bool selected, const char* description) {
     const Palette& c = gPalette;
-    const float side = 30.f;
+    const float side = toolSide();
 
     ImGui::PushStyleColor(ImGuiCol_Button,
                           selected ? c.accentDim : ImVec4(0, 0, 0, 0));
@@ -773,29 +774,40 @@ bool toolButton(Icon icon, const char* name, const char* shortcutHint,
              ImVec2(at.x + inset, at.y + inset), side - inset * 2.f,
              ImGui::GetColorU32(selected ? c.accent
                               : hovered  ? c.textBright
-                                         : c.text));
+                                         : c.textDim));
 
     // A bar down the selected tool left edge. The background tint alone is easy
     // to miss; this is unambiguous without being loud.
     if (selected) {
+        const float pad = ImGui::GetStyle().WindowPadding.x;
         ImGui::GetWindowDrawList()->AddRectFilled(
-            ImVec2(at.x - 6.f, at.y + 4.f), ImVec2(at.x - 3.f, at.y + side - 4.f),
+            ImVec2(at.x - pad * 0.7f, at.y + 4.f), ImVec2(at.x - pad * 0.3f, at.y + side - 4.f),
             ImGui::GetColorU32(c.accent), 1.f);
     }
 
     if (hovered) {
+        // The tool's name, its key as key caps, and what it does.
         ImGui::BeginTooltip();
-        ImGui::PushStyleColor(ImGuiCol_Text, c.textBright);
-        ImGui::TextUnformatted(name);
-        ImGui::PopStyleColor();
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, c.accent);
-        ImGui::TextUnformatted(shortcutHint);
-        ImGui::PopStyleColor();
+        pushText(TextStyle::Strong);
+        ImGui::TextColored(c.textBright, "%s", name);
+        popText();
+        if (shortcutHint != nullptr && shortcutHint[0] != '\0') {
+            std::string part;
+            const std::string keys = shortcutHint;
+            for (size_t i = 0; i <= keys.size(); ++i) {
+                if (i == keys.size() || keys[i] == '+') {
+                    ImGui::SameLine(0.f, 8.f);
+                    widgets::keycap(part.c_str());
+                    part.clear();
+                } else {
+                    part += keys[i];
+                }
+            }
+        }
         if (description != nullptr) {
             ImGui::PushStyleColor(ImGuiCol_Text, c.textDim);
             ImGui::Spacing();
-            ImGui::PushTextWrapPos(260.f);
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 19.f);
             ImGui::TextUnformatted(description);
             ImGui::PopTextWrapPos();
             ImGui::PopStyleColor();
@@ -803,6 +815,25 @@ bool toolButton(Icon icon, const char* name, const char* shortcutHint,
         ImGui::EndTooltip();
     }
     return pressed;
+}
+
+float toolSide() {
+    return std::round(ImGui::GetFrameHeight() * 1.3f);
+}
+
+float toolRailWidth() {
+    return toolSide() + ImGui::GetStyle().WindowPadding.x * 2.f;
+}
+
+void railDivider() {
+    const float pad = ImGui::GetStyle().ItemSpacing.y;
+    ImGui::Dummy(ImVec2(0.f, pad));
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    const float width = toolSide();
+    ImGui::GetWindowDrawList()->AddLine(ImVec2(at.x + 3.f, at.y),
+                                        ImVec2(at.x + width - 3.f, at.y),
+                                        ImGui::GetColorU32(gPalette.separator));
+    ImGui::Dummy(ImVec2(0.f, pad));
 }
 
 bool eyeToggle(const char* id, bool visible, float size) {

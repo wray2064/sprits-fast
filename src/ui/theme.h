@@ -179,6 +179,12 @@ bool swatch(const char* id, ImU32 colour, bool selected, float size = 20.f);
 // the status bar, where scanning matters more than reading.
 void statusItem(const char* label, const char* value, bool bright = true);
 
+// The side of a tool button, which follows the font and the density, and the
+// width of the rail they sit in. A thin line between groups of tools.
+float toolSide();
+float toolRailWidth();
+void railDivider();
+
 // A right-aligned help marker that explains something without taking a row.
 void hint(const char* text);
 

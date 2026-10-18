@@ -197,7 +197,7 @@ std::vector<Theme> makeThemes() {
     themes.push_back(build(Seed{
         "paper", "Paper", false, false,
         c(214, 219, 225), c(233, 236, 240), c(246, 248, 250), c(223, 227, 233), c(196, 202, 210),
-        c(8, 12, 16), c(38, 44, 52), c(76, 86, 98), c(92, 102, 114), c(124, 134, 146),
+        c(8, 12, 16), c(38, 44, 52), c(72, 82, 94), c(82, 92, 104), c(124, 134, 146),
         c(204, 211, 220), c(168, 177, 189),
         c(216, 221, 228), c(202, 209, 218), c(188, 197, 208),
         c(238, 196, 134), c(30, 20, 8),
@@ -211,7 +211,7 @@ std::vector<Theme> makeThemes() {
     themes.push_back(build(Seed{
         "warm-paper", "Warm paper", false, false,
         c(226, 216, 200), c(243, 235, 222), c(250, 245, 236), c(234, 225, 210), c(214, 203, 185),
-        c(30, 22, 12), c(52, 42, 30), c(92, 78, 60), c(108, 94, 74), c(138, 124, 102),
+        c(30, 22, 12), c(52, 42, 30), c(88, 74, 56), c(98, 84, 64), c(138, 124, 102),
         c(220, 208, 190), c(184, 170, 148),
         c(228, 217, 200), c(214, 202, 183), c(200, 187, 165),
         c(230, 188, 146), c(40, 28, 16),
@@ -228,7 +228,7 @@ std::vector<Theme> makeThemes() {
     themes.push_back(build(Seed{
         "famicom", "Famicom", false, false,
         c(212, 203, 176), c(236, 229, 208), c(246, 241, 226), c(226, 218, 194), c(190, 182, 158),
-        c(34, 22, 20), c(56, 40, 36), c(96, 72, 58), c(112, 88, 72), c(140, 118, 98),
+        c(34, 22, 20), c(56, 40, 36), c(90, 68, 54), c(100, 78, 62), c(140, 118, 98),
         c(214, 202, 176), c(190, 176, 148),
         c(222, 211, 186), c(208, 196, 168), c(192, 179, 150),
         c(222, 188, 140), c(40, 20, 16),
@@ -609,6 +609,11 @@ std::vector<ContrastIssue> checkTheme(const Theme& theme) {
         { Token::Focus, Token::Panel, 3.0, 4.5, "indicator" },
         { Token::Focus, Token::Control, 3.0, 4.5, "indicator" },
         { Token::Accent, Token::Panel, 3.0, 4.5, "indicator" },
+        // The accent on the window itself: the tool rail and the status bar are
+        // drawn on it, and the selected tool and unsaved dot are in the accent.
+        { Token::Accent, Token::App, 3.0, 4.5, "indicator" },
+        { Token::TextMuted, Token::App, kTextStd, kTextEnh, "text" },
+        { Token::TextSecondary, Token::App, kTextStd, kTextEnh, "text" },
         // Surfaces that must be told apart.
         { Token::Control, Token::Panel, 1.15, 1.15, "surface" },
         { Token::ControlHover, Token::Control, 1.1, 1.1, "surface" },

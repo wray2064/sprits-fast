@@ -8,7 +8,7 @@
 # 15.5 15.5 -- a script point p is canvas p + 0.5 -- and the ring is 64
 # screen pixels, 3.2 canvas pixels, round it.
 key ctrl+0
-expect zoom 20
+zoom 20
 tool line
 colour 3060d0
 drag 12 17 26 3

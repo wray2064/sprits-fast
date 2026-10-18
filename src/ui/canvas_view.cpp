@@ -172,8 +172,11 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     const auto artworkOrigin = [&](float zoom) {
         const float drawWidth = static_cast<float>(textureWidth_) * zoom;
         const float drawHeight = static_cast<float>(textureHeight_) * zoom;
-        return ImVec2(topLeft.x + (available.x - drawWidth) * 0.5f + panX_,
-                      topLeft.y + (available.y - drawHeight) * 0.5f + panY_);
+        // On a whole screen pixel: an artwork starting half a pixel in is drawn
+        // with soft edges and unequal pixels, which is the last thing a pixel
+        // editor's canvas may do.
+        return ImVec2(std::round(topLeft.x + (available.x - drawWidth) * 0.5f + panX_),
+                      std::round(topLeft.y + (available.y - drawHeight) * 0.5f + panY_));
     };
 
     if (windowHovered) {

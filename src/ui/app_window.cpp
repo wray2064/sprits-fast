@@ -3223,8 +3223,13 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     const theme::Metrics& m = theme::metrics();
 
-    const float statusHeight = ImGui::GetFrameHeight() + 10.f;
-    const float toolbarWidth = 48.f;
+    // The status bar is set in the caption size, and the rail is as wide as a
+    // tool button and its padding: both follow the font, the density and the
+    // interface size rather than a number.
+    theme::pushText(theme::TextStyle::Caption);
+    const float statusHeight = ImGui::GetFrameHeight() + 8.f;
+    theme::popText();
+    const float toolbarWidth = theme::toolRailWidth();
     const float bodyHeight = viewport->WorkSize.y - statusHeight;
     const float left = viewport->WorkPos.x;
     const float top = viewport->WorkPos.y;
@@ -3238,16 +3243,16 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // rather than as the contents of a panel.
     ImGui::SetNextWindowPos({left, top});
     ImGui::SetNextWindowSize({toolbarWidth, bodyHeight});
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(9.f, 9.f));
     // Tools sit close together: they are one group, and the default spacing
     // makes four buttons read as four unrelated things.
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.f, 4.f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                        ImVec2(m.itemSpacing * 0.66f, m.itemSpacing * 0.66f));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, theme::palette().windowBackground);
     ImGui::Begin("##toolbar", nullptr, kPanel | ImGuiWindowFlags_NoTitleBar);
     drawToolbar(editor);
     ImGui::End();
     ImGui::PopStyleColor();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar();
 
     // Everything else docks: the panels round the canvas, each one moved,
     // tabbed, floated, resized or closed as the person likes (see layout.h).
@@ -3448,9 +3453,15 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::SetNextWindowPos({left, top + bodyHeight});
     ImGui::SetNextWindowSize({viewport->WorkSize.x, statusHeight});
     ImGui::PushStyleColor(ImGuiCol_WindowBg, theme::palette().windowBackground);
-    ImGui::Begin("##status", nullptr, kPanel | ImGuiWindowFlags_NoTitleBar);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(m.panelPadding, 4.f));
+    theme::pushText(theme::TextStyle::Caption);
+    ImGui::Begin("##status", nullptr,
+                 kPanel | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar |
+                     ImGuiWindowFlags_NoScrollWithMouse);
     drawStatusBar(editor, canvas);
     ImGui::End();
+    theme::popText();
+    ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
     drawSheetPanel(editor, window);

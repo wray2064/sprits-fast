@@ -45,6 +45,13 @@ Move left = Mover a la izquierda
 Move right = Mover a la derecha
 Reverse selected frames = Invertir los fotogramas seleccionados
 
+# --- barra de estado ---------------------------------------------------------------
+Canvas = Lienzo
+Cursor = Cursor
+Frame = Fotograma
+Compile = Compilación
+This document has changes that are not saved. = Este documento tiene cambios sin guardar.
+
 # --- kit de interfaz --------------------------------------------------------------
 Interface kit = Kit de interfaz
 density = densidad

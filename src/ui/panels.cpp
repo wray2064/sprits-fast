@@ -135,7 +135,32 @@ void drawToolbar(Editor& editor) {
           "Click to zoom in on a point; Alt+click or right-click to zoom out." },
     };
 
+    // Four groups, a hairline between them: to draw with, to make shapes with,
+    // to select with, and to look with. Twenty-two tools in one column read as
+    // a wall; in four they can be found by place.
+    const auto groupOf = [](Tool tool) {
+        switch (tool) {
+            case Tool::Pencil: case Tool::Spray: case Tool::Eraser: case Tool::Bucket:
+            case Tool::Picker:
+                return 0;
+            case Tool::Rectangle: case Tool::Ellipse: case Tool::Line: case Tool::Gradient:
+            case Tool::Text: case Tool::Contour: case Tool::Polygon: case Tool::Curve:
+            case Tool::Slice:
+                return 1;
+            case Tool::Select: case Tool::SelectEllipse: case Tool::Lasso:
+            case Tool::PolygonLasso: case Tool::Wand: case Tool::Move:
+                return 2;
+            default:
+                return 3;
+        }
+    };
+    int lastGroup = -1;
     for (const Entry& entry : kTools) {
+        const int group = groupOf(entry.tool);
+        if (lastGroup >= 0 && group != lastGroup) {
+            theme::railDivider();
+        }
+        lastGroup = group;
         if (theme::toolButton(entry.icon, tr(entry.name), entry.shortcut,
                               editor.tool == entry.tool, entry.description)) {
             if (entry.tool == Tool::Picker && editor.tool != Tool::Picker) {
@@ -3542,21 +3567,34 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
 
 // ------------------------------------------------------------- status bar --
 
+// What the program has just done, on the left, and where things stand on the
+// right, in a fixed order so the eye learns where to look. Set in the caption
+// size (the caller pushes it). The right-hand group is measured, not given a
+// width, so it neither clips nor leaves a gap when a value gets longer.
 void drawStatusBar(Editor& editor, const CanvasView& canvas) {
+    const theme::Palette& p = theme::palette();
     char buffer[128];
+    ImDrawList* draw = ImGui::GetWindowDrawList();
 
-    // The message first, since it is what changed most recently.
-    ImGui::PushStyleColor(ImGuiCol_Text,
-                          editor.doc.modified() ? theme::palette().accent
-                                                : theme::palette().textDim);
-    ImGui::TextUnformatted(editor.doc.modified() ? "*" : " ");
-    ImGui::PopStyleColor();
-    ImGui::SameLine(0.f, 4.f);
-    ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().text);
+    // Unsaved work is a dot in the accent, not an asterisk in the text: it is
+    // the one thing in this bar that must be noticed.
+    const float lineHeight = ImGui::GetTextLineHeight();
+    const ImVec2 dotAt = ImGui::GetCursorScreenPos();
+    const float dot = std::round(lineHeight * 0.34f);
+    if (editor.doc.modified()) {
+        draw->AddCircleFilled(ImVec2(dotAt.x + dot + 1.f, dotAt.y + lineHeight * 0.5f), dot,
+                              ImGui::GetColorU32(p.accent));
+    }
+    ImGui::Dummy(ImVec2(dot * 2.f + 6.f, lineHeight));
+    if (editor.doc.modified() && ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", tr("This document has changes that are not saved."));
+    }
+    ImGui::SameLine(0.f, 0.f);
+    ImGui::PushStyleColor(ImGuiCol_Text, p.text);
     ImGui::TextUnformatted(editor.status.c_str());
     ImGui::PopStyleColor();
 
-    // The rest right-aligned, in a fixed order, so the eye learns where to look.
+    // The values on the right.
     auto size = editor.doc.engine().getCanvasSize(editor.doc.id());
     const int width = size.ok() ? size.value.x : 0;
     const int height = size.ok() ? size.value.y : 0;
@@ -3566,8 +3604,7 @@ void drawStatusBar(Editor& editor, const CanvasView& canvas) {
 
     std::string cursor = "-";
     if (editor.hovered.x >= 0) {
-        std::snprintf(buffer, sizeof(buffer), "%d, %d",
-                      editor.hovered.x, editor.hovered.y);
+        std::snprintf(buffer, sizeof(buffer), "%d, %d", editor.hovered.x, editor.hovered.y);
         cursor = buffer;
     }
 
@@ -3577,44 +3614,66 @@ void drawStatusBar(Editor& editor, const CanvasView& canvas) {
     std::snprintf(buffer, sizeof(buffer), "%.2f ms", canvas.lastCompileMs());
     const std::string compile = buffer;
 
-    // How many compiles this UI frame actually cost. It is the number that says
-    // whether the frame cache is doing its job: 0 at rest, 1 while drawing, and
-    // never once per frame on screen.
+    // How many compiles this UI frame actually cost: 0 at rest, 1 while
+    // drawing, and never once per frame on screen. The number that says
+    // whether the frame cache is doing its job.
     std::snprintf(buffer, sizeof(buffer), "%d", canvas.compilesThisFrame());
     const std::string compiles = buffer;
 
     std::string frameLabel = "-";
     if (!editor.frames.empty()) {
-        std::snprintf(buffer, sizeof(buffer), "%d / %d",
-                      editor.timeline.activeFrame + 1,
+        std::snprintf(buffer, sizeof(buffer), "%d / %d", editor.timeline.activeFrame + 1,
                       static_cast<int>(editor.frames.size()));
         frameLabel = buffer;
     }
 
-    const float rightWidth = 580.f;
-    ImGui::SameLine(ImGui::GetWindowWidth() - rightWidth);
+    struct Item {
+        const char* label;
+        const std::string* value;
+        bool        bright;
+        const char* hint;
+    };
+    const Item items[] = {
+        { "Canvas", &canvasSize, true, nullptr },
+        { "Cursor", &cursor, true, nullptr },
+        { "Zoom", &zoom, true, nullptr },
+        { "Frame", &frameLabel, true, nullptr },
+        { "Compile", &compile, false,
+          "How long the last real compile took. Cached frames cost nothing, so this "
+          "only moves when something changed." },
+        { "x", &compiles, canvas.compilesThisFrame() > 0,
+          "Compiles this frame. Zero at rest and one while drawing: every other frame "
+          "on screen is a texture that already exists, not a second compile." },
+    };
 
-    theme::statusItem("Canvas", canvasSize.c_str());
-    ImGui::SameLine(0.f, 18.f);
-    theme::statusItem("Cursor", cursor.c_str());
-    ImGui::SameLine(0.f, 18.f);
-    theme::statusItem("Zoom", zoom.c_str());
-    ImGui::SameLine(0.f, 18.f);
-    theme::statusItem("Frame", frameLabel.c_str());
-    ImGui::SameLine(0.f, 18.f);
-    theme::statusItem("Compile", compile.c_str(), false);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", tr("How long the last real compile took. Cached frames "
-                          "cost nothing, so this only moves when something "
-                          "changed."));
+    // Measure first, then place: the label and value of each and the gap
+    // between items, from the right edge.
+    const float gap = ImGui::GetFontSize() * 1.4f;
+    const float labelGap = ImGui::GetFontSize() * 0.4f;
+    float total = 0.f;
+    for (const Item& item : items) {
+        total += ImGui::CalcTextSize(tr(item.label)).x + labelGap +
+                 ImGui::CalcTextSize(item.value->c_str()).x + gap;
     }
-    ImGui::SameLine(0.f, 10.f);
-    // Bright only when it is not zero, so at rest it does not draw the eye.
-    theme::statusItem("x", compiles.c_str(), canvas.compilesThisFrame() > 0);
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", tr("Compiles this frame. Zero at rest and one while "
-                          "drawing: every other frame on screen is a texture "
-                          "that already exists, not a second compile."));
+    total -= gap;
+    const float padding = ImGui::GetStyle().WindowPadding.x;
+    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + gap,
+                             ImGui::GetWindowWidth() - total - padding));
+    for (size_t i = 0; i < sizeof(items) / sizeof(items[0]); ++i) {
+        const Item& item = items[i];
+        if (i > 0) {
+            ImGui::SameLine(0.f, gap);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, p.textMuted);
+        ImGui::TextUnformatted(tr(item.label));
+        ImGui::PopStyleColor();
+        ImGui::SameLine(0.f, labelGap);
+        ImGui::PushStyleColor(ImGuiCol_Text, item.bright ? p.textBright : p.textDim);
+        ImGui::TextUnformatted(item.value->c_str());
+        ImGui::PopStyleColor();
+        if (item.hint != nullptr && ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", tr(item.hint));
+        }
     }
 }
 

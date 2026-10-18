@@ -54,6 +54,9 @@
 //     answer export-png FILE      a native file dialog answered, as the system's would:
 //                                 open, save-as, export-png, export-sheet, export-animation
 //     remove FILE                 a file deleted (a test cleaning up after itself)
+//     zoom 20                     the canvas zoom set outright (a fit depends on the
+//                                 layout, so a script that needs 20 asks for it)
+//     expect zoom 20 [24]         the zoom: exactly, or between
 //     expect uiscale 150          the interface scale, in percent
 //     expect theme oled           the theme in force, by its id
 //     expect file FILE            a file exists / expect nofile FILE: it does not
@@ -102,7 +105,7 @@ public:
 private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
-                    Reference, Open, Start, Answer, Remove,
+                    Reference, Open, Start, Answer, Remove, ZoomTo,
                     Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;

@@ -18,6 +18,8 @@
 
 #include <imgui.h>
 
+#include <cmath>
+
 #include <SDL3/SDL.h>
 
 #include <functional>
@@ -120,8 +122,9 @@ public:
     // Where the artwork's top-left corner is on screen, as of the last draw.
     ImVec2 artworkOrigin() const {
         const float z = zoom_ > 0.f ? zoom_ : 1.f;
-        return ImVec2(viewTopLeft_.x + (viewSize_.x - static_cast<float>(textureWidth_) * z) * 0.5f + panX_,
-                      viewTopLeft_.y + (viewSize_.y - static_cast<float>(textureHeight_) * z) * 0.5f + panY_);
+        // Rounded to a whole screen pixel, exactly as the draw does it.
+        return ImVec2(std::round(viewTopLeft_.x + (viewSize_.x - static_cast<float>(textureWidth_) * z) * 0.5f + panX_),
+                      std::round(viewTopLeft_.y + (viewSize_.y - static_cast<float>(textureHeight_) * z) * 0.5f + panY_));
     }
 
     // The part of the canvas the view shows, in canvas pixels, as of the last

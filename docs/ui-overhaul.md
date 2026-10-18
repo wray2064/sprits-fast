@@ -19,7 +19,13 @@ decisions. Progress:
       the empty state and the dialog frame, and `Window > Interface kit` (or
       `--kit`) draws every one in every state for review. File > New is the
       first dialog on the new frame; the rest move in stage 3.
-- [ ] Stage 3, panel by panel.
+- [ ] Stage 3, panel by panel. Done so far: **3a, the chrome** -- the tool
+      rail (four groups with hairlines, a button that follows the font and
+      density, tooltips with key caps, secondary-text icons that light to the
+      accent), the status bar (caption type, an accent dot for unsaved work,
+      a right-hand group that is measured, not given 580 px), and the canvas's
+      origin on a whole screen pixel. To do: 3b Tool and Palette, 3c Layers /
+      Elements / Properties / Transform, 3d Timeline, 3e the other dialogs.
 - [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
       export).
 - [ ] Stage 5, layout and icons.

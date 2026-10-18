@@ -1,5 +1,5 @@
 # The view by the wheel and by panning, and colours by the palette's swatches.
-expect zoom 20
+zoom 20
 move 16 16
 wheel 1
 expect zoom 21
@@ -19,7 +19,7 @@ move 10 10
 drag-screen 0 -40 middle
 expect pointer 10 10
 key ctrl+0
-expect zoom 20
+expect zoom 12 30
 
 # A palette swatch is the colour the pencil paints next.
 click-on ##slot1

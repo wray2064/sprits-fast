@@ -3,7 +3,7 @@
 # with the ring in Pose (Shift: it stops on 90, every pixel where a quarter
 # turn sends it), and the pose captured as a frame of its own.
 key ctrl+0
-expect zoom 20
+zoom 20
 tool rectangle
 colour 3060d0
 drag 6 16 13 28

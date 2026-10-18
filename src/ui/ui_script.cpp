@@ -282,6 +282,10 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         r.text = line.substr(line.find("remove") + 7);
         while (!r.text.empty() && r.text.back() == ' ') { r.text.pop_back(); }
         add(r);
+    } else if (verb == "zoom" && w.size() == 2) {
+        Step z; z.kind = Step::ZoomTo;
+        if (!fast::number(w[1], &z.x)) { return fail("not a zoom"); }
+        add(z);
     } else if (verb == "start" && w.size() == 1) {
         Step s; s.kind = Step::Start; add(s);
     } else if (verb == "tool" && w.size() == 2) {
@@ -503,6 +507,9 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 return;
             case Step::Start:
                 openStartScreen(editor);
+                return;
+            case Step::ZoomTo:
+                canvas.setZoom(step.x);
                 return;
             case Step::Answer: {
                 // What a native dialog's callback would have left, put where it
@@ -807,7 +814,11 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
             failed(std::to_string(count) + " slices");
         }
     } else if (step.text == "zoom") {
-        if (canvas.zoom() != static_cast<float>(std::atof(a[0].c_str()))) {
+        // One number is exact; two are a range, for a fit, which depends on how
+        // much room the layout leaves the canvas.
+        const float low = static_cast<float>(std::atof(a[0].c_str()));
+        const float high = a.size() > 1 ? static_cast<float>(std::atof(a[1].c_str())) : low;
+        if (canvas.zoom() < low || canvas.zoom() > high) {
             failed("zoom is " + std::to_string(canvas.zoom()));
         }
     } else if (step.text == "section" && a.size() == 4) {
