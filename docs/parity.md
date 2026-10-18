@@ -114,11 +114,13 @@ only output. A feature that bakes pixels to get done faster is not done.
 - [x] Command-line batch export (`sprits_fast --export`)
 - [x] Save a copy (`Document::saveCopy` already exists)
 - [x] **Start screen** at launch, as in every editor of this kind: the logo,
-      New file, Open, Import sprite sheet, Library, template cards (Icon,
-      Tile, Character, Portrait, Scene, Handheld, each with a proportional
-      preview, one click to a canvas), and the recent files with folder and
-      age (missing ones marked, removable); File > Start screen brings it
-      back and a preference turns it off
+      Open, Import sprite sheet, Library, preset cards (Icon, Tile,
+      Character, Portrait, Scene, Handheld, each with a proportional preview;
+      a click fills in the details, a double click makes the document), a
+      **New document panel** with every detail -- name, width, height, usual
+      sizes, swap, background, palette -- as Photoshop's, and the recent files
+      with thumbnails, folder and age (missing ones marked, removable);
+      File > Start screen brings it back and a preference turns it off
 
 ### Palette
 - [x] Slots as roles, several palettes, the swap, per-frame palettes
@@ -210,6 +212,7 @@ program greets, explains itself, remembers and is handed to someone.
 
 Newest first. One line per landed item, with the commit.
 
+- Start screen: the New document details beside the presets (ui/new_document, drawn by both File > New and the start screen over the same Editor::files.newDocument, so the two never disagree): name, width, height, usual sizes, Swap width and height, background, palette, Create. A preset card fills the details in, a double click creates; the card matching the details is highlighted. The name (documentNameFrom: no path characters, bounded, never cut inside a UTF-8 character, "untitled" when empty) is the tab, the window title and Save As's suggestion until the file has a name, and is reset after each document. The "New file..." button is gone (the panel is the same thing). Tests: documentNameFrom in fast_templates; start_screen.txt covers a card, hand-set details, a name, swap, double click, and that File > New shares the answers.
 - Tier 5, the conventions around the editor: Help menu (ui/help: About with version/licence/credits/links from the AppExtension, a shortcuts window read from commandList and the person's keymap, Search commands); command search (Ctrl+Shift+P; the chosen command runs through the same `fired` as its key, via Editor::runCommand); recent colours (app/recent_colours: not slots, bounded, kept as `colour.recent`); a frame's right-click menu; Export again (Editor::lastExport per tab, answered through the dialog's own result so one handler does the work); interface size (theme::setScale over a pristine ImGuiStyle, 75-150%, `view.scale`); start-screen thumbnails (the picture each save writes, read without opening) and a tip (app/tips, `start.tip`); installer/Install.ps1 and Uninstall.ps1, copied into dist by build-release.bat. saveSettings now does nothing in a run that never loaded the person's settings (scripts and captures), so they cannot overwrite them. Script commands: answer, remove, expect file/nofile/uiscale. New suites fast_recent_colours (templates also covers tips); scripts help, frame_menu, recent_colours, export_again, interface_size, command_search.
 - Start screen, templates and logo: template cards (app/templates: name, size, background, palette; templateLabel is what a card is called and a script clicks) replace the quick-size buttons, each previewed as a drawn rectangle on the canvas chequer in its proportions; a card is File > New with its answers and leaves the New window's own choices as they were. The header shows the program's logo and name as the window has them (configureStartScreen, so a program built on Fast greets in its own). Templates test (fast_templates); start_screen.txt extended.
 - Start screen (ui/start_screen): a modal over the blank document the program always starts with, so every choice goes through requestAction like the File menu's; shows at a person's start (Preferences::showStart, `start.show`), never in a scripted run unless `--start`; recent entries looked up when it opens (describeRecent, ageText in app/recent_files), missing files shown but not openable; any change of document closes it. Script commands `open FILE` and `start`; tests/ui/start_screen.txt; recent_files and preferences tests; Spanish catalogue.

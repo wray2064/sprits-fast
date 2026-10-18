@@ -5,7 +5,7 @@ open shape_test.lsprite
 wait 3
 start
 wait 3
-expect item New file...
+expect item Create
 expect item Open...
 expect item Import sprite sheet...
 expect item Library...
@@ -17,26 +17,26 @@ expect item Next tip
 click-on Next tip
 wait 2
 expect item Next tip
-expect item New file...
+expect item Create
 
 # A recent file is already open here, so choosing it shows that tab.
 click-on shape_test.lsprite
 wait 2
-expect missing New file...
+expect missing Create
 expect tabs 1
 
 # File > Start screen brings it back; leaving it is Start with a blank canvas.
 click-on File
 click-on Start screen
 wait 2
-expect item New file...
+expect item Create
 click-on Start with a blank canvas
 wait 2
-expect missing New file...
+expect missing Create
 
-# A template card is one click to a canvas of that size, and replaces nothing:
-# the document on screen has work in it (it was opened), so the new one gets a
-# tab of its own.
+# A preset card fills in the details beside it and goes no further; Create
+# makes the document. The one on screen has work in it (it was opened), so the
+# new one gets a tab of its own.
 click-on File
 click-on Start screen
 wait 2
@@ -48,29 +48,56 @@ expect item Scene 320 x 180
 expect item Handheld 160 x 144
 click-on Scene 320 x 180
 wait 2
-expect missing New file...
+expect item Create
+expect tabs 1
+click-on Create
+wait 2
+expect missing Create
 expect canvas 320 180
 expect tabs 2
 
-# The New window is not changed by a card: it still starts from what it said
-# before, so File > New > Create makes the 32 x 32 it began with (replacing
-# the untouched card canvas, so still two tabs).
+# Every detail can be set by hand: a preset, then a usual size, then a name.
+# The untouched canvas from the card is replaced, so still two tabs.
+click-on File
+click-on Start screen
+wait 2
+click-on Icon 16 x 16
+click-on 48
+click-on ##newname
+key ctrl+a
+type hero walk
+click-on Create
+wait 2
+expect canvas 48 48
+expect item hero walk
+expect tabs 2
+
+# Swapping width and height turns a landscape preset to portrait.
+click-on File
+click-on Start screen
+wait 2
+click-on Handheld 160 x 144
+click-on Swap width and height
+click-on Create
+wait 2
+expect canvas 144 160
+
+# File > New asks the same questions of the same answers: what was last set
+# on the start screen is what it starts from.
 click-on File
 click-on New...
 click-on Create
 wait 2
-expect canvas 32 32
-expect tabs 2
+expect canvas 144 160
 
-# New file... leads to the New window.
+# A double click on a card goes straight to the document.
 click-on File
 click-on Start screen
 wait 2
-click-on New file...
+double-click-on Icon 16 x 16
 wait 2
-expect missing New file...
-expect item Create
-click-on Cancel
+expect missing Create
+expect canvas 16 16
 
 # A recent entry can be taken off the list, from its context menu.
 click-on File

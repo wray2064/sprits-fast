@@ -63,6 +63,7 @@ struct FileState {
     std::string   pendingPath;
     // What File > New makes: its size, what it starts on, and its palette.
     struct NewDocument {
+        std::string name = "untitled";     // see documentNameFrom (app/templates.h)
         uint32_t width = 32;
         uint32_t height = 32;
         int      background = 0;       // 0 transparent, 1 white, 2 black, 3 the first colour

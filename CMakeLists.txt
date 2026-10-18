@@ -179,6 +179,7 @@ if (FAST_BUILD_GUI)
         src/ui/tabs.cpp
         src/ui/start_screen.cpp
         src/ui/help.cpp
+        src/ui/new_document.cpp
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
         src/ui/ui_script.cpp

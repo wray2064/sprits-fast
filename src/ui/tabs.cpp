@@ -134,7 +134,11 @@ std::string tabName(const Editor& editor, size_t index) {
     if (!doc.path().empty()) {
         return fileName(doc.path());
     }
-    // Numbered, so two new documents are two names.
+    // A name given when it was made is the name. Otherwise numbered, so two
+    // new documents are two names.
+    if (doc.name() != "untitled" && !doc.name().empty()) {
+        return doc.name();
+    }
     const uint32_t id = editor.tabs[index]->id;
     return id <= 1 ? std::string("untitled") : "untitled " + std::to_string(id);
 }

@@ -35,6 +35,7 @@
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
 #include "ui/help.h"
+#include "ui/new_document.h"
 #include "ui/start_screen.h"
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
@@ -251,6 +252,8 @@ bool performAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
     switch (action) {
         case PendingAction::NewDocument: {
             const bool made = newDocument(editor, editor.files.newDocument);
+            // The next new document starts unnamed again, whatever this one was.
+            editor.files.newDocument.name = "untitled";
             canvas.frames().clear();          // the old document's textures
             // Fit rather than a fixed zoom: a 128 canvas at 8x does not fit the
             // window, and starting half off-screen is a poor first impression.
@@ -1669,47 +1672,7 @@ void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
-    int width = static_cast<int>(spec.width);
-    int height = static_cast<int>(spec.height);
-    ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt(tr("width"), &width);
-    ImGui::SetNextItemWidth(120.f);
-    ImGui::InputInt(tr("height"), &height);
-    for (int size : { 16, 24, 32, 48, 64, 128, 256 }) {
-        const std::string label = std::to_string(size);
-        if (ImGui::SmallButton(label.c_str())) {
-            width = height = size;
-        }
-        ImGui::SameLine();
-    }
-    ImGui::NewLine();
-    spec.width = static_cast<uint32_t>(std::clamp(width, 1, static_cast<int>(kMaxCanvasDimension)));
-    spec.height = static_cast<uint32_t>(std::clamp(height, 1, static_cast<int>(kMaxCanvasDimension)));
-    const bool fits = static_cast<uint64_t>(spec.width) * spec.height <= kMaxCanvasPixels;
-
-    ImGui::Dummy(ImVec2(0.f, 4.f));
-    const char* backgrounds[] = { "Transparent", "White", "Black", "The palette's first colour" };
-    ImGui::SetNextItemWidth(220.f);
-    ImGui::Combo(tr("background"), &spec.background, backgrounds, 4);
-
-    const std::vector<PalettePreset>& presets = palettePresets();
-    const char* current = spec.preset < 0 ? "Starter"
-                                          : presets[static_cast<size_t>(spec.preset)].name.c_str();
-    ImGui::SetNextItemWidth(220.f);
-    if (ImGui::BeginCombo("palette", current)) {
-        if (ImGui::Selectable(tr("Starter"), spec.preset < 0)) {
-            spec.preset = -1;
-        }
-        for (size_t i = 0; i < presets.size(); ++i) {
-            if (ImGui::Selectable(presets[i].name.c_str(), spec.preset == static_cast<int>(i))) {
-                spec.preset = static_cast<int>(i);
-            }
-        }
-        ImGui::EndCombo();
-    }
-    if (!fits) {
-        ImGui::TextColored(theme::palette().danger, "Larger than a canvas Fast works on.");
-    }
+    const bool fits = drawNewDocumentFields(spec);
     ImGui::Dummy(ImVec2(0.f, 6.f));
     ImGui::BeginDisabled(!fits);
     if (ImGui::Button(tr("Create"), ImVec2(110.f, 0.f))) {

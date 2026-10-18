@@ -31,4 +31,11 @@ const std::vector<NewTemplate>& newTemplates();
 // "Character 64 x 64": what a card is called, and what a script clicks.
 std::string templateLabel(const NewTemplate& t);
 
+// What a new document is called, from what was typed: trimmed, with anything a
+// file name cannot hold (\ / : * ? " < > | and control characters) taken out,
+// at most 48 bytes (never cut inside a UTF-8 character), and "untitled" when
+// nothing is left. It becomes the suggestion in Save As, so it has to be
+// something a file can be called.
+std::string documentNameFrom(const std::string& typed);
+
 } // namespace fast

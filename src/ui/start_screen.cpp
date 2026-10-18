@@ -9,6 +9,7 @@
 #include "app/library.h"
 #include "app/templates.h"
 #include "app/tips.h"
+#include "ui/new_document.h"
 #include "ui/reference_cache.h"
 #include "ui/tabs.h"
 #include "ui/theme.h"
@@ -40,18 +41,18 @@ Branding& branding() {
     return b;
 }
 
-// A new file from a template is File > New with that template's answers, so
-// the New window keeps what the person last chose there: the choice is put
-// back once the document is made.
-void newFromTemplate(Editor& editor, CanvasView& canvas, SDL_Window* window,
-                     const NewTemplate& t) {
-    const FileState::NewDocument kept = editor.files.newDocument;
-    editor.files.newDocument.width = t.width;
-    editor.files.newDocument.height = t.height;
-    editor.files.newDocument.background = t.background;
-    editor.files.newDocument.preset = t.preset;
+// The start screen asks the New window's questions in a panel of its own, over
+// the very same answers (Editor::files.newDocument): a template card fills
+// them in, the fields change them, and Create makes the document from them.
+void createFromAnswers(Editor& editor, CanvasView& canvas, SDL_Window* window) {
+    editor.startOpen = false;
     requestAction(editor, canvas, window, PendingAction::NewDocument);
-    editor.files.newDocument = kept;
+    ImGui::CloseCurrentPopup();
+}
+
+bool sameAsTemplate(const FileState::NewDocument& spec, const NewTemplate& t) {
+    return spec.width == t.width && spec.height == t.height &&
+           spec.background == t.background && spec.preset == t.preset;
 }
 
 void drawActions(Editor& editor, CanvasView& canvas, SDL_Window* window) {
@@ -59,13 +60,7 @@ void drawActions(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::Dummy(ImVec2(0.f, 2.f));
 
     const float width = ImGui::GetContentRegionAvail().x;
-    if (ImGui::Button(tr("New file..."), ImVec2(width, 38.f))) {
-        editor.startOpen = false;
-        editor.newDocumentOpen = true;
-        ImGui::CloseCurrentPopup();
-    }
-    ImGui::Dummy(ImVec2(0.f, 10.f));
-    if (ImGui::Button(tr("Open..."), ImVec2(width, 30.f))) {
+    if (ImGui::Button(tr("Open..."), ImVec2(width, 38.f))) {
         editor.startOpen = false;
         requestAction(editor, canvas, window, PendingAction::OpenDialog);
         ImGui::CloseCurrentPopup();
@@ -87,11 +82,13 @@ void drawActions(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 // of the canvas it makes, in its proportions (each fitted to the card, not to
 // one another), on the chequer the canvas will show.
 // Shapes are drawn, not pictured: a preview is a rectangle and a few squares.
-void drawCard(const Editor& editor, const NewTemplate& t, const ImVec2& size, bool* chosen) {
+void drawCard(const Editor& editor, const NewTemplate& t, const ImVec2& size, bool selected,
+              bool* chosen, bool* doubled) {
     const std::string label = templateLabel(t);
     const ImVec2 corner = ImGui::GetCursorScreenPos();
-    if (ImGui::Selectable(label.c_str(), false, 0, size)) {
+    if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick, size)) {
         *chosen = true;
+        *doubled = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
     }
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -125,7 +122,7 @@ void drawCard(const Editor& editor, const NewTemplate& t, const ImVec2& size, bo
 }
 
 void drawTemplates(Editor& editor, CanvasView& canvas, SDL_Window* window) {
-    ImGui::TextColored(theme::palette().textDim, "%s", tr("New from a template"));
+    ImGui::TextColored(theme::palette().textDim, "%s", tr("Presets"));
     ImGui::Dummy(ImVec2(0.f, 2.f));
 
     const ImVec2 card(140.f, 92.f);
@@ -134,13 +131,15 @@ void drawTemplates(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const int perRow = std::max(1, static_cast<int>((available + gap) / (card.x + gap)));
     int column = 0;
     const NewTemplate* chosen = nullptr;
+    bool doubled = false;
     for (const NewTemplate& t : newTemplates()) {
         if (column > 0 && column < perRow) {
             ImGui::SameLine();
         }
         ImGui::PushID(t.name.c_str());
         bool picked = false;
-        drawCard(editor, t, card, &picked);
+        drawCard(editor, t, card, sameAsTemplate(editor.files.newDocument, t), &picked,
+                 &doubled);
         ImGui::PopID();
         if (picked) {
             chosen = &t;
@@ -148,10 +147,31 @@ void drawTemplates(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         column = (column + 1) % perRow;
     }
     if (chosen != nullptr) {
-        editor.startOpen = false;
-        newFromTemplate(editor, canvas, window, *chosen);
-        ImGui::CloseCurrentPopup();
+        // A card fills in the details beside it, as in Photoshop; a double
+        // click goes on to make the document.
+        FileState::NewDocument& spec = editor.files.newDocument;
+        spec.width = chosen->width;
+        spec.height = chosen->height;
+        spec.background = chosen->background;
+        spec.preset = chosen->preset;
+        if (doubled) {
+            createFromAnswers(editor, canvas, window);
+        }
     }
+}
+
+// The details of the document about to be made: every question File > New asks,
+// answered here, with the presets only a quick way to fill them in.
+void drawDetails(Editor& editor, CanvasView& canvas, SDL_Window* window) {
+    ImGui::TextColored(theme::palette().textDim, "%s", tr("New document"));
+    ImGui::Dummy(ImVec2(0.f, 2.f));
+    const bool fits = drawNewDocumentFields(editor.files.newDocument);
+    ImGui::Dummy(ImVec2(0.f, 10.f));
+    ImGui::BeginDisabled(!fits);
+    if (ImGui::Button(tr("Create"), ImVec2(-1.f, 38.f))) {
+        createFromAnswers(editor, canvas, window);
+    }
+    ImGui::EndDisabled();
 }
 
 void drawRecent(Editor& editor, CanvasView& canvas, SDL_Window* window) {
@@ -341,7 +361,7 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::OpenPopup(kPopup);
     }
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const ImVec2 size(std::min(960.f, viewport->WorkSize.x * 0.94f),
+    const ImVec2 size(std::min(1160.f, viewport->WorkSize.x * 0.94f),
                       std::min(700.f, viewport->WorkSize.y * 0.94f));
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
@@ -376,12 +396,17 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawActions(editor, canvas, window);
     ImGui::EndChild();
     ImGui::SameLine(0.f, 24.f);
-    ImGui::BeginChild("startRight", ImVec2(0.f, -footer), false);
+    const float detailsWidth = 300.f;
+    ImGui::BeginChild("startMiddle", ImVec2(-(detailsWidth + 24.f), -footer), false);
     drawTemplates(editor, canvas, window);
     ImGui::Dummy(ImVec2(0.f, 10.f));
     ImGui::BeginChild("startRecent", ImVec2(0.f, 0.f), false);
     drawRecent(editor, canvas, window);
     ImGui::EndChild();
+    ImGui::EndChild();
+    ImGui::SameLine(0.f, 24.f);
+    ImGui::BeginChild("startDetails", ImVec2(0.f, -footer), false);
+    drawDetails(editor, canvas, window);
     ImGui::EndChild();
 
     // One thing worth knowing, and a way to step through the others.

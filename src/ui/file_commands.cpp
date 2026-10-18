@@ -67,8 +67,11 @@ void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc)
     state.dialog = { state.dialog.mutex, DialogResult::Kind::SaveAs, false, false, {} };
     SDL_UnlockMutex(state.dialog.mutex);
 
-    // Suggest the current file, or the folder it lives in.
-    const std::string suggestion = doc.path().empty() ? std::string() : doc.path();
+    // Suggest the current file; for one never saved, the name it was given
+    // when it was made, if it was given one.
+    const std::string suggestion = !doc.path().empty() ? doc.path()
+        : (!doc.name().empty() && doc.name() != "untitled")
+              ? withExtension(doc.name(), kFileExtension) : std::string();
     SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, kFilters,
                            static_cast<int>(SDL_arraysize(kFilters)),
                            suggestion.empty() ? nullptr : suggestion.c_str());
@@ -266,8 +269,8 @@ void showExportPaletteDialog(FileState& state, SDL_Window* window, const Documen
 }
 
 std::string windowTitle(const Document& doc) {
-    std::string name = doc.path().empty() ? std::string("untitled")
-                                          : fileName(doc.path());
+    std::string name = !doc.path().empty() ? fileName(doc.path())
+                     : !doc.name().empty() ? doc.name() : std::string("untitled");
     if (doc.modified()) {
         name += "*";
     }

@@ -9,6 +9,7 @@
 #include "app/i18n.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
+#include "app/templates.h"
 #include "app/tracks.h"
 
 #include <SDL3/SDL.h>
@@ -812,7 +813,7 @@ bool newDocument(Editor& editor, uint32_t size) {
 }
 
 bool newDocument(Editor& editor, const FileState::NewDocument& spec) {
-    if (!editor.doc.create("untitled", spec.width, spec.height)) {
+    if (!editor.doc.create(documentNameFrom(spec.name), spec.width, spec.height)) {
         return false;
     }
     attachTracks(editor);

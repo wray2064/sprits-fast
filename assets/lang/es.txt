@@ -68,8 +68,9 @@ Every mark is kept as geometry and only turned into pixels when it is shown or e
 
 # --- pantalla de inicio --------------------------------------------------------
 Start = Inicio
-New file... = Archivo nuevo...
-New from a template = Nuevo desde una plantilla
+Presets = Ajustes preestablecidos
+New document = Documento nuevo
+Swap width and height = Intercambiar ancho y alto
 Recent = Recientes
 Files you open or save appear here. = Los archivos que abras o guardes aparecen aquí.
 Remove from this list = Quitar de esta lista
