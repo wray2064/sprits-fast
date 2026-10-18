@@ -34,6 +34,7 @@
 #include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
+#include "ui/start_screen.h"
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
 #include "ui/tabs.h"
@@ -434,6 +435,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 editor.files.recent.save();
             }
             ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem(tr("Start screen"))) {
+            openStartScreen(editor);
         }
         ImGui::Separator();
         if (ImGui::MenuItem(tr("Save"), keysLabel(editor.keys, "file.save").c_str())) {
@@ -3416,6 +3420,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawSheetImportPanel(editor, canvas, window);
     drawLibraryPanel(editor, canvas, window);
     drawRecoveryPrompt(editor, canvas);
+    drawStartScreen(editor, canvas, window);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -3447,6 +3452,7 @@ struct Options {
     bool        layerProperties = false; // the active layer's properties, tagged
     bool        paths = false;           // --paths: a polygon and a curve, handles showing
     bool        tabs = false;            // --tabs: two more documents open beside the first
+    bool        start = false;           // --start: the start screen up, as at a person's start
     bool        adjust = false;          // --adjust: the colour window, hue turned
     bool        shadow = false;          // --shadow: the figure casts a shadow
     bool        tween = false;           // --tween: a figure turned and moved across five frames
@@ -3537,6 +3543,8 @@ Options parseOptions(int argc, char** argv) {
             options.adjust = true;
         } else if (arg == "--tabs") {
             options.tabs = true;
+        } else if (arg == "--start") {
+            options.start = true;
         } else if (arg == "--paths") {
             options.paths = true;
         } else if (arg == "--layer-properties") {
@@ -5071,6 +5079,12 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         editor.recovered = findRecoveredWork();
     }
     editor.askingToRecover = !editor.recovered.empty();
+
+    // A person's start greets them with the start screen, unless they asked
+    // for a file or turned it off; a scripted run sees it only when asked.
+    if (options.start || (interactive && editor.prefs.showStart && options.openPath.empty())) {
+        openStartScreen(editor);
+    }
 
     if (options.library) {
         editor.libraryOpen = true;

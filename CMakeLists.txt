@@ -174,6 +174,7 @@ if (FAST_BUILD_GUI)
         src/ui/os_clipboard.cpp
         src/ui/shape_tools.cpp
         src/ui/tabs.cpp
+        src/ui/start_screen.cpp
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
         src/ui/ui_script.cpp

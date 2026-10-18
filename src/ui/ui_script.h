@@ -49,6 +49,8 @@
 //     expect offset 3 1           and its last Offset, in pixels
 //     reference tests/ui/sheet.png  an image imported as a reference, as File >
 //                                 Import reference does once the file is chosen
+//     open shape_test.lsprite     a file opened, as a recent entry or a drop does
+//     start                       the start screen brought up, as File > Start screen does
 //     expect section 9 0 8 8      the picked reference's part shown: x y w h
 //     expect playing yes|no
 //     expect canvas 64 64 / expect tabs 2
@@ -94,7 +96,7 @@ public:
 private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
-                    Reference,
+                    Reference, Open, Start,
                     Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;

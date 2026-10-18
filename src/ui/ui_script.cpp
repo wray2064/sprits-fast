@@ -12,6 +12,7 @@
 #include "app/transform.h"
 #include "ui/canvas_view.h"
 #include "ui/reference_section.h"
+#include "ui/start_screen.h"
 #include "ui/tabs.h"
 
 #include <imgui_internal.h>
@@ -263,6 +264,13 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         r.text = line.substr(line.find("reference") + 10);
         while (!r.text.empty() && r.text.back() == ' ') { r.text.pop_back(); }
         add(r);
+    } else if (verb == "open" && w.size() >= 2) {
+        Step o; o.kind = Step::Open;
+        o.text = line.substr(line.find("open") + 5);
+        while (!o.text.empty() && o.text.back() == ' ') { o.text.pop_back(); }
+        add(o);
+    } else if (verb == "start" && w.size() == 1) {
+        Step s; s.kind = Step::Start; add(s);
     } else if (verb == "tool" && w.size() == 2) {
         Step s; s.kind = Step::Tool; s.text = w[1]; add(s);
     } else if (verb == "colour" && w.size() == 2) {
@@ -476,6 +484,13 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 }
                 return;
             }
+            case Step::Open:
+                // Opening a path needs no window; only the dialogs do.
+                requestAction(editor, canvas, nullptr, PendingAction::OpenPath, step.text);
+                return;
+            case Step::Start:
+                openStartScreen(editor);
+                return;
             case Step::Tool: {
                 Tool tool;
                 if (toolFromName(step.text, &tool)) {

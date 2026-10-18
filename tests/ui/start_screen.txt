@@ -1,0 +1,62 @@
+# The start screen: what it offers, and each way out of it.
+# Run from the project folder, where shape_test.lsprite is: opening it puts
+# one recent file on the screen to find.
+open shape_test.lsprite
+wait 3
+start
+wait 3
+expect item New file...
+expect item Open...
+expect item Import sprite sheet...
+expect item Library...
+expect item Start with a blank canvas
+expect item shape_test.lsprite
+
+# A recent file is already open here, so choosing it shows that tab.
+click-on shape_test.lsprite
+wait 2
+expect missing New file...
+expect tabs 1
+
+# File > Start screen brings it back; leaving it is Start with a blank canvas.
+click-on File
+click-on Start screen
+wait 2
+expect item New file...
+click-on Start with a blank canvas
+wait 2
+expect missing New file...
+
+# A quick new file is one click, and replaces nothing: the document on screen
+# has work in it (it was opened), so the new one gets a tab of its own.
+click-on File
+click-on Start screen
+wait 2
+click-on 64 x 64
+wait 2
+expect missing New file...
+expect canvas 64 64
+expect tabs 2
+
+# New file... leads to the New window.
+click-on File
+click-on Start screen
+wait 2
+click-on New file...
+wait 2
+expect missing New file...
+expect item Create
+click-on Cancel
+
+# A recent entry can be taken off the list, from its context menu.
+click-on File
+click-on Start screen
+wait 2
+# (the document's own tab carries the same name, so the row is the second
+# of two before, and the only one left after)
+expect item shape_test.lsprite @2
+right-click-on shape_test.lsprite @2
+click-on Remove from this list
+wait 2
+expect missing shape_test.lsprite @2
+click-on Start with a blank canvas

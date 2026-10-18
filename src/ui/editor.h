@@ -25,6 +25,7 @@
 #include "app/layers.h"
 #include "app/library.h"
 #include "app/paint.h"
+#include "app/recent_files.h"
 #include "app/recovery.h"
 #include "app/reference.h"
 #include "app/palette.h"
@@ -430,6 +431,15 @@ struct Editor {
 
     // Whether the New document window is up.
     bool newDocumentOpen = false;
+
+    // The start screen: what greets the person when the program opens, and
+    // File > Start screen brings back. `startRecent` is looked up when it
+    // opens, not every frame (see describeRecent).
+    bool                    startOpen = false;
+    bool                    startStale = true;
+    std::vector<RecentInfo> startRecent;
+    size_t                  startTabs = 0;       // what was on screen when it opened:
+    std::string             startPath;           // any change closes it
 
     // The person's keys and preferences, read at start and written as they
     // change; the Preferences window, and the command whose key is being

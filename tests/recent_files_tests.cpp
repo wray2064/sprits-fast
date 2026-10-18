@@ -117,9 +117,45 @@ void testAHandEditedFileIsSurvivable() {
     cleanup.save();
 }
 
+void testAgeIsSaidInPlainWords() {
+    const uint64_t now = 100000000;     // far enough from the epoch for 800 days back
+    CHECK(fast::ageText(now - 5, now) == "just now");
+    CHECK(fast::ageText(now - 60, now) == "1 minute ago");
+    CHECK(fast::ageText(now - 5 * 60, now) == "5 minutes ago");
+    CHECK(fast::ageText(now - 3 * 3600, now) == "3 hours ago");
+    CHECK(fast::ageText(now - 26 * 3600, now) == "yesterday");
+    CHECK(fast::ageText(now - 3 * 86400, now) == "3 days ago");
+    CHECK(fast::ageText(now - 65 * 86400, now) == "2 months ago");
+    CHECK(fast::ageText(now - 800 * 86400, now) == "2 years ago");
+    // Unknown, or from the future (a clock set back): no claim at all.
+    CHECK(fast::ageText(0, now).empty());
+    CHECK(fast::ageText(now + 100, now).empty());
+}
+
+void testDescribingFindsWhatIsThereAndWhatIsNot() {
+    const std::string path = "recent_describe_test.bin";
+    std::string error;
+    fast::writeFileAtomic(path, std::vector<uint8_t>{ 1, 2, 3 }, &error);
+
+    const std::vector<fast::RecentInfo> info =
+        fast::describeRecent({ path, "no_such_file_anywhere.lsprite" });
+    CHECK(info.size() == 2);
+    CHECK(info[0].path == path);
+    CHECK(info[0].exists);
+    CHECK(info[0].modifiedSeconds > 0);
+    CHECK(info[1].path == "no_such_file_anywhere.lsprite");
+    CHECK(!info[1].exists);
+    CHECK(info[1].modifiedSeconds == 0);
+    CHECK(fast::describeRecent({}).empty());
+
+    fast::deleteFile(path);
+}
+
 } // namespace
 
 int main() {
+    testAgeIsSaidInPlainWords();
+    testDescribingFindsWhatIsThereAndWhatIsNot();
     testMostRecentComesFirst();
     testReopeningMovesToTheFront();
     testTheListIsBounded();

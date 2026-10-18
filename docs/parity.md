@@ -113,6 +113,11 @@ only output. A feature that bakes pixels to get done faster is not done.
       cycle
 - [x] Command-line batch export (`sprits_fast --export`)
 - [x] Save a copy (`Document::saveCopy` already exists)
+- [x] **Start screen** at launch, as in every editor of this kind: New file
+      (and one-click 16/32/64/128 canvases), Open, Import sprite sheet,
+      Library, and the recent files with folder and age (missing ones marked,
+      removable); File > Start screen brings it back and a preference turns
+      it off
 
 ### Palette
 - [x] Slots as roles, several palettes, the swap, per-frame palettes
@@ -182,6 +187,7 @@ tiers were done.
 
 Newest first. One line per landed item, with the commit.
 
+- Start screen (ui/start_screen): a modal over the blank document the program always starts with, so every choice goes through requestAction like the File menu's; shows at a person's start (Preferences::showStart, `start.show`), never in a scripted run unless `--start`; recent entries looked up when it opens (describeRecent, ageText in app/recent_files), missing files shown but not openable; any change of document closes it. Script commands `open FILE` and `start`; tests/ui/start_screen.txt; recent_files and preferences tests; Spanish catalogue.
 - Reference sections: a reference shows part of its image (Reference::clip*, kept in the list after the fields older builds read; the whole image stays in the document). Importing opens the Reference section window: drag on the preview, type x y w h, or a sheet's cell size and gap and click a cell; < Cell / Cell > step through the sheet (stepReferenceSection). The picker, fitting, canvas ops and Pract's toolkit read the part shown; references magnified on screen are drawn with sharp sampling. Scripts: `reference FILE`, `expect section`; `--reference FILE` imports at start. reference_tests, tests/ui/reference_section.txt.
 - Cutout puppets (app/puppet, ui/puppet_panel): parts (sprites out of the timeline) made from a frame's layers, hung from each other where they are drawn by engine attachments; joints and sockets placed and dragged in Draw part; Pose shows the assembled puppet (FrameCache::assemblyEntryFor, engine isAssemblyCurrent) with bones, a ring to turn the picked part at its joint (Shift 15 degrees) and a square to move the root; Capture pose makes a frame of placed shapes (MatrixTransformOp, Exact), exactly the posed puppet, each part a track, the pose written on the frame; the canvas turns and flips the rig and its captures. puppet_tests, tests/ui/puppet.txt. Beyond the incumbents: none of Aseprite, LibreSprite or Pixelorama has a cutout rig.
 - The gizmo's middle square moves the sprite (an Offset at the end of the layer's list, by whole pixels, Shift for one axis) rather than scaling both ways; the gizmo sits where the pivot shows after that move, so it stays on the sprite and the ring turns it where it is. `expect offset` in UI scripts.

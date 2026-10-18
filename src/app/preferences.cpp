@@ -78,6 +78,7 @@ std::string savePreferences(const Preferences& p) {
     out += "view.grid-colour = " + hexColour(p.gridColour) + "\n";
     out += "view.grid-opacity = " + std::to_string(p.gridOpacity) + "\n";
     out += "view.theme = " + std::string(p.lightTheme ? "light" : "dark") + "\n";
+    out += "start.show = " + std::string(p.showStart ? "1" : "0") + "\n";
     out += "view.language = " + p.language + "\n";
     return out;
 }
@@ -128,6 +129,8 @@ Preferences loadPreferences(const std::string& text) {
             p.gridOpacity = static_cast<int>(number(value, 0, 255, 16));
         } else if (name == "view.theme") {
             p.lightTheme = value == "light";
+        } else if (name == "start.show") {
+            p.showStart = number(value, 0, 1, 1) == 1;
         } else if (name == "view.language") {
             // A name, not a path: letters and a dash only.
             bool plain = value.size() <= 16;

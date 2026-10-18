@@ -48,4 +48,22 @@ private:
     std::vector<std::string> entries_;
 };
 
+// What the start screen shows about one recent entry, looked up on demand
+// (when the screen opens), never when the list is read: see the note at the
+// top about files that come and go.
+struct RecentInfo {
+    std::string path;
+    bool        exists = false;
+    uint64_t    modifiedSeconds = 0;     // since the epoch; 0 when unknown
+};
+
+// One RecentInfo per entry, in the same order. A file the platform will not
+// stat is reported as missing, not as an error.
+std::vector<RecentInfo> describeRecent(const std::vector<std::string>& entries);
+
+// "just now", "5 minutes ago", "yesterday", "3 days ago", "2 months ago": how
+// long ago `modifiedSeconds` was, as of `nowSeconds`. A time in the future, or
+// an unknown one (0), is an empty string rather than a wrong claim.
+std::string ageText(uint64_t modifiedSeconds, uint64_t nowSeconds);
+
 } // namespace fast

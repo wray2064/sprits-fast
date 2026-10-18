@@ -65,6 +65,12 @@ int main() {
     fast::Preferences themed;
     themed.lightTheme = true;
     CHECK(fast::loadPreferences(fast::savePreferences(themed)).lightTheme);
+
+    // The start screen is on until the person turns it off, and stays off.
+    CHECK(fast::loadPreferences("").showStart);
+    fast::Preferences quiet;
+    quiet.showStart = false;
+    CHECK(!fast::loadPreferences(fast::savePreferences(quiet)).showStart);
     fast::canvasDefaultsFor(true, &themed);
     CHECK(themed.checkerLight != fast::Preferences().checkerLight && themed.gridColour == 0);
     fast::canvasDefaultsFor(false, &themed);
