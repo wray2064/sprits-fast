@@ -9,6 +9,8 @@
 // the title bar, menus after Fast's, panels beside Fast's that dock like
 // them. Fast itself runs with nothing added (fast_main.cpp).
 
+#include "app/theme_tokens.h"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -34,6 +36,15 @@ struct AppExtension {
     std::string homepage = "https://github.com/wray2064/sprits-fast";
     std::string issues = "https://github.com/wray2064/sprits-fast/issues";
     std::string licence = "Apache License 2.0";
+    // Colours its windows draw with that Fast has no role for (timeline tracks,
+    // reference tints), as roles like Fast's own: named, themable, listed in
+    // Preferences > Appearance, kept in theme files, checked for readability.
+    // Drawn with theme::extra("pract.track"), never with a literal.
+    std::vector<ExtraRole> roles;
+    // Built-in themes of its own, each the text of a `.lstheme` file that starts
+    // from one of Fast's (`base =`) and says what it changes -- and may set its
+    // own roles. They are listed with Fast's, after its dark or light ones.
+    std::vector<std::string> themes;
     // Inside the main menu bar, after Fast's own menus.
     std::function<void(Editor&, CanvasView&)> menus;
     // Once a frame, after Fast's panels: windows of its own.

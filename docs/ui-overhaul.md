@@ -80,7 +80,23 @@ decisions. Progress:
       and goes in between frames. A scripted run keeps them in
       `ui_selftest_layouts`. `tests/ui/layouts.txt` saves, switches away,
       restores and deletes, checking panel heights come back as saved.
-- [ ] Stage 6, the Pract seam, `visual-language.md`, the gallery.
+- [x] **Stage 6, the Pract seam, `visual-language.md`, the gallery.**
+      `AppExtension::roles` and `::themes`: a program registers roles of its own
+      (`ExtraRole`: an id like `pract.track`, a label and group, a default for a
+      dark and a light theme, optional contrast targets against a surface of
+      Fast's) and built-in themes as `.lstheme` text. Roles are drawn with
+      `theme::extra("pract.track")`, set by theme files, listed in
+      Preferences > Appearance beside Fast's, checked and repaired by the same
+      readability panel, and kept in a theme saved from a program that does not
+      know them. Pract registers its own theme (`pract/look`), and no roles yet:
+      it draws nothing of its own that needs one. `docs/visual-language.md` is
+      the working reference. `tools/gallery.ps1` runs `tests/gallery/gallery.txt`
+      -- every screen, every theme, 100% and 150%, 270 images -- and tiles each
+      screen's nine themes into a contact sheet. Its first run found the start
+      screen's footer clipped at 150% (fixed: its sizes now follow the interface
+      size); the docked panels still clip at 150% (open, listed in
+      `visual-language.md`). Script words `theme`, `scale`, `for-each ... end-for`,
+      `demo-roles`, PNG `shot`; Escape closes Preferences and the shortcut list.
 
 Why this is critical: Pract is Fast's window run as a library. Everything
 Pract draws -- its timeline, References, Arranger, Practipuppets -- is built

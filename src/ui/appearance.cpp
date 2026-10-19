@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -34,13 +35,17 @@ ImVec4 vec(Rgba c) {
     return ImVec4(c.r / 255.f, c.g / 255.f, c.b / 255.f, c.a / 255.f);
 }
 
-bool sameColours(const Theme& a, const Theme& b) {
-    for (size_t i = 0; i < kTokenCount; ++i) {
-        if (a.colour[i] != b.colour[i]) {
-            return false;
-        }
+// What a person is told a role is called: Fast's own, or one a program built on
+// it registered. An id nobody knows is shown as it is.
+std::string roleLabel(const std::string& name) {
+    Token token;
+    if (tokenFromName(name, &token)) {
+        return tr(tokenLabel(token));
     }
-    return true;
+    if (const ExtraRole* role = findExtraRole(name)) {
+        return tr(role->label.c_str());
+    }
+    return name;
 }
 
 // Canvas colours that were still the old theme's follow the new one; ones the
@@ -132,6 +137,16 @@ void loadAppearance(Editor& editor) {
 void editRole(Editor& editor, Token token, Rgba colour) {
     const Theme before = editor.appearance.working;
     editor.appearance.working[token] = colour;
+    AppearanceResult ignored;
+    touched(editor, before, &ignored);
+}
+
+void editExtraRole(Editor& editor, const std::string& id, Rgba colour) {
+    if (findExtraRole(id) == nullptr) {
+        return;
+    }
+    const Theme before = editor.appearance.working;
+    editor.appearance.working.extra[id] = colour;
     AppearanceResult ignored;
     touched(editor, before, &ignored);
 }
@@ -418,12 +433,9 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
         for (const ContrastIssue& issue : issues) {
             const size_t on = issue.what.find(" on ");
             std::string line = issue.what;
-            Token front = Token::App;
-            Token back = Token::App;
-            if (on != std::string::npos && tokenFromName(issue.what.substr(0, on), &front) &&
-                tokenFromName(issue.what.substr(on + 4), &back)) {
-                line = std::string(tr(tokenLabel(front))) + " " + tr("on") + " " +
-                       tr(tokenLabel(back));
+            if (on != std::string::npos) {
+                line = roleLabel(issue.what.substr(0, on)) + " " + tr("on") + " " +
+                       roleLabel(issue.what.substr(on + 4));
             }
             char numbers[48];
             std::snprintf(numbers, sizeof numbers, "   %.1f : %.1f", issue.ratio, issue.required);
@@ -446,46 +458,37 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
     // ---------------------------------------------------------------- colours --
     ImGui::Dummy(ImVec2(0.f, 4.f));
     theme::sectionHeader("COLOURS");
-    const char* group = "";
-    bool open = true;
-    for (size_t i = 0; i < kTokenCount; ++i) {
-        const Token token = static_cast<Token>(i);
-        if (std::string(tokenGroup(token)) != group) {
-            group = tokenGroup(token);
-            open = theme::foldingHeader(group);
-        }
-        if (!open) {
-            continue;
-        }
-        ImGui::PushID(static_cast<int>(i));
-        Rgba current = a.working[token];
+    // One row: a picker, the role's name, the numbers where it misses a target,
+    // its hex, and a reset where it differs from the theme it began as. Fast's
+    // roles and a program's own are drawn by the same code, so they look and
+    // behave alike.
+    const auto roleRow = [&](int pushId, const std::string& name, const std::string& label,
+                             bool alpha, Rgba current, bool changedFromBase, Rgba baseColour,
+                             const std::function<void(Rgba)>& assign) {
+        ImGui::PushID(pushId);
         float rgba[4] = { current.r / 255.f, current.g / 255.f, current.b / 255.f,
                           current.a / 255.f };
         const ImGuiColorEditFlags flags =
             ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel |
-            (hasAlpha(token) ? (ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf)
-                             : ImGuiColorEditFlags_NoAlpha);
+            (alpha ? (ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf)
+                   : ImGuiColorEditFlags_NoAlpha);
         if (ImGui::ColorEdit4("##role", rgba, flags)) {
-            const Theme before = a.working;
-            a.working[token] = Rgba{ static_cast<uint8_t>(std::lround(rgba[0] * 255.f)),
-                                     static_cast<uint8_t>(std::lround(rgba[1] * 255.f)),
-                                     static_cast<uint8_t>(std::lround(rgba[2] * 255.f)),
-                                     hasAlpha(token)
-                                         ? static_cast<uint8_t>(std::lround(rgba[3] * 255.f))
-                                         : static_cast<uint8_t>(255) };
-            touched(editor, before, &result);
+            assign(Rgba{ static_cast<uint8_t>(std::lround(rgba[0] * 255.f)),
+                         static_cast<uint8_t>(std::lround(rgba[1] * 255.f)),
+                         static_cast<uint8_t>(std::lround(rgba[2] * 255.f)),
+                         alpha ? static_cast<uint8_t>(std::lround(rgba[3] * 255.f))
+                               : static_cast<uint8_t>(255) });
         }
-        const std::string scriptName = std::string("##role-") + tokenName(token);
+        const std::string scriptName = "##role-" + name;
         nameForScripts(scriptName.c_str());
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted(tr(tokenLabel(token)));
+        ImGui::TextUnformatted(label.c_str());
 
         // Where the role fails a target, the numbers; and what it is, quietly,
         // at the right.
         for (const ContrastIssue& issue : issues) {
-            if (issue.what.compare(0, std::strlen(tokenName(token)) + 4,
-                                   std::string(tokenName(token)) + " on ") == 0) {
+            if (issue.what.compare(0, name.size() + 4, name + " on ") == 0) {
                 ImGui::SameLine();
                 char numbers[32];
                 std::snprintf(numbers, sizeof numbers, "%.1f/%.1f", issue.ratio, issue.required);
@@ -493,9 +496,8 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
                 break;
             }
         }
-        const std::string hex = colourText(a.working[token]);
+        const std::string hex = colourText(current);
         const float hexWidth = ImGui::CalcTextSize(hex.c_str()).x;
-        const bool changedFromBase = haveBase && base[token] != a.working[token];
         const float resetWidth = changedFromBase ? ImGui::CalcTextSize(tr("reset")).x +
                                                        ImGui::GetStyle().FramePadding.x * 2.f + 8.f
                                                  : 0.f;
@@ -507,12 +509,52 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
         if (changedFromBase) {
             ImGui::SameLine();
             if (widgets::button("reset", widgets::ButtonStyle::Ghost)) {
-                const Theme before = a.working;
-                a.working[token] = base[token];
-                touched(editor, before, &result);
+                assign(baseColour);
             }
         }
         ImGui::PopID();
+    };
+
+    const char* group = "";
+    bool open = true;
+    for (size_t i = 0; i < kTokenCount; ++i) {
+        const Token token = static_cast<Token>(i);
+        if (std::string(tokenGroup(token)) != group) {
+            group = tokenGroup(token);
+            open = theme::foldingHeader(group);
+        }
+        if (!open) {
+            continue;
+        }
+        roleRow(static_cast<int>(i), tokenName(token), tr(tokenLabel(token)), hasAlpha(token),
+                a.working[token], haveBase && base[token] != a.working[token], base[token],
+                [&](Rgba colour) {
+                    const Theme before = a.working;
+                    a.working[token] = colour;
+                    touched(editor, before, &result);
+                });
+    }
+    // The roles a program built on Fast added, under the groups it gave them.
+    int extraIndex = 0;
+    std::string extraGroup;
+    for (const ExtraRole& role : extraRoles()) {
+        if (role.group != extraGroup || extraIndex == 0) {
+            extraGroup = role.group;
+            open = theme::foldingHeader(extraGroup.c_str());
+        }
+        ++extraIndex;
+        if (!open) {
+            continue;
+        }
+        const std::string id = role.id;
+        const Rgba current = a.working.extraColour(id);
+        const Rgba baseColour = haveBase ? base.extraColour(id) : current;
+        roleRow(1000 + extraIndex, id, tr(role.label.c_str()), role.alpha, current,
+                haveBase && baseColour != current, baseColour, [&, id](Rgba colour) {
+                    const Theme before = a.working;
+                    a.working.extra[id] = colour;
+                    touched(editor, before, &result);
+                });
     }
     ImGui::Dummy(ImVec2(0.f, 4.f));
     return result;

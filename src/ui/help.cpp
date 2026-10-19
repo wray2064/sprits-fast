@@ -127,6 +127,12 @@ void drawShortcuts(Editor& editor) {
         ImGui::End();
         return;
     }
+    // Escape puts it away, as it does every dialog (while the filter has the
+    // keyboard it is the field's own way out first).
+    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+        !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        editor.shortcutsOpen = false;
+    }
     ImGui::SetNextItemWidth(-1.f);
     ImGui::InputTextWithHint("##shortcutFilter", tr("Type to narrow the list"),
                              editor.shortcutsFilter, sizeof(editor.shortcutsFilter));

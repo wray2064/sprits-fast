@@ -9,6 +9,7 @@
 #include "app/file_io.h"
 #include "app/layers.h"
 #include "app/slices.h"
+#include "app/theme_store.h"
 #include "app/transform.h"
 #include "ui/canvas_view.h"
 #include "ui/reference_section.h"
@@ -199,6 +200,128 @@ ImGuiKey keyNamed(const std::string& name) {
     return ImGuiKey_None;
 }
 
+// The sample roles `demo-roles` registers: the shapes a program's own take --
+// an indicator, text, and a translucent tint -- so the editor, the file and the
+// readability check can be run against them without a program that has them.
+std::vector<ExtraRole> demoRoles() {
+    ExtraRole mark;
+    mark.id = "demo.mark";
+    mark.label = "Sample mark";
+    mark.group = "Sample program";
+    mark.dark = Rgba{ 255, 130, 200, 255 };
+    mark.light = Rgba{ 170, 0, 110, 255 };
+    mark.standard = 3.0;
+    mark.enhanced = 4.5;
+    ExtraRole label;
+    label.id = "demo.label";
+    label.label = "Sample label";
+    label.group = "Sample program";
+    label.dark = Rgba{ 190, 220, 255, 255 };
+    label.light = Rgba{ 20, 60, 130, 255 };
+    label.standard = 4.5;
+    label.enhanced = 7.0;
+    ExtraRole tint;
+    tint.id = "demo.tint";
+    tint.label = "Sample tint";
+    tint.group = "Sample program";
+    tint.dark = Rgba{ 120, 200, 255, 90 };
+    tint.light = Rgba{ 0, 80, 200, 70 };
+    tint.alpha = true;
+    return { mark, label, tint };
+}
+
+// --- loops ----------------------------------------------------------------------
+//
+// `for-each theme` ... `end-for` repeats the lines between, once for every
+// built-in theme (or, `for-each scale 100 150`, once for each value listed), with
+// {theme} or {scale} standing for it in any line. The loops are unrolled before a
+// line is parsed, so a script is still a flat list of steps, and every step
+// keeps the number of the line it was written on.
+
+struct SourceLine {
+    int         number = 0;
+    std::string text;
+};
+using Bindings = std::vector<std::pair<std::string, std::string>>;
+
+constexpr size_t kMaxExpandedLines = 40000;
+constexpr size_t kMaxLoopValues = 64;
+constexpr int kMaxLoopDepth = 3;
+
+std::string substituted(std::string text, const Bindings& bindings) {
+    for (const auto& binding : bindings) {
+        const std::string key = "{" + binding.first + "}";
+        for (size_t at = text.find(key); at != std::string::npos;
+             at = text.find(key, at + binding.second.size())) {
+            text.replace(at, key.size(), binding.second);
+        }
+    }
+    return text;
+}
+
+bool expandLoops(const std::vector<SourceLine>& body, const Bindings& bindings, int depth,
+                 std::vector<SourceLine>* out, const std::string& path, std::string* error) {
+    const auto fail = [&](int number, const char* why) {
+        if (error != nullptr) {
+            *error = path + ":" + std::to_string(number) + ": " + why;
+        }
+        return false;
+    };
+    for (size_t i = 0; i < body.size(); ++i) {
+        const std::string text = substituted(body[i].text, bindings);
+        const std::vector<std::string> w = words(text);
+        if (!w.empty() && w[0] == "end-for") {
+            return fail(body[i].number, "end-for with no for-each");
+        }
+        if (w.empty() || w[0] != "for-each") {
+            if (out->size() >= kMaxExpandedLines) {
+                return fail(body[i].number, "the loops make too many lines");
+            }
+            out->push_back({ body[i].number, text });
+            continue;
+        }
+        if (w.size() < 2) {
+            return fail(body[i].number, "for-each needs a name: theme, scale, or your own");
+        }
+        if (depth >= kMaxLoopDepth) {
+            return fail(body[i].number, "loops nested too deep");
+        }
+        // The end-for that matches, past any loop inside.
+        size_t end = i + 1;
+        for (int open = 1; end < body.size(); ++end) {
+            const std::vector<std::string> inner = words(body[end].text);
+            if (!inner.empty() && inner[0] == "for-each") {
+                ++open;
+            } else if (!inner.empty() && inner[0] == "end-for" && --open == 0) {
+                break;
+            }
+        }
+        if (end >= body.size()) {
+            return fail(body[i].number, "for-each with no end-for");
+        }
+        std::vector<std::string> values(w.begin() + 2, w.end());
+        if (values.empty() && w[1] == "theme") {
+            for (const Theme& theme : builtinThemes()) {
+                values.push_back(theme.id);
+            }
+        }
+        if (values.empty() || values.size() > kMaxLoopValues) {
+            return fail(body[i].number, "for-each needs between 1 and 64 values");
+        }
+        const std::vector<SourceLine> inside(body.begin() + static_cast<std::ptrdiff_t>(i) + 1,
+                                             body.begin() + static_cast<std::ptrdiff_t>(end));
+        for (const std::string& value : values) {
+            Bindings next = bindings;
+            next.emplace_back(w[1], value);
+            if (!expandLoops(inside, next, depth + 1, out, path, error)) {
+                return false;
+            }
+        }
+        i = end;
+    }
+    return true;
+}
+
 } // namespace
 
 bool UiScript::load(const std::string& path, std::string* error) {
@@ -210,6 +333,7 @@ bool UiScript::load(const std::string& path, std::string* error) {
     std::istringstream in(std::string(bytes.begin(), bytes.end()));
     std::string line;
     int number = 0;
+    std::vector<SourceLine> source;
     while (std::getline(in, line)) {
         ++number;
         if (!line.empty() && line.back() == '\r') {
@@ -233,7 +357,14 @@ bool UiScript::load(const std::string& path, std::string* error) {
                 ++hash;
             }
         }
-        if (!parse(line, number, error)) {
+        source.push_back({ number, line });
+    }
+    std::vector<SourceLine> flat;
+    if (!expandLoops(source, {}, 0, &flat, path, error)) {
+        return false;
+    }
+    for (const SourceLine& entry : flat) {
+        if (!parse(entry.text, entry.number, error)) {
             return false;
         }
     }
@@ -288,6 +419,16 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         r.text = w[1];
         r.args.push_back(w[2]);
         add(r);
+    } else if (verb == "theme" && w.size() == 2) {
+        Step t; t.kind = Step::UseTheme; t.text = w[1]; add(t);
+    } else if (verb == "scale" && w.size() == 2) {
+        Step s; s.kind = Step::UseScale;
+        if (!fast::number(w[1], &s.x) || s.x < 75.f || s.x > 150.f) {
+            return fail("not an interface size from 75 to 150");
+        }
+        add(s);
+    } else if (verb == "demo-roles" && w.size() == 1) {
+        Step d; d.kind = Step::DemoRoles; add(d);
     } else if (verb == "zoom" && w.size() == 2) {
         Step z; z.kind = Step::ZoomTo;
         if (!fast::number(w[1], &z.x)) { return fail("not a zoom"); }
@@ -520,15 +661,43 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::Role: {
                 Token token;
                 Rgba colour;
-                if (!tokenFromName(step.text, &token) || !parseColour(step.args[0], &colour)) {
-                    std::printf("FAIL script:%d: not a role or not a colour\n", step.line);
+                if (!parseColour(step.args[0], &colour)) {
+                    std::printf("FAIL script:%d: not a colour\n", step.line);
                     ++failures_;
                     ++checks_;
                     return;
                 }
-                editRole(editor, token, colour);
+                if (tokenFromName(step.text, &token)) {
+                    editRole(editor, token, colour);
+                } else if (findExtraRole(step.text) != nullptr) {
+                    editExtraRole(editor, step.text, colour);
+                } else {
+                    std::printf("FAIL script:%d: no role called %s\n", step.line,
+                                step.text.c_str());
+                    ++failures_;
+                    ++checks_;
+                }
                 return;
             }
+            case Step::UseTheme: {
+                Theme chosen;
+                if (!findTheme(themeFolderFor(editor), step.text, &chosen)) {
+                    std::printf("FAIL script:%d: no theme called %s\n", step.line,
+                                step.text.c_str());
+                    ++failures_;
+                    ++checks_;
+                    return;
+                }
+                selectTheme(editor, chosen);
+                return;
+            }
+            case Step::UseScale:
+                editor.prefs.uiScale = static_cast<int>(step.x);
+                theme::setScale(step.x / 100.f);
+                return;
+            case Step::DemoRoles:
+                addExtraRoles(demoRoles());
+                return;
             case Step::Answer: {
                 // What a native dialog's callback would have left, put where it
                 // would have left it.
@@ -799,13 +968,22 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
             failed("the theme is " + theme::current().id);
         }
     } else if (step.text == "colour" && a.size() == 2) {
-        // A role of the theme in force: `expect colour panel 1d2229`.
+        // A role of the theme in force: `expect colour panel 1d2229`, or a
+        // program's own by its id.
         Token token;
         Rgba want;
-        if (!tokenFromName(a[0], &token) || !parseColour(a[1], &want)) {
-            failed("not a role or not a colour");
-        } else if (theme::current()[token] != want) {
-            failed(a[0] + " is " + colourText(theme::current()[token]));
+        if (!parseColour(a[1], &want)) {
+            failed("not a colour");
+        } else if (tokenFromName(a[0], &token)) {
+            if (theme::current()[token] != want) {
+                failed(a[0] + " is " + colourText(theme::current()[token]));
+            }
+        } else if (findExtraRole(a[0]) != nullptr) {
+            if (theme::current().extraColour(a[0]) != want) {
+                failed(a[0] + " is " + colourText(theme::current().extraColour(a[0])));
+            }
+        } else {
+            failed("no role called " + a[0]);
         }
     } else if (step.text == "uiscale" && a.size() == 1) {
         const int percent = static_cast<int>(std::lround(theme::scale() * 100.f));

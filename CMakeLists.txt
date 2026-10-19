@@ -368,6 +368,10 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_theme_tokens_tests PRIVATE fast_core)
     add_test(NAME fast_theme_tokens COMMAND fast_theme_tokens_tests)
 
+    add_executable(fast_theme_extension_tests tests/theme_extension_tests.cpp)
+    target_link_libraries(fast_theme_extension_tests PRIVATE fast_core)
+    add_test(NAME fast_theme_extension COMMAND fast_theme_extension_tests)
+
     add_executable(fast_vector_icon_tests tests/vector_icon_tests.cpp)
     target_link_libraries(fast_vector_icon_tests PRIVATE fast_core)
     target_compile_definitions(fast_vector_icon_tests PRIVATE

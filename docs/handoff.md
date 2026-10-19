@@ -62,9 +62,10 @@ From PowerShell in this folder:
 
 | What | Command | Notes |
 |---|---|---|
-| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 48 suites |
+| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 49 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 34 scripts; all must pass; CI runs them |
+| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 37 scripts; all must pass; CI runs them |
+| The gallery | `.\tools\gallery.ps1` | every screen in every theme at 100% and 150%, 270 images and a contact sheet per screen in `build-gui\gallery`; look at it before calling a visual change done |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |
 
 The engine is found at `../livesprite-engine` (`-DLIVESPRITE_DIR` to point
@@ -175,7 +176,10 @@ Other docs:
   script.
 - `docs/translating.md`: adding a language.
 - `docs/icons-needed.md`: the icon set (Lucide) and the icons still to add.
-- `docs/ui-overhaul.md`: the visual language, the stages and where they stand.
+- `docs/visual-language.md`: the working reference for building a screen --
+  roles, type, space, components, icons, themes, and what a program built on
+  Fast adds. Read it before drawing anything.
+- `docs/ui-overhaul.md`: the design, the stages and where they stand.
 - `README.md`: the feature tour.
 
 Inside a `.lsprite` package, under `fast/`:

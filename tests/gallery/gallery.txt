@@ -1,0 +1,179 @@
+# The gallery: every screen of the program, in every built-in theme, at 100% and
+# 150% interface size, as images -- so a change of look is judged by eye, in one
+# pass, rather than screen by screen.
+#
+# Run it with tools\gallery.ps1, which runs this from a folder of its own (the
+# images are written to the folder it runs in, named THEME_SIZE_SCREEN.png) and
+# then tiles the themes of each screen into one contact sheet. By hand:
+#
+#     build-gui\sprits_fast.exe --script tests\gallery\gallery.txt
+#
+# It is not one of tests/ui's scripts because it writes some three hundred
+# images; tests/ui/gallery_smoke.txt keeps its machinery (the loops, the theme
+# and size words, a PNG named by both) under test with the rest.
+
+# ---- something to look at: a little scene on two layers, in three frames ----
+tool rectangle
+colour 3a6ea5
+drag 2 2 29 18
+tool ellipse
+colour f2c14e
+drag 20 4 26 10
+tool rectangle
+colour 4f8a3c
+drag 2 19 29 29
+tool pencil
+colour e08f40
+drag 6 22 16 22
+colour ffffff
+drag 7 9 12 9
+click-on Add
+wait 3
+colour c0392b
+drag 8 24 20 26
+click-on Window
+click-on Layouts
+click-on Drawing
+wait 4
+click-on + Frame
+wait 3
+colour 7a4fd0
+drag 10 12 14 16
+click-on + Frame
+wait 3
+colour 20b2aa
+drag 16 12 20 16
+click-on cell @1
+wait 3
+
+for-each theme
+for-each scale 100 150
+theme {theme}
+scale {scale}
+wait 4
+
+# ---- the main window, in each of its arrangements ----
+click-on Window
+click-on Layouts
+click-on Drawing
+wait 5
+shot {theme}_{scale}_drawing.png
+wait 3
+
+# A menu open, and a context menu.
+click-on File
+wait 3
+shot {theme}_{scale}_menu.png
+wait 3
+click-on File
+wait 3
+right-click-on Layer 2
+wait 3
+shot {theme}_{scale}_context-menu.png
+wait 3
+click-on Palette
+wait 3
+
+click-on Window
+click-on Layouts
+click-on Animation
+wait 5
+shot {theme}_{scale}_animation.png
+wait 3
+
+click-on Window
+click-on Layouts
+click-on Compact
+wait 5
+shot {theme}_{scale}_compact.png
+wait 3
+
+click-on Window
+click-on Layouts
+click-on Drawing
+wait 5
+
+# ---- dialogs and windows ----
+click-on File
+click-on New...
+wait 4
+shot {theme}_{scale}_new-document.png
+wait 3
+click-on Cancel
+wait 3
+
+click-on Help
+click-on About...
+wait 3
+shot {theme}_{scale}_about.png
+wait 3
+click-on Close
+wait 3
+
+click-on Help
+click-on Keyboard shortcuts...
+wait 3
+shot {theme}_{scale}_shortcuts.png
+wait 3
+key escape
+wait 3
+
+key ctrl+shift+p
+wait 3
+type pen
+wait 3
+shot {theme}_{scale}_command-search.png
+wait 3
+key escape
+wait 3
+
+click-on Window
+click-on Interface kit
+wait 4
+shot {theme}_{scale}_kit.png
+wait 3
+click-on Window
+click-on Interface kit @1
+wait 3
+
+# ---- Preferences, on each of its tabs, and the colour list at its end ----
+click-on Edit
+click-on Preferences...
+wait 3
+click-on General
+wait 3
+shot {theme}_{scale}_preferences-general.png
+wait 3
+click-on Appearance
+wait 3
+shot {theme}_{scale}_preferences-appearance.png
+wait 3
+wheel -60
+wait 3
+shot {theme}_{scale}_preferences-colours.png
+wait 3
+wheel 60
+wait 2
+click-on Keys
+wait 3
+shot {theme}_{scale}_preferences-keys.png
+wait 3
+key escape
+wait 3
+
+# ---- the start screen ----
+start
+wait 4
+shot {theme}_{scale}_start.png
+wait 3
+click-on Start with a blank canvas
+wait 3
+key escape
+wait 2
+
+end-for
+end-for
+
+scale 100
+theme slate
+wait 3

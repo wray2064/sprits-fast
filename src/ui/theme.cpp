@@ -130,6 +130,16 @@ const Palette& palette() { return gPalette; }
 
 const Theme& current() { return gTheme; }
 
+ImVec4 extra(const char* id) {
+    const Rgba c = gTheme.extraColour(id);
+    return ImVec4(c.r / 255.f, c.g / 255.f, c.b / 255.f, c.a / 255.f);
+}
+
+ImU32 extraU32(const char* id) {
+    const Rgba c = gTheme.extraColour(id);
+    return IM_COL32(c.r, c.g, c.b, c.a);
+}
+
 bool isLight() { return !gTheme.dark; }
 
 void setTheme(const Theme& theme) {

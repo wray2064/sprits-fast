@@ -55,22 +55,28 @@ bool sameAsTemplate(const FileState::NewDocument& spec, const NewTemplate& t) {
            spec.background == t.background && spec.preset == t.preset;
 }
 
+// Every size on this screen is drawn at the person's interface size: the
+// pixel counts below are for 100%, and k() is what turns them into the ones used.
+float k() {
+    return theme::scale();
+}
+
 void drawActions(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::TextColored(theme::palette().textDim, "%s", tr("Start"));
     ImGui::Dummy(ImVec2(0.f, 2.f));
 
     const float width = ImGui::GetContentRegionAvail().x;
-    if (ImGui::Button(tr("Open..."), ImVec2(width, 38.f))) {
+    if (ImGui::Button(tr("Open..."), ImVec2(width, 38.f * k()))) {
         editor.startOpen = false;
         requestAction(editor, canvas, window, PendingAction::OpenDialog);
         ImGui::CloseCurrentPopup();
     }
-    if (ImGui::Button(tr("Import sprite sheet..."), ImVec2(width, 30.f))) {
+    if (ImGui::Button(tr("Import sprite sheet..."), ImVec2(width, 30.f * k()))) {
         editor.startOpen = false;
         showImportSheetDialog(editor.files, window, editor.doc);
         ImGui::CloseCurrentPopup();
     }
-    if (ImGui::Button(tr("Library..."), ImVec2(width, 30.f))) {
+    if (ImGui::Button(tr("Library..."), ImVec2(width, 30.f * k()))) {
         editor.startOpen = false;
         editor.libraryOpen = true;
         editor.libraryStale = true;
@@ -125,7 +131,7 @@ void drawTemplates(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::TextColored(theme::palette().textDim, "%s", tr("Presets"));
     ImGui::Dummy(ImVec2(0.f, 2.f));
 
-    const ImVec2 card(140.f, 92.f);
+    const ImVec2 card(140.f * k(), 92.f * k());
     const float gap = ImGui::GetStyle().ItemSpacing.x;
     const float available = ImGui::GetContentRegionAvail().x;
     const int perRow = std::max(1, static_cast<int>((available + gap) / (card.x + gap)));
@@ -168,7 +174,7 @@ void drawDetails(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const bool fits = drawNewDocumentFields(editor.files.newDocument);
     ImGui::Dummy(ImVec2(0.f, 10.f));
     ImGui::BeginDisabled(!fits);
-    if (ImGui::Button(tr("Create"), ImVec2(-1.f, 38.f))) {
+    if (ImGui::Button(tr("Create"), ImVec2(-1.f, 38.f * k()))) {
         createFromAnswers(editor, canvas, window);
     }
     ImGui::EndDisabled();
@@ -188,7 +194,7 @@ void drawRecent(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // A few thumbnails are decoded a frame, so a list of ten fills in over the
     // next few frames instead of stalling the one that opened the screen.
     int budget = 3;
-    const float thumb = 48.f;
+    const float thumb = 48.f * k();
     for (size_t i = 0; i < editor.startRecent.size(); ++i) {
         const RecentInfo& info = editor.startRecent[i];
         ImGui::PushID(static_cast<int>(i));
@@ -361,8 +367,8 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::OpenPopup(kPopup);
     }
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    const ImVec2 size(std::min(1160.f, viewport->WorkSize.x * 0.94f),
-                      std::min(700.f, viewport->WorkSize.y * 0.94f));
+    const ImVec2 size(std::min(1160.f * k(), viewport->WorkSize.x * 0.94f),
+                      std::min(700.f * k(), viewport->WorkSize.y * 0.94f));
     ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(size, ImGuiCond_Always);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
@@ -374,13 +380,13 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
 
     // The header: the logo, and the program's name beside it.
-    const float logoSize = 56.f;
+    const float logoSize = 56.f * k();
     if (SDL_Texture* logo = programLogo(window)) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::GetWindowDrawList()->AddImage(reinterpret_cast<ImTextureID>(logo), at,
                                              ImVec2(at.x + logoSize, at.y + logoSize));
         ImGui::Dummy(ImVec2(logoSize, logoSize));
-        ImGui::SameLine(0.f, 14.f);
+        ImGui::SameLine(0.f, 14.f * k());
     }
     ImGui::BeginGroup();
     ImGui::Dummy(ImVec2(0.f, logoSize * 0.5f - ImGui::GetTextLineHeight() * 0.5f));
@@ -390,21 +396,22 @@ void drawStartScreen(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::Separator();
     ImGui::Dummy(ImVec2(0.f, 6.f));
 
-    const float footer = 112.f;
-    const float actionsWidth = 220.f;
+    const float footer = 112.f * k();
+    const float actionsWidth = 220.f * k();
+    const float gutter = 24.f * k();
     ImGui::BeginChild("startActions", ImVec2(actionsWidth, -footer), false);
     drawActions(editor, canvas, window);
     ImGui::EndChild();
-    ImGui::SameLine(0.f, 24.f);
-    const float detailsWidth = 300.f;
-    ImGui::BeginChild("startMiddle", ImVec2(-(detailsWidth + 24.f), -footer), false);
+    ImGui::SameLine(0.f, gutter);
+    const float detailsWidth = 300.f * k();
+    ImGui::BeginChild("startMiddle", ImVec2(-(detailsWidth + gutter), -footer), false);
     drawTemplates(editor, canvas, window);
     ImGui::Dummy(ImVec2(0.f, 10.f));
     ImGui::BeginChild("startRecent", ImVec2(0.f, 0.f), false);
     drawRecent(editor, canvas, window);
     ImGui::EndChild();
     ImGui::EndChild();
-    ImGui::SameLine(0.f, 24.f);
+    ImGui::SameLine(0.f, gutter);
     ImGui::BeginChild("startDetails", ImVec2(0.f, -footer), false);
     drawDetails(editor, canvas, window);
     ImGui::EndChild();

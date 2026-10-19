@@ -25,6 +25,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -69,14 +70,71 @@ struct Theme {
     bool        dark = true;
     bool        enhanced = false;     // held to the high-contrast targets
     std::array<Rgba, kTokenCount> colour {};
+    // The roles a program built on Fast adds (see ExtraRole), by id, where this
+    // theme says what they are. A role it does not mention has the colour its
+    // owner gave for a theme of this polarity.
+    std::map<std::string, Rgba> extra;
 
     const Rgba& operator[](Token token) const { return colour[static_cast<size_t>(token)]; }
     Rgba&       operator[](Token token)       { return colour[static_cast<size_t>(token)]; }
+
+    // An extra role as this theme has it: set outright, or the registered
+    // default; an id nobody registered is magenta, so that a misspelt one is seen.
+    Rgba extraColour(const std::string& roleId) const;
 };
 
-// The themes that ship, in the order the chooser lists them: dark first.
+// The themes that ship, in the order the chooser lists them: dark first. A
+// program built on Fast may add its own (addBuiltinThemes) before anything
+// reads them; Fast's come first.
 const std::vector<Theme>& builtinThemes();
 const Theme* findBuiltinTheme(const std::string& id);
+
+// --- what a program built on Fast adds ----------------------------------------------
+//
+// Pract draws things Fast does not have -- timeline tracks, reference tints --
+// and they must not be literals in its code: they are roles like Fast's, named
+// and themable, so one theme file styles both programs and the Appearance tab
+// lists them. A program registers them once at start (AppExtension::roles),
+// and a theme that does not mention one has the default given here for a dark
+// or a light theme. Nothing is patched in Fast: it only reads the registry.
+
+struct ExtraRole {
+    std::string id;           // "pract.track": the owner, a dot, a name -- see validExtraId
+    std::string label;        // "Timeline track", for a person
+    std::string group;        // "Pract": what the editor lists it under
+    Rgba        dark;         // in a theme that is dark and does not say
+    Rgba        light;        // ... and in one that is light
+    bool        alpha = false;                  // has an opacity worth editing
+    // How it is read, against a surface of Fast's: 0 for no check. A track
+    // colour is an indicator (3 and 4.5), a label colour text (4.5 and 7).
+    Token       against = Token::Panel;
+    double      standard = 0.0;
+    double      enhanced = 0.0;
+};
+
+// Lower-case letters, digits and dashes, one dot in the middle: the part before
+// is the program, the part after the role. At most 48 characters, because it
+// is a key in a file.
+bool validExtraId(const std::string& id);
+
+// Registers roles. A role whose id is not valid or is already taken is skipped;
+// at most 64 in all. Returns how many were taken. Call before themes are read.
+int addExtraRoles(const std::vector<ExtraRole>& roles);
+const std::vector<ExtraRole>& extraRoles();
+const ExtraRole* findExtraRole(const std::string& id);
+// For a test that registers its own and wants a clean registry after.
+void clearExtraRoles();
+
+// Adds built-in themes, each a `.lstheme` text (the same files a person writes,
+// starting from one of Fast's with `base =`). A theme that does not parse, whose
+// id is taken, or that would make more than 16 added, is skipped; the rest are
+// kept in the dark-then-light order of the chooser. Returns how many were taken.
+// Call before anything holds a pointer into builtinThemes().
+int addBuiltinThemes(const std::vector<std::string>& themeFiles);
+
+// Whether two themes are the same to the eye: every role of Fast's, and every
+// extra one registered or set, resolved.
+bool sameColours(const Theme& a, const Theme& b);
 
 // --- colour arithmetic ---------------------------------------------------------
 

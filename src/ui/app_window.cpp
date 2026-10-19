@@ -1333,6 +1333,13 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
     }
     Preferences& prefs = editor.prefs;
     bool changed = false;
+    // Escape closes it, as it does every dialog -- except while a key is being
+    // given, when Escape is that key's way out, and while a picker or a text
+    // field has the keyboard.
+    if (editor.rebinding.empty() && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+        !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+        editor.preferencesOpen = false;
+    }
     if (ImGui::BeginTabBar("preference-tabs")) {
         if (ImGui::BeginTabItem(tr("General"))) {
             theme::sectionHeader(tr("A NEW DOCUMENT"));
@@ -3549,6 +3556,12 @@ struct Options {
     std::string reference;               // --reference FILE: imported at start
 };
 
+// A frame written as a PNG when the name says so, and as a BMP otherwise.
+bool saveShot(SDL_Surface* surface, const std::string& path) {
+    return hasExtension(path, ".png") ? SDL_SavePNG(surface, path.c_str())
+                                      : SDL_SaveBMP(surface, path.c_str());
+}
+
 Options parseOptions(int argc, char** argv) {
     Options options;
     for (int i = 1; i < argc; ++i) {
@@ -4967,6 +4980,11 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     gExtension = &extension;
     // Before anything reads a setting.
     setPreferencesFolder(extension.preferencesFolder);
+    // Before anything reads a theme: the roles and themes of a program built on
+    // Fast join Fast's own, so Preferences lists them and a theme file can set
+    // them (app/theme_tokens.h).
+    addExtraRoles(extension.roles);
+    addBuiltinThemes(extension.themes);
     // --export makes this a batch run: open, write, exit, with no window --
     // what a build script wants. See app/batch.h for the options.
     {
@@ -5558,7 +5576,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         if (!options.screenshot.empty() && options.frames > 0 &&
             frame == options.frames - 1) {
             if (SDL_Surface* shot = SDL_RenderReadPixels(renderer, nullptr)) {
-                if (!SDL_SaveBMP(shot, options.screenshot.c_str())) {
+                if (!saveShot(shot, options.screenshot)) {
                     std::printf("could not write %s: %s\n",
                                 options.screenshot.c_str(), SDL_GetError());
                 } else {
@@ -5572,7 +5590,9 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
 
         if (const std::string asked = script.takeShot(); !asked.empty()) {
             if (SDL_Surface* shot = SDL_RenderReadPixels(renderer, nullptr)) {
-                SDL_SaveBMP(shot, asked.c_str());
+                if (!saveShot(shot, asked)) {
+                    std::printf("could not write %s: %s\n", asked.c_str(), SDL_GetError());
+                }
                 SDL_DestroySurface(shot);
             }
         }

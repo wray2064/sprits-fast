@@ -56,7 +56,17 @@
 //                                 open, save-as, export-png, export-sheet, export-animation,
 //                                 import-theme, export-theme
 //     role panel 1d2229           a role of the working theme set (what the picker
-//                                 in Preferences > Appearance does)
+//                                 in Preferences > Appearance does); a program's own
+//                                 role by its id: role demo.mark ff00ff
+//     theme midnight              a theme chosen by its id, as Preferences does
+//     scale 150                   the interface size, in percent
+//     demo-roles                  registers three sample roles of a made-up program
+//                                 (demo.mark, demo.label, demo.tint), as an
+//                                 AppExtension would, so what they do can be checked
+//     for-each theme              the lines up to `end-for`, once for every theme
+//     for-each scale 100 150      ... or once for each value listed; inside, {theme}
+//                                 or {scale} is the value, in any line. Loops nest.
+//     end-for
 //     remove FILE                 a file deleted (a test cleaning up after itself)
 //     zoom 20                     the canvas zoom set outright (a fit depends on the
 //                                 layout, so a script that needs 20 asks for it)
@@ -68,7 +78,7 @@
 //     expect section 9 0 8 8      the picked reference's part shown: x y w h
 //     expect playing yes|no
 //     expect canvas 64 64 / expect tabs 2
-//     shot path.bmp               a screenshot of the next frame
+//     shot path.png               a screenshot of the next frame (.png, or .bmp)
 
 #pragma once
 
@@ -111,7 +121,7 @@ private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
                     Reference, Open, Start, Answer, Remove, ZoomTo, Role,
-                    Wheel } kind = Wait;
+                    Wheel, UseTheme, UseScale, DemoRoles } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         int         index = 0;             // Widget: which of several, from 1; 0 the last drawn

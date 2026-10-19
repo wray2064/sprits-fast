@@ -1,0 +1,21 @@
+# The gallery's machinery on a small scale: a loop over every built-in theme and
+# two interface sizes, each choosing what it loops over, and a screenshot named
+# by both. (tests/gallery/gallery.txt does the same for every screen; this is
+# the part that must never break, so it runs with the rest.)
+for-each theme
+theme {theme}
+wait 2
+expect theme {theme}
+for-each scale 100 150
+scale {scale}
+wait 2
+expect uiscale {scale}
+shot ui_selftest_gallery_{theme}_{scale}.png
+wait 3
+expect file ui_selftest_gallery_{theme}_{scale}.png
+remove ui_selftest_gallery_{theme}_{scale}.png
+end-for
+end-for
+scale 100
+wait 2
+expect uiscale 100

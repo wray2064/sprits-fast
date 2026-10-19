@@ -44,6 +44,9 @@ void selectTheme(Editor& editor, const Theme& theme);
 // unsaved: what the colour picker in the tab does, for a caller (a script) that
 // has no picker to hand.
 void editRole(Editor& editor, Token token, Rgba colour);
+// The same for a role a program built on Fast registered (an `ExtraRole` id).
+// Nothing happens for an id that is not registered.
+void editExtraRole(Editor& editor, const std::string& id, Rgba colour);
 
 // The tab itself.
 AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& canvas, SDL_Window* window);

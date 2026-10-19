@@ -1,0 +1,17 @@
+# Escape puts away the windows that are not modal, as it ends every dialog: the
+# shortcut list and Preferences.
+click-on Help
+click-on Keyboard shortcuts...
+wait 3
+expect item ##shortcutFilter
+key escape
+wait 3
+expect missing ##shortcutFilter
+
+click-on Edit
+click-on Preferences...
+wait 3
+expect item Appearance
+key escape
+wait 3
+expect missing Appearance
