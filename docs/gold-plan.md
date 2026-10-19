@@ -60,10 +60,12 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
 - [ ] The hand-run checks in `docs/testing.md` that a script can run, run
 
 ### 4. Help and resources
-- [ ] In-app user guide: getting started, drawing, layers, animation, puppets,
-      palettes, export, shortcuts, preferences and themes, troubleshooting
-- [ ] Help menu: User guide, Shortcuts, Report a problem, About (licences)
-- [ ] `README.md`, `CHANGELOG.md`, `SUPPORT.md`, `PRIVACY.md`, third-party notices
+- [x] In-app user guide (Help > User guide, F1): 15 topics under assets/help (welcome, getting started,
+      drawing, selecting, colour and palettes, layers, transforms, animation, puppets, tiles, references,
+      files, appearance, shortcuts, troubleshooting) and the licences; a Markdown parser (app/guide),
+      search, links; fuzzed
+- [x] Help menu: User guide (F1), Search commands, Keyboard shortcuts, About (licences, report a problem)
+- [~] `CHANGELOG.md`, `SUPPORT.md`, `PRIVACY.md`, third-party notices done; `README.md` still to point at the guide and the Store
 
 ### 5. Store submission kit (`store/`)
 - [x] Logo set at every size the manifest needs (`tools/make_store_assets.py`)

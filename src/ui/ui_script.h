@@ -85,6 +85,7 @@
 //     expect zoom 20 [24]         the zoom: exactly, or between
 //     expect uiscale 150          the interface scale, in percent
 //     expect theme oled           the theme in force, by its id
+//     expect guide drawing        the user guide open at a topic, by its id; or `closed`
 //     expect colour panel 1d2229  a role of the theme in force
 //     expect file FILE            a file exists / expect nofile FILE: it does not
 //     expect section 9 0 8 8      the picked reference's part shown: x y w h

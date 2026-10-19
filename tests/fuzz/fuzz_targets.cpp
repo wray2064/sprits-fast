@@ -7,6 +7,7 @@
 #include "app/batch.h"
 #include "app/document.h"
 #include "app/element.h"
+#include "app/guide.h"
 #include "app/guides.h"
 #include "app/i18n.h"
 #include "app/image_io.h"
@@ -324,6 +325,31 @@ std::vector<Bytes> batchSeeds() {
              bytesOf("--export\nhero.lsprite\n--cycle\nwalk\n--animated\n--out\nwalk.gif\n") };
 }
 
+// The user guide's Markdown, and a search through it by whatever was typed.
+void guideMarkdown(const uint8_t* data, size_t size) {
+    const std::string text = asText(data, size);
+    GuideSource source;
+    source.id = "fuzz";
+    source.text = text;
+    GuideSource other;
+    other.id = "other";
+    other.text = "# Other\n\nSome words about a palette and a [link](topic:fuzz).\n";
+    const std::vector<GuideTopic> topics = parseGuide({ source, other });
+    INVARIANT(topics.size() == 2);
+    (void)firstBrokenLink(topics);
+    const std::vector<GuideHit> hits = searchGuide(topics, text.substr(0, 200));
+    for (const GuideHit& hit : hits) {
+        INVARIANT(hit.topic < topics.size());
+    }
+    (void)searchGuide(topics, "palette");
+}
+
+std::vector<Bytes> guideSeeds() {
+    return { bytesOf("# Title\n\n## Section\n\nA **bold** and `Ctrl+Z` and [link](topic:other).\n\n"
+                     "- one\n  - nested\n1. first\n\n> note\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n"
+                     "```\ncode\n```\n\n---\n") };
+}
+
 // The small helpers every parser leans on, against whatever they are given.
 void textHelpers(const uint8_t* data, size_t size) {
     const std::string text = asText(data, size);
@@ -571,6 +597,7 @@ const std::vector<Target>& targets() {
         { "ui-state", "the view state stored beside a document", uiStateJson, uiStateSeeds },
         { "vector-icon", "an SVG icon", vectorIconSvg, vectorIconSeeds },
         { "batch", "the command line of a batch export", batchArguments, batchSeeds },
+        { "guide", "the user guide's Markdown and its search", guideMarkdown, guideSeeds },
         { "text-helpers", "trim, split, escape and the other helpers every parser uses",
           textHelpers, textHelperSeeds },
         { "aseprite", "an Aseprite file: parse", asepriteFile, asepriteSeeds },

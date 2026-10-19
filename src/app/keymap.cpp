@@ -121,6 +121,7 @@ const std::vector<CommandInfo>& commandList() {
         { "file.library", "Library", "File", { ctrl("L") } },
         { "file.export-again", "Export again", "File", { ctrl("E", true) } },
         { "app.search", "Search commands", "Help", { ctrl("P", true) } },
+        { "app.guide", "User guide", "Help", { key("F1") } },
         { "file.close", "Close tab", "File", { ctrl("W") } },
         { "file.quit", "Quit", "File", { ctrl("Q") } },
         { "edit.undo", "Undo", "Edit", { ctrl("Z") }, true },

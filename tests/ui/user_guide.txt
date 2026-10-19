@@ -1,0 +1,61 @@
+# The user guide: opened from the Help menu and by F1, a topic chosen from the list,
+# a link inside a topic followed, searched, and put away with Escape.
+expect guide closed
+
+click-on Help
+click-on User guide
+wait 4
+expect guide welcome
+expect item Welcome
+expect item Getting started
+expect item Drawing
+expect item Opening, saving and exporting
+expect item Troubleshooting and limits
+expect item Licences
+expect item ##guideSearch
+
+# A topic from the list.
+click-on Drawing
+wait 3
+expect guide drawing
+
+# A link in a topic goes to its topic.
+click-on moving
+wait 3
+expect guide selecting
+
+# Searching narrows the list to the topics every word is in, the topic about it first.
+click-on ##guideSearch
+type palette
+wait 4
+expect item Colour and palettes
+expect missing Cutout puppets
+click-on Colour and palettes
+wait 3
+expect guide colour
+click-on ##guideSearch
+type  pencil
+wait 3
+expect missing Colour and palettes
+
+# Escape leaves the search box, then the guide.
+key escape
+wait 3
+key escape
+wait 3
+expect guide closed
+
+# F1 brings it back where it was left.
+key f1
+wait 4
+expect guide colour
+key escape
+wait 3
+expect guide closed
+
+# The licences are a topic too, shown as written.
+key f1
+wait 4
+click-on Licences
+wait 3
+expect guide licences

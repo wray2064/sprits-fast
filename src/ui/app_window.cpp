@@ -49,6 +49,7 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 #include "ui/timeline_drawer.h"
+#include "ui/user_guide.h"
 #include "ui/transform_gizmo.h"
 #include "ui/puppet_panel.h"
 #include "ui/reference_section.h"
@@ -3093,6 +3094,9 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     };
     if (fired("app.search")) {
         openCommandSearch(editor);
+    }
+    if (fired("app.guide")) {
+        openUserGuide(editor);
     }
     const auto pick = [&editor](Tool tool) {
         if (tool == Tool::Picker && editor.tool != Tool::Picker) {

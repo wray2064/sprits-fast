@@ -8,6 +8,7 @@
 #include "ui/keys.h"
 #include "ui/start_screen.h"
 #include "ui/theme.h"
+#include "ui/user_guide.h"
 #include "ui/widgets.h"
 
 #include <SDL3/SDL.h>
@@ -272,6 +273,9 @@ void drawHelpMenu(Editor& editor) {
     if (!ImGui::BeginMenu(tr("Help"))) {
         return;
     }
+    if (ImGui::MenuItem(tr("User guide"), keysLabel(editor.keys, "app.guide").c_str())) {
+        openUserGuide(editor);
+    }
     if (ImGui::MenuItem(tr("Search commands..."), keysLabel(editor.keys, "app.search").c_str())) {
         openCommandSearch(editor);
     }
@@ -290,6 +294,7 @@ void drawHelpWindows(Editor& editor, SDL_Window* window) {
     drawAbout(editor, window);
     drawShortcuts(editor);
     drawCommandSearch(editor);
+    drawUserGuide(editor);
 }
 
 } // namespace fast

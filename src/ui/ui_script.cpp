@@ -18,6 +18,7 @@
 #include "ui/start_screen.h"
 #include "ui/tabs.h"
 #include "ui/theme.h"
+#include "ui/user_guide.h"
 
 #include <imgui_internal.h>
 
@@ -183,6 +184,14 @@ ImGuiKey keyNamed(const std::string& name) {
             case '=': return ImGuiKey_Equal;
             case '-': return ImGuiKey_Minus;
             default: break;
+        }
+    }
+    // f1 to f12.
+    if (name.size() >= 2 && name.size() <= 3 && name[0] == 'f' &&
+        name.find_first_not_of("0123456789", 1) == std::string::npos) {
+        const int number = std::atoi(name.c_str() + 1);
+        if (number >= 1 && number <= 12) {
+            return static_cast<ImGuiKey>(ImGuiKey_F1 + (number - 1));
         }
     }
     const struct { const char* name; ImGuiKey key; } named[] = {
@@ -1056,6 +1065,21 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
             failed(a[0] + " holds nothing wider than it is");
         } else if (!window->ScrollbarX) {
             failed(a[0] + " is too narrow for what it holds, and has no scrollbar");
+        }
+    } else if (step.text == "guide" && a.size() == 1) {
+        // The user guide is open at a topic, by its id: `expect guide drawing`; or
+        // `expect guide closed`.
+        const std::vector<GuideTopic>& topics = userGuide();
+        if (a[0] == "closed") {
+            if (editor.guideOpen) { failed("the guide is open"); }
+        } else if (!editor.guideOpen) {
+            failed("the guide is closed");
+        } else if (editor.guideTopic < 0 || editor.guideTopic >= static_cast<int>(topics.size()) ||
+                   topics[static_cast<size_t>(editor.guideTopic)].id != a[0]) {
+            failed("the guide shows " + (editor.guideTopic >= 0 &&
+                                         editor.guideTopic < static_cast<int>(topics.size())
+                                             ? topics[static_cast<size_t>(editor.guideTopic)].id
+                                             : std::string("nothing")));
         }
     } else if (step.text == "theme" && a.size() == 1) {
         if (theme::current().id != a[0]) {

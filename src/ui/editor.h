@@ -495,6 +495,12 @@ struct Editor {
     bool        aboutOpen = false;
     bool        shortcutsOpen = false;
     char        shortcutsFilter[64] = {};
+    // The user guide (ui/user_guide.h): which topic, what was searched for, and
+    // whether the topic should be scrolled back to its top next frame.
+    bool        guideOpen = false;
+    int         guideTopic = 0;
+    char        guideSearch[96] = {};
+    bool        guideScrollTop = false;
     // Command search: type a few letters of what you want done and do it.
     // `runCommand` is the command chosen, for the next frame's shortcut
     // handling to carry out as if its key had been pressed.
