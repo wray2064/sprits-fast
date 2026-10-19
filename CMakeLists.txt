@@ -259,6 +259,12 @@ if (FAST_BUILD_GUI)
         configure_file(src/ui/fast_version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_version.h @ONLY)
         add_executable(sprits_fast WIN32 src/ui/fast_main.cpp src/ui/sprits_fast.rc)
         target_include_directories(sprits_fast PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+        set_source_files_properties(src/ui/sprits_fast.rc PROPERTIES
+            OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/sprits_fast.manifest)
+        if (MSVC)
+            # The manifest in the resource file is the program's; the linker makes none.
+            target_link_options(sprits_fast PRIVATE /MANIFEST:NO)
+        endif()
     else()
         add_executable(sprits_fast WIN32 src/ui/fast_main.cpp)
     endif()
@@ -416,6 +422,12 @@ if (FAST_BUILD_TESTS)
         target_compile_options(fast_libfuzzer PRIVATE /fsanitize=fuzzer)
         target_link_options(fast_libfuzzer PRIVATE /fsanitize=fuzzer)
     endif()
+
+    # What PRIVACY.md and the Store listing promise -- no network code, links only
+    # where links are drawn -- as a test over the source.
+    add_executable(fast_policy_tests tests/policy_tests.cpp)
+    target_compile_definitions(fast_policy_tests PRIVATE SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+    add_test(NAME fast_policy COMMAND fast_policy_tests)
 
     add_executable(fast_guide_tests tests/guide_tests.cpp)
     target_link_libraries(fast_guide_tests PRIVATE fast_core)

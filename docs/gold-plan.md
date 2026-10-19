@@ -65,7 +65,7 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       files, appearance, shortcuts, troubleshooting) and the licences; a Markdown parser (app/guide),
       search, links; fuzzed
 - [x] Help menu: User guide (F1), Search commands, Keyboard shortcuts, About (licences, report a problem)
-- [~] `CHANGELOG.md`, `SUPPORT.md`, `PRIVACY.md`, third-party notices done; `README.md` still to point at the guide and the Store
+- [x] `README.md` (get it, get help), `CHANGELOG.md`, `SUPPORT.md`, `PRIVACY.md`, third-party notices
 
 ### 5. Store submission kit (`store/`)
 - [x] Logo set at every size the manifest needs (`tools/make_store_assets.py`)
@@ -79,8 +79,8 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       age-rating answers, `store/README.md` (the submission walkthrough)
 - [x] `PRIVACY.md`, `SUPPORT.md`, `CHANGELOG.md`, `THIRD_PARTY_NOTICES.txt`
       (`tools/make-notices.ps1`)
-- [ ] Ship `THIRD_PARTY_NOTICES.txt`, `LICENSE`, `CHANGELOG.md` in the package and the
-      release folder; DPI awareness checked in the packaged exe
+- [x] Ship `THIRD_PARTY_NOTICES.txt`, `LICENSE`, `CHANGELOG.md`, `PRIVACY.md` in the package and the
+      release folder; per-monitor DPI awareness and long paths in an embedded application manifest
 - [ ] Windows App Certification Kit: needs a machine that trusts a test certificate;
       left to the owner (documented in `store/certification-notes.md`)
 

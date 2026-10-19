@@ -73,8 +73,9 @@ New-Item -ItemType Directory -Force "$layout\Assets" | Out-Null
 Get-ChildItem "dist\SpritsFast" | Where-Object { $_.Name -notmatch '^(Install|Uninstall)\.ps1$' } |
     ForEach-Object { Copy-Item $_.FullName $layout -Recurse }
 Copy-Item "store\assets\*.png" "$layout\Assets"
-Copy-Item "LICENSE" $layout -ErrorAction SilentlyContinue
-Copy-Item "NOTICE" $layout -ErrorAction SilentlyContinue
+foreach ($doc in "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.txt", "CHANGELOG.md", "PRIVACY.md") {
+    if (Test-Path $doc) { Copy-Item $doc $layout }    # build-release.bat already put them in dist
+}
 
 $manifest = Get-Content "store\AppxManifest.xml.in" -Raw
 $manifest = $manifest.Replace("@IDENTITY_NAME@", $IdentityName).Replace("@PUBLISHER@", $Publisher).

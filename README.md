@@ -18,9 +18,26 @@ production suite.
 
 ![Sprit's'fast](docs/screenshot.png)
 
+## Get it, and get help
+
+Sprit's'fast 1.0 is free, works offline, has no account and collects nothing
+([PRIVACY.md](PRIVACY.md); a test keeps it true -- no network code may enter the
+source). It is being prepared for the Microsoft Store
+([store/README.md](store/README.md) is the submission kit); until then, build it
+below, or take a build from a release and run `Install.ps1` in it.
+
+**Help is in the program**: press **F1** for the user guide, searchable and
+offline; **Help > Keyboard shortcuts** lists every key and lets you change it;
+`Ctrl+Shift+P` finds any command by a few letters. Problems and requests:
+[SUPPORT.md](SUPPORT.md). What changed: [CHANGELOG.md](CHANGELOG.md).
+
+How it is made safe: every reader of a file or setting is fuzz-tested under
+AddressSanitizer (`docs/fuzzing.md`), every theme's readability is a test, and
+`tools/gallery.ps1` renders every screen in every theme for review by eye.
+
 ## Status
 
-Early, but it is a real editor.
+A real editor, and the long list below is what it does.
 
 **Drawing** — pencil, spray, eraser, paint bucket, eyedropper, contour fill,
 and rectangle, ellipse and line tools, with a hand and a zoom tool, all with

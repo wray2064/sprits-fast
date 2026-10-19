@@ -18,6 +18,10 @@ if exist dist\SpritsFast rmdir /s /q dist\SpritsFast
 mkdir dist\SpritsFast || exit /b 1
 copy /y build-release\sprits_fast.exe dist\SpritsFast\ >nul || exit /b 1
 xcopy /e /i /q /y assets\lang dist\SpritsFast\lang >nul || exit /b 1
+rem The licence, and the licences of everything it is built on, travel with it.
+for %%f in (LICENSE NOTICE THIRD_PARTY_NOTICES.txt CHANGELOG.md PRIVACY.md) do (
+  copy /y %%f dist\SpritsFast\ >nul || exit /b 1
+)
 rem An optional per-user install: the program, .lsprite files, a Start menu
 rem shortcut and an Uninstall in Settings > Apps. See installer\Install.ps1.
 copy /y installer\Install.ps1 dist\SpritsFast\ >nul || exit /b 1

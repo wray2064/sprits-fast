@@ -8,11 +8,16 @@
 // sets the window's own from the PNGs, which is what every other platform
 // uses.
 
+#include <winuser.h>
 #include <winver.h>
 
 #include "fast_version.h"
 
 1 ICON "../../assets/icon/sprits_fast.ico"
+
+// The application manifest: per-monitor DPI awareness and long paths. The linker
+// is told not to make one of its own (CMakeLists.txt), so this is the only one.
+1 RT_MANIFEST "sprits_fast.manifest"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION FAST_VERSION_MAJOR, FAST_VERSION_MINOR, FAST_VERSION_PATCH, 0
