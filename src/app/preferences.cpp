@@ -136,7 +136,14 @@ Preferences loadPreferences(const std::string& text) {
             // "light" and "dark" are what older versions wrote.
             const std::string id = value == "light" ? "paper" : value == "dark" ? "slate" : value;
             const Theme* theme = findBuiltinTheme(id);
-            p.themeId = theme != nullptr ? theme->id : "slate";
+            // A theme of the person's own is kept by its id, if that is a plain
+            // one (it is a file name); whether it exists is for the window to
+            // find out, which falls back to Slate when it does not.
+            bool plain = !id.empty() && id.size() <= 48;
+            for (char ch : id) {
+                plain = plain && ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-');
+            }
+            p.themeId = theme != nullptr ? theme->id : plain ? id : "slate";
             p.lightTheme = theme != nullptr && !theme->dark;
         } else if (name == "view.density") {
             p.density = static_cast<int>(number(value, 0, 2, 1));

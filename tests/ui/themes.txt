@@ -4,6 +4,8 @@ expect theme slate
 click-on Edit
 click-on Preferences...
 wait 2
+click-on Appearance
+wait 2
 
 click-on theme
 wait 2

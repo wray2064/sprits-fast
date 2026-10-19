@@ -32,7 +32,7 @@ struct DialogResult {
     enum class Kind { None, Open, SaveAs, ExportPng, ExportSheet,
                       ImportPalette, ExportPalette,
                       ImportReference, ProjectFolder, ReferenceFolder,
-                      ImportSheet, ExportAnimation, SaveCopy };
+                      ImportSheet, ExportAnimation, SaveCopy, ImportTheme, ExportTheme };
 
     SDL_Mutex*  mutex = nullptr;
     Kind        kind = Kind::None;
@@ -100,6 +100,11 @@ void showProjectFolderDialog(FileState& state, SDL_Window* window,
                              const std::string& startingAt);
 void showReferenceFolderDialog(FileState& state, SDL_Window* window,
                                const std::string& startingAt);
+
+// A theme file (*.lstheme) to bring in, and where one goes; `suggested` is the
+// name offered ("my-night.lstheme").
+void showImportThemeDialog(FileState& state, SDL_Window* window);
+void showExportThemeDialog(FileState& state, SDL_Window* window, const std::string& suggested);
 
 void showImportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc);
 void showExportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc);

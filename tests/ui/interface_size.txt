@@ -1,8 +1,10 @@
-# The interface size in Preferences: typed into the slider, applied at once,
-# kept to its range, and put back.
+# The interface size in Preferences > Appearance: typed into the slider, applied
+# at once, kept to its range, and put back; and the density beside it.
 expect uiscale 100
 click-on Edit
 click-on Preferences...
+wait 2
+click-on Appearance
 wait 2
 expect item interface size
 
@@ -38,3 +40,11 @@ type 100
 key enter
 wait 2
 expect uiscale 100
+
+# The density is a choice of three.
+expect item Compact
+expect item Spacious
+click-on Spacious
+wait 2
+click-on Comfortable
+wait 2

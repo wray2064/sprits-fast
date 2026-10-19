@@ -12,6 +12,7 @@
 #include "app/transform.h"
 #include "ui/canvas_view.h"
 #include "ui/reference_section.h"
+#include "ui/appearance.h"
 #include "ui/start_screen.h"
 #include "ui/tabs.h"
 #include "ui/theme.h"
@@ -282,6 +283,11 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         r.text = line.substr(line.find("remove") + 7);
         while (!r.text.empty() && r.text.back() == ' ') { r.text.pop_back(); }
         add(r);
+    } else if (verb == "role" && w.size() == 3) {
+        Step r; r.kind = Step::Role;
+        r.text = w[1];
+        r.args.push_back(w[2]);
+        add(r);
     } else if (verb == "zoom" && w.size() == 2) {
         Step z; z.kind = Step::ZoomTo;
         if (!fast::number(w[1], &z.x)) { return fail("not a zoom"); }
@@ -511,6 +517,18 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::ZoomTo:
                 canvas.setZoom(step.x);
                 return;
+            case Step::Role: {
+                Token token;
+                Rgba colour;
+                if (!tokenFromName(step.text, &token) || !parseColour(step.args[0], &colour)) {
+                    std::printf("FAIL script:%d: not a role or not a colour\n", step.line);
+                    ++failures_;
+                    ++checks_;
+                    return;
+                }
+                editRole(editor, token, colour);
+                return;
+            }
             case Step::Answer: {
                 // What a native dialog's callback would have left, put where it
                 // would have left it.
@@ -518,6 +536,8 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 const std::string& which = step.args[0];
                 const Kind kind = which == "open" ? Kind::Open
                                 : which == "save-as" ? Kind::SaveAs
+                                : which == "import-theme" ? Kind::ImportTheme
+                                : which == "export-theme" ? Kind::ExportTheme
                                 : which == "export-png" ? Kind::ExportPng
                                 : which == "export-sheet" ? Kind::ExportSheet
                                 : which == "export-animation" ? Kind::ExportAnimation
@@ -771,6 +791,15 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
     } else if (step.text == "theme" && a.size() == 1) {
         if (theme::current().id != a[0]) {
             failed("the theme is " + theme::current().id);
+        }
+    } else if (step.text == "colour" && a.size() == 2) {
+        // A role of the theme in force: `expect colour panel 1d2229`.
+        Token token;
+        Rgba want;
+        if (!tokenFromName(a[0], &token) || !parseColour(a[1], &want)) {
+            failed("not a role or not a colour");
+        } else if (theme::current()[token] != want) {
+            failed(a[0] + " is " + colourText(theme::current()[token]));
         }
     } else if (step.text == "uiscale" && a.size() == 1) {
         const int percent = static_cast<int>(std::lround(theme::scale() * 100.f));

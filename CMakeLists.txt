@@ -116,6 +116,7 @@ add_library(fast_core STATIC
     src/app/recent_colours.cpp
     src/app/tips.cpp
     src/app/theme_tokens.cpp
+    src/app/theme_store.cpp
     src/app/shape.cpp
     src/app/text.cpp
     src/app/sheet.cpp
@@ -181,6 +182,7 @@ if (FAST_BUILD_GUI)
         src/ui/start_screen.cpp
         src/ui/help.cpp
         src/ui/new_document.cpp
+        src/ui/appearance.cpp
         src/ui/widgets.cpp
         src/ui/slice_tool.cpp
         src/ui/rulers.cpp
@@ -350,6 +352,10 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_theme_tokens_tests tests/theme_tokens_tests.cpp)
     target_link_libraries(fast_theme_tokens_tests PRIVATE fast_core)
     add_test(NAME fast_theme_tokens COMMAND fast_theme_tokens_tests)
+
+    add_executable(fast_theme_store_tests tests/theme_store_tests.cpp)
+    target_link_libraries(fast_theme_store_tests PRIVATE fast_core)
+    add_test(NAME fast_theme_store COMMAND fast_theme_store_tests)
 
     add_executable(fast_recent_colours_tests tests/recent_colours_tests.cpp)
     target_link_libraries(fast_recent_colours_tests PRIVATE fast_core)

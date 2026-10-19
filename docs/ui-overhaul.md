@@ -50,8 +50,20 @@ decisions. Progress:
       Stage 3 is therefore done except those footers and Preferences'
       labels-to-the-left rows, which wait for stage 4 (the Appearance tab is
       rebuilt then).
-- [ ] Stage 4, Appearance in Preferences (custom colours, accent, import and
-      export).
+- [x] **Stage 4, Appearance in Preferences.** A tab beside General and Keys
+      holds the theme chooser (built-in and the person's own, dark first), nine
+      accent presets and a free picker (the accent is moved only as far as it
+      must be to be seen and to carry text: `applyAccent`), the interface size
+      and density, a readability panel that names each pair that misses its
+      target with its numbers and a *Fix them* button (`fixContrast`), and every
+      role in seven groups with a colour picker, its hex, a reset to the base
+      theme and a danger badge where it fails. Every change shows at once on the
+      real window and is held as an unsaved working copy until it is saved as a
+      theme (`<settings>/themes/<id>.lstheme`), updated, discarded, exported or
+      deleted; a theme can be imported from a file. Built-ins are never written
+      over. Canvas colours that were still the old theme's follow the new one.
+      The store (`app/theme_store`) is bounded and defensive; a scripted run
+      keeps its themes in `ui_selftest_themes`, not the person's settings.
 - [ ] Stage 5, layout and icons.
 - [ ] Stage 6, the Pract seam, `visual-language.md`, the gallery.
 

@@ -133,7 +133,7 @@ std::vector<Theme> makeThemes() {
         c(255, 158, 38), c(255, 158, 38),
         c(92, 196, 124), c(236, 194, 74), c(244, 116, 100), c(100, 174, 244),
         c(56, 64, 74), c(44, 51, 60),
-        c(255, 255, 255, 26), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
+        c(255, 255, 255, 16), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
 
     // Graphite: neutral grey with no blue cast, for people who want the chrome
     // to take no colour at all. Its accent is blue.
@@ -147,7 +147,7 @@ std::vector<Theme> makeThemes() {
         c(86, 156, 255), c(86, 156, 255),
         c(92, 196, 124), c(236, 194, 74), c(244, 116, 100), c(100, 174, 244),
         c(62, 62, 62), c(50, 50, 50),
-        c(255, 255, 255, 26), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
+        c(255, 255, 255, 16), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
 
     // Midnight: a deeper blue-black that lets the canvas glow.
     themes.push_back(build(Seed{
@@ -160,7 +160,7 @@ std::vector<Theme> makeThemes() {
         c(255, 158, 38), c(255, 158, 38),
         c(92, 196, 124), c(236, 194, 74), c(244, 116, 100), c(100, 174, 244),
         c(34, 40, 56), c(24, 29, 42),
-        c(255, 255, 255, 26), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
+        c(255, 255, 255, 16), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
 
     // OLED: the app and the canvas are true black, so a pixel that is not
     // lit is off and the panel edge is the only seam. Panels are a step above
@@ -176,7 +176,7 @@ std::vector<Theme> makeThemes() {
         c(255, 158, 38), c(255, 158, 38),
         c(92, 196, 124), c(236, 194, 74), c(244, 116, 100), c(100, 174, 244),
         c(30, 30, 36), c(18, 18, 22),
-        c(255, 255, 255, 26), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
+        c(255, 255, 255, 16), c(255, 255, 255), c(255, 96, 96, 210), c(255, 90, 90, 92), c(90, 160, 255, 92) }));
 
     // High contrast dark: black, white and one yellow. Every pair clears the
     // enhanced targets, and the borders are drawn, not implied.
@@ -204,7 +204,7 @@ std::vector<Theme> makeThemes() {
         c(170, 86, 0), c(148, 74, 0),
         c(18, 110, 52), c(138, 92, 0), c(176, 40, 30), c(20, 88, 168),
         c(238, 240, 243), c(214, 218, 224),
-        c(0, 0, 0, 30), c(0, 0, 0), c(210, 40, 40, 220), c(220, 60, 60, 96), c(40, 110, 230, 96) }));
+        c(0, 0, 0, 28), c(0, 0, 0), c(210, 40, 40, 220), c(220, 60, 60, 96), c(40, 110, 230, 96) }));
 
     // Warm paper: a soft sepia light theme, gentler than white for long
     // sessions.
@@ -218,7 +218,7 @@ std::vector<Theme> makeThemes() {
         c(176, 84, 20), c(160, 70, 10),
         c(22, 104, 50), c(132, 88, 0), c(170, 40, 30), c(24, 84, 160),
         c(246, 240, 228), c(228, 218, 202),
-        c(0, 0, 0, 30), c(0, 0, 0), c(200, 40, 40, 220), c(210, 60, 60, 96), c(40, 100, 220, 96) }));
+        c(0, 0, 0, 28), c(0, 0, 0), c(200, 40, 40, 220), c(210, 60, 60, 96), c(40, 100, 220, 96) }));
 
     // Famicom: the cream plastic and deep red of a Family Computer -- warm
     // cream surfaces, a near-black brown for text (the controller's buttons),
@@ -235,7 +235,7 @@ std::vector<Theme> makeThemes() {
         c(170, 30, 40), c(170, 30, 40),
         c(22, 104, 50), c(132, 88, 0), c(176, 46, 0), c(24, 84, 160),
         c(240, 234, 214), c(222, 213, 188),
-        c(0, 0, 0, 30), c(0, 0, 0), c(170, 30, 40, 220), c(200, 60, 60, 96), c(40, 90, 200, 96) }));
+        c(0, 0, 0, 28), c(0, 0, 0), c(170, 30, 40, 220), c(200, 60, 60, 96), c(40, 90, 200, 96) }));
 
     // High contrast light: white, black and one blue.
     themes.push_back(build(Seed{
@@ -395,9 +395,197 @@ void deriveAccentRoles(Theme* theme) {
                                           static_cast<uint8_t>(dark ? 56 : 48) };
     (*theme)[Token::Focus] = accent;
     (*theme)[Token::AccentText] = accent;
-    // The text on the accent is whichever of near-black and white reads better.
+    // The text on the accent is whichever of near-black and white reads better
+    // on the accent and on both its states, judged by the worst of the three.
     const Rgba ink = c(20, 14, 6);
-    (*theme)[Token::TextOnAccent] = ratio(ink, accent) >= ratio(white, accent) ? ink : white;
+    const auto worst = [&](Rgba text) {
+        return std::min({ ratio(text, accent), ratio(text, (*theme)[Token::AccentHover]),
+                          ratio(text, (*theme)[Token::AccentPressed]) });
+    };
+    (*theme)[Token::TextOnAccent] = worst(ink) >= worst(white) ? ink : white;
+}
+
+// ------------------------------------------------------------ the editor's help --
+
+const char* tokenLabel(Token token) {
+    switch (token) {
+        case Token::App: return "Window";
+        case Token::Panel: return "Panel";
+        case Token::Raised: return "Menus and dialogs";
+        case Token::Inset: return "Input wells";
+        case Token::Canvas: return "Canvas surround";
+        case Token::TextStrong: return "Strong text";
+        case Token::TextPrimary: return "Text";
+        case Token::TextSecondary: return "Secondary text";
+        case Token::TextMuted: return "Muted text";
+        case Token::TextDisabled: return "Disabled text";
+        case Token::TextOnAccent: return "Text on the accent";
+        case Token::Separator: return "Separator";
+        case Token::Border: return "Border";
+        case Token::Focus: return "Focus ring";
+        case Token::Control: return "Control";
+        case Token::ControlHover: return "Control, hovered";
+        case Token::ControlPressed: return "Control, pressed";
+        case Token::Selected: return "Selected row";
+        case Token::SelectedText: return "Selected text";
+        case Token::Accent: return "Accent";
+        case Token::AccentText: return "Accent as text";
+        case Token::AccentHover: return "Accent, hovered";
+        case Token::AccentPressed: return "Accent, pressed";
+        case Token::AccentSubtle: return "Accent tint";
+        case Token::Success: return "Success";
+        case Token::Warning: return "Warning";
+        case Token::Danger: return "Danger";
+        case Token::Info: return "Information";
+        case Token::SuccessSubtle: return "Success tint";
+        case Token::WarningSubtle: return "Warning tint";
+        case Token::DangerSubtle: return "Danger tint";
+        case Token::InfoSubtle: return "Information tint";
+        case Token::CheckerA: return "Transparency, light";
+        case Token::CheckerB: return "Transparency, dark";
+        case Token::GridLine: return "Pixel grid";
+        case Token::SelectionLine: return "Selection outline";
+        case Token::Guide: return "Guides";
+        case Token::OnionPast: return "Onion skin, behind";
+        case Token::OnionFuture: return "Onion skin, ahead";
+        case Token::Count: break;
+    }
+    return "";
+}
+
+const char* tokenGroup(Token token) {
+    switch (token) {
+        case Token::App: case Token::Panel: case Token::Raised: case Token::Inset:
+        case Token::Canvas:
+            return "Surfaces";
+        case Token::TextStrong: case Token::TextPrimary: case Token::TextSecondary:
+        case Token::TextMuted: case Token::TextDisabled: case Token::TextOnAccent:
+            return "Text";
+        case Token::Separator: case Token::Border: case Token::Focus:
+            return "Lines";
+        case Token::Control: case Token::ControlHover: case Token::ControlPressed:
+        case Token::Selected: case Token::SelectedText:
+            return "Controls";
+        case Token::Accent: case Token::AccentText: case Token::AccentHover:
+        case Token::AccentPressed: case Token::AccentSubtle:
+            return "Accent";
+        case Token::Success: case Token::Warning: case Token::Danger: case Token::Info:
+        case Token::SuccessSubtle: case Token::WarningSubtle: case Token::DangerSubtle:
+        case Token::InfoSubtle:
+            return "State";
+        case Token::CheckerA: case Token::CheckerB: case Token::GridLine:
+        case Token::SelectionLine: case Token::Guide: case Token::OnionPast:
+        case Token::OnionFuture:
+            return "Over the canvas";
+        case Token::Count: break;
+    }
+    return "";
+}
+
+const std::vector<AccentPreset>& accentPresets() {
+    static const std::vector<AccentPreset> presets = {
+        { "Amber", c(255, 158, 38) },   { "Orange", c(250, 110, 50) },
+        { "Crimson", c(220, 50, 70) },  { "Rose", c(240, 100, 150) },
+        { "Violet", c(160, 110, 240) }, { "Blue", c(86, 156, 255) },
+        { "Teal", c(40, 200, 180) },    { "Green", c(100, 200, 90) },
+        { "Lime", c(190, 220, 60) },
+    };
+    return presets;
+}
+
+Rgba adjustForContrast(Rgba colour, Rgba background, double target) {
+    const Rgba ground = composite(background, c(0, 0, 0));
+    if (contrast(colour, ground) >= target) {
+        return colour;
+    }
+    // Toward black on a light ground, toward white on a dark one.
+    const Rgba end = luminance(ground) > 0.4 ? c(0, 0, 0, colour.a) : c(255, 255, 255, colour.a);
+    Rgba best = colour;
+    for (int step = 1; step <= 50; ++step) {
+        best = mix(colour, end, static_cast<float>(step) / 50.f);
+        if (contrast(best, ground) >= target) {
+            return best;
+        }
+    }
+    return best;
+}
+
+void applyAccent(Theme* theme, Rgba accent) {
+    accent.a = 255;
+    const double indicator = theme->enhanced ? 4.5 : 3.0;
+    const double text = theme->enhanced ? 7.0 : 4.5;
+
+    // A dark theme puts dark text on a light accent and a light theme white
+    // text on a dark one, so the accent is moved the one way the ink wants and
+    // the indicator wants alike: toward white on dark, toward black on light.
+    // The least it must move is found by stepping, which is cheap and cannot
+    // overshoot.
+    const Rgba ink = theme->dark ? c(20, 14, 6) : c(255, 255, 255);
+    const Rgba toward = theme->dark ? c(255, 255, 255) : c(0, 0, 0);
+    Theme probe = *theme;
+    Rgba chosen = accent;
+    for (int step = 0; step <= 60; ++step) {
+        const Rgba candidate = mix(accent, toward, static_cast<float>(step) / 60.f);
+        probe[Token::Accent] = candidate;
+        deriveAccentRoles(&probe);
+        const double onFill = std::min({ ratio(ink, candidate),
+                                         ratio(ink, probe[Token::AccentHover]),
+                                         ratio(ink, probe[Token::AccentPressed]) });
+        const bool seen = contrast(candidate, (*theme)[Token::Panel]) >= indicator &&
+                          contrast(candidate, (*theme)[Token::App]) >= indicator &&
+                          contrast(candidate, (*theme)[Token::Control]) >= indicator;
+        chosen = candidate;
+        if (onFill >= text && seen) {
+            break;
+        }
+    }
+
+    (*theme)[Token::Accent] = chosen;
+    deriveAccentRoles(theme);
+    (*theme)[Token::TextOnAccent] = ink;
+    // And the accent as text must read as text.
+    Rgba asText = chosen;
+    asText = adjustForContrast(asText, (*theme)[Token::Panel], text);
+    asText = adjustForContrast(asText, (*theme)[Token::Raised], text);
+    (*theme)[Token::AccentText] = asText;
+}
+
+int fixContrast(Theme* theme) {
+    std::array<bool, kTokenCount> changed {};
+    for (int pass = 0; pass < 4; ++pass) {
+        bool any = false;
+        for (const ContrastIssue& issue : checkTheme(*theme)) {
+            const size_t on = issue.what.find(" on ");
+            Token foreground = Token::App;
+            Token background = Token::App;
+            if (on == std::string::npos ||
+                !tokenFromName(issue.what.substr(0, on), &foreground) ||
+                !tokenFromName(issue.what.substr(on + 4), &background)) {
+                continue;
+            }
+            // The surfaces are the look, and are told apart by the person's eye:
+            // only the marks and the text move.
+            if (foreground == Token::Control || foreground == Token::ControlHover ||
+                foreground == Token::ControlPressed || foreground == Token::Selected ||
+                foreground == Token::Border) {
+                continue;
+            }
+            const Rgba before = (*theme)[foreground];
+            (*theme)[foreground] = adjustForContrast(before, (*theme)[background], issue.required);
+            if ((*theme)[foreground] != before) {
+                changed[static_cast<size_t>(foreground)] = true;
+                any = true;
+            }
+        }
+        if (!any) {
+            break;
+        }
+    }
+    int count = 0;
+    for (bool role : changed) {
+        count += role ? 1 : 0;
+    }
+    return count;
 }
 
 void deriveStateTints(Theme* theme) {
@@ -446,6 +634,10 @@ std::string idFrom(const std::string& name) {
 }
 
 } // namespace
+
+std::string themeIdFromName(const std::string& name) {
+    return idFrom(name);
+}
 
 bool parseTheme(const std::string& text, Theme* out, ThemeReport* report) {
     ThemeReport local;

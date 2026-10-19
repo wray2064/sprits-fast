@@ -1,0 +1,76 @@
+# Preferences > Appearance: an accent in one click, a role changed, the
+# readability warning and its fix, a theme saved, exported, imported and deleted.
+# A scripted run keeps its themes in ui_selftest_themes, not the person's settings.
+expect theme slate
+click-on Edit
+click-on Preferences...
+wait 2
+click-on Appearance
+wait 2
+expect item theme
+expect item ##accent-Blue
+expect item ##accent-Amber
+expect item Import...
+expect item Export...
+expect missing Save as new theme
+expect missing Fix them
+
+# One click on a preset: the theme is edited, still readable, and says so.
+click-on ##accent-Blue
+wait 3
+expect item Save as new theme
+expect missing Fix them
+
+# A role set to something unreadable is flagged, and Fix them moves it.
+role textMuted 303a46
+wait 3
+expect item Fix them
+click-on Fix them
+wait 3
+expect missing Fix them
+
+# Discarded: back to Slate as it was.
+click-on Discard changes
+wait 3
+expect missing Save as new theme
+expect colour accent ff9e26
+
+# Saved under a name of its own: a file, chosen, and no longer unsaved.
+click-on ##accent-Blue
+wait 3
+click-on ##themename
+type Script Blue
+click-on Save as new theme
+wait 3
+expect file ui_selftest_themes/script-blue.lstheme
+expect theme script-blue
+expect missing Save as new theme
+expect item Delete theme
+
+# Exported to a file the person chose, and another theme chosen.
+answer export-theme ui_selftest_export.lstheme
+wait 3
+expect file ui_selftest_export.lstheme
+click-on theme
+wait 2
+click-on Famicom
+wait 3
+expect theme famicom
+
+# Imported back: kept as a theme of its own (the name was taken, so it is the
+# second), and chosen.
+answer import-theme ui_selftest_export.lstheme
+wait 3
+expect theme script-blue-2
+expect file ui_selftest_themes/script-blue-2.lstheme
+
+# Deleted: the file goes and the program is on Slate.
+click-on Delete theme
+wait 2
+click-on Delete
+wait 3
+expect theme slate
+expect nofile ui_selftest_themes/script-blue-2.lstheme
+
+remove ui_selftest_themes/script-blue.lstheme
+remove ui_selftest_export.lstheme

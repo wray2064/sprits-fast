@@ -93,6 +93,38 @@ double contrast(Rgba fg, Rgba bg);
 bool parseColour(const std::string& text, Rgba* out);
 std::string colourText(Rgba colour);
 
+// --- describing the roles (for the editor) ---------------------------------------
+
+// What a role is called for a person ("Muted text") and what it is grouped
+// under ("Text"). Every role has both.
+const char* tokenLabel(Token token);
+const char* tokenGroup(Token token);
+
+// --- accents ---------------------------------------------------------------------
+
+struct AccentPreset {
+    const char* name;
+    Rgba        colour;
+};
+// The accents on offer beside a free picker. Amber is first: the default.
+const std::vector<AccentPreset>& accentPresets();
+
+// `colour` moved toward black or white (whichever the background asks for)
+// just far enough that it reads on `background` at `target`:1. Unchanged if it
+// already does.
+Rgba adjustForContrast(Rgba colour, Rgba background, double target);
+
+// Makes `accent` the theme's accent: its other roles are derived, and the
+// accent is first nudged where it must be, so that it is seen on the window and
+// the panels and, as text, readable on them -- a pale accent on a light theme
+// is darkened to a text-grade one rather than left unreadable.
+void applyAccent(Theme* theme, Rgba accent);
+
+// Moves each text and indicator role that misses its contrast target to the
+// nearest colour that meets it (the surfaces are left alone: those are the
+// look). Returns how many roles it changed.
+int fixContrast(Theme* theme);
+
 // --- derived roles --------------------------------------------------------------
 
 // Fills the accent's other roles from `Accent` and the theme's light or dark:
@@ -104,6 +136,11 @@ void deriveAccentRoles(Theme* theme);
 void deriveStateTints(Theme* theme);
 
 // --- files -----------------------------------------------------------------------
+
+// The id a theme of this name has: lower-case letters, digits and single
+// dashes, at most 48; "custom" when nothing is left. It is a file name and
+// what Preferences keeps, so it is safe as both.
+std::string themeIdFromName(const std::string& name);
 
 struct ThemeReport {
     int  unknownKeys = 0;       // lines naming no role: skipped

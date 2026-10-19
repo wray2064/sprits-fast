@@ -78,6 +78,11 @@ int main() {
     CHECK(fast::loadPreferences("view.theme = light").themeId == "paper");
     CHECK(fast::loadPreferences("view.theme = dark").themeId == "slate");
     CHECK(fast::loadPreferences("view.theme = ../../evil").themeId == "slate");
+    // The person's own theme is kept by its id; a file name that is not a plain
+    // id is not.
+    CHECK(fast::loadPreferences("view.theme = my-night").themeId == "my-night");
+    CHECK(fast::loadPreferences("view.theme = My Night").themeId == "slate");
+    CHECK(fast::loadPreferences("view.theme = " + std::string(60, 'a')).themeId == "slate");
     CHECK(fast::loadPreferences("").themeId == "slate");
 
     // The interface scale is kept, and a value out of range is brought into it

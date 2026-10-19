@@ -26,6 +26,7 @@
 #include "app/library.h"
 #include "app/paint.h"
 #include "app/recent_colours.h"
+#include "app/theme_tokens.h"
 #include "app/recent_files.h"
 #include "app/recovery.h"
 #include "app/reference.h"
@@ -469,6 +470,18 @@ struct Editor {
     bool        preferencesOpen = false;
     // Help: the About window and the list of shortcuts, with what is typed to
     // narrow the list.
+    // Preferences > Appearance (ui/appearance.h): the theme being looked at and
+    // changed, whether it differs from the one it started as, the person's own
+    // themes, and the line the tab last said.
+    struct AppearanceState {
+        Theme              working = *findBuiltinTheme("slate");
+        std::string        baseId = "slate";
+        bool               dirty = false;
+        bool               loaded = false;
+        std::vector<Theme> custom;
+        char               saveName[48] = {};
+        std::string        message;
+    } appearance;
     bool        kitOpen = false;           // the interface kit (ui/widgets.h)
     bool        aboutOpen = false;
     bool        shortcutsOpen = false;

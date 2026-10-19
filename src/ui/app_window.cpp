@@ -34,6 +34,7 @@
 #include "app/i18n.h"
 #include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
+#include "ui/appearance.h"
 #include "ui/help.h"
 #include "ui/new_document.h"
 #include "ui/start_screen.h"
@@ -1285,11 +1286,11 @@ bool editColour(const char* label, uint32_t* rgb) {
 // Preferences: what a new document is, autosave, the grid and the history's
 // length on one tab; every command and its keys on the other, where a key is
 // given by pressing it. Everything is written the moment it changes.
-void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
+void drawPreferencesPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (!editor.preferencesOpen) {
         return;
     }
-    ImGui::SetNextWindowSize(ImVec2(520.f, 560.f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(560.f, 720.f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Preferences", &editor.preferencesOpen)) {
         ImGui::End();
         return;
@@ -1298,37 +1299,6 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
     bool changed = false;
     if (ImGui::BeginTabBar("preference-tabs")) {
         if (ImGui::BeginTabItem(tr("General"))) {
-            theme::sectionHeader(tr("INTERFACE"));
-            {
-                // Text and spacing, as a percentage, applied as it is dragged
-                // so the result is seen at once. First on the tab: it is the
-                // control that has to stay reachable when it is turned up.
-                ImGui::SetNextItemWidth(200.f);
-                int percent = prefs.uiScale;
-                if (widgets::sliderInt(tr("interface size"), &percent, 75, 150, "%d%%",
-                                     ImGuiSliderFlags_AlwaysClamp)) {
-                    percent = std::clamp(percent, 75, 150);
-                    prefs.uiScale = percent;
-                    theme::setScale(static_cast<float>(percent) / 100.f);
-                    changed = true;
-                }
-                nameForScripts("interface size");
-                ImGui::SameLine();
-                if (ImGui::SmallButton(tr("Reset##scale"))) {
-                    prefs.uiScale = 100;
-                    theme::setScale(1.f);
-                    changed = true;
-                }
-                // How much air: Compact fits more on a small screen. The type
-                // does not change, only the spacing and the height of a control.
-                const char* densities[] = { "Compact", "Comfortable", "Spacious" };
-                if (widgets::segmented("density", &prefs.density, densities, 3)) {
-                    theme::setDensity(static_cast<theme::Density>(prefs.density));
-                    changed = true;
-                }
-                ImGui::SameLine();
-                ImGui::TextUnformatted(tr("density"));
-            }
             theme::sectionHeader(tr("A NEW DOCUMENT"));
             int size[2] = { static_cast<int>(prefs.newWidth), static_cast<int>(prefs.newHeight) };
             ImGui::SetNextItemWidth(200.f);
@@ -1385,30 +1355,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 changed = true;
             }
 
-            theme::sectionHeader(tr("LOOK"));
-            {
-                // Every theme there is, dark first; the one in force is shown.
-                const std::vector<Theme>& themes = builtinThemes();
-                const Theme* shown = findBuiltinTheme(prefs.themeId);
-                ImGui::SetNextItemWidth(220.f);
-                // Tall enough to show every theme without scrolling.
-                if (ImGui::BeginCombo(tr("theme"), shown != nullptr ? shown->name.c_str() : "",
-                                      ImGuiComboFlags_HeightLargest)) {
-                    for (const Theme& choice : themes) {
-                        if (ImGui::Selectable(choice.name.c_str(), choice.id == prefs.themeId)) {
-                            prefs.themeId = choice.id;
-                            prefs.lightTheme = !choice.dark;
-                            theme::setTheme(choice);
-                            canvasDefaultsFor(prefs.lightTheme, &prefs);
-                            applyViewPreferences(prefs, canvas);
-                            changed = true;
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-                nameForScripts("theme");
-            }
-
+            theme::sectionHeader(tr("LANGUAGE"));
             {
                 // The languages there are catalogues for, English first.
                 std::vector<std::string> languages = languagesIn(languageFolder());
@@ -1459,6 +1406,15 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas) {
                 applyViewPreferences(prefs, canvas);
                 changed = true;
             }
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem(tr("Appearance"))) {
+            const AppearanceResult appearance = drawAppearanceTab(editor, canvas, window);
+            if (appearance.themeChanged) {
+                // Canvas colours that were still the theme's have followed it.
+                applyViewPreferences(prefs, canvas);
+            }
+            changed = changed || appearance.changed;
             ImGui::EndTabItem();
         }
         const ImGuiTabItemFlags keysFlags =
@@ -2025,6 +1981,17 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
         } else {
             editor.say("Could not load palette: " + error);
         }
+        return;
+    }
+
+    if (kind == DialogResult::Kind::ImportTheme) {
+        importThemeFrom(editor, path);
+        applyViewPreferences(editor.prefs, canvas);
+        saveSettings(editor);
+        return;
+    }
+    if (kind == DialogResult::Kind::ExportTheme) {
+        exportThemeTo(editor, path);
         return;
     }
 
@@ -3474,7 +3441,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);
-    drawPreferencesPanel(editor, canvas);
+    drawPreferencesPanel(editor, canvas, window);
     drawLayerPropertiesPanel(editor, canvas);
     drawSlicesPanel(editor, canvas);
     drawSheetImportPanel(editor, canvas, window);
@@ -5135,9 +5102,8 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         editor.autosaveOn = editor.prefs.autosaveOn;
         editor.recovery.setIntervalSeconds(editor.prefs.autosaveSeconds);
     }
-    if (const Theme* chosen = findBuiltinTheme(editor.prefs.themeId)) {
-        theme::setTheme(*chosen);
-    }
+    // The theme the person chose: a built-in, or one of their own files.
+    loadAppearance(editor);
     theme::setDensity(static_cast<theme::Density>(editor.prefs.density));
     theme::setScale(static_cast<float>(editor.prefs.uiScale) / 100.f);
     applyViewPreferences(editor.prefs, canvas);

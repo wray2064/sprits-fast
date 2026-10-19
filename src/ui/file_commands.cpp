@@ -268,6 +268,32 @@ void showExportPaletteDialog(FileState& state, SDL_Window* window, const Documen
                            start.c_str());
 }
 
+namespace {
+
+const SDL_DialogFileFilter kThemeFilters[] = {
+    { "Sprit's theme", "lstheme" },
+    { "All files",     "*" },
+};
+
+} // namespace
+
+void showImportThemeDialog(FileState& state, SDL_Window* window) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportTheme, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+    SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kThemeFilters,
+                           static_cast<int>(SDL_arraysize(kThemeFilters)), nullptr, false);
+}
+
+void showExportThemeDialog(FileState& state, SDL_Window* window, const std::string& suggested) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportTheme, false, false, {} };
+    SDL_UnlockMutex(state.dialog.mutex);
+    SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, kThemeFilters,
+                           static_cast<int>(SDL_arraysize(kThemeFilters)),
+                           suggested.empty() ? nullptr : suggested.c_str());
+}
+
 std::string windowTitle(const Document& doc) {
     std::string name = !doc.path().empty() ? fileName(doc.path())
                      : !doc.name().empty() ? doc.name() : std::string("untitled");

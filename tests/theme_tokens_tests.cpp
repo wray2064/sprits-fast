@@ -251,9 +251,93 @@ void testAHostileFileIsSurvivable() {
     CHECK(fast::parseTheme("lstheme 1\n", &theme, nullptr));
 }
 
+// The editor lists every role by group with a label a person can read.
+void testEveryRoleIsDescribed() {
+    std::set<std::string> groups;
+    for (size_t i = 0; i < fast::kTokenCount; ++i) {
+        const fast::Token token = static_cast<fast::Token>(i);
+        CHECK(std::string(fast::tokenLabel(token)).size() > 0);
+        CHECK(std::string(fast::tokenGroup(token)).size() > 0);
+        groups.insert(fast::tokenGroup(token));
+    }
+    CHECK(groups.size() == 7);
+}
+
+void testContrastCanBeAdjustedTo() {
+    const fast::Rgba panel{ 29, 34, 41, 255 };
+    const fast::Rgba dim{ 60, 66, 74, 255 };
+    CHECK(fast::contrast(dim, panel) < 4.5);
+    const fast::Rgba fixed = fast::adjustForContrast(dim, panel, 4.5);
+    CHECK(fast::contrast(fixed, panel) >= 4.5);
+    CHECK(fast::luminance(fixed) > fast::luminance(dim));        // lightened on a dark ground
+
+    const fast::Rgba paper{ 236, 229, 208, 255 };
+    const fast::Rgba pale{ 220, 200, 120, 255 };
+    const fast::Rgba darker = fast::adjustForContrast(pale, paper, 4.5);
+    CHECK(fast::contrast(darker, paper) >= 4.5);
+    CHECK(fast::luminance(darker) < fast::luminance(pale));      // darkened on a light one
+
+    // Already enough: untouched.
+    CHECK(fast::adjustForContrast({ 255, 255, 255, 255 }, panel, 4.5) ==
+          fast::Rgba({ 255, 255, 255, 255 }));
+}
+
+// Any accent on any theme leaves the theme readable: that is what applyAccent
+// is for, and why a person can pick any colour without checking.
+void testAnyAccentOnAnyThemeStaysReadable() {
+    for (const fast::Theme& original : fast::builtinThemes()) {
+        for (const fast::AccentPreset& preset : fast::accentPresets()) {
+            fast::Theme theme = original;
+            fast::applyAccent(&theme, preset.colour);
+            for (const fast::ContrastIssue& issue : fast::checkTheme(theme)) {
+                // Only what the accent touches.
+                const std::string what = issue.what;
+                const bool accentRole = what.find("ccent") != std::string::npos ||
+                                        what.find("focus") != std::string::npos;
+                if (accentRole) {
+                    std::printf("  %s with %s: %s is %.2f, needs %.1f\n", original.id.c_str(),
+                                preset.name, what.c_str(), issue.ratio, issue.required);
+                }
+                CHECK(!accentRole);
+            }
+        }
+    }
+    // The pale accent on a light theme becomes a text-grade one.
+    fast::Theme paper = *fast::findBuiltinTheme("paper");
+    fast::applyAccent(&paper, { 250, 230, 120, 255 });
+    CHECK(fast::contrast(paper[fast::Token::AccentText], paper[fast::Token::Panel]) >= 4.5);
+    CHECK(paper[fast::Token::Accent].a == 255);
+}
+
+void testFixContrastRepairsATheme() {
+    fast::Theme bad = *fast::findBuiltinTheme("slate");
+    bad[fast::Token::TextMuted] = { 60, 66, 74, 255 };
+    bad[fast::Token::Danger] = { 90, 40, 40, 255 };
+    CHECK(!fast::checkTheme(bad).empty());
+    const int changed = fast::fixContrast(&bad);
+    CHECK(changed >= 2);
+    CHECK(fast::checkTheme(bad).empty());
+    // A good theme is left alone.
+    fast::Theme good = *fast::findBuiltinTheme("oled");
+    CHECK(fast::fixContrast(&good) == 0);
+    CHECK(good[fast::Token::TextMuted] == (*fast::findBuiltinTheme("oled"))[fast::Token::TextMuted]);
+}
+
+void testThemeIdsAreSafe() {
+    CHECK(fast::themeIdFromName("My Night") == "my-night");
+    CHECK(fast::themeIdFromName("../x") == "x");
+    CHECK(fast::themeIdFromName("???") == "custom");
+    CHECK(fast::themeIdFromName(std::string(100, 'a')).size() == 48);
+}
+
 } // namespace
 
 int main() {
+    testEveryRoleIsDescribed();
+    testContrastCanBeAdjustedTo();
+    testAnyAccentOnAnyThemeStaysReadable();
+    testFixContrastRepairsATheme();
+    testThemeIdsAreSafe();
     testTheArithmeticIsWcag();
     testColoursParseAndPrint();
     testTokenNamesRoundTrip();

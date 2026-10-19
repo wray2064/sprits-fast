@@ -52,13 +52,17 @@
 //     open shape_test.lsprite     a file opened, as a recent entry or a drop does
 //     start                       the start screen brought up, as File > Start screen does
 //     answer export-png FILE      a native file dialog answered, as the system's would:
-//                                 open, save-as, export-png, export-sheet, export-animation
+//                                 open, save-as, export-png, export-sheet, export-animation,
+//                                 import-theme, export-theme
+//     role panel 1d2229           a role of the working theme set (what the picker
+//                                 in Preferences > Appearance does)
 //     remove FILE                 a file deleted (a test cleaning up after itself)
 //     zoom 20                     the canvas zoom set outright (a fit depends on the
 //                                 layout, so a script that needs 20 asks for it)
 //     expect zoom 20 [24]         the zoom: exactly, or between
 //     expect uiscale 150          the interface scale, in percent
 //     expect theme oled           the theme in force, by its id
+//     expect colour panel 1d2229  a role of the theme in force
 //     expect file FILE            a file exists / expect nofile FILE: it does not
 //     expect section 9 0 8 8      the picked reference's part shown: x y w h
 //     expect playing yes|no
@@ -105,7 +109,7 @@ public:
 private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
-                    Reference, Open, Start, Answer, Remove, ZoomTo,
+                    Reference, Open, Start, Answer, Remove, ZoomTo, Role,
                     Wheel } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
