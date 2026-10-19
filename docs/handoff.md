@@ -242,6 +242,12 @@ The engine's model is in `../livesprite-engine/docs/concepts.md`.
   24-pixel tab drawn in one hangs over what is below it.
 - **A script can fail once at random while the desktop is in use** (see
   `docs/testing.md`): rerun it before looking for a cause.
+- **The window is idle when nothing happens.** The main loop draws at full rate
+  while there is input, a drag, typing or playback, and for 600 ms after, and
+  otherwise waits for an event for up to 100 ms (about 1% of a core instead of 20%).
+  Anything that changes what is on screen *without* an event -- on a timer, as
+  the timeline drawer's hover delay does -- must call `editor.stayAwake(ms)` so the
+  change settles at full rate. Scripted runs and flag-counted runs are never idle.
 - **Shell escapes.** Never write code through a Bash heredoc, `python -c`,
   or `sed` with `\n`. Use an editor, or a script written with
   `newline='\n'` (the repository is LF).

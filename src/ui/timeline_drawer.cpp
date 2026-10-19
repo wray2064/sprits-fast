@@ -170,6 +170,7 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
         } else if (now - t.drawerSinceMs >= kTuckMs) {
             t.drawerHot = false;
             t.drawerSinceMs = 0;
+            editor.stayAwake(500);          // on a timer, with no event: let it settle
         }
     } else if (!t.drawerOpen) {
         // Down: the pointer resting on the tab brings it up. Not while a button
@@ -182,6 +183,7 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
         } else if (now - t.drawerSinceMs >= kDwellMs) {
             t.drawerHot = true;
             t.drawerSinceMs = 0;
+            editor.stayAwake(500);
         }
     }
 

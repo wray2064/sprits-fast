@@ -491,6 +491,11 @@ struct Editor {
         char               saveName[48] = {};
         std::string        message;
     } appearance;
+    // The window draws only when something is happening (see the main loop). Code
+    // that changes what is on screen without an event -- on a timer -- asks for
+    // full-rate frames for a moment after, so the change settles: stayAwake(ms).
+    uint64_t    awakeUntilMs = 0;
+    void        stayAwake(uint64_t milliseconds);
     bool        kitOpen = false;           // the interface kit (ui/widgets.h)
     bool        aboutOpen = false;
     bool        shortcutsOpen = false;

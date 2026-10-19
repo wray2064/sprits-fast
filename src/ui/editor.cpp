@@ -58,6 +58,10 @@ void tidySelection(Editor& editor) {
 // Deliberately free of any ImGui call. This is reached from the headless
 // self-test, where there is no context, and a status message is not worth a
 // crash -- nor worth a context check on every call.
+void Editor::stayAwake(uint64_t milliseconds) {
+    awakeUntilMs = std::max(awakeUntilMs, SDL_GetTicks() + milliseconds);
+}
+
 void Editor::say(const std::string& message) {
     status = message;
 }

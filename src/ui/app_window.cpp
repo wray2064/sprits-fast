@@ -5434,9 +5434,32 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     bool running = true;
     bool idleBroken = false;
     int frame = 0;
+    // An editor that is not being touched has nothing new to draw, and drawing
+    // it sixty times a second anyway keeps a core busy and a laptop warm for
+    // nothing. So the window draws at full rate while anything is happening --
+    // input, a drag, text being typed, an animation playing -- for a moment
+    // after, to let the interface settle (a menu that opened, a tooltip's delay);
+    // and otherwise waits for an event for up to a tenth of a second, which is
+    // frequent enough for what runs on a clock (hover delays, a message
+    // expiring, autosave). A run driven by a script, or by a flag that counts
+    // frames, is never idle: what it checks must not depend on timing.
+    constexpr uint64_t kSettleMs = 600;
+    constexpr uint32_t kIdleFrameMs = 100;
+    uint64_t lastActivityMs = SDL_GetTicks();
     while (running) {
         SDL_Event event;
-        while (SDL_PollEvent(&event)) {
+        bool gotEvent = false;
+        {
+            const ImGuiIO& io = ImGui::GetIO();
+            const bool busy = !interactive || editor.timeline.playing || ImGui::IsAnyMouseDown() ||
+                              io.WantTextInput || editor.quitRequested ||
+                              !editor.runCommand.empty() ||
+                              SDL_GetTicks() < editor.awakeUntilMs ||
+                              SDL_GetTicks() - lastActivityMs < kSettleMs;
+            gotEvent = busy ? SDL_PollEvent(&event) : SDL_WaitEventTimeout(&event, kIdleFrameMs);
+        }
+        for (; gotEvent; gotEvent = SDL_PollEvent(&event)) {
+            lastActivityMs = SDL_GetTicks();
             // While a script drives the window, only the script's input
             // counts: the desktop's own mouse, keys and focus changes -- a
             // person working in another window -- would otherwise land in

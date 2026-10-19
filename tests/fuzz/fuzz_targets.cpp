@@ -489,7 +489,9 @@ void packageFile(const uint8_t* data, size_t size) {
         std::ofstream out(path, std::ios::binary | std::ios::trunc);
         out.write(reinterpret_cast<const char*>(data), static_cast<std::streamsize>(size));
     }
-    Document doc;
+    // One document for every input: making an engine costs more than reading a
+    // small package, and open() replaces everything the document held.
+    static Document doc;
     std::string error;
     if (doc.open(path.string(), &error)) {
         readEverything(doc);
