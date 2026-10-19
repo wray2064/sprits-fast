@@ -66,6 +66,9 @@ wait 6
 click-on timeline tab
 wait 6
 expect fits all
+# The pointer off the tab first: resting on it for 220 ms opens the drawer again, and
+# on a busy machine six frames are longer than that.
+move 8 8
 key t
 wait 6
 expect item timeline tab

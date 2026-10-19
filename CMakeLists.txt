@@ -169,6 +169,14 @@ if (FAST_BUILD_GUI)
     # the window with nothing added.
     add_library(fast_ui STATIC
         src/ui/app_window.cpp
+        src/ui/menu_bar.cpp
+        src/ui/dialogs.cpp
+        src/ui/preferences_panel.cpp
+        src/ui/file_actions.cpp
+        src/ui/stroke_input.cpp
+        src/ui/shortcuts.cpp
+        src/ui/headless.cpp
+        src/ui/self_test.cpp
         src/ui/canvas_view.cpp
         src/ui/editor.cpp
         src/ui/frame_cache.cpp
@@ -192,6 +200,13 @@ if (FAST_BUILD_GUI)
         src/ui/ui_script.cpp
         src/ui/tile_tools.cpp
         src/ui/panels.cpp
+        src/ui/panel_tools.cpp
+        src/ui/panel_palette.cpp
+        src/ui/panel_elements.cpp
+        src/ui/panel_layers.cpp
+        src/ui/panel_references.cpp
+        src/ui/panel_transform.cpp
+        src/ui/panel_view.cpp
         src/ui/timeline.cpp
         src/ui/timeline_drawer.cpp
         src/ui/user_guide.cpp

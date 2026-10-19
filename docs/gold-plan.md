@@ -38,9 +38,11 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       comparison tool (`tools/compare_gallery.ps1`)
 - [x] Idle redraw (21% of a core idle -> about 1%): the window drew every frame at vsync even when nothing changed
       (about 1.4 ms CPU a frame, 8% of a core); draw only when something did
-- [ ] `app_window.cpp` (5,400 lines) split into modules: menus, dialogs, preferences,
-      stroke input, shortcuts, file actions, self-test; checked against the gallery
-- [ ] `panels.cpp` (3,500 lines) split by panel
+- [x] `app_window.cpp` (5,700 lines) split into menu_bar, dialogs, preferences_panel,
+      file_actions, stroke_input, shortcuts, headless and self_test (what they share is
+      `ui/app_internal.h`); 1,100 lines remain, the window and the main loop; unneeded
+      includes pruned by trying; checked against the 49 scripts and the gallery
+- [ ] `panels.cpp` (3,700 lines) split by panel
 
 ### 2. Fuzzing
 - [x] A fuzz harness for every parser of untrusted input, with a seed corpus, run
@@ -49,14 +51,19 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       slices, references, recent colours, view state, SVG, batch line, string helpers,
       document metadata); `build-fuzz.bat` + `tools/fuzz.ps1`
 - [x] Quick seeded run in ctest (`fast_fuzz_quick`), regressions folder run every time
-- [ ] Long guided runs recorded in `docs/fuzzing.md`; every crash, hang and leak found
-      fixed, with the input kept as a regression test (run 1 of 120 s a target: in
-      progress, results in `build-fuzz/fuzz-run-1.log`)
+- [x] Long guided runs recorded in `docs/fuzzing.md` (run 1: every target 120 s, 4.9
+      million executions; run 2: the heaviest targets 5 to 20 minutes): no crash, hang or
+      invariant break found, so `tests/fuzz/regressions/` holds nothing yet
 
 ### 3. Features tested
-- [ ] A matrix (`docs/qa-matrix.md`) of every feature in `parity.md` against the test
-      that covers it
-- [ ] Gaps filled with UI scripts or core tests
+- [x] A matrix (`docs/qa-matrix.md`, `python tools/qa_matrix.py`) of every menu item,
+      keymap command and core module against the scripts and tests that touch it,
+      written from the code; CI checks it is current
+- [x] Gaps filled: 63 menu items, 22 commands and one module were untouched; now none
+      (Paste as reference needs a system-clipboard picture and says so). Nine new UI
+      scripts, `text_util_tests`; 49 scripts and 53 suites pass
+- [x] A script fails on any ImGui error; that found a real bug (hiding the Preview left
+      the canvas window with a cursor ImGui flagged every frame), fixed
 - [ ] The hand-run checks in `docs/testing.md` that a script can run, run
 
 ### 4. Help and resources
@@ -89,14 +96,29 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
 - [ ] `HANDOFF.md` and `docs/handoff.md` updated; this file's "Resume here" current
 
 ### 7. Next (not started: the owner starts it)
-- [ ] Pract brief: the Importer and the Arranger, written into `sprits-pract/docs/plan.md`
+- [x] Pract brief: the Importer and the Arranger, written into `sprits-pract/docs/plan.md`
+      (committed locally; Pract is not pushed)
 
 ## Resume here
 
-Item 4, the in-app user guide (Help > User guide); then 2 (fuzz results, docs/fuzzing.md),
-1 (idle redraw, the two big file splits), 3 (the test matrix). (Update this line at every
-commit.)
+Left: split `panels.cpp` by panel (`ui/panels_*.cpp`, sharing `ui/panels.h`), checked by
+the scripts and `tools/compare_gallery.ps1` against a gallery taken before; then the
+hand-run checks, then item 6 (clean release build, all suites and scripts, the gallery and
+Store screenshots regenerated, `tools\make-msix.ps1` again), `HANDOFF.md` and
+`docs/handoff.md`. (Update this line at every commit.)
 
 ## Traps found on the way
 
-(Added as met.)
+- A UI script that clicks a menu path must say `menu File > Export PNG > 2x`, not
+  `click-on` each label with no wait: a File clicked while the menu is still closing shuts
+  it. And the first drawn widget of a name is the menu's (the menu bar is drawn before the
+  panels, some of which have a `2x` of their own).
+- Scripted runs once read and wrote the person's own recent files and library folders.
+  They keep them in memory now (`RecentFiles::keepInMemory`, `LibraryFolders::inMemory`);
+  anything new that persists must do the same, or a test will overwrite a real setting.
+- `IMGUI_DISABLE_OBSOLETE_FUNCTIONS` is on, so `SetCursorScreenPos` back to a place past
+  the last item, with no item after it, is an ImGui error every frame. End such a block
+  with an item (`Dummy(0, 0)`); the script runner now fails on it.
+- PowerShell 5's `Set-Content -Encoding utf8` writes a BOM and CRLF. The repo is LF without
+  a BOM: write files with the Write tool or `[IO.File]::WriteAllText` and a
+  `UTF8Encoding($false)`.
