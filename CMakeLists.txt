@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sprits_fast VERSION 0.1.0 LANGUAGES CXX)
+project(sprits_fast VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -229,7 +229,11 @@ if (FAST_BUILD_GUI)
     # Help > About says which version this is, from the project's own.
     target_compile_definitions(fast_ui PRIVATE FAST_VERSION="${PROJECT_VERSION}")
     if (WIN32)
+        # The version Windows shows in the file's Properties comes from the
+        # project's own, through a header the resource file includes.
+        configure_file(src/ui/fast_version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/fast_version.h @ONLY)
         add_executable(sprits_fast WIN32 src/ui/fast_main.cpp src/ui/sprits_fast.rc)
+        target_include_directories(sprits_fast PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
     else()
         add_executable(sprits_fast WIN32 src/ui/fast_main.cpp)
     endif()

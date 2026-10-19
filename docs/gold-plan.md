@@ -43,13 +43,15 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
 - [ ] `panels.cpp` (3,500 lines) split by panel
 
 ### 2. Fuzzing
-- [ ] A fuzz harness for every parser of untrusted input, with a seed corpus, run
-      under AddressSanitizer: `.lsprite` package, Aseprite import, PNG/GIF/WebP
-      decode, palette files (GPL, JASC, hex, PNG), theme files, keymap, preferences,
-      i18n catalogue, slices/references/cycles metadata, batch command line,
-      layout files, UI script
-- [ ] Bounded quick runs in ctest (seeded, fast); long runs recorded here
-- [ ] Every crash, hang and leak found fixed, with the input kept as a regression test
+- [x] A fuzz harness for every parser of untrusted input, with a seed corpus, run
+      under AddressSanitizer: 20 targets in `tests/fuzz` (package, Aseprite parse and
+      import, images, palettes, themes, keymap, preferences, catalogue, cycles, guides,
+      slices, references, recent colours, view state, SVG, batch line, string helpers,
+      document metadata); `build-fuzz.bat` + `tools/fuzz.ps1`
+- [x] Quick seeded run in ctest (`fast_fuzz_quick`), regressions folder run every time
+- [ ] Long guided runs recorded in `docs/fuzzing.md`; every crash, hang and leak found
+      fixed, with the input kept as a regression test (run 1 of 120 s a target: in
+      progress, results in `build-fuzz/fuzz-run-1.log`)
 
 ### 3. Features tested
 - [ ] A matrix (`docs/qa-matrix.md`) of every feature in `parity.md` against the test
@@ -64,13 +66,21 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
 - [ ] `README.md`, `CHANGELOG.md`, `SUPPORT.md`, `PRIVACY.md`, third-party notices
 
 ### 5. Store submission kit (`store/`)
-- [ ] Logo set at every size the manifest needs (from `assets/icon`)
-- [ ] `AppxManifest.xml` template (identity placeholders), file association
-      `.lsprite`, `PerMonitorV2` DPI awareness, minimum Windows 10 1809
-- [ ] `tools/make-msix.ps1`: release build, layout, `makeappx pack`, test-sign
-- [ ] Store listing text (title, short and long description, features, keywords,
-      what's new), screenshots at Store sizes, age-rating answers, certification notes
-- [ ] Windows App Certification Kit run, results recorded
+- [x] Logo set at every size the manifest needs (`tools/make_store_assets.py`)
+- [x] `AppxManifest.xml.in` (identity placeholders), file association `.lsprite`,
+      minimum Windows 10 1809, `runFullTrust`; version 1.0.0 and a Windows version
+      resource from the one `project(... VERSION ...)`
+- [x] `tools/make-msix.ps1`: release build, layout, resources.pri, `makeappx pack`
+      (built and validated: `dist\SpritsFast-1.0.0.0-x64.msix`, 4.4 MB); `-TestSign` is
+      written but never run here (it would create a certificate)
+- [x] Listing text in English and Spanish, screenshots at 1440x900, certification notes,
+      age-rating answers, `store/README.md` (the submission walkthrough)
+- [x] `PRIVACY.md`, `SUPPORT.md`, `CHANGELOG.md`, `THIRD_PARTY_NOTICES.txt`
+      (`tools/make-notices.ps1`)
+- [ ] Ship `THIRD_PARTY_NOTICES.txt`, `LICENSE`, `CHANGELOG.md` in the package and the
+      release folder; DPI awareness checked in the packaged exe
+- [ ] Windows App Certification Kit: needs a machine that trusts a test certificate;
+      left to the owner (documented in `store/certification-notes.md`)
 
 ### 6. Final
 - [ ] Release build from a clean tree; all suites, scripts, fuzz quick runs, gallery
@@ -81,7 +91,9 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
 
 ## Resume here
 
-Item 1, idle redraw. (Update this line at every commit.)
+Item 4, the in-app user guide (Help > User guide); then 2 (fuzz results, docs/fuzzing.md),
+1 (idle redraw, the two big file splits), 3 (the test matrix). (Update this line at every
+commit.)
 
 ## Traps found on the way
 

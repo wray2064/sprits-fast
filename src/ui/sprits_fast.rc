@@ -2,9 +2,43 @@
 // Copyright (c) 2026 the Sprit's'fast authors
 
 // sprits_fast.rc -- what Windows shows for the program before it runs: the
-// icon in Explorer, on a shortcut and pinned to the taskbar. The first icon
-// in the executable is the one Windows takes. SDL registers the window with
-// it too; app_window.cpp still sets the window's own from the PNGs, which is
-// what every other platform uses.
+// icon in Explorer, on a shortcut and pinned to the taskbar, and the version
+// in the file's Properties. The first icon in the executable is the one
+// Windows takes. SDL registers the window with it too; app_window.cpp still
+// sets the window's own from the PNGs, which is what every other platform
+// uses.
+
+#include <winver.h>
+
+#include "fast_version.h"
 
 1 ICON "../../assets/icon/sprits_fast.ico"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION FAST_VERSION_MAJOR, FAST_VERSION_MINOR, FAST_VERSION_PATCH, 0
+ PRODUCTVERSION FAST_VERSION_MAJOR, FAST_VERSION_MINOR, FAST_VERSION_PATCH, 0
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+ FILEFLAGS 0
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "the Sprit's'fast authors\0"
+            VALUE "FileDescription", "Sprit's'fast, a sprite editor\0"
+            VALUE "FileVersion", FAST_VERSION_FULL "\0"
+            VALUE "InternalName", "sprits_fast\0"
+            VALUE "LegalCopyright", "Copyright (c) 2026 the Sprit's'fast authors. Apache License 2.0.\0"
+            VALUE "OriginalFilename", "sprits_fast.exe\0"
+            VALUE "ProductName", "Sprit's'fast\0"
+            VALUE "ProductVersion", FAST_VERSION_STRING "\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

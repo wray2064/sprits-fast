@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 the Sprit's'fast authors
+//
+// Made by CMake from project(... VERSION ...), the one place the version is set.
+// The resource file (sprits_fast.rc) takes the version Windows shows in a file's
+// Properties from here.
+#pragma once
+
+#define FAST_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define FAST_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define FAST_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define FAST_VERSION_STRING "@PROJECT_VERSION@"
+#define FAST_VERSION_FULL "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0"

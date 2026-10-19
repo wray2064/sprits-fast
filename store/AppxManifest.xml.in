@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The MSIX manifest for Sprit's'fast. tools/make-msix.ps1 fills in the @...@ values and
+  puts the result at the root of the package.
+
+  @IDENTITY_NAME@, @PUBLISHER@ and @PUBLISHER_DISPLAY_NAME@ are not Fast's to choose:
+  Partner Center gives them when the app name is reserved (Product management >
+  Product identity). The defaults the script uses are for building and checking a
+  package only; a package for the Store must carry the real ones.
+-->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap rescap">
+
+  <Identity Name="@IDENTITY_NAME@"
+            Publisher="@PUBLISHER@"
+            Version="@VERSION@"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Sprit's'fast</DisplayName>
+    <PublisherDisplayName>@PUBLISHER_DISPLAY_NAME@</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>A sprite editor where every stroke stays a stroke.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!-- Windows 10 version 1809 and later; the program is a desktop one. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+    <Resource Language="es" />
+  </Resources>
+
+  <Applications>
+    <Application Id="SpritsFast" Executable="sprits_fast.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Sprit's'fast"
+                          Description="A sprite editor where every stroke stays a stroke."
+                          BackgroundColor="#1d2229"
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
+                         Square71x71Logo="Assets\SmallTile.png"
+                         Square310x310Logo="Assets\LargeTile.png"
+                         ShortName="Sprit's'fast" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#1d2229" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Double-clicking a .lsprite file opens it here. The path arrives as the
+             first command-line argument, which is how the program already opens
+             a file. -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="lsprite">
+            <uap:SupportedFileTypes>
+              <uap:FileType>.lsprite</uap:FileType>
+            </uap:SupportedFileTypes>
+            <uap:DisplayName>Sprit's'fast document</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+            <uap:InfoTip>A sprite made in Sprit's'fast</uap:InfoTip>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- A desktop program that reads and writes the files a person chooses: the
+         only capability it asks for. It uses no network, camera, microphone or
+         location. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

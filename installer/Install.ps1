@@ -56,7 +56,7 @@ if (-not $DryRun) {
 }
 
 $version = (Get-Item (Join-Path $source $exeName)).VersionInfo.ProductVersion
-if ([string]::IsNullOrWhiteSpace($version)) { $version = "0.1.0" }
+if ([string]::IsNullOrWhiteSpace($version)) { $version = "1.0.0" }
 $exe = Join-Path $InstallDir $exeName
 
 Step "Copying the program to $InstallDir" {
