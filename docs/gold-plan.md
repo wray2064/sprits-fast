@@ -47,7 +47,13 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       `panel_view`; `panels_internal.h`); gallery identical to the pre-split release
 - [x] CI was red from the start screen commit on (recent_files.h used `uint64_t` with no
       `<cstdint>`; GCC does not reach it by another header as MSVC does): fixed, and
-      twenty headers that leaned on others for a standard header now name it
+      twenty headers that leaned on others for a standard header now name it. Two more
+      things only a clean checkout showed: the scripts opened `shape_test.lsprite`, a file
+      a test leaves in the project folder and git ignores (now the tracked
+      `tests/ui/start_fixture.lsprite`), and the matrix generator still looked for the
+      menus in `app_window.cpp`. **All four CI jobs are green** (run 39307614178, commit
+      `8d354ef`): Ubuntu/GCC, Windows/MSVC, macOS and the editor started under SDL's dummy
+      driver with every UI script
 
 ### 2. Fuzzing
 - [x] A fuzz harness for every parser of untrusted input, with a seed corpus, run
@@ -129,6 +135,10 @@ red, fix it first: the public repo is gated by it. (Update this line at every co
 - `IMGUI_DISABLE_OBSOLETE_FUNCTIONS` is on, so `SetCursorScreenPos` back to a place past
   the last item, with no item after it, is an ImGui error every frame. End such a block
   with an item (`Dummy(0, 0)`); the script runner now fails on it.
+- **Rehearse CI before pushing**: `git clone` the repo to a scratch folder and run
+  `tools\run_scripts.ps1 -Exe <your build>` there (a clean checkout has none of the files
+  git ignores, which is how a script that needed an untracked document got through for a
+  day), and run `python tools/qa_matrix.py --check`, which is CI's last step.
 - **Look at CI after every push** (`gh run list`). It was red for a day without anyone
   seeing it, because the Windows and macOS jobs were green and the Linux ones failed on a
   missing `<cstdint>`. MSVC and Apple's compiler find standard headers through other headers;
