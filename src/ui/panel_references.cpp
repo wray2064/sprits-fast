@@ -10,24 +10,12 @@
 #include "ui/reference_section.h"
 #include "ui/theme.h"
 #include "ui/widgets.h"
-#include "ui/tile_tools.h"
-#include "ui/ui_script.h"
 
-#include "app/reference.h"
-#include "app/library.h"
 #include "app/file_io.h"
 #include "app/image_io.h"
-#include "app/palette_io.h"
-#include "app/palette_tools.h"
-#include "app/shape.h"
-#include "app/transform.h"
-#include "app/tracks.h"
-#include "app/tilemap.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -18,8 +18,8 @@
 #include <imgui_internal.h>
 #include <imgui_impl_sdlrenderer3.h>
 
-
-
+#include <algorithm>
+#include <string>
 
 namespace fast {
 

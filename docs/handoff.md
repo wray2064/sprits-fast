@@ -149,7 +149,8 @@ starts with a comment saying what it is and why.
 - **References:** `reference`.
 - **Files in and out:** `import_image`, `import_aseprite`, `export_png`,
   `export_anim`, `webp`, `sheet`, `batch`, `canvas_ops`.
-- **Settings and strings:** `keymap`, `preferences`, `i18n`.
+- **Settings and strings:** `keymap`, `preferences`, `i18n`, `text_util` (the
+  helpers every parser here uses), `guide` (the user guide's Markdown and search).
 - **Look and feel (no ImGui):** `theme_tokens` (the 38 colour roles, the nine
   themes, the contrast checker), `theme_store` (the person's `.lstheme` files),
   `vector_icon` (Lucide SVGs to strokes). Design and progress in
@@ -158,13 +159,24 @@ starts with a comment saying what it is and why.
 `src/ui/` is the window.
 - `editor` holds all interface state and the operations panels and
   shortcuts share. It makes no ImGui calls, so the self-test can drive it.
-- `app_window.cpp` holds the loop, layout, menus, shortcuts and flags.
-- Panels and tools: `panels.cpp`, `timeline.cpp`, `puppet_panel`,
+- `app_window.cpp` holds the window's layout and the main loop. What it once held
+  is split, and shared through `app_internal.h`: `menu_bar` (the menus), `dialogs`
+  (the windows that open from them: canvas and sprite size, adjust colours, the sheet
+  import, history, text, New), `preferences_panel`, `file_actions` (open, save,
+  close, quit and the questions in front of them), `stroke_input` (what the mouse
+  does on the canvas), `shortcuts` (what the keys do), `headless` (the command line)
+  and `self_test`.
+- Panels: `panel_tools` (the toolbar and the tool options), `panel_palette`,
+  `panel_elements`, `panel_layers`, `panel_references` (and the library),
+  `panel_transform`, `panel_view` (the preview and the status bar), sharing
+  `panels_internal.h`; `panels.h` is the list. Then `timeline.cpp`, `puppet_panel`,
   `reference_section`, `transform_gizmo`, `shape_tools`, `selection_tools`,
   `tile_tools`, `slice_tool`.
 - `timeline_drawer`: the Timeline when it is not pinned -- a tab at the canvas's
   edge and a strip that opens over it (`showTimeline`, `toggleTimeline`,
   `pinTimeline`); the strip itself is `timeline.cpp`.
+- `user_guide`: Help > User guide (F1), the guide's window; its text is Markdown
+  under `assets/help/`, compiled in, and `tests/guide_tests.cpp` checks every link.
 - `theme` (colours, fonts, spacing, the one `drawIcon` call), `widgets` (the
   component kit; Window > Interface kit shows it), `appearance` (Preferences >
   Appearance) and `layout` (the dock: three built arrangements and the

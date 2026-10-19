@@ -5,69 +5,22 @@
 
 #include "ui/app_internal.h"
 
-#include "app/batch.h"
-#include "app/import_aseprite.h"
 #include "app/palette_tools.h"
-#include "app/pixel_font.h"
-#include "app/guides.h"
-#include "app/slices.h"
 #include "app/tracks.h"
-#include "app/import_image.h"
-#include "app/animation.h"
-#include "app/export_png.h"
 #include "app/file_io.h"
-#include "app/grid_snap.h"
 #include "app/image_io.h"
 #include "app/palette_io.h"
-#include "app/shape.h"
-#include "app/sheet.h"
 #include "app/transform.h"
-#include "app/ui_state.h"
-#include "ui/app_extension.h"
-#include "ui/keys.h"
 #include "ui/layout.h"
-#include "app/i18n.h"
-#include "ui/os_clipboard.h"
 #include "ui/shape_tools.h"
-#include "ui/appearance.h"
-#include "ui/help.h"
-#include "ui/new_document.h"
-#include "ui/start_screen.h"
-#include "ui/widgets.h"
-#include "ui/rulers.h"
-#include "ui/slice_tool.h"
 #include "ui/tabs.h"
-#include "ui/tile_tools.h"
-#include "ui/ui_script.h"
-#include "ui/selection_tools.h"
-#include "ui/editor.h"
 #include "ui/panels.h"
-#include "ui/theme.h"
-#include "ui/timeline_drawer.h"
-#include "ui/user_guide.h"
-#include "ui/transform_gizmo.h"
-#include "ui/puppet_panel.h"
-#include "ui/reference_section.h"
 
-#include <imgui.h>
-#include <imgui_internal.h>
-#include <imgui_impl_sdl3.h>
-#include <imgui_impl_sdlrenderer3.h>
-
-#include <SDL3/SDL.h>
-
-#include "fast_icon_256.h"
-#include "fast_icon_32.h"
-
-#include <algorithm>
-#include <cctype>
-#include <cmath>
+#include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
-
 
 namespace fast {
 
