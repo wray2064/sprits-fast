@@ -42,7 +42,12 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       file_actions, stroke_input, shortcuts, headless and self_test (what they share is
       `ui/app_internal.h`); 1,100 lines remain, the window and the main loop; unneeded
       includes pruned by trying; checked against the 49 scripts and the gallery
-- [ ] `panels.cpp` (3,700 lines) split by panel
+- [x] `panels.cpp` (3,700 lines) split by panel (`panel_tools`, `panel_palette`,
+      `panel_elements`, `panel_layers`, `panel_references`, `panel_transform`,
+      `panel_view`; `panels_internal.h`); gallery identical to the pre-split release
+- [x] CI was red from the start screen commit on (recent_files.h used `uint64_t` with no
+      `<cstdint>`; GCC does not reach it by another header as MSVC does): fixed, and
+      twenty headers that leaned on others for a standard header now name it
 
 ### 2. Fuzzing
 - [x] A fuzz harness for every parser of untrusted input, with a seed corpus, run
@@ -64,7 +69,11 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       scripts, `text_util_tests`; 49 scripts and 53 suites pass
 - [x] A script fails on any ImGui error; that found a real bug (hiding the Preview left
       the canvas window with a cursor ImGui flagged every frame), fixed
-- [ ] The hand-run checks in `docs/testing.md` that a script can run, run
+- [~] The hand-run checks in `docs/testing.md`: the ones a script can do are already
+      scripts or core tests (palette, frames under a cycle, dither, removal, swap, the
+      stack, selections, tabs, replacing the document: the self-test); what is left needs
+      a person at the window -- the kill-and-restart of recovery (4g), the system
+      clipboard (4q), judging a colour or a blurred pixel (7)
 
 ### 4. Help and resources
 - [x] In-app user guide (Help > User guide, F1): 15 topics under assets/help (welcome, getting started,
@@ -92,8 +101,11 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       left to the owner (documented in `store/certification-notes.md`)
 
 ### 6. Final
-- [ ] Release build from a clean tree; all suites, scripts, fuzz quick runs, gallery
-- [ ] `HANDOFF.md` and `docs/handoff.md` updated; this file's "Resume here" current
+- [x] Release build; 53 suites, the self-test and all 49 UI scripts (895 checks) pass on
+      the debug build and on the release exe that goes in the package; the fuzz quick run
+      is one of the suites; the gallery matches; the Store screenshots still equal the
+      gallery's images; `dist\SpritsFast-1.0.0.0-x64.msix` rebuilt (4.5 MB)
+- [x] `HANDOFF.md` and `docs/handoff.md` updated; Pract builds on it (4 suites, 2 scripts)
 
 ### 7. Next (not started: the owner starts it)
 - [x] Pract brief: the Importer and the Arranger, written into `sprits-pract/docs/plan.md`
@@ -101,11 +113,9 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
 
 ## Resume here
 
-Left: split `panels.cpp` by panel (`ui/panels_*.cpp`, sharing `ui/panels.h`), checked by
-the scripts and `tools/compare_gallery.ps1` against a gallery taken before; then the
-hand-run checks, then item 6 (clean release build, all suites and scripts, the gallery and
-Store screenshots regenerated, `tools\make-msix.ps1` again), `HANDOFF.md` and
-`docs/handoff.md`. (Update this line at every commit.)
+Nothing is left that a session can do. What is the owner's: the Partner Center steps
+(`store/README.md`), and the checks that need a person at the window (above). If CI is
+red, fix it first: the public repo is gated by it. (Update this line at every commit.)
 
 ## Traps found on the way
 
@@ -119,6 +129,12 @@ Store screenshots regenerated, `tools\make-msix.ps1` again), `HANDOFF.md` and
 - `IMGUI_DISABLE_OBSOLETE_FUNCTIONS` is on, so `SetCursorScreenPos` back to a place past
   the last item, with no item after it, is an ImGui error every frame. End such a block
   with an item (`Dummy(0, 0)`); the script runner now fails on it.
+- **Look at CI after every push** (`gh run list`). It was red for a day without anyone
+  seeing it, because the Windows and macOS jobs were green and the Linux ones failed on a
+  missing `<cstdint>`. MSVC and Apple's compiler find standard headers through other headers;
+  GCC does not. A file or header that uses `uint64_t`, `std::string`, `std::vector`,
+  `std::move`... includes what declares it. `tools\check_std_includes.ps1` lists the headers
+  that do not (`-Fix` adds them); when pruning includes by compiling with MSVC, run it after.
 - PowerShell 5's `Set-Content -Encoding utf8` writes a BOM and CRLF. The repo is LF without
   a BOM: write files with the Write tool or `[IO.File]::WriteAllText` and a
   `UTF8Encoding($false)`.
