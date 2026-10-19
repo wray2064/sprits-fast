@@ -1,7 +1,7 @@
 # The start screen: what it offers, and each way out of it.
-# Run from the project folder, where shape_test.lsprite is: opening it puts
+# Run from the project folder (tests/ui/start_fixture.lsprite is a saved document): opening it puts
 # one recent file on the screen to find.
-open shape_test.lsprite
+open tests/ui/start_fixture.lsprite
 wait 3
 start
 wait 3
@@ -10,7 +10,7 @@ expect item Open...
 expect item Import sprite sheet...
 expect item Library...
 expect item Start with a blank canvas
-expect item shape_test.lsprite
+expect item start_fixture.lsprite
 
 # A tip is shown, and Next tip steps to another (it must not close the screen).
 expect item Next tip
@@ -20,7 +20,7 @@ expect item Next tip
 expect item Create
 
 # A recent file is already open here, so choosing it shows that tab.
-click-on shape_test.lsprite
+click-on start_fixture.lsprite
 wait 2
 expect missing Create
 expect tabs 1
@@ -105,9 +105,9 @@ click-on Start screen
 wait 2
 # (the document's own tab carries the same name, so the row is the second
 # of two before, and the only one left after)
-expect item shape_test.lsprite @2
-right-click-on shape_test.lsprite @2
+expect item start_fixture.lsprite @2
+right-click-on start_fixture.lsprite @2
 click-on Remove from this list
 wait 2
-expect missing shape_test.lsprite @2
+expect missing start_fixture.lsprite @2
 click-on Start with a blank canvas

@@ -28,3 +28,7 @@ theme_store_test_folder/
 # Fuzzing: the sanitizer build, its corpora and crashes, and the last input tried.
 build-fuzz/
 fuzz_last_input.bin
+
+# The one saved document the UI scripts open (start_screen.txt, menu_file.txt): the
+# patterns above ignore every .lsprite, so it is let back in by name.
+!tests/ui/start_fixture.lsprite

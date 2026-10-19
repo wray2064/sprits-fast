@@ -134,7 +134,7 @@ wait 2
 # Open... asks for a file; a sprite sheet is cut into frames in a window.
 menu File > Open...
 expect dialog open
-answer open shape_test.lsprite
+answer open tests/ui/start_fixture.lsprite
 wait 3
 expect tabs 2
 menu File > Import sprite sheet...
