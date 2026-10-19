@@ -4,7 +4,10 @@
 #include "ui/layout.h"
 
 #include "app/file_io.h"
+#include "app/theme_tokens.h"
+#include "app/i18n.h"
 #include "ui/theme.h"
+#include "ui/widgets.h"
 
 #include <imgui_internal.h>
 
@@ -78,11 +81,21 @@ void writeAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out
     out->append("\n");
 }
 
-// The default arrangement: the tool's options over the palette on the left,
-// the layers, their elements, the selected one's properties and the
-// transform on the right, the timeline under the canvas, and the canvas in
-// the middle. References float, opened from the Window menu.
-void buildDefault(ImGuiID dockspace, ImVec2 size) {
+// The arrangements the program knows how to build.
+//
+// Drawing: the tool's options over the palette on the left; the layers, their
+// elements, the selected one's properties and the transform on the right; the
+// timeline under the canvas; the canvas in the middle. References float,
+// opened from the Window menu.
+//
+// Animation: the canvas and the timeline get the room. The layers sit alone on
+// the right over one tabbed group of everything else, and the timeline is
+// taller.
+//
+// Compact: for a small screen. Every panel but the tool and the palette is a
+// tab of one group on the right, and the timeline is put away until it is
+// asked for.
+void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
     ImGui::DockBuilderRemoveNode(dockspace);
     ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace, size);
@@ -93,31 +106,243 @@ void buildDefault(ImGuiID dockspace, ImVec2 size) {
                                                      side / size.x, nullptr, &centre);
     const ImGuiID right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right,
                                                       side / (size.x - side), nullptr, &centre);
+    const float timelineHeight = preset == LayoutPreset::Animation ? 0.36f * size.y : 214.f;
     const ImGuiID bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down,
-                                                       214.f / size.y, nullptr, &centre);
+                                                       timelineHeight / size.y, nullptr, &centre);
     ImGuiID palette = 0;
-    const ImGuiID tool = ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.40f, nullptr, &palette);
-    ImGuiID below = 0;
-    const ImGuiID layers = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.30f, nullptr, &below);
-    ImGuiID rest = 0;
-    const ImGuiID elements = ImGui::DockBuilderSplitNode(below, ImGuiDir_Up, 0.16f, nullptr, &rest);
-    ImGuiID transform = 0;
-    const ImGuiID properties = ImGui::DockBuilderSplitNode(rest, ImGuiDir_Up, 0.70f, nullptr,
-                                                           &transform);
+    const ImGuiID tool = ImGui::DockBuilderSplitNode(
+        left, ImGuiDir_Up, preset == LayoutPreset::Compact ? 0.42f : 0.40f, nullptr, &palette);
 
     ImGui::DockBuilderDockWindow(panel::kTool, tool);
     ImGui::DockBuilderDockWindow(panel::kPalette, palette);
-    ImGui::DockBuilderDockWindow(panel::kLayers, layers);
-    ImGui::DockBuilderDockWindow(panel::kElements, elements);
-    ImGui::DockBuilderDockWindow(panel::kProperties, properties);
-    ImGui::DockBuilderDockWindow(panel::kTransform, transform);
-    ImGui::DockBuilderDockWindow(panel::kPuppet, properties);
     ImGui::DockBuilderDockWindow(panel::kTimeline, bottom);
     ImGui::DockBuilderDockWindow(panel::kCanvas, centre);
+
+    if (preset == LayoutPreset::Drawing) {
+        ImGuiID below = 0;
+        const ImGuiID layers = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.30f, nullptr, &below);
+        ImGuiID rest = 0;
+        const ImGuiID elements = ImGui::DockBuilderSplitNode(below, ImGuiDir_Up, 0.16f, nullptr, &rest);
+        ImGuiID transform = 0;
+        const ImGuiID properties = ImGui::DockBuilderSplitNode(rest, ImGuiDir_Up, 0.70f, nullptr,
+                                                               &transform);
+        ImGui::DockBuilderDockWindow(panel::kLayers, layers);
+        ImGui::DockBuilderDockWindow(panel::kElements, elements);
+        ImGui::DockBuilderDockWindow(panel::kProperties, properties);
+        ImGui::DockBuilderDockWindow(panel::kTransform, transform);
+        ImGui::DockBuilderDockWindow(panel::kPuppet, properties);
+    } else {
+        // Layers over one group of tabs: the layers always in view, and one of
+        // the rest at a time in the space below.
+        ImGuiID tabs = 0;
+        const ImGuiID layers = ImGui::DockBuilderSplitNode(
+            right, ImGuiDir_Up, preset == LayoutPreset::Animation ? 0.50f : 0.34f, nullptr, &tabs);
+        ImGui::DockBuilderDockWindow(panel::kLayers, layers);
+        ImGui::DockBuilderDockWindow(panel::kElements, tabs);
+        ImGui::DockBuilderDockWindow(panel::kProperties, tabs);
+        ImGui::DockBuilderDockWindow(panel::kTransform, tabs);
+        ImGui::DockBuilderDockWindow(panel::kPuppet, tabs);
+    }
     ImGui::DockBuilderFinish(dockspace);
 }
 
+// Whether a named file is one of the person's saved layouts, by its id: the
+// same plain ids a theme has, because it is a file name.
+bool plainId(const std::string& id) {
+    if (id.empty() || id.size() > 48) {
+        return false;
+    }
+    for (char ch : id) {
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+constexpr size_t kMaxSavedLayouts = 32;
+constexpr size_t kMaxLayoutBytes = 64 * 1024;
+
 } // namespace
+
+const char* presetName(LayoutPreset preset) {
+    switch (preset) {
+        case LayoutPreset::Drawing: return "Drawing";
+        case LayoutPreset::Animation: return "Animation";
+        case LayoutPreset::Compact: return "Compact";
+    }
+    return "";
+}
+
+void useLayoutPreset(Editor& editor, LayoutPreset preset) {
+    editor.panels.preset = static_cast<int>(preset);
+    editor.panels.resetLayout = true;
+    // Which panels are open goes with the arrangement: all of them, except that
+    // Compact puts the timeline away.
+    editor.panels.tool = editor.panels.palette = editor.panels.layers = true;
+    editor.panels.elements = editor.panels.properties = editor.panels.transform = true;
+    editor.panels.puppet = true;
+    editor.timeline.visible = preset != LayoutPreset::Compact;
+    ImGui::MarkIniSettingsDirty();
+}
+
+std::string layoutsFolderFor(const Editor& editor) {
+    if (!editor.settingsLoaded) {
+        return "ui_selftest_layouts";
+    }
+    const std::string directory = preferencesDirectory();
+    return directory.empty() ? std::string() : directory + "/layouts";
+}
+
+std::vector<SavedLayout> savedLayouts(const std::string& folder) {
+    std::vector<SavedLayout> layouts;
+    if (folder.empty()) {
+        return layouts;
+    }
+    for (const DirectoryEntry& entry : listDirectory(folder)) {
+        if (layouts.size() >= kMaxSavedLayouts) {
+            break;
+        }
+        if (entry.directory || !hasExtension(entry.name, ".ini") || entry.bytes > kMaxLayoutBytes) {
+            continue;
+        }
+        const std::string id = fileStem(entry.name);
+        if (!plainId(id)) {
+            continue;
+        }
+        // The name is the first line, as a comment ImGui skips: "; My layout".
+        std::vector<uint8_t> bytes;
+        std::string error;
+        std::string name = id;
+        if (readFile(entry.path, bytes, &error) && bytes.size() <= kMaxLayoutBytes &&
+            bytes.size() > 2 && bytes[0] == ';') {
+            std::string first;
+            for (size_t i = 1; i < bytes.size() && bytes[i] != '\n' && first.size() < 48; ++i) {
+                if (bytes[i] != '\r') {
+                    first += static_cast<char>(bytes[i]);
+                }
+            }
+            while (!first.empty() && first.front() == ' ') {
+                first.erase(first.begin());
+            }
+            if (!first.empty()) {
+                name = first;
+            }
+        }
+        layouts.push_back({ id, name });
+    }
+    return layouts;
+}
+
+bool saveLayoutAs(const std::string& folder, const std::string& name, std::string* savedId,
+                  std::string* error) {
+    if (folder.empty()) {
+        if (error != nullptr) {
+            *error = "there is no settings folder to keep it in";
+        }
+        return false;
+    }
+    std::string cleaned;
+    for (char ch : name) {
+        if (static_cast<unsigned char>(ch) >= 0x20 && ch != '\n' && ch != '\r') {
+            cleaned += ch;
+        }
+    }
+    if (cleaned.size() > 48) {
+        cleaned.resize(48);
+    }
+    if (cleaned.empty()) {
+        cleaned = "My layout";
+    }
+    const std::string id = themeIdFromName(cleaned);
+    if (!createDirectory(folder)) {
+        if (error != nullptr) {
+            *error = "could not make the layouts folder";
+        }
+        return false;
+    }
+    size_t size = 0;
+    const char* ini = ImGui::SaveIniSettingsToMemory(&size);
+    std::string text = "; " + cleaned + "\n";
+    text.append(ini, size);
+    if (text.size() > kMaxLayoutBytes) {
+        if (error != nullptr) {
+            *error = "the layout is too large to keep";
+        }
+        return false;
+    }
+    if (!writeFileAtomic(joinPath(folder, id + ".ini"),
+                         std::vector<uint8_t>(text.begin(), text.end()), error)) {
+        return false;
+    }
+    if (savedId != nullptr) {
+        *savedId = id;
+    }
+    return true;
+}
+
+bool deleteSavedLayout(const std::string& folder, const std::string& id) {
+    if (folder.empty() || !plainId(id)) {
+        return false;
+    }
+    const std::string path = joinPath(folder, id + ".ini");
+    return fileExists(path) && deleteFile(path);
+}
+
+void useSavedLayout(Editor& editor, const std::string& folder, const std::string& id) {
+    if (folder.empty() || !plainId(id)) {
+        return;
+    }
+    std::vector<uint8_t> bytes;
+    std::string error;
+    if (!readFile(joinPath(folder, id + ".ini"), bytes, &error) || bytes.size() > kMaxLayoutBytes) {
+        return;
+    }
+    editor.pendingLayout.assign(bytes.begin(), bytes.end());
+}
+
+void applyPendingLayout(Editor& editor) {
+    if (editor.pendingLayout.empty()) {
+        return;
+    }
+    // Before the frame begins: ImGui reads a layout between frames, not in one.
+    ImGui::LoadIniSettingsFromMemory(editor.pendingLayout.c_str(), editor.pendingLayout.size());
+    editor.pendingLayout.clear();
+    ImGui::MarkIniSettingsDirty();
+}
+
+void drawSaveLayoutDialog(Editor& editor) {
+    if (!widgets::beginDialog("Save layout", &editor.saveLayoutOpen, widgets::DialogSize::Small)) {
+        return;
+    }
+    ImGui::TextWrapped("%s", tr("Keeps where every panel is, and which are open, under a name "
+                                "you can come back to from Window > Layouts."));
+    ImGui::Dummy(ImVec2(0.f, 6.f));
+    widgets::field("name");
+    ImGui::InputTextWithHint("##layoutname", tr("a name for it"), editor.layoutName,
+                             sizeof(editor.layoutName));
+    if (!editor.layoutMessage.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().danger);
+        ImGui::TextWrapped("%s", editor.layoutMessage.c_str());
+        ImGui::PopStyleColor();
+    }
+    const int choice = widgets::dialogButtons("Save", "Cancel");
+    if (choice == 1) {
+        std::string error;
+        if (saveLayoutAs(layoutsFolderFor(editor), editor.layoutName, nullptr, &error)) {
+            editor.saveLayoutOpen = false;
+            editor.say(std::string("Saved the layout as ") +
+                       (editor.layoutName[0] != '\0' ? editor.layoutName : "My layout"));
+            ImGui::CloseCurrentPopup();
+        } else {
+            editor.layoutMessage = "Could not save it: " + error;
+        }
+    } else if (choice == 2) {
+        editor.saveLayoutOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    widgets::endDialog();
+}
 
 void registerPanelSettings(Editor& editor) {
     gEditor = &editor;
@@ -179,7 +404,7 @@ void drawDockSpace(Editor& editor, ImVec2 pos, ImVec2 size) {
     const ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace);
     if (editor.panels.resetLayout || node == nullptr) {
         editor.panels.resetLayout = false;
-        buildDefault(dockspace, size);
+        buildPreset(dockspace, size, static_cast<LayoutPreset>(editor.panels.preset));
         ImGui::MarkIniSettingsDirty();
     }
     // Panels dock round the canvas, never over it.

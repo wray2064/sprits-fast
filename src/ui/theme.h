@@ -149,10 +149,11 @@ bool foldingHeader(const char* label);
 
 // ------------------------------------------------------------------ icons --
 //
-// Drawn from primitives rather than loaded from an icon font. Four tools do not
-// justify a font file, a licence and a build step, and a drawn icon scales with
-// the interface without a second atlas -- it is also the only way to have them
-// pick up the accent colour when selected.
+// Vector icons: Lucide's SVGs (assets/icons/lucide, ISC), compiled in and parsed
+// at first use into strokes (app/vector_icon), then drawn as round-capped lines
+// at any size and in any colour. Never a bitmap or an icon font, so an icon is
+// as sharp at 200% as at 100% and takes the accent colour when selected.
+// Everything that draws an icon does it through the one drawIcon() call.
 
 enum class Icon { Pencil, Eraser, Bucket, Dropper, Rectangle, Ellipse, Line, Eye, EyeShut,
                   Marquee, EllipseMarquee, Lasso, Wand, Move,

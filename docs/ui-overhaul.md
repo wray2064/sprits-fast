@@ -64,7 +64,22 @@ decisions. Progress:
       over. Canvas colours that were still the old theme's follow the new one.
       The store (`app/theme_store`) is bounded and defensive; a scripted run
       keeps its themes in `ui_selftest_themes`, not the person's settings.
-- [ ] Stage 5, layout and icons.
+- [x] **Stage 5, icons and named layouts.** The icon set is **Lucide 1.59.0**
+      (ISC; MIT for the few it took from Feather): 24 SVGs, 13 KB with the
+      licence, in `assets/icons/lucide` with a README of sources and hashes,
+      and a NOTICE entry. They are compiled in and parsed by `app/vector_icon`
+      (paths with arcs and curves, lines, polylines, polygons, rects, circles,
+      ellipses) into strokes, then drawn by the one `theme::drawIcon` call as
+      round-capped polylines -- vectors at every size, never bitmaps -- so the
+      hand-drawn placeholders are gone. Layouts: Window > Layouts builds three
+      arrangements itself (Drawing, Animation, Compact, with `DockBuilder`) and
+      keeps the person's own under a name (`<settings>/layouts/<id>.ini`, ImGui's
+      own layout text with which panels are open): Save current layout, choose
+      one to put it back, Delete a saved layout. A saved layout is read only as
+      a layout -- bounded to 32 and 64 KiB, by a plain id that is a file name --
+      and goes in between frames. A scripted run keeps them in
+      `ui_selftest_layouts`. `tests/ui/layouts.txt` saves, switches away,
+      restores and deletes, checking panel heights come back as saved.
 - [ ] Stage 6, the Pract seam, `visual-language.md`, the gallery.
 
 Why this is critical: Pract is Fast's window run as a library. Everything

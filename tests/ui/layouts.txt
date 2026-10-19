@@ -1,0 +1,72 @@
+# Named layouts: the three the program builds, and one the person saves, applies
+# and deletes. A scripted run keeps its layouts in ui_selftest_layouts.
+# The timeline starts away, and the transform panel in view.
+expect missing Play
+expect item Rotate
+
+# Compact keeps the timeline away and makes the Transform panel a tab that is
+# not the one showing.
+click-on Window
+click-on Layouts
+click-on Compact
+wait 5
+expect missing Play
+expect missing Rotate
+
+# Drawing brings both back: the timeline opens, the transform is in view.
+click-on Window
+click-on Layouts
+click-on Drawing
+wait 5
+expect item Play
+expect item Rotate
+
+# Animation keeps the timeline, and groups the other panels as tabs.
+click-on Window
+click-on Layouts
+click-on Animation
+wait 5
+expect item Play
+expect missing Rotate
+expect height timeline 280 330
+expect height layers 390 450
+
+# Saved under a name of its own.
+click-on Window
+click-on Layouts
+click-on Save current layout...
+wait 3
+click-on ##layoutname
+type My Anim
+click-on Save
+wait 3
+expect file ui_selftest_layouts/my-anim.ini
+
+# Elsewhere, and then back by name: what was saved is what comes back.
+click-on Window
+click-on Layouts
+click-on Compact
+wait 5
+expect missing Play
+click-on Window
+click-on Layouts
+click-on My Anim
+wait 6
+expect item Play
+expect missing Rotate
+expect height timeline 280 330
+expect height layers 390 450
+
+# Deleted: the file goes.
+click-on Window
+click-on Layouts
+click-on Delete a saved layout
+click-on My Anim
+wait 3
+expect nofile ui_selftest_layouts/my-anim.ini
+
+# And the default again.
+click-on Window
+click-on Reset layout
+wait 5
+expect item Rotate

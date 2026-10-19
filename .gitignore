@@ -21,4 +21,5 @@ imgui.ini
 
 # A scripted run keeps its themes here, not in the person's settings.
 ui_selftest_themes/
+ui_selftest_layouts/
 theme_store_test_folder/

@@ -193,6 +193,13 @@ Symmetry down = Simetría vertical
 Preview = Vista previa
 Window = Ventana
 Reset layout = Restablecer disposición
+Layouts = Disposiciones
+Drawing = Dibujo
+Save current layout... = Guardar la disposición actual...
+Delete a saved layout = Borrar una disposición guardada
+Save layout = Guardar disposición
+Keeps where every panel is, and which are open, under a name you can come back to from Window > Layouts. = Guarda dónde está cada panel y cuáles están abiertos, bajo un nombre al que puedes volver desde Ventana > Disposiciones.
+a name for it = un nombre para ella
 
 # --- capas -------------------------------------------------------------------
 Ungroup = Desagrupar

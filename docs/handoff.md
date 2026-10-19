@@ -62,9 +62,9 @@ From PowerShell in this folder:
 
 | What | Command | Notes |
 |---|---|---|
-| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 47 suites |
+| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 48 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 33 scripts; all must pass; CI runs them |
+| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 34 scripts; all must pass; CI runs them |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |
 
 The engine is found at `../livesprite-engine` (`-DLIVESPRITE_DIR` to point
@@ -149,6 +149,10 @@ starts with a comment saying what it is and why.
 - **Files in and out:** `import_image`, `import_aseprite`, `export_png`,
   `export_anim`, `webp`, `sheet`, `batch`, `canvas_ops`.
 - **Settings and strings:** `keymap`, `preferences`, `i18n`.
+- **Look and feel (no ImGui):** `theme_tokens` (the 38 colour roles, the nine
+  themes, the contrast checker), `theme_store` (the person's `.lstheme` files),
+  `vector_icon` (Lucide SVGs to strokes). Design and progress in
+  `docs/ui-overhaul.md`.
 
 `src/ui/` is the window.
 - `editor` holds all interface state and the operations panels and
@@ -157,6 +161,10 @@ starts with a comment saying what it is and why.
 - Panels and tools: `panels.cpp`, `timeline.cpp`, `puppet_panel`,
   `reference_section`, `transform_gizmo`, `shape_tools`, `selection_tools`,
   `tile_tools`, `slice_tool`.
+- `theme` (colours, fonts, spacing, the one `drawIcon` call), `widgets` (the
+  component kit; Window > Interface kit shows it), `appearance` (Preferences >
+  Appearance) and `layout` (the dock: three built arrangements and the
+  person's own, saved by name).
 - `canvas_view` and `frame_cache` draw the canvas.
 - `ui_script` runs the scripts.
 - `app_extension.h` is the seam another program builds on.
@@ -166,7 +174,8 @@ Other docs:
 - `docs/testing.md`: what the automated layers promise, and the hand-run
   script.
 - `docs/translating.md`: adding a language.
-- `docs/icons-needed.md`: icons still to source.
+- `docs/icons-needed.md`: the icon set (Lucide) and the icons still to add.
+- `docs/ui-overhaul.md`: the visual language, the stages and where they stand.
 - `README.md`: the feature tour.
 
 Inside a `.lsprite` package, under `fast/`:

@@ -1,10 +1,14 @@
 # Icons to source
 
-Every icon in Fast is currently drawn from primitives in `src/ui/theme.cpp`
-(`theme::drawIcon`). They are placeholders: legible, but made from lines and
-rectangles, not designed.
-This list says what a real set needs to cover, so the whole set can be
-commissioned or chosen at once rather than piecemeal.
+**Status (2026-10-18, UI overhaul stage 5): the set is chosen.** Every tool icon
+and the eye pair are **Lucide** 1.59.0 (ISC; the few it took from Feather are
+MIT), 24 SVGs in `assets/icons/lucide`, whose README gives the source, hashes
+and licence. They are parsed into strokes (`app/vector_icon`) and drawn through
+the one `theme::drawIcon` call, so the hand-drawn placeholders are gone. What
+is left below is the icons that have no widget yet: take each from the same
+release, add its file and a row to that README, and add it to the `Icon` enum
+in `ui/theme.h`, `kIconSources` in `ui/theme.cpp` and `FAST_ICONS` in
+`CMakeLists.txt`. The constraints below are what the choice was made against.
 
 **Constraints on whatever is sourced**
 
@@ -20,7 +24,13 @@ commissioned or chosen at once rather than piecemeal.
 - Style: one stroke weight across the set. Pixel-art tools look best with
   crisp 1.5 px strokes at 16 px, not filled glyphs.
 
-## In use now, as placeholders
+## In use now (Lucide)
+
+The tool icons and the eye pair below, and the toolbar entries of the next
+table (marquees, lassos, wand, move, spray, gradient, text, hand, zoom, curve,
+contour, polygon, slice), are the Lucide files. Names in the repository: pencil, eraser, paint-bucket, pipette, square, circle, slash, eye,
+eye-off, square-dashed, circle-dashed, lasso, wand, move, spray-can, spline,
+hand, zoom-in, blend, type, lasso-select, pentagon, pen-tool, slice.
 
 | Icon | Where | Notes |
 |---|---|---|

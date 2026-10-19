@@ -34,3 +34,14 @@ was a condition of choosing them.
                       it asks that the licence text travel with the font and
                       that a modified font not be sold under the same name.
                       See assets/fonts/README.md for the exact files.
+
+  Lucide icons (24 of them: the tools and the eye)
+                      ISC License -- assets/icons/lucide/LICENSE, which also
+                      carries the MIT License for the few icons Lucide took
+                      from Feather (circle, move, square, type, zoom-in).
+                      https://lucide.dev, release 1.59.0
+                      Compiled into the program and drawn as vector strokes.
+                      Both licences ask only that the copyright and permission
+                      notice travel with the icons, which the LICENSE file
+                      does. See assets/icons/lucide/README.md for the exact
+                      files and their hashes.

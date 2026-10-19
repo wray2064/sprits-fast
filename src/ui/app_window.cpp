@@ -858,6 +858,42 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::MenuItem(tr("Preview"), "P", &editor.preview.visible);
         ImGui::MenuItem(tr("Interface kit"), nullptr, &editor.kitOpen);
         ImGui::Separator();
+        // Where everything is: three arrangements the program builds, and the
+        // person's own, kept under a name.
+        if (ImGui::BeginMenu(tr("Layouts"))) {
+            for (LayoutPreset preset : { LayoutPreset::Drawing, LayoutPreset::Animation,
+                                         LayoutPreset::Compact }) {
+                if (ImGui::MenuItem(tr(presetName(preset)), nullptr,
+                                    editor.panels.preset == static_cast<int>(preset))) {
+                    useLayoutPreset(editor, preset);
+                }
+            }
+            const std::string folder = layoutsFolderFor(editor);
+            const std::vector<SavedLayout> saved = savedLayouts(folder);
+            if (!saved.empty()) {
+                ImGui::Separator();
+                for (const SavedLayout& layout : saved) {
+                    if (ImGui::MenuItem(layout.name.c_str())) {
+                        useSavedLayout(editor, folder, layout.id);
+                    }
+                }
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(tr("Save current layout..."))) {
+                editor.saveLayoutOpen = true;
+                editor.layoutName[0] = '\0';
+                editor.layoutMessage.clear();
+            }
+            if (!saved.empty() && ImGui::BeginMenu(tr("Delete a saved layout"))) {
+                for (const SavedLayout& layout : saved) {
+                    if (ImGui::MenuItem(layout.name.c_str())) {
+                        deleteSavedLayout(folder, layout.id);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem(tr("Reset layout"))) {
             editor.panels = Editor::Panels{};
             editor.panels.resetLayout = true;
@@ -3450,6 +3486,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawStartScreen(editor, canvas, window);
     drawHelpWindows(editor, window);
     widgets::drawGallery(&editor.kitOpen);
+    drawSaveLayoutDialog(editor);
     drawUnsavedPrompt(editor, canvas, window);
 }
 
@@ -5464,6 +5501,8 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
                 io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
             }
         }
+        // A saved layout chosen last frame goes in now, between frames.
+        applyPendingLayout(editor);
         ImGui::NewFrame();
         canvas.frames().beginFrame();
         // Frames come and go through several doors -- the strip's delete, an

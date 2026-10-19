@@ -587,8 +587,15 @@ struct Editor {
         bool transform = true;
         bool puppet = true;
         bool references = false;
-        bool resetLayout = false;   // the default arrangement, on the next frame
+        bool resetLayout = false;   // rebuild the dock as `preset`, on the next frame
+        int  preset = 0;            // a LayoutPreset (ui/layout.h)
     } panels;
+    // A saved layout's text, to be put in force before the next frame begins.
+    std::string pendingLayout;
+    // The Save layout dialog: whether it is up and what is typed in it.
+    bool        saveLayoutOpen = false;
+    char        layoutName[48] = {};
+    std::string layoutMessage;
 
     // The document's frames, re-read whenever they can have changed. Held
     // rather than re-read every draw because a panel asks for them several

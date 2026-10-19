@@ -788,6 +788,12 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         if (width < std::atof(a[1].c_str()) || width > std::atof(a[2].c_str())) {
             failed(a[0] + " is " + std::to_string(width) + " wide");
         }
+    } else if (step.text == "height" && a.size() == 3) {
+        const ImGuiWindow* window = ImGui::FindWindowByName(("###" + a[0]).c_str());
+        const float height = window != nullptr ? window->Size.y : -1.f;
+        if (height < std::atof(a[1].c_str()) || height > std::atof(a[2].c_str())) {
+            failed(a[0] + " is " + std::to_string(height) + " tall");
+        }
     } else if (step.text == "theme" && a.size() == 1) {
         if (theme::current().id != a[0]) {
             failed("the theme is " + theme::current().id);

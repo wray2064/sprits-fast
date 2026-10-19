@@ -5,8 +5,10 @@
 
 #include "font_inter_regular.h"
 #include "font_inter_semibold.h"
+#include "icons_embedded.h"
 
 #include "app/i18n.h"
+#include "app/vector_icon.h"
 #include "ui/widgets.h"
 
 #include <algorithm>
@@ -14,6 +16,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 namespace fast {
 namespace theme {
@@ -381,375 +384,92 @@ void sectionHeader(const char* label) {
 
 // ------------------------------------------------------------------ icons --
 //
-// Each icon is described in a unit square and scaled to wherever it is drawn, so
-// one definition serves the toolbar and anything else that wants it. The shapes
-// are deliberately chunky: an icon rendered at 18 pixels loses any detail
-// thinner than about a tenth of its width, and a thin outline reads as grey mush.
+// Lucide's (ISC licence, assets/icons/lucide/, notices beside them and in
+// NOTICE), compiled in as the SVGs they are and read into strokes
+// (app/vector_icon.h). They are drawn here with whatever colour the caller asks
+// for and a stroke that follows the size, so one set serves the rail, the layer
+// rows and anything else, and none of it is a picture.
 
 namespace {
 
-// A point in the unit square of an icon, placed into a real one.
-struct IconSpace {
-    ImVec2 at;
-    float  size;
-    ImVec2 operator()(float x, float y) const {
-        return ImVec2(at.x + x * size, at.y + y * size);
-    }
+struct IconSource {
+    const unsigned char* data;
+    size_t               size;
 };
 
-// A quad along an axis, used for the barrel of the pencil and the dropper. The
-// axis runs from `from` to `to`; `halfWidth` is measured across it.
-void axisQuad(ImDrawList* draw, const IconSpace& s, ImVec2 from, ImVec2 to,
-              float halfWidth, ImU32 colour) {
-    const float dx = to.x - from.x;
-    const float dy = to.y - from.y;
-    const float length = std::sqrt(dx * dx + dy * dy);
-    if (length <= 0.f) {
-        return;
+// In the order of the Icon enum.
+const IconSource kIconSources[] = {
+    { kIcon_pencil, kIcon_pencil_size },                 // Pencil
+    { kIcon_eraser, kIcon_eraser_size },                 // Eraser
+    { kIcon_paint_bucket, kIcon_paint_bucket_size },     // Bucket
+    { kIcon_pipette, kIcon_pipette_size },               // Dropper
+    { kIcon_square, kIcon_square_size },                 // Rectangle
+    { kIcon_circle, kIcon_circle_size },                 // Ellipse
+    { kIcon_slash, kIcon_slash_size },                   // Line
+    { kIcon_eye, kIcon_eye_size },                       // Eye
+    { kIcon_eye_off, kIcon_eye_off_size },               // EyeShut
+    { kIcon_square_dashed, kIcon_square_dashed_size },   // Marquee
+    { kIcon_circle_dashed, kIcon_circle_dashed_size },   // EllipseMarquee
+    { kIcon_lasso, kIcon_lasso_size },                   // Lasso
+    { kIcon_wand, kIcon_wand_size },                     // Wand
+    { kIcon_move, kIcon_move_size },                     // Move
+    { kIcon_spray_can, kIcon_spray_can_size },           // Spray
+    { kIcon_pen_tool, kIcon_pen_tool_size },             // Contour
+    { kIcon_hand, kIcon_hand_size },                     // Hand
+    { kIcon_zoom_in, kIcon_zoom_in_size },               // Zoom
+    { kIcon_blend, kIcon_blend_size },                   // Gradient
+    { kIcon_type, kIcon_type_size },                     // Text
+    { kIcon_lasso_select, kIcon_lasso_select_size },     // PolygonLasso
+    { kIcon_pentagon, kIcon_pentagon_size },             // Polygon
+    { kIcon_spline, kIcon_spline_size },                 // Curve
+    { kIcon_slice, kIcon_slice_size },                   // Slice
+};
+constexpr size_t kIconCount = sizeof(kIconSources) / sizeof(kIconSources[0]);
+static_assert(kIconCount == static_cast<size_t>(Icon::Slice) + 1,
+              "every Icon has a source, in the enum's order");
+
+// Read once, on first use. An icon that will not read is simply not drawn.
+const VectorIcon* iconShape(Icon icon) {
+    static VectorIcon shapes[kIconCount];
+    static char state[kIconCount] = {};          // 0 not read, 1 read, 2 would not read
+    const size_t index = static_cast<size_t>(icon);
+    if (index >= kIconCount) {
+        return nullptr;
     }
-    const float px = -dy / length * halfWidth;
-    const float py = dx / length * halfWidth;
-    draw->AddQuadFilled(s(from.x + px, from.y + py), s(to.x + px, to.y + py),
-                        s(to.x - px, to.y - py), s(from.x - px, from.y - py), colour);
+    if (state[index] == 0) {
+        const IconSource& source = kIconSources[index];
+        std::string error;
+        state[index] = parseVectorIcon(
+            std::string(reinterpret_cast<const char*>(source.data), source.size),
+            &shapes[index], &error) ? 1 : 2;
+    }
+    return state[index] == 1 ? &shapes[index] : nullptr;
 }
 
 } // namespace
 
 void drawIcon(ImDrawList* draw, Icon icon, ImVec2 at, float size, ImU32 colour) {
-    const IconSpace s { at, size };
-
-    switch (icon) {
-        case Icon::Pencil: {
-            // A pencil on the usual diagonal, tip toward the bottom left.
-            const ImVec2 tip { 0.14f, 0.86f };
-            const ImVec2 shoulder { 0.36f, 0.64f };
-            const ImVec2 tail { 0.86f, 0.14f };
-
-            axisQuad(draw, s, shoulder, tail, 0.115f, colour);
-
-            // The sharpened point: a triangle narrowing to the tip.
-            const float px = 0.115f * 0.7071f;
-            draw->AddTriangleFilled(s(tip.x, tip.y),
-                                    s(shoulder.x + px, shoulder.y + px),
-                                    s(shoulder.x - px, shoulder.y - px), colour);
-
-            // The ferrule, a band across the barrel near the tail. Drawn in the
-            // panel colour so it reads as a gap rather than another shape.
-            axisQuad(draw, s, ImVec2(0.68f, 0.32f), ImVec2(0.735f, 0.265f), 0.115f,
-                     ImGui::GetColorU32(gPalette.panelBackground));
-            break;
+    const VectorIcon* shape = iconShape(icon);
+    if (shape == nullptr || size <= 0.f) {
+        return;
+    }
+    const float scale = size / shape->width;
+    // Lucide's stroke is 2 on a 24 grid. It follows the size, with a floor so
+    // that a small icon does not thin to nothing.
+    const float stroke = std::max(1.25f, 2.f * scale);
+    static std::vector<ImVec2> points;
+    for (const IconStroke& line : shape->strokes) {
+        points.clear();
+        for (const auto& p : line.points) {
+            points.push_back(ImVec2(at.x + p.first * scale, at.y + p.second * scale));
         }
-
-        case Icon::Eraser: {
-            // A block eraser, tilted. The seam between the rubber and the sleeve
-            // is a hairline: any wider and the icon reads as two separate blocks
-            // rather than one object, which is what a full gap did here.
-            axisQuad(draw, s, ImVec2(0.22f, 0.76f), ImVec2(0.78f, 0.28f), 0.185f,
-                     colour);
-            draw->AddLine(s(0.36f, 0.75f), s(0.66f, 0.43f),
-                          ImGui::GetColorU32(gPalette.panelBackground),
-                          std::max(1.5f, size * 0.075f));
-            break;
-        }
-
-        case Icon::Bucket: {
-            // Upright rather than tipped. A tipped bucket needs the handle, the
-            // mouth and the pour all legible at once, and at eighteen pixels it
-            // simply becomes a blob; upright reads immediately.
-            draw->AddQuadFilled(s(0.26f, 0.40f), s(0.72f, 0.40f),
-                                s(0.64f, 0.86f), s(0.34f, 0.86f), colour);
-
-            // The handle springs from the lip corners, so it belongs to the
-            // bucket instead of floating above it.
-            draw->PathClear();
-            draw->PathArcTo(s(0.49f, 0.41f), 0.23f * size, 3.34f, 6.09f, 16);
-            draw->PathStroke(colour, 0, std::max(1.6f, size * 0.075f));
-
-            // A drop off the rim, because a plain trapezoid reads as a box.
-            draw->AddCircleFilled(s(0.85f, 0.63f), size * 0.09f, colour, 10);
-            break;
-        }
-
-        case Icon::Rectangle: {
-            // Outlined rather than filled, because these tools make outlines of
-            // shapes as often as they make solid ones, and a filled square is
-            // hard to tell from a colour swatch at this size.
-            const float weight = std::max(1.6f, size * 0.085f);
-            draw->AddRect(s(0.16f, 0.24f), s(0.84f, 0.76f), colour, 0.f, 0, weight);
-            break;
-        }
-
-        case Icon::Ellipse: {
-            const float weight = std::max(1.6f, size * 0.085f);
-            draw->AddEllipse(s(0.5f, 0.5f), ImVec2(0.34f * size, 0.26f * size),
-                             colour, 0.f, 24, weight);
-            break;
-        }
-
-        // The selection tools, drawn dashed: a dashed outline is what every
-        // editor has used for "selected" since MacPaint, and it separates
-        // these at a glance from the shape tools, which make the same
-        // outlines solid. Placeholders, like the rest -- see icons-needed.md.
-        case Icon::Marquee:
-        case Icon::EllipseMarquee: {
-            const float weight = std::max(1.5f, size * 0.075f);
-            const int dashes = 16;
-            for (int i = 0; i < dashes; i += 2) {
-                const float a = static_cast<float>(i) / dashes;
-                const float b = static_cast<float>(i + 1) / dashes;
-                if (icon == Icon::Marquee) {
-                    // Round the rectangle's perimeter, as a fraction of it.
-                    const auto along = [&](float t) {
-                        const float x0 = 0.16f, y0 = 0.24f, x1 = 0.84f, y1 = 0.76f;
-                        const float w = x1 - x0, h = y1 - y0, p = 2.f * (w + h);
-                        float d = t * p;
-                        if (d < w) { return s(x0 + d, y0); }
-                        d -= w;
-                        if (d < h) { return s(x1, y0 + d); }
-                        d -= h;
-                        if (d < w) { return s(x1 - d, y1); }
-                        d -= w;
-                        return s(x0, y1 - d);
-                    };
-                    draw->AddLine(along(a), along(b), colour, weight);
-                } else {
-                    const float ta = a * 6.2831853f;
-                    const float tb = b * 6.2831853f;
-                    const ImVec2 c = s(0.5f, 0.5f);
-                    const float rx = 0.34f * size, ry = 0.26f * size;
-                    draw->AddLine(ImVec2(c.x + rx * std::cos(ta), c.y + ry * std::sin(ta)),
-                                  ImVec2(c.x + rx * std::cos(tb), c.y + ry * std::sin(tb)),
-                                  colour, weight);
-                }
-            }
-            break;
-        }
-
-        case Icon::Lasso: {
-            // A loop with a tail: the rope, not the shape it makes.
-            const float weight = std::max(1.5f, size * 0.075f);
-            draw->PathClear();
-            for (int i = 0; i <= 20; ++i) {
-                const float t = 6.2831853f * static_cast<float>(i) / 20.f;
-                const ImVec2 c = s(0.52f, 0.40f);
-                draw->PathLineTo(ImVec2(c.x + 0.30f * size * std::cos(t),
-                                        c.y + 0.20f * size * std::sin(t)));
-            }
-            draw->PathStroke(colour, 0, weight);
-            draw->AddBezierCubic(s(0.36f, 0.56f), s(0.30f, 0.70f), s(0.42f, 0.78f),
-                                 s(0.30f, 0.88f), colour, weight, 12);
-            break;
-        }
-
-        case Icon::Polygon: {
-            // A filled five-sided shape with its corners marked: a shape
-            // made of corners that stay corners.
-            const ImVec2 corners[] = { { 0.50f, 0.16f }, { 0.84f, 0.42f }, { 0.70f, 0.84f },
-                                       { 0.26f, 0.80f }, { 0.16f, 0.38f } };
-            draw->PathClear();
-            for (const ImVec2& p : corners) {
-                draw->PathLineTo(s(p.x, p.y));
-            }
-            draw->PathFillConvex((colour & 0x00FFFFFFu) | 0x90000000u);
-            for (const ImVec2& p : corners) {
-                draw->AddRectFilled(s(p.x - 0.06f, p.y - 0.06f), s(p.x + 0.06f, p.y + 0.06f),
-                                    colour);
-            }
-            break;
-        }
-
-        case Icon::Slice: {
-            // A frame with a corner cut into a tab: a named piece of the
-            // canvas rather than a selection of it.
-            const float weight = std::max(1.4f, size * 0.07f);
-            draw->AddRect(s(0.16f, 0.26f), s(0.84f, 0.84f), colour, 0.f, 0, weight);
-            draw->AddRectFilled(s(0.16f, 0.14f), s(0.48f, 0.30f), colour);
-            draw->AddLine(s(0.38f, 0.26f), s(0.38f, 0.84f), colour, 1.f);
-            draw->AddLine(s(0.62f, 0.26f), s(0.62f, 0.84f), colour, 1.f);
-            break;
-        }
-
-        case Icon::Curve: {
-            // An S with one anchor's handle drawn out: a pen, not a brush.
-            const float weight = std::max(1.6f, size * 0.08f);
-            draw->AddBezierCubic(s(0.16f, 0.78f), s(0.20f, 0.20f), s(0.80f, 0.80f),
-                                 s(0.84f, 0.22f), colour, weight, 20);
-            draw->AddLine(s(0.16f, 0.78f), s(0.20f, 0.20f), colour, 1.f);
-            draw->AddCircleFilled(s(0.20f, 0.20f), size * 0.07f, colour, 10);
-            draw->AddRectFilled(s(0.10f, 0.72f), s(0.22f, 0.84f), colour);
-            draw->AddRectFilled(s(0.78f, 0.16f), s(0.90f, 0.28f), colour);
-            break;
-        }
-
-        case Icon::PolygonLasso: {
-            // A dashed polygon, corners dotted.
-            const ImVec2 corners[] = { { 0.18f, 0.72f }, { 0.30f, 0.22f }, { 0.78f, 0.30f },
-                                       { 0.66f, 0.82f } };
-            const float weight = std::max(1.4f, size * 0.07f);
-            for (int i = 0; i < 4; ++i) {
-                const ImVec2 a = corners[i];
-                const ImVec2 b = corners[(i + 1) % 4];
-                const ImVec2 mid { (a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f };
-                draw->AddLine(s(a.x, a.y), s(mid.x, mid.y), colour, weight);
-                draw->AddCircleFilled(s(a.x, a.y), size * 0.06f, colour, 8);
-            }
-            break;
-        }
-
-        case Icon::Wand: {
-            // A stick and a star at its tip.
-            const float weight = std::max(1.8f, size * 0.09f);
-            draw->AddLine(s(0.20f, 0.82f), s(0.60f, 0.42f), colour, weight);
-            const ImVec2 star = s(0.70f, 0.30f);
-            const float r = size * 0.16f;
-            for (int i = 0; i < 4; ++i) {
-                const float t = 0.7853982f * static_cast<float>(i * 2);
-                draw->AddLine(ImVec2(star.x - r * std::cos(t), star.y - r * std::sin(t)),
-                              ImVec2(star.x + r * std::cos(t), star.y + r * std::sin(t)),
-                              colour, std::max(1.3f, size * 0.06f));
-            }
-            break;
-        }
-
-        case Icon::Move: {
-            // Four arrows out from the middle.
-            const float weight = std::max(1.6f, size * 0.08f);
-            draw->AddLine(s(0.50f, 0.14f), s(0.50f, 0.86f), colour, weight);
-            draw->AddLine(s(0.14f, 0.50f), s(0.86f, 0.50f), colour, weight);
-            const float h = 0.12f;
-            draw->AddTriangleFilled(s(0.50f, 0.08f), s(0.50f - h, 0.22f), s(0.50f + h, 0.22f), colour);
-            draw->AddTriangleFilled(s(0.50f, 0.92f), s(0.50f - h, 0.78f), s(0.50f + h, 0.78f), colour);
-            draw->AddTriangleFilled(s(0.08f, 0.50f), s(0.22f, 0.50f - h), s(0.22f, 0.50f + h), colour);
-            draw->AddTriangleFilled(s(0.92f, 0.50f), s(0.78f, 0.50f - h), s(0.78f, 0.50f + h), colour);
-            break;
-        }
-
-        case Icon::Spray: {
-            // A can and its mist.
-            draw->AddRectFilled(s(0.30f, 0.42f), s(0.58f, 0.88f), colour, 2.f);
-            draw->AddRectFilled(s(0.38f, 0.30f), s(0.50f, 0.42f), colour);
-            const float dot = std::max(1.2f, size * 0.05f);
-            for (const ImVec2 mist : { ImVec2(0.68f, 0.20f), ImVec2(0.80f, 0.30f),
-                                     ImVec2(0.72f, 0.36f), ImVec2(0.86f, 0.16f),
-                                     ImVec2(0.62f, 0.12f), ImVec2(0.84f, 0.42f) }) {
-                draw->AddCircleFilled(s(mist.x, mist.y), dot, colour, 6);
-            }
-            break;
-        }
-
-        case Icon::Contour: {
-            // A freehand loop, filled: the shape a contour stroke makes.
-            draw->PathClear();
-            const ImVec2 points[] = { { 0.20f, 0.55f }, { 0.28f, 0.24f }, { 0.55f, 0.18f },
-                                      { 0.82f, 0.34f }, { 0.74f, 0.70f }, { 0.44f, 0.84f } };
-            for (const ImVec2& p : points) {
-                draw->PathLineTo(s(p.x, p.y));
-            }
-            draw->PathFillConvex(colour);
-            break;
-        }
-
-        case Icon::Gradient: {
-            // A bar that dithers from solid to nothing: the tool's result.
-            const float cell = size * 0.1f;
-            for (int x = 0; x < 7; ++x) {
-                for (int y = 0; y < 4; ++y) {
-                    // Denser at the left; a Bayer-ish step to the right.
-                    const int threshold = ((x + y * 3) % 4);
-                    if (x < 2 || threshold < 4 - (x * 4) / 7) {
-                        const ImVec2 cellAt = s(0.14f + 0.1f * static_cast<float>(x),
-                                            0.30f + 0.1f * static_cast<float>(y));
-                        draw->AddRectFilled(cellAt, ImVec2(cellAt.x + cell, cellAt.y + cell), colour);
-                    }
-                }
-            }
-            break;
-        }
-
-        case Icon::Text: {
-            // A capital T with serifs at the foot.
-            const float weight = std::max(2.f, size * 0.12f);
-            draw->AddLine(s(0.20f, 0.22f), s(0.80f, 0.22f), colour, weight);
-            draw->AddLine(s(0.50f, 0.22f), s(0.50f, 0.80f), colour, weight);
-            draw->AddLine(s(0.38f, 0.80f), s(0.62f, 0.80f), colour, weight * 0.8f);
-            break;
-        }
-
-        case Icon::Hand: {
-            // An open palm: four fingers and a thumb over a round heel.
-            const float weight = std::max(1.8f, size * 0.10f);
-            draw->AddCircleFilled(s(0.50f, 0.68f), size * 0.22f, colour, 16);
-            for (int i = 0; i < 4; ++i) {
-                const float x = 0.32f + 0.12f * static_cast<float>(i);
-                draw->AddLine(s(x, 0.62f), s(x, i == 0 || i == 3 ? 0.26f : 0.16f), colour, weight);
-            }
-            draw->AddLine(s(0.30f, 0.72f), s(0.14f, 0.52f), colour, weight);
-            break;
-        }
-
-        case Icon::Zoom: {
-            // A magnifier.
-            const float weight = std::max(1.6f, size * 0.09f);
-            draw->AddCircle(s(0.42f, 0.42f), size * 0.24f, colour, 20, weight);
-            draw->AddLine(s(0.60f, 0.60f), s(0.84f, 0.84f), colour, weight * 1.4f);
-            break;
-        }
-
-        case Icon::Eye:
-        case Icon::EyeShut: {
-            // Two arcs for the lid and a pupil; shut is the lower lid alone.
-            const float weight = std::max(1.5f, size * 0.08f);
-            const ImVec2 centre = s(0.5f, 0.5f);
-            const float rx = size * 0.36f;
-            const float ry = size * 0.24f;
-            draw->PathClear();
-            for (int i = 0; i <= 12; ++i) {
-                const float t = 3.14159265f + 3.14159265f * static_cast<float>(i) / 12.f;
-                draw->PathLineTo(ImVec2(centre.x + rx * std::cos(t), centre.y - ry * std::sin(t)));
-            }
-            draw->PathStroke(colour, 0, weight);
-            if (icon == Icon::Eye) {
-                draw->PathClear();
-                for (int i = 0; i <= 12; ++i) {
-                    const float t = 3.14159265f * static_cast<float>(i) / 12.f;
-                    draw->PathLineTo(ImVec2(centre.x + rx * std::cos(t), centre.y - ry * std::sin(t)));
-                }
-                draw->PathStroke(colour, 0, weight);
-                draw->AddCircleFilled(centre, size * 0.11f, colour, 12);
-            }
-            break;
-        }
-
-        case Icon::Line: {
-            const float weight = std::max(1.8f, size * 0.09f);
-            draw->AddLine(s(0.18f, 0.82f), s(0.82f, 0.18f), colour, weight);
-            // End points, so it reads as a segment with handles rather than as
-            // a stray diagonal.
-            draw->AddCircleFilled(s(0.18f, 0.82f), size * 0.085f, colour, 10);
-            draw->AddCircleFilled(s(0.82f, 0.18f), size * 0.085f, colour, 10);
-            break;
-        }
-
-        case Icon::Dropper: {
-            // A pipette. The bulb is a circle rather than a wider quad: a quad
-            // merges into the shaft and the whole thing reads as a carrot.
-            draw->AddCircleFilled(s(0.735f, 0.265f), size * 0.175f, colour, 16);
-
-            // A collar, so bulb and shaft are two parts rather than one taper.
-            axisQuad(draw, s, ImVec2(0.60f, 0.40f), ImVec2(0.66f, 0.34f), 0.105f,
-                     colour);
-            draw->AddLine(s(0.585f, 0.415f), s(0.675f, 0.325f),
-                          ImGui::GetColorU32(gPalette.panelBackground),
-                          std::max(1.2f, size * 0.055f));
-
-            axisQuad(draw, s, ImVec2(0.28f, 0.72f), ImVec2(0.60f, 0.40f), 0.062f,
-                     colour);
-
-            const float px = 0.062f * 0.7071f;
-            draw->AddTriangleFilled(s(0.13f, 0.87f),
-                                    s(0.28f + px, 0.72f + px),
-                                    s(0.28f - px, 0.72f - px), colour);
-            break;
+        draw->AddPolyline(points.data(), static_cast<int>(points.size()), colour,
+                          line.closed ? ImDrawFlags_Closed : ImDrawFlags_None, stroke);
+        // Round ends and a round dot where a stroke is a point: ImGui's polyline
+        // is butt-ended, and a Lucide icon is not.
+        if (!line.closed) {
+            draw->AddCircleFilled(points.front(), stroke * 0.5f, colour);
+            draw->AddCircleFilled(points.back(), stroke * 0.5f, colour);
         }
     }
 }

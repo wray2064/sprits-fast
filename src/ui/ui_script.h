@@ -27,6 +27,7 @@
 //     expect missing Tween        and one that was not
 //     expect docked elements 1    a panel (its ID, see layout.h) docked, or 0: floating
 //     expect width layers 200 300 a panel's width, in screen pixels
+//     expect height timeline 150 250  a panel's height, in screen pixels
 //     drag 3 3 20 20 [steps] [right]
 //     drag-screen 40 0 [steps] [middle|right]  a drag by screen pixels from where
 //                                 the pointer is -- a pan moves the canvas under it

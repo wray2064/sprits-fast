@@ -19,6 +19,9 @@
 
 #include <imgui.h>
 
+#include <string>
+#include <vector>
+
 namespace fast {
 
 // The IDs panels are known by: the part after ### in their titles, so a
@@ -35,6 +38,39 @@ constexpr const char* kReferences = "###references";
 constexpr const char* kTimeline   = "###timeline";
 constexpr const char* kCanvas     = "###canvas";
 } // namespace panel
+
+// --- named layouts ---------------------------------------------------------------
+//
+// Three arrangements the program builds itself, and the person's own: Save
+// current layout keeps the dock as it is (ImGui's own layout text, with which
+// panels are open) under a name, in `<settings>/layouts`, and choosing it puts
+// it back. A saved layout is only ever read as a layout: bounded, and by a
+// plain id that is a file name.
+
+enum class LayoutPreset { Drawing = 0, Animation = 1, Compact = 2 };
+const char* presetName(LayoutPreset preset);
+
+// Rebuilds the dock as `preset` on the next frame, with the panels it wants open.
+void useLayoutPreset(Editor& editor, LayoutPreset preset);
+
+struct SavedLayout {
+    std::string id;     // "my-layout": the file's name
+    std::string name;   // "My layout"
+};
+
+// Where this run keeps them: the person's settings, or beside a scripted run.
+std::string layoutsFolderFor(const Editor& editor);
+std::vector<SavedLayout> savedLayouts(const std::string& folder);
+bool saveLayoutAs(const std::string& folder, const std::string& name, std::string* savedId,
+                  std::string* error);
+bool deleteSavedLayout(const std::string& folder, const std::string& id);
+// Queues a saved layout; applyPendingLayout, called before the frame begins,
+// puts it in force.
+void useSavedLayout(Editor& editor, const std::string& folder, const std::string& id);
+void applyPendingLayout(Editor& editor);
+
+// The dialog behind Window > Layouts > Save current layout: a name, and Save.
+void drawSaveLayoutDialog(Editor& editor);
 
 // Tells ImGui about the panels' open flags, so they are kept in the layout
 // file with the arrangement. Call once, after the ImGui context is made.
