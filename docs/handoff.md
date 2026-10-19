@@ -228,6 +228,20 @@ The engine's model is in `../livesprite-engine/docs/concepts.md`.
 - **The engine's snapshot does not carry Fast's package entries.**
   `Document`'s history carries them, or undoing an import would leave its
   image behind.
+- **`ImDrawList::AddRect` takes thickness before flags** since ImGui 1.92.8.
+  `AddRect(a, b, col, round, ImDrawFlags_RoundCornersTop)` compiles and means a
+  48-pixel outline (the enum converts to the float). Pass both
+  (`round, 1.f, flags`); the six-argument call in the old order still works.
+- **A window that may scroll sideways widens its work rect** to the last
+  frame's widest content, so full-width rows follow the widest thing and never
+  shrink, and one that always may shows a bar with nothing to scroll after a
+  vertical bar has come and gone. Open Fast's panels with `beginPanel`
+  (`ui/layout.h`), and measure overflow with `window->ScrollMax.x`, not by
+  comparing against `WorkRect`.
+- **A window cannot be smaller than `WindowMinSize`** (32 pixels, scaled): a
+  24-pixel tab drawn in one hangs over what is below it.
+- **A script can fail once at random while the desktop is in use** (see
+  `docs/testing.md`): rerun it before looking for a cause.
 - **Shell escapes.** Never write code through a Bash heredoc, `python -c`,
   or `sed` with `\n`. Use an editor, or a script written with
   `newline='\n'` (the repository is LF).
