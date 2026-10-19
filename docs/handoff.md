@@ -64,7 +64,7 @@ From PowerShell in this folder:
 |---|---|---|
 | Core and tests | `.\build.bat test` | `build\`, no window, seconds; 49 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 37 scripts; all must pass; CI runs them |
+| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 38 scripts; all must pass; CI runs them |
 | The gallery | `.\tools\gallery.ps1` | every screen in every theme at 100% and 150%, 270 images and a contact sheet per screen in `build-gui\gallery`; look at it before calling a visual change done |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |
 
@@ -162,6 +162,9 @@ starts with a comment saying what it is and why.
 - Panels and tools: `panels.cpp`, `timeline.cpp`, `puppet_panel`,
   `reference_section`, `transform_gizmo`, `shape_tools`, `selection_tools`,
   `tile_tools`, `slice_tool`.
+- `timeline_drawer`: the Timeline when it is not pinned -- a tab at the canvas's
+  edge and a strip that opens over it (`showTimeline`, `toggleTimeline`,
+  `pinTimeline`); the strip itself is `timeline.cpp`.
 - `theme` (colours, fonts, spacing, the one `drawIcon` call), `widgets` (the
   component kit; Window > Interface kit shows it), `appearance` (Preferences >
   Appearance) and `layout` (the dock: three built arrangements and the

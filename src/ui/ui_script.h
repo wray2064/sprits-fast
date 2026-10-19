@@ -20,6 +20,7 @@
 //                                 a button, a menu, a menu item, a checkbox;
 //                                 LABEL @2 is the second of several so called
 //     right-click-on Layer 1 / double-click-on Layer 1
+//     hover-on timeline tab       the pointer onto a widget, left there, with no click
 //     drag-onto Layer 2 => Layer 1   press on one widget, let go on another
 //     drag-from Elements by -400 60  press on a widget and drag it by screen
 //                                 pixels -- a panel's tab out of its dock
@@ -37,6 +38,9 @@
 //     key ctrl+z                  a chord pressed and released
 //     type hello                  text into whatever has the keyboard
 //     wait 5                      frames
+//     pause 600                   milliseconds of real time, frames running -- for
+//                                 what the interface does after a delay (a drawer
+//                                 that opens when the pointer rests, and tucks)
 //     expect drawn 20 [40]        pixels drawn in the frame on show: at least, at most
 //     expect pixel 3 4 e08f40     a pixel's colour, or `empty`
 //     expect elements Rectangle 1 how many of an element kind the active layer has
@@ -121,7 +125,7 @@ private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
                     Reference, Open, Start, Answer, Remove, ZoomTo, Role,
-                    Wheel, UseTheme, UseScale, DemoRoles } kind = Wait;
+                    Wheel, UseTheme, UseScale, DemoRoles, Pause } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         int         index = 0;             // Widget: which of several, from 1; 0 the last drawn
@@ -147,6 +151,7 @@ private:
     float       pointerX_ = 0.f, pointerY_ = 0.f;   // canvas pixels, or the window's
     bool        pointerOnWindow_ = false;           // after a click-on: window coordinates
     int         waitedFor_ = 0;                     // frames a click-on has waited for its widget
+    uint64_t    pauseUntil_ = 0;                    // when a `pause` ends, in SDL ticks; 0 if none
     std::string shot_;
     std::string path_;
 };

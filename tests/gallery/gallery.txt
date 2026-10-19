@@ -35,6 +35,8 @@ click-on Window
 click-on Layouts
 click-on Drawing
 wait 4
+click-on timeline tab
+wait 4
 click-on + Frame
 wait 3
 colour 7a4fd0
@@ -44,6 +46,8 @@ wait 3
 colour 20b2aa
 drag 16 12 20 16
 click-on cell @1
+wait 3
+click-on Hide
 wait 3
 
 for-each theme
@@ -58,6 +62,14 @@ click-on Layouts
 click-on Drawing
 wait 5
 shot {theme}_{scale}_drawing.png
+wait 3
+
+# The timeline is a drawer here: a tab at the canvas's edge, and open over it.
+click-on timeline tab
+wait 4
+shot {theme}_{scale}_timeline-drawer.png
+wait 3
+click-on Hide
 wait 3
 
 # A menu open, and a context menu.

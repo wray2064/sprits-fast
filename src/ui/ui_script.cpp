@@ -539,6 +539,12 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
             add(down);
             Step up = down; up.down = false; add(up);
         }
+    } else if (verb == "hover-on" && w.size() >= 2) {
+        // The pointer onto a widget and left there, with no click.
+        Step at; at.kind = Step::Widget; at.text = line.substr(line.find(verb) + verb.size() + 1);
+        splitIndex(&at.text, &at.index);
+        at.skip = 0;
+        add(at);
     } else if (verb == "drag-onto" && line.find("=>") != std::string::npos) {
         const std::string rest = line.substr(line.find(verb) + verb.size() + 1);
         const size_t arrow = rest.find("=>");
@@ -584,6 +590,12 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         Step up = down; up.down = false; add(up);
     } else if (verb == "type" && w.size() >= 2) {
         Step s; s.kind = Step::Text; s.text = line.substr(line.find("type") + 5); add(s);
+    } else if (verb == "pause" && w.size() == 2) {
+        Step p; p.kind = Step::Pause;
+        if (!fast::number(w[1], &p.x) || p.x < 0.f || p.x > 20000.f) {
+            return fail("not a time in milliseconds");
+        }
+        add(p);
     } else if (verb == "wait" && w.size() == 2) {
         const int frames = std::max(1, std::atoi(w[1].c_str()));
         for (int i = 0; i < frames; ++i) {
@@ -698,6 +710,19 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::DemoRoles:
                 addExtraRoles(demoRoles());
                 return;
+            case Step::Pause: {
+                // Real time with the frames running, a frame at a time.
+                const uint64_t now = SDL_GetTicks();
+                if (pauseUntil_ == 0) {
+                    pauseUntil_ = now + static_cast<uint64_t>(step.x) + 1;
+                }
+                if (now < pauseUntil_) {
+                    --next_;
+                    return;
+                }
+                pauseUntil_ = 0;
+                return;
+            }
             case Step::Answer: {
                 // What a native dialog's callback would have left, put where it
                 // would have left it.

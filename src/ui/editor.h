@@ -84,6 +84,15 @@ struct PreviewSettings {
 // than putting the animation permanently behind.
 struct TimelineSettings {
     bool visible = false;
+    // Where the Timeline lives when it is shown. Pinned, it is a panel like the
+    // rest: docked under the canvas, taking its height out of it. Unpinned, it is
+    // a drawer -- a tab along the canvas's bottom edge that opens a strip over it
+    // and tucks away again (ui/timeline_drawer.h) -- so the canvas keeps the whole
+    // window until the strip is wanted.
+    bool pinned = false;
+    bool drawerOpen = false;        // opened and kept open: by T, or a click on its tab
+    bool drawerHot = false;         // opened by the pointer resting on its tab; tucks when it leaves
+    uint64_t drawerSinceMs = 0;     // since when the pointer rested on the tab, or left the drawer
     bool playing = false;
     int  activeFrame = 0;
     int  activeCycle = -1;          // -1 is every frame, in order

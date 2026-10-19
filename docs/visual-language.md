@@ -109,6 +109,29 @@ scripts click by.
 A window that is not modal (Preferences, the shortcut list) closes with Escape
 when it is focused and nothing is being typed.
 
+## Where a panel lives: docked, or a drawer
+
+Most panels dock (drag a tab to the side of another to dock beside it, onto it to
+share its place, out over the canvas to float) and Window > Layouts rearranges
+them. The **Timeline** is the one that comes and goes (`ui/timeline_drawer.h`):
+
+- **A drawer** by default. A small tab at the bottom edge of the canvas says which
+  frame is showing and whether it plays. Resting the pointer on it opens the strip
+  over the bottom of the canvas, and it tucks away when the pointer leaves;
+  clicking the tab, or pressing **T**, keeps it open until T, Escape or Hide. It
+  takes no room: the canvas does not resize when it comes and goes.
+- **Pinned** (the Pin button, or Window > Pin the timeline): an ordinary docked
+  panel under the canvas, which takes its height. The Animation layout pins it;
+  Drawing and Compact leave it a drawer. Both are kept in the layout file and in
+  a saved layout.
+
+A panel that should behave this way takes the same shape: a tab that says enough
+to be worth looking at, a short dwell before it opens and a longer one before it
+tucks (so a slip of the pointer neither opens nor closes it), stays open while a
+field or a drag inside it is in use, and a Pin that makes it an ordinary panel.
+A program built on Fast gets this for the Timeline for free: what it puts there
+(`AppExtension::timeline`) is the strip, in either form.
+
 ## Icons (`theme::drawIcon`)
 
 One set, Lucide (ISC), compiled in as SVG and drawn as strokes, so an icon is

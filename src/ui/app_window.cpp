@@ -48,6 +48,7 @@
 #include "ui/editor.h"
 #include "ui/panels.h"
 #include "ui/theme.h"
+#include "ui/timeline_drawer.h"
 #include "ui/transform_gizmo.h"
 #include "ui/puppet_panel.h"
 #include "ui/reference_section.h"
@@ -852,7 +853,21 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         toggle("Properties", &editor.panels.properties, nullptr);
         toggle("Transform", &editor.panels.transform, nullptr);
         toggle("Puppet", &editor.panels.puppet, nullptr);
-        toggle("Timeline", &editor.timeline.visible, "view.timeline");
+        {
+            // Shown from here, a Timeline that is a drawer is opened: it was asked for.
+            const bool wasShown = editor.timeline.visible;
+            toggle("Timeline", &editor.timeline.visible, "view.timeline");
+            if (!wasShown && editor.timeline.visible && !editor.timeline.pinned) {
+                editor.timeline.drawerOpen = true;
+            }
+            if (ImGui::MenuItem(tr("Pin the timeline"), nullptr, editor.timeline.pinned)) {
+                pinTimeline(editor, !editor.timeline.pinned);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", tr("Docked under the canvas, or a drawer that opens over "
+                                           "it when wanted and tucks away."));
+            }
+        }
         ImGui::Separator();
         toggle("References", &editor.panels.references, "view.references");
         ImGui::MenuItem(tr("Preview"), "P", &editor.preview.visible);
@@ -897,6 +912,9 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (ImGui::MenuItem(tr("Reset layout"))) {
             editor.panels = Editor::Panels{};
             editor.panels.resetLayout = true;
+            editor.timeline.pinned = false;     // the default is a drawer
+            editor.timeline.drawerOpen = false;
+            editor.timeline.drawerHot = false;
             ImGui::MarkIniSettingsDirty();
         }
         if (ImGui::IsItemHovered()) {
@@ -3197,13 +3215,13 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         if (at >= 0) {
             resyncFrames(editor);
             selectFrame(editor, at);
-            editor.timeline.visible = true;
+            showTimeline(editor);
             editor.say("Duplicated frame");
         }
     }
 
     // The view.
-    if (fired("view.timeline")) { editor.timeline.visible = !editor.timeline.visible; }
+    if (fired("view.timeline")) { toggleTimeline(editor); }
     if (fired("view.preview")) { editor.preview.visible = !editor.preview.visible; }
     if (fired("view.references")) {
         editor.panels.references = !editor.panels.references;
@@ -3419,6 +3437,9 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         });
     drawRulers(editor, canvas);
     editor.hovered = hovered;
+    // Where the canvas is, for a Timeline that opens over it.
+    const ImVec2 canvasPos = ImGui::GetWindowPos();
+    const ImVec2 canvasSize = ImGui::GetWindowSize();
 
     // The preview goes on top of the canvas and takes its clicks first, so a
     // stroke is not started by someone reaching for a backdrop swatch.
@@ -3443,21 +3464,31 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 
-    // The timeline docks under the canvas by default and takes its height
-    // out of it rather than covering it: an animator wants to see the frame
-    // and the strip at once.
+    // The timeline is one of two things (ui/timeline_drawer.h). Pinned, it docks
+    // under the canvas and takes its height out of it rather than covering it:
+    // an animator wants to see the frame and the strip at once. Unpinned, it is
+    // a drawer over the bottom of the canvas that opens when wanted and tucks
+    // away, so a person drawing has the whole window.
     if (editor.timeline.visible) {
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
-        if (ImGui::Begin(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible,
-                         kDockable)) {
+        const auto strip = [&editor, &canvas]() {
             if (gExtension != nullptr && gExtension->timeline) {
                 gExtension->timeline(editor, canvas);
             } else {
                 drawTimelinePanel(editor, canvas);
             }
+        };
+        if (editor.timeline.pinned) {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
+            if (ImGui::Begin(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible,
+                             kDockable)) {
+                drawTimelineHeader(editor, false);
+                strip();
+            }
+            ImGui::End();
+            ImGui::PopStyleVar();
+        } else {
+            drawTimelineDrawer(editor, canvasPos, canvasSize, strip);
         }
-        ImGui::End();
-        ImGui::PopStyleVar();
     }
 
     ImGui::SetNextWindowPos({left, top + bodyHeight});
@@ -3884,6 +3915,7 @@ void drawDemoContent(Editor& editor) {
 
     selectFrame(editor, 0);
     editor.timeline.visible = true;
+    editor.timeline.pinned = true;      // a capture shows the strip docked
     editor.timeline.onion = true;
 
     editor.say("Demo content");
@@ -5280,6 +5312,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         editor.timeline.rangeAnchor = 0;
         selectFrame(editor, 2);
         editor.timeline.visible = true;
+        editor.timeline.pinned = true;  // a capture shows the strip docked
         editor.timeline.onion = true;
         resyncLayers(editor);
     }

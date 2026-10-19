@@ -28,9 +28,12 @@ expect docked elements 1
 expect missing Import image...
 
 # A panel closed and opened again comes back docked where it was: the
-# timeline under the canvas, the transform in the right column.
+# timeline under the canvas (once it is pinned: until then it is a drawer, see
+# timeline_drawer.txt), the transform in the right column.
 key t
 wait 2
+click-on Pin
+wait 3
 expect docked timeline 1
 key t
 wait 2

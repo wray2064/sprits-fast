@@ -191,6 +191,7 @@ if (FAST_BUILD_GUI)
         src/ui/tile_tools.cpp
         src/ui/panels.cpp
         src/ui/timeline.cpp
+        src/ui/timeline_drawer.cpp
         src/ui/theme.cpp
         src/ui/file_commands.cpp
     )

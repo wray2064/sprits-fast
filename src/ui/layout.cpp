@@ -66,6 +66,13 @@ void readLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* lin
     }
     if (name == "timeline") {
         editor->timeline.visible = on;
+        // A layout written before the drawer existed had the Timeline docked when
+        // it was shown, so that is what it was: pinned, unless it says otherwise
+        // (timelinePinned follows in a layout written since).
+        editor->timeline.pinned = on;
+    }
+    if (name == "timelinePinned") {
+        editor->timeline.pinned = on;
     }
 }
 
@@ -78,6 +85,7 @@ void writeAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out
         out->appendf("%s=%d\n", flag.name, gEditor->panels.*flag.field ? 1 : 0);
     }
     out->appendf("timeline=%d\n", gEditor->timeline.visible ? 1 : 0);
+    out->appendf("timelinePinned=%d\n", gEditor->timeline.pinned ? 1 : 0);
     out->append("\n");
 }
 
@@ -106,7 +114,9 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
                                                      side / size.x, nullptr, &centre);
     const ImGuiID right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right,
                                                       side / (size.x - side), nullptr, &centre);
-    const float timelineHeight = preset == LayoutPreset::Animation ? 0.36f * size.y : 214.f;
+    // The height the Timeline has when it is pinned: its rows and the frame
+    // strip under them, with the header row that holds Unpin.
+    const float timelineHeight = preset == LayoutPreset::Animation ? 0.36f * size.y : 246.f;
     const ImGuiID bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down,
                                                        timelineHeight / size.y, nullptr, &centre);
     ImGuiID palette = 0;
@@ -177,12 +187,16 @@ const char* presetName(LayoutPreset preset) {
 void useLayoutPreset(Editor& editor, LayoutPreset preset) {
     editor.panels.preset = static_cast<int>(preset);
     editor.panels.resetLayout = true;
-    // Which panels are open goes with the arrangement: all of them, except that
-    // Compact puts the timeline away.
+    // Which panels are open goes with the arrangement: all of them. The Timeline
+    // is pinned in Animation, where the strip is what the work is about, and a
+    // drawer in the others, where the canvas is.
     editor.panels.tool = editor.panels.palette = editor.panels.layers = true;
     editor.panels.elements = editor.panels.properties = editor.panels.transform = true;
     editor.panels.puppet = true;
-    editor.timeline.visible = preset != LayoutPreset::Compact;
+    editor.timeline.visible = true;
+    editor.timeline.pinned = preset == LayoutPreset::Animation;
+    editor.timeline.drawerOpen = false;
+    editor.timeline.drawerHot = false;
     ImGui::MarkIniSettingsDirty();
 }
 

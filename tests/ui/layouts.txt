@@ -4,29 +4,34 @@
 expect missing Play
 expect item Rotate
 
-# Compact keeps the timeline away and makes the Transform panel a tab that is
-# not the one showing.
+# Compact keeps the timeline a drawer -- a tab at the canvas's edge, the strip
+# not taking any room -- and makes the Transform panel a tab that is not the one
+# showing.
 click-on Window
 click-on Layouts
 click-on Compact
 wait 5
 expect missing Play
+expect item timeline tab
 expect missing Rotate
 
-# Drawing brings both back: the timeline opens, the transform is in view.
+# Drawing brings the transform back into view; the timeline is a drawer there too.
 click-on Window
 click-on Layouts
 click-on Drawing
 wait 5
-expect item Play
+expect missing Play
+expect item timeline tab
 expect item Rotate
 
-# Animation keeps the timeline, and groups the other panels as tabs.
+# Animation pins the timeline under the canvas, and groups the other panels as
+# tabs.
 click-on Window
 click-on Layouts
 click-on Animation
 wait 5
 expect item Play
+expect missing timeline tab
 expect missing Rotate
 expect height timeline 280 330
 expect height layers 390 450
@@ -53,6 +58,7 @@ click-on Layouts
 click-on My Anim
 wait 6
 expect item Play
+expect missing timeline tab
 expect missing Rotate
 expect height timeline 280 330
 expect height layers 390 450

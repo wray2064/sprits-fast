@@ -80,6 +80,11 @@ decisions. Progress:
       and goes in between frames. A scripted run keeps them in
       `ui_selftest_layouts`. `tests/ui/layouts.txt` saves, switches away,
       restores and deletes, checking panel heights come back as saved.
+- [x] **After stage 6, at the user's request: the Timeline as a drawer** that opens
+      over the canvas when wanted and tucks away, and can be pinned (see
+      `visual-language.md`, "Where a panel lives"). Unpinned by default, pinned by
+      the Animation layout; saved in the layout file and in saved layouts (a layout
+      file written before it, with the timeline shown, reads as pinned).
 - [x] **Stage 6, the Pract seam, `visual-language.md`, the gallery.**
       `AppExtension::roles` and `::themes`: a program registers roles of its own
       (`ExtraRole`: an id like `pract.track`, a label and group, a default for a

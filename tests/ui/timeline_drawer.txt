@@ -1,0 +1,86 @@
+# The Timeline as a drawer: a tab at the canvas's bottom edge that opens a strip
+# over the canvas when it is wanted and tucks away, and Pin, which docks it under
+# the canvas as a panel. The canvas keeps its height while it is a drawer.
+key ctrl+0
+expect height canvas 840 850
+
+# A document of one frame shows no Timeline at all.
+expect missing timeline tab
+expect missing Play
+
+# T asks for it: the strip opens and stays open.
+key t
+wait 3
+expect item Play
+expect item Pin
+expect item Hide
+expect missing timeline tab
+expect height canvas 840 850
+click-on + Frame
+wait 3
+expect frames 2
+
+# Hide: a tab at the edge, saying which frame, and the strip gone.
+click-on Hide
+wait 3
+expect missing Play
+expect item timeline tab
+expect height canvas 840 850
+
+# T opens it and tucks it again.
+key t
+wait 3
+expect item Play
+key t
+wait 3
+expect missing Play
+
+# A click on the tab keeps it open; Escape, with the strip in use, tucks it.
+click-on timeline tab
+wait 3
+expect item Play
+click-on Onion
+wait 2
+key escape
+wait 3
+expect missing Play
+
+# The pointer resting on the tab opens it, and leaving tucks it. (Real time:
+# it takes a moment to open so that reaching for the canvas's edge does not, and
+# a moment to tuck so that a slip off the strip's edge does not.)
+hover-on timeline tab
+pause 600
+wait 3
+expect item Play
+move 5 5
+pause 1000
+wait 3
+expect missing Play
+expect item timeline tab
+
+# Pin docks it under the canvas, where it is a panel like the rest and the
+# canvas gives up the height; Unpin lets it go back.
+click-on timeline tab
+wait 3
+click-on Pin
+wait 4
+expect docked timeline 1
+expect item Play
+expect item Unpin
+expect missing timeline tab
+expect height canvas 585 610
+click-on Unpin
+wait 4
+expect missing Play
+expect item timeline tab
+expect height canvas 840 850
+
+# Window > Pin the timeline is the same choice.
+click-on Window
+click-on Pin the timeline
+wait 4
+expect docked timeline 1
+click-on Window
+click-on Pin the timeline
+wait 4
+expect missing Play
