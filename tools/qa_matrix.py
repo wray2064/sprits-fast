@@ -7,7 +7,7 @@
 
 Three tables, each from the code itself:
 
-  menus      every menu item in src/ui/app_window.cpp, and the UI scripts that
+  menus      every menu item in src/ui/menu_bar.cpp, and the UI scripts that
              click it (`click-on LABEL`) -- or `key CHORD` for its shortcut
   commands   every named command in app/keymap.cpp (tools and the rest), and the
              scripts that choose the tool (`tool NAME`), press its key, or run it
@@ -47,10 +47,9 @@ def menu_items():
     labels from the top menu down, ['File', 'Export PNG', 'Indexed, the palette as its
     table']. Items whose labels are made at run time (the scales, the minutes) are not
     here; the scripts that click them are what covers them."""
-    text = read(os.path.join(ROOT, 'src', 'ui', 'app_window.cpp'))
+    text = read(os.path.join(ROOT, 'src', 'ui', 'menu_bar.cpp'))
     start = text.index('void drawMenuBar(')
-    end = text.index('void drawSheetImportPanel(')
-    body = text[start:end]
+    body = text[start:]
     items = []
     stack = []
     for match in re.finditer(r'(BeginMenu|MenuItem)\(tr\("([^"]+)"\)|ImGui::EndMenu\(\)', body):
