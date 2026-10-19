@@ -38,11 +38,12 @@
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
+#include <array>
+#include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
-#include <map>
-#include <array>
 #include <vector>
 
 namespace fast {

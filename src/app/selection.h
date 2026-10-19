@@ -17,6 +17,7 @@
 #include "app/document.h"
 #include "app/bucket.h"
 
+#include <cstdint>
 #include <vector>
 
 namespace fast {

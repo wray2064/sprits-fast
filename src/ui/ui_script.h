@@ -114,6 +114,7 @@
 
 #include <imgui.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

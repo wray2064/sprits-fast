@@ -16,6 +16,8 @@
 #include "ui/canvas_view.h"
 #include "ui/editor.h"
 
+#include <string>
+
 struct SDL_Window;
 
 namespace fast {

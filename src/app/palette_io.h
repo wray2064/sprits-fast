@@ -30,6 +30,7 @@
 #include "app/document.h"
 #include "app/palette.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

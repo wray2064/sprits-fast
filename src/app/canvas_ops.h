@@ -28,6 +28,9 @@
 
 #include "app/document.h"
 
+#include <cstdint>
+#include <string>
+
 namespace fast {
 
 enum class CanvasAnchor { TopLeft, Top, TopRight, Left, Centre, Right,

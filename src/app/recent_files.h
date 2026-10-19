@@ -17,6 +17,7 @@
 // one it replaced.
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 

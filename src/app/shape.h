@@ -25,6 +25,7 @@
 #include "app/paint.h"
 
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>

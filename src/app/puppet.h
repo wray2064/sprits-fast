@@ -35,6 +35,7 @@
 
 #include <cmath>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fast {

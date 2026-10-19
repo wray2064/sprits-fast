@@ -20,6 +20,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <cstdint>
 #include <string>
 
 namespace fast {

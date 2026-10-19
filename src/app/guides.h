@@ -11,6 +11,7 @@
 
 #include "app/document.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

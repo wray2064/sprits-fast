@@ -23,6 +23,7 @@
 #include <SDL3/SDL.h>
 
 #include <functional>
+#include <cstdint>
 
 namespace fast {
 

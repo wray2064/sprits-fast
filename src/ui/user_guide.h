@@ -14,6 +14,8 @@
 #include "app/guide.h"
 #include "ui/editor.h"
 
+#include <vector>
+
 namespace fast {
 
 // Every topic, read once.

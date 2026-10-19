@@ -12,6 +12,7 @@
 
 #include <livesprite/livesprite.h>
 
+#include <cstdint>
 #include <vector>
 
 namespace fast {
