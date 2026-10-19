@@ -115,6 +115,7 @@ add_library(fast_core STATIC
     src/app/templates.cpp
     src/app/recent_colours.cpp
     src/app/tips.cpp
+    src/app/text_util.cpp
     src/app/theme_tokens.cpp
     src/app/theme_store.cpp
     src/app/vector_icon.cpp

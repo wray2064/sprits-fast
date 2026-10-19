@@ -4,6 +4,7 @@
 #include "app/theme_store.h"
 
 #include "app/file_io.h"
+#include "app/text_util.h"
 
 #include <algorithm>
 
@@ -14,18 +15,6 @@ namespace {
 const char* const kExtension = ".lstheme";
 
 // An id that is a safe file name: what themeIdFromName makes.
-bool plainId(const std::string& id) {
-    if (id.empty() || id.size() > 48) {
-        return false;
-    }
-    for (char ch : id) {
-        if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-')) {
-            return false;
-        }
-    }
-    return true;
-}
-
 std::string pathFor(const std::string& folder, const std::string& id) {
     return joinPath(folder, id + kExtension);
 }
@@ -123,7 +112,7 @@ bool saveCustomTheme(const std::string& folder, const Theme& theme, std::string*
 }
 
 bool deleteCustomTheme(const std::string& folder, const std::string& id) {
-    if (folder.empty() || !plainId(id) || findBuiltinTheme(id) != nullptr) {
+    if (folder.empty() || !isPlainId(id) || findBuiltinTheme(id) != nullptr) {
         return false;
     }
     const std::string path = pathFor(folder, id);
@@ -137,7 +126,7 @@ bool findTheme(const std::string& folder, const std::string& id, Theme* out) {
         }
         return true;
     }
-    if (!plainId(id)) {
+    if (!isPlainId(id)) {
         return false;
     }
     for (const Theme& theme : loadCustomThemes(folder)) {

@@ -5,26 +5,13 @@
 #include "app/file_io.h"
 #include "app/image_io.h"
 #include "app/palette_tools.h"
+#include "app/text_util.h"
 
 #include <algorithm>
 #include <cstdio>
 
 namespace fast {
 namespace {
-
-std::string trimmed(const std::string& text) {
-    size_t start = 0;
-    while (start < text.size() && (text[start] == ' ' || text[start] == '\t' ||
-                                   text[start] == '\r')) {
-        ++start;
-    }
-    size_t end = text.size();
-    while (end > start && (text[end - 1] == ' ' || text[end - 1] == '\t' ||
-                           text[end - 1] == '\r')) {
-        --end;
-    }
-    return text.substr(start, end - start);
-}
 
 std::vector<std::string> lines(const std::string& text) {
     std::vector<std::string> out;
@@ -51,7 +38,7 @@ int hexValue(char c) {
 // "rrggbb" or "#rrggbb", and Lospec's occasional "rrggbbaa". Anything else is
 // not a colour and says so.
 bool parseHexColor(const std::string& raw, ls::Color* out) {
-    std::string text = trimmed(raw);
+    std::string text = trim(raw);
     if (!text.empty() && text[0] == '#') {
         text = text.substr(1);
     }
@@ -95,7 +82,7 @@ bool parseByte(const std::string& text, uint8_t* out) {
 // with any run of spaces or tabs counting as one separator, because the files
 // in the wild are column-aligned by hand.
 bool parseGplLine(const std::string& raw, ls::Color* color, std::string* label) {
-    const std::string text = trimmed(raw);
+    const std::string text = trim(raw);
     if (text.empty() || text[0] == '#') {
         return false;
     }
@@ -135,7 +122,7 @@ bool parseGplLine(const std::string& raw, ls::Color* color, std::string* label) 
         while (at < text.size() && text[at] != ' ' && text[at] != '\t') { ++at; }
         ++seen;
     }
-    *label = trimmed(text.substr(at));
+    *label = trim(text.substr(at));
     return true;
 }
 
@@ -148,10 +135,10 @@ bool parsePalette(const std::string& text, PaletteFile* out, std::string* error)
     *out = PaletteFile{};
 
     const std::vector<std::string> all = lines(text);
-    const bool gpl = !all.empty() && trimmed(all.front()).rfind("GIMP Palette", 0) == 0;
+    const bool gpl = !all.empty() && trim(all.front()).rfind("GIMP Palette", 0) == 0;
     // JASC's header is "JASC-PAL", a version, and a count; after it, the
     // colour lines read exactly as .gpl's do.
-    const bool jasc = !all.empty() && trimmed(all.front()).rfind("JASC-PAL", 0) == 0;
+    const bool jasc = !all.empty() && trim(all.front()).rfind("JASC-PAL", 0) == 0;
 
     PaletteFile file;
     size_t skipped = 0;
@@ -161,7 +148,7 @@ bool parsePalette(const std::string& text, PaletteFile* out, std::string* error)
         if (file.entries.size() >= kMaxPaletteEntries) {
             break;
         }
-        const std::string line = trimmed(raw);
+        const std::string line = trim(raw);
         if (line.empty()) {
             continue;
         }
@@ -185,7 +172,7 @@ bool parsePalette(const std::string& text, PaletteFile* out, std::string* error)
                 continue;
             }
             if (line.rfind("Name:", 0) == 0) {
-                file.name = trimmed(line.substr(5));
+                file.name = trim(line.substr(5));
                 continue;
             }
             if (line[0] == '#') {

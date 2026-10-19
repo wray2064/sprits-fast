@@ -3,6 +3,8 @@
 
 #include "app/slices.h"
 
+#include "app/text_util.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -15,19 +17,6 @@ namespace {
 constexpr const char* kSlicesKey = "fast.slices";
 constexpr size_t kMaxSlices = 512;
 constexpr size_t kMaxNameLength = 64;
-
-std::vector<std::string> split(const std::string& text, char by) {
-    std::vector<std::string> parts;
-    size_t start = 0;
-    for (;;) {
-        const size_t at = text.find(by, start);
-        parts.push_back(text.substr(start, at == std::string::npos ? std::string::npos : at - start));
-        if (at == std::string::npos) {
-            return parts;
-        }
-        start = at + 1;
-    }
-}
 
 bool integer(const std::string& text, int32_t* out) {
     if (text.empty()) {

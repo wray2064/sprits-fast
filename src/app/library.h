@@ -55,9 +55,6 @@ std::vector<LibraryDocument> listDocuments(const std::string& folder);
 // The images directly in `folder`.
 std::vector<LibraryImage> listImages(const std::string& folder);
 
-// The folders directly in `folder`, for walking into one.
-std::vector<std::string> listFolders(const std::string& folder);
-
 // Builds the thumbnail for a document and stores it under kThumbnailEntry.
 // Called on save. Failure is not an error worth stopping a save for -- a file
 // without a thumbnail lists with a blank square, which is worse than nothing

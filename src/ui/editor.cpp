@@ -241,34 +241,6 @@ int frameToShow(const Editor& editor, uint64_t nowMs) {
     return at < 0 ? editor.timeline.activeFrame : at;
 }
 
-bool selectedPixels(Editor& editor, PaintLayer* out) {
-    PaintLayer* layer = editor.active();
-    if (layer == nullptr || out == nullptr) {
-        return false;
-    }
-    const Element* first = nullptr;
-    const std::vector<Element> elements = elementsOf(editor.doc, layer->layer);
-    for (const Element& element : elements) {
-        if (element.kind != ElementKind::Paint) {
-            continue;
-        }
-        if (first == nullptr) {
-            first = &element;
-        }
-        if (element.fill == editor.activeElement) {
-            first = &element;
-            break;
-        }
-    }
-    if (first == nullptr) {
-        return false;
-    }
-    out->layer = layer->layer;
-    out->fill = first->fill;
-    out->region = first->region;
-    return true;
-}
-
 void loadSettings(Editor& editor) {
     std::vector<uint8_t> bytes;
     std::string error;

@@ -72,6 +72,9 @@ struct Palette {
 
 const Palette& palette();
 
+// A role's colour as ImGui draws with it.
+ImVec4 toImVec4(Rgba colour);
+
 // The theme in force: its colours are what palette() says.
 const Theme& current();
 // A role a program built on Fast registered (AppExtension::roles), as the theme
@@ -83,7 +86,6 @@ ImU32 extraU32(const char* id);
 // in app/theme_tokens.h; a person's come from `*.lstheme` files.
 void setTheme(const Theme& theme);
 
-bool isLight();
 // Slate or Paper, for callers that only know light and dark.
 void setLight(bool light);
 
@@ -187,10 +189,6 @@ bool eyeToggle(const char* id, bool visible, float size = 16.f);
 
 // A colour swatch. `selected` draws the ring that marks the active colour.
 bool swatch(const char* id, ImU32 colour, bool selected, float size = 20.f);
-
-// A label and a value on one line, the label dim and the value bright. Used by
-// the status bar, where scanning matters more than reading.
-void statusItem(const char* label, const char* value, bool bright = true);
 
 // The side of a tool button, which follows the font and the density, and the
 // width of the rail they sit in. A thin line between groups of tools.

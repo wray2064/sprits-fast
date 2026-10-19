@@ -3,6 +3,8 @@
 
 #include "app/keymap.h"
 
+#include "app/text_util.h"
+
 #include <algorithm>
 #include <cctype>
 
@@ -21,21 +23,6 @@ Chord key(const char* name, bool ctrl = false, bool shift = false, bool alt = fa
 
 Chord ctrl(const char* name, bool shift = false) { return key(name, true, shift); }
 Chord shift(const char* name) { return key(name, false, true); }
-
-std::string lower(std::string text) {
-    for (char& c : text) {
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    }
-    return text;
-}
-
-std::string trim(const std::string& text) {
-    size_t a = 0;
-    size_t b = text.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(text[a]))) { ++a; }
-    while (b > a && std::isspace(static_cast<unsigned char>(text[b - 1]))) { --b; }
-    return text.substr(a, b - a);
-}
 
 } // namespace
 

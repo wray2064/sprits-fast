@@ -6,6 +6,7 @@
 
 #include "app/document.h"
 #include "app/file_io.h"
+#include "app/text_util.h"
 
 #include <algorithm>
 #include <cctype>
@@ -14,14 +15,6 @@
 namespace fast {
 
 namespace {
-
-std::string trim(const std::string& text) {
-    size_t a = 0;
-    size_t b = text.size();
-    while (a < b && std::isspace(static_cast<unsigned char>(text[a]))) { ++a; }
-    while (b > a && std::isspace(static_cast<unsigned char>(text[b - 1]))) { --b; }
-    return text.substr(a, b - a);
-}
 
 long long number(const std::string& text, long long low, long long high, long long fallback) {
     char* end = nullptr;

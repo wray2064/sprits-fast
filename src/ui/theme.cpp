@@ -20,14 +20,15 @@
 
 namespace fast {
 namespace theme {
-namespace {
 
-float gScale = 1.f;     // the person's interface scale; see setScale
-
-ImVec4 vec(Rgba colour) {
+ImVec4 toImVec4(Rgba colour) {
     return ImVec4(static_cast<float>(colour.r) / 255.f, static_cast<float>(colour.g) / 255.f,
                   static_cast<float>(colour.b) / 255.f, static_cast<float>(colour.a) / 255.f);
 }
+
+namespace {
+
+float gScale = 1.f;     // the person's interface scale; see setScale
 
 // The window's colours are the theme's roles (app/theme_tokens.h), turned into
 // what ImGui draws with. The first seven names are the ones the panels have
@@ -35,46 +36,46 @@ ImVec4 vec(Rgba colour) {
 // onto as each is rebuilt.
 Palette paletteFor(const Theme& t) {
     Palette p {};
-    p.windowBackground = vec(t[Token::App]);
-    p.panelBackground = vec(t[Token::Panel]);
-    p.canvasBackground = vec(t[Token::Canvas]);
-    p.control = vec(t[Token::Control]);
-    p.controlHovered = vec(t[Token::ControlHover]);
-    p.controlActive = vec(t[Token::ControlPressed]);
-    p.border = vec(t[Token::Border]);
-    p.text = vec(t[Token::TextPrimary]);
-    p.textDim = vec(t[Token::TextSecondary]);
-    p.textBright = vec(t[Token::TextStrong]);
-    p.accent = vec(t[Token::Accent]);
-    p.accentDim = vec(t[Token::AccentSubtle]);
-    p.danger = vec(t[Token::Danger]);
-    p.checkerLight = vec(t[Token::CheckerA]);
-    p.checkerDark = vec(t[Token::CheckerB]);
+    p.windowBackground = toImVec4(t[Token::App]);
+    p.panelBackground = toImVec4(t[Token::Panel]);
+    p.canvasBackground = toImVec4(t[Token::Canvas]);
+    p.control = toImVec4(t[Token::Control]);
+    p.controlHovered = toImVec4(t[Token::ControlHover]);
+    p.controlActive = toImVec4(t[Token::ControlPressed]);
+    p.border = toImVec4(t[Token::Border]);
+    p.text = toImVec4(t[Token::TextPrimary]);
+    p.textDim = toImVec4(t[Token::TextSecondary]);
+    p.textBright = toImVec4(t[Token::TextStrong]);
+    p.accent = toImVec4(t[Token::Accent]);
+    p.accentDim = toImVec4(t[Token::AccentSubtle]);
+    p.danger = toImVec4(t[Token::Danger]);
+    p.checkerLight = toImVec4(t[Token::CheckerA]);
+    p.checkerDark = toImVec4(t[Token::CheckerB]);
 
-    p.raised = vec(t[Token::Raised]);
-    p.inset = vec(t[Token::Inset]);
-    p.textMuted = vec(t[Token::TextMuted]);
-    p.textDisabled = vec(t[Token::TextDisabled]);
-    p.textOnAccent = vec(t[Token::TextOnAccent]);
-    p.separator = vec(t[Token::Separator]);
-    p.focus = vec(t[Token::Focus]);
-    p.selected = vec(t[Token::Selected]);
-    p.selectedText = vec(t[Token::SelectedText]);
-    p.accentText = vec(t[Token::AccentText]);
-    p.accentHover = vec(t[Token::AccentHover]);
-    p.accentPressed = vec(t[Token::AccentPressed]);
-    p.success = vec(t[Token::Success]);
-    p.warning = vec(t[Token::Warning]);
-    p.info = vec(t[Token::Info]);
-    p.successSubtle = vec(t[Token::SuccessSubtle]);
-    p.warningSubtle = vec(t[Token::WarningSubtle]);
-    p.dangerSubtle = vec(t[Token::DangerSubtle]);
-    p.infoSubtle = vec(t[Token::InfoSubtle]);
-    p.gridLine = vec(t[Token::GridLine]);
-    p.selectionLine = vec(t[Token::SelectionLine]);
-    p.guide = vec(t[Token::Guide]);
-    p.onionPast = vec(t[Token::OnionPast]);
-    p.onionFuture = vec(t[Token::OnionFuture]);
+    p.raised = toImVec4(t[Token::Raised]);
+    p.inset = toImVec4(t[Token::Inset]);
+    p.textMuted = toImVec4(t[Token::TextMuted]);
+    p.textDisabled = toImVec4(t[Token::TextDisabled]);
+    p.textOnAccent = toImVec4(t[Token::TextOnAccent]);
+    p.separator = toImVec4(t[Token::Separator]);
+    p.focus = toImVec4(t[Token::Focus]);
+    p.selected = toImVec4(t[Token::Selected]);
+    p.selectedText = toImVec4(t[Token::SelectedText]);
+    p.accentText = toImVec4(t[Token::AccentText]);
+    p.accentHover = toImVec4(t[Token::AccentHover]);
+    p.accentPressed = toImVec4(t[Token::AccentPressed]);
+    p.success = toImVec4(t[Token::Success]);
+    p.warning = toImVec4(t[Token::Warning]);
+    p.info = toImVec4(t[Token::Info]);
+    p.successSubtle = toImVec4(t[Token::SuccessSubtle]);
+    p.warningSubtle = toImVec4(t[Token::WarningSubtle]);
+    p.dangerSubtle = toImVec4(t[Token::DangerSubtle]);
+    p.infoSubtle = toImVec4(t[Token::InfoSubtle]);
+    p.gridLine = toImVec4(t[Token::GridLine]);
+    p.selectionLine = toImVec4(t[Token::SelectionLine]);
+    p.guide = toImVec4(t[Token::Guide]);
+    p.onionPast = toImVec4(t[Token::OnionPast]);
+    p.onionFuture = toImVec4(t[Token::OnionFuture]);
     return p;
 }
 
@@ -131,16 +132,13 @@ const Palette& palette() { return gPalette; }
 const Theme& current() { return gTheme; }
 
 ImVec4 extra(const char* id) {
-    const Rgba c = gTheme.extraColour(id);
-    return ImVec4(c.r / 255.f, c.g / 255.f, c.b / 255.f, c.a / 255.f);
+    return toImVec4(gTheme.extraColour(id));
 }
 
 ImU32 extraU32(const char* id) {
     const Rgba c = gTheme.extraColour(id);
     return IM_COL32(c.r, c.g, c.b, c.a);
 }
-
-bool isLight() { return !gTheme.dark; }
 
 void setTheme(const Theme& theme) {
     gTheme = theme;
@@ -639,17 +637,6 @@ bool swatch(const char* id, ImU32 colour, bool selected, float size) {
 
     ImGui::PopID();
     return pressed;
-}
-
-void statusItem(const char* label, const char* value, bool bright) {
-    ImGui::PushStyleColor(ImGuiCol_Text, gPalette.textDim);
-    ImGui::TextUnformatted(label);
-    ImGui::PopStyleColor();
-    ImGui::SameLine(0.f, 5.f);
-    ImGui::PushStyleColor(ImGuiCol_Text,
-                          bright ? gPalette.textBright : gPalette.text);
-    ImGui::TextUnformatted(value);
-    ImGui::PopStyleColor();
 }
 
 float hintWidth() {

@@ -3,6 +3,8 @@
 
 #include "app/theme_tokens.h"
 
+#include "app/text_util.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -754,14 +756,6 @@ constexpr size_t kMaxLines = 512;
 constexpr size_t kMaxLineLength = 200;
 constexpr size_t kMaxNameLength = 48;
 
-std::string trimmed(const std::string& text) {
-    size_t a = 0;
-    size_t b = text.size();
-    while (a < b && (text[a] == ' ' || text[a] == '\t' || text[a] == '\r')) { ++a; }
-    while (b > a && (text[b - 1] == ' ' || text[b - 1] == '\t' || text[b - 1] == '\r')) { --b; }
-    return text.substr(a, b - a);
-}
-
 // A name that is safe as a file name and as an id: letters, digits, dashes.
 std::string idFrom(const std::string& name) {
     std::string id;
@@ -812,7 +806,7 @@ bool parseTheme(const std::string& text, Theme* out, ThemeReport* report) {
     while (start != std::string::npos && start < text.size() && lines.size() < kMaxLines) {
         const size_t from = start + 1;
         size_t end = text.find('\n', from);
-        const std::string line = trimmed(text.substr(from, (end == std::string::npos
+        const std::string line = trim(text.substr(from, (end == std::string::npos
                                                               ? text.size() : end) - from));
         start = end;
         ++r.lines;
@@ -824,8 +818,8 @@ bool parseTheme(const std::string& text, Theme* out, ThemeReport* report) {
             ++r.unknownKeys;
             continue;
         }
-        const std::string key = trimmed(line.substr(0, equals));
-        const std::string value = trimmed(line.substr(equals + 1));
+        const std::string key = trim(line.substr(0, equals));
+        const std::string value = trim(line.substr(equals + 1));
         if (key == "base") {
             base = value;
         } else if (key == "name") {

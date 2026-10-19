@@ -375,13 +375,6 @@ void drawStepRow(Editor& editor) {
 
 } // namespace
 
-float timelinePanelHeight(const Editor& editor) {
-    if (!editor.timeline.visible) {
-        return 0.f;
-    }
-    return theme::px(editor.timeline.activeCycle >= 0 ? kBaseHeight + kStepsHeight : kBaseHeight);
-}
-
 void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
                    ImVec2 origin, float zoom) {
     const TimelineSettings& timeline = editor.timeline;

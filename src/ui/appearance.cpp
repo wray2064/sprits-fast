@@ -31,10 +31,6 @@ uint32_t packRgb(Rgba c) {
     return (static_cast<uint32_t>(c.r) << 16) | (static_cast<uint32_t>(c.g) << 8) | c.b;
 }
 
-ImVec4 vec(Rgba c) {
-    return ImVec4(c.r / 255.f, c.g / 255.f, c.b / 255.f, c.a / 255.f);
-}
-
 // What a person is told a role is called: Fast's own, or one a program built on
 // it registered. An id nobody knows is shown as it is.
 std::string roleLabel(const std::string& name) {
@@ -352,7 +348,7 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
                 ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 2.f);
                 ImGui::PushStyleColor(ImGuiCol_Border, p.textBright);
             }
-            if (ImGui::ColorButton("##accent", vec(preset.colour), ImGuiColorEditFlags_NoTooltip,
+            if (ImGui::ColorButton("##accent", theme::toImVec4(preset.colour), ImGuiColorEditFlags_NoTooltip,
                                    ImVec2(side, side))) {
                 const Theme before = a.working;
                 applyAccent(&a.working, preset.colour);

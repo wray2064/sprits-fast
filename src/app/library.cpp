@@ -50,16 +50,6 @@ std::vector<LibraryImage> listImages(const std::string& folder) {
     return out;
 }
 
-std::vector<std::string> listFolders(const std::string& folder) {
-    std::vector<std::string> out;
-    for (const DirectoryEntry& entry : listDirectory(folder)) {
-        if (entry.directory) {
-            out.push_back(entry.path);
-        }
-    }
-    return out;
-}
-
 bool updateThumbnail(Document& doc) {
     auto info = doc.engine().getDocumentInfo(doc.id());
     if (info.fail() || info.value.sprites.empty()) {

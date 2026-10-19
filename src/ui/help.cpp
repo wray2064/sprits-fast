@@ -4,6 +4,7 @@
 #include "ui/help.h"
 
 #include "app/i18n.h"
+#include "app/text_util.h"
 #include "ui/keys.h"
 #include "ui/start_screen.h"
 #include "ui/theme.h"
@@ -18,12 +19,6 @@
 namespace fast {
 
 namespace {
-
-std::string lower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return text;
-}
 
 // Whether a filter (already lower case) is in a command's label, group or keys.
 bool matches(const CommandInfo& command, const std::string& keys, const std::string& filter) {

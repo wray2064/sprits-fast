@@ -757,11 +757,6 @@ void      fromColor(ls::Color colour, float rgba[4]);
 // and drawing on it would fail silently.
 void resyncLayers(Editor& editor);
 
-// The freehand element the element panel is editing, as a PaintLayer the
-// dither and colour helpers take: the selected element when it is pixels, and
-// otherwise the layer's first pixels. False when the layer has none.
-bool selectedPixels(Editor& editor, PaintLayer* out);
-
 // Reads the keys and preferences from the settings folder, and writes them
 // back. Writing is atomic; a missing folder means nothing is kept, silently.
 void loadSettings(Editor& editor);

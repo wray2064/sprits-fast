@@ -3,6 +3,7 @@
 
 #include "app/animation.h"
 #include "app/puppet.h"
+#include "app/text_util.h"
 #include "app/tilemap.h"
 
 #include <algorithm>
@@ -60,56 +61,9 @@ bool writeCycles(Document& doc, const std::vector<Cycle>& cycles) {
     return doc.engine().setMetadata(doc.id().value, kCyclesKey, encodeCycles(cycles)).ok();
 }
 
-// --- the name escape ------------------------------------------------------
-//
-// Only three characters can hurt: the field separator, the line separator, and
-// the escape itself. Everything else, including any UTF-8, passes through
-// untouched -- escaping bytes above 127 would mangle every name that is not
-// English.
-
-std::string escape(const std::string& text) {
-    std::string out;
-    out.reserve(text.size());
-    for (char c : text) {
-        switch (c) {
-            case '|':  out += "%7C"; break;
-            case '\n': out += "%0A"; break;
-            case '\r': out += "%0D"; break;
-            case '%':  out += "%25"; break;
-            default:   out.push_back(c); break;
-        }
-    }
-    return out;
-}
-
-int hexDigit(char c) {
-    if (c >= '0' && c <= '9') { return c - '0'; }
-    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
-    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
-    return -1;
-}
-
-std::string unescape(const std::string& text) {
-    std::string out;
-    out.reserve(text.size());
-    for (size_t i = 0; i < text.size(); ++i) {
-        if (text[i] != '%' || i + 2 >= text.size()) {
-            // A trailing, truncated escape is kept as the literal character it
-            // is rather than reading past the end of the string.
-            out.push_back(text[i]);
-            continue;
-        }
-        const int high = hexDigit(text[i + 1]);
-        const int low  = hexDigit(text[i + 2]);
-        if (high < 0 || low < 0) {
-            out.push_back(text[i]);
-            continue;
-        }
-        out.push_back(static_cast<char>(high * 16 + low));
-        i += 2;
-    }
-    return out;
-}
+// A cycle's name is written with escapeField (app/text_util.h): only the field
+// separator, the line separator and the escape itself are touched, so any UTF-8
+// passes through unchanged.
 
 std::vector<std::string> splitOn(const std::string& text, char separator, size_t limit) {
     std::vector<std::string> parts;
@@ -773,7 +727,7 @@ Cycle everyFrame(int frameCount) {
 std::string encodeCycles(const std::vector<Cycle>& cycles) {
     std::string out = "lsfast-cycles 1\n";
     for (const Cycle& cycle : cycles) {
-        out += escape(cycle.name);
+        out += escapeField(cycle.name);
         out += '|';
         out += std::to_string(static_cast<int>(cycle.loop));
         out += '|';
@@ -812,7 +766,7 @@ bool decodeCycles(const std::string& text, std::vector<Cycle>* out) {
         }
 
         Cycle cycle;
-        cycle.name = trimName(unescape(fields[0]));
+        cycle.name = trimName(unescapeField(fields[0]));
 
         int loop = 0;
         if (!readInt(fields[1], &loop) || loop < 0 || loop > 2) {

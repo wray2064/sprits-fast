@@ -6,6 +6,7 @@
 #include "app/file_io.h"
 #include "app/theme_tokens.h"
 #include "app/i18n.h"
+#include "app/text_util.h"
 #include "ui/theme.h"
 #include "ui/widgets.h"
 
@@ -187,18 +188,6 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
 
 // Whether a named file is one of the person's saved layouts, by its id: the
 // same plain ids a theme has, because it is a file name.
-bool plainId(const std::string& id) {
-    if (id.empty() || id.size() > 48) {
-        return false;
-    }
-    for (char ch : id) {
-        if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-')) {
-            return false;
-        }
-    }
-    return true;
-}
-
 constexpr size_t kMaxSavedLayouts = 32;
 constexpr size_t kMaxLayoutBytes = 64 * 1024;
 
@@ -250,7 +239,7 @@ std::vector<SavedLayout> savedLayouts(const std::string& folder) {
             continue;
         }
         const std::string id = fileStem(entry.name);
-        if (!plainId(id)) {
+        if (!isPlainId(id)) {
             continue;
         }
         // The name is the first line, as a comment ImGui skips: "; My layout".
@@ -325,7 +314,7 @@ bool saveLayoutAs(const std::string& folder, const std::string& name, std::strin
 }
 
 bool deleteSavedLayout(const std::string& folder, const std::string& id) {
-    if (folder.empty() || !plainId(id)) {
+    if (folder.empty() || !isPlainId(id)) {
         return false;
     }
     const std::string path = joinPath(folder, id + ".ini");
@@ -333,7 +322,7 @@ bool deleteSavedLayout(const std::string& folder, const std::string& id) {
 }
 
 void useSavedLayout(Editor& editor, const std::string& folder, const std::string& id) {
-    if (folder.empty() || !plainId(id)) {
+    if (folder.empty() || !isPlainId(id)) {
         return;
     }
     std::vector<uint8_t> bytes;

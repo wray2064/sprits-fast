@@ -4,6 +4,7 @@
 #include "app/i18n.h"
 
 #include "app/file_io.h"
+#include "app/text_util.h"
 
 #include <algorithm>
 #include <cstring>
@@ -22,14 +23,6 @@ std::unordered_map<std::string, std::string>& withIds() {
 std::unordered_map<std::string, std::string>& catalogue() {
     static std::unordered_map<std::string, std::string> table;
     return table;
-}
-
-std::string trim(const std::string& text) {
-    size_t a = 0;
-    size_t b = text.size();
-    while (a < b && (text[a] == ' ' || text[a] == '\t' || text[a] == '\r')) { ++a; }
-    while (b > a && (text[b - 1] == ' ' || text[b - 1] == '\t' || text[b - 1] == '\r')) { --b; }
-    return text.substr(a, b - a);
 }
 
 std::string unescape(const std::string& text) {

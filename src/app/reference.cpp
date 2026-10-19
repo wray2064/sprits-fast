@@ -5,6 +5,7 @@
 
 #include "app/file_io.h"
 #include "app/image_io.h"
+#include "app/text_util.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,63 +14,8 @@
 namespace fast {
 namespace {
 
-// The same escape the cycles use: only the field separator, the line
-// separator and the escape itself can hurt, and everything else -- including
-// any UTF-8 -- passes through, because escaping bytes above 127 would mangle
-// every name that is not English.
-std::string escape(const std::string& text) {
-    std::string out;
-    out.reserve(text.size());
-    for (char c : text) {
-        switch (c) {
-            case '|':  out += "%7C"; break;
-            case '\n': out += "%0A"; break;
-            case '\r': out += "%0D"; break;
-            case '%':  out += "%25"; break;
-            default:   out.push_back(c); break;
-        }
-    }
-    return out;
-}
-
-int hexDigit(char c) {
-    if (c >= '0' && c <= '9') { return c - '0'; }
-    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
-    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
-    return -1;
-}
-
-std::string unescape(const std::string& text) {
-    std::string out;
-    out.reserve(text.size());
-    for (size_t i = 0; i < text.size(); ++i) {
-        if (text[i] != '%' || i + 2 >= text.size()) {
-            out.push_back(text[i]);
-            continue;
-        }
-        const int high = hexDigit(text[i + 1]);
-        const int low  = hexDigit(text[i + 2]);
-        if (high < 0 || low < 0) {
-            out.push_back(text[i]);
-            continue;
-        }
-        out.push_back(static_cast<char>(high * 16 + low));
-        i += 2;
-    }
-    return out;
-}
-
-std::vector<std::string> split(const std::string& line, char separator) {
-    std::vector<std::string> out;
-    size_t start = 0;
-    for (size_t i = 0; i <= line.size(); ++i) {
-        if (i == line.size() || line[i] == separator) {
-            out.push_back(line.substr(start, i - start));
-            start = i + 1;
-        }
-    }
-    return out;
-}
+// A reference's name is written with escapeField, as a cycle's is
+// (app/text_util.h), and its line is split with split.
 
 float toFloat(const std::string& text, float fallback) {
     if (text.empty() || text.size() > 32) {
@@ -127,7 +73,7 @@ std::string encodeReferences(const std::vector<Reference>& references) {
     for (const Reference& reference : references) {
         out += reference.id;
         out += '|';
-        out += escape(reference.name);
+        out += escapeField(reference.name);
         out += '|';
         out += std::to_string(reference.width);
         out += '|';
@@ -186,7 +132,7 @@ bool decodeReferences(const std::string& text, std::vector<Reference>* out) {
         }
         Reference reference;
         reference.id = fields[0];
-        reference.name = unescape(fields[1]);
+        reference.name = unescapeField(fields[1]);
         if (reference.name.size() > 128) {
             reference.name.resize(128);
         }
