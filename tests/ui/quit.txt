@@ -1,0 +1,35 @@
+# Quit and Close tab ask before they throw unsaved work away; Cancel and Escape
+# stay, Discard goes. The last step ends the program, so the run ends there.
+tool pencil
+click 3 3
+expect flag modified on
+
+menu File > Quit
+wait 2
+expect item Discard
+click-on Cancel
+wait 2
+expect missing Discard
+expect tabs 1
+
+key ctrl+q
+wait 2
+expect item Discard
+key escape
+wait 2
+expect missing Discard
+
+menu File > Close tab
+wait 2
+expect item Discard
+click-on Cancel
+wait 2
+expect missing Discard
+expect tabs 1
+expect flag modified on
+
+# Discard on Quit leaves the program.
+menu File > Quit
+wait 2
+click-on Discard
+wait 30

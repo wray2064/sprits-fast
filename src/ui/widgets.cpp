@@ -520,6 +520,16 @@ int dialogButtons(const char* primary, const char* secondary, bool primaryEnable
     return result;
 }
 
+bool escapePutsAway() {
+    // A popup or a dialog open over the window takes the key first: it is the
+    // popup's own way out, and the window stays.
+    if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) {
+        return false;
+    }
+    return ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+           !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+}
+
 // ---------------------------------------------------------------------- gallery --
 
 void drawGallery(bool* open) {
@@ -533,6 +543,9 @@ void drawGallery(bool* open) {
     if (!ImGui::Begin(tr("Interface kit"), open)) {
         ImGui::End();
         return;
+    }
+    if (escapePutsAway()) {
+        *open = false;
     }
     static bool on = true;
     static bool off = false;

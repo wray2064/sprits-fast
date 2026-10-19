@@ -48,7 +48,7 @@ void RecentFiles::load() {
     entries_.clear();
 
     const std::string path = storagePath();
-    if (path.empty()) {
+    if (path.empty() || inMemory_) {
         return;
     }
 
@@ -73,7 +73,7 @@ void RecentFiles::load() {
 
 void RecentFiles::save() const {
     const std::string path = storagePath();
-    if (path.empty()) {
+    if (path.empty() || inMemory_) {
         return;
     }
 

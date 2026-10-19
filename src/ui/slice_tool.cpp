@@ -7,6 +7,7 @@
 #include "app/grid_snap.h"
 #include "app/slices.h"
 #include "ui/theme.h"
+#include "ui/widgets.h"
 
 #include <algorithm>
 #include <cmath>
@@ -225,6 +226,9 @@ void drawSlicesPanel(Editor& editor, CanvasView& canvas) {
     if (!ImGui::Begin("Slices", &editor.slicesOpen)) {
         ImGui::End();
         return;
+    }
+    if (widgets::escapePutsAway()) {
+        editor.slicesOpen = false;
     }
     std::vector<Slice> slices = readSlices(editor.doc);
     if (slices.empty()) {

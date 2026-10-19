@@ -51,6 +51,32 @@ person: a script that draws something, then a person trying things on it by
 hand. (It still starts from the default settings and layout, as every
 scripted run does.)
 
+**Running them all.** `.\tools\run_scripts.ps1` runs every script in
+`tests\ui` against `build-gui` (or `-Exe` another build, `-Only menu_` a few)
+and exits with the number that failed. A script fails when a check fails, when
+the program exits with anything but 0, and -- since the runner turned it on --
+when ImGui reports an error in how the interface was built (a cursor moved
+without an item after it, a Push without its Pop, an id used twice). That last
+one found a real bug the first time it was on: hiding the Preview left the canvas
+window with a stray cursor that ImGui flagged on every frame.
+
+**Menus, dialogs, switches.** `menu File > Export PNG > 2x` clicks a path through
+the menus and waits for them to close. A script never sees a native file dialog:
+the click only records which was asked for (`expect dialog export-png`) and
+`answer export-png FILE` gives it a file as the system's would, so every File menu
+item can be clicked without a person to dismiss anything. `expect flag NAME on|off`
+reads a menu switch, `expect tiled`, `expect guides`. A scripted run keeps its
+recent files and library folders in memory, so it neither reads nor overwrites the
+person's own.
+
+**What is not tested.** `docs/qa-matrix.md` lists, from the code itself, every
+menu item, every keymap command and every core module against the scripts and
+tests that touch it. Regenerate it with `python tools\qa_matrix.py` (`--check`
+says whether it is current). A row with nothing against it is a gap and gets a
+script; what a script cannot reach says why in the file (Paste as reference needs
+a picture on the system clipboard, which a script run does not have). It says what
+a test *touches*, not that it checks everything about it.
+
 ## What they found
 
 Everything below was caught by writing the system tests, not by using the

@@ -127,7 +127,7 @@ void LibraryFolders::load() {
     references.clear();
 
     const std::string path = storagePath();
-    if (path.empty()) {
+    if (path.empty() || inMemory) {
         return;
     }
     std::vector<uint8_t> bytes;
@@ -165,7 +165,7 @@ void LibraryFolders::load() {
 
 void LibraryFolders::save() const {
     const std::string path = storagePath();
-    if (path.empty()) {
+    if (path.empty() || inMemory) {
         return;
     }
     std::string text;

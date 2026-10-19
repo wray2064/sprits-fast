@@ -1355,8 +1355,7 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
     // Escape closes it, as it does every dialog -- except while a key is being
     // given, when Escape is that key's way out, and while a picker or a text
     // field has the keyboard.
-    if (editor.rebinding.empty() && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-        !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+    if (editor.rebinding.empty() && widgets::escapePutsAway()) {
         editor.preferencesOpen = false;
     }
     if (ImGui::BeginTabBar("preference-tabs")) {
@@ -1598,6 +1597,9 @@ void drawHistoryPanel(Editor& editor, CanvasView& canvas) {
     }
     ImGui::SetNextWindowSize(ImVec2(260.f, 360.f), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("History", &editor.historyOpen)) {
+        if (widgets::escapePutsAway()) {
+            editor.historyOpen = false;
+        }
         const std::vector<std::string> done = editor.doc.undoLabels();
         const std::vector<std::string> undone = editor.doc.redoLabels();
         int target = -1;           // how many steps should be done afterwards
@@ -5067,6 +5069,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    watchInterfaceErrors();
 
     // Every window is positioned explicitly each frame, so ImGui's saved layout
     // would never be read -- it would only drop an imgui.ini into whatever
@@ -5085,6 +5088,13 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
 
     Editor editor;
     editor.files.dialog.init();
+    // A run that is scripted or captured keeps to the defaults, so what it
+    // captures or checks is the same on every machine, whatever keys and files the
+    // person there has -- and leaves their lists as they are.
+    const bool headless = options.selfTest || options.frames > 0 || !options.script.empty();
+    if (headless) {
+        editor.files.recent.keepInMemory();
+    }
     editor.files.recent.load();
     // Where the panels were left, kept between sessions -- except for a run
     // that is scripted or captured, which starts from the default so what it
@@ -5169,9 +5179,6 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     // The safety net, before anything can be drawn and lost. Autosave is
     // simply off when there is nowhere to write, rather than writing
     // somewhere the person would not think to look.
-    // A headless run keeps to the defaults, so what it captures or checks is
-    // the same on every machine, whatever keys the person there has set.
-    const bool headless = options.selfTest || options.frames > 0 || !options.script.empty();
     if (!headless) {
         loadSettings(editor);
         editor.settingsLoaded = true;
@@ -5214,6 +5221,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         editor.libraryOpen = true;
         editor.libraryStale = true;
     }
+    editor.libraryFolders.inMemory = headless;
     editor.libraryFolders.load();
     // Nothing chosen yet: the folder this document is in is the obvious
     // project, and costs the person no decision.
@@ -5424,6 +5432,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
 
     UiScript script;
     if (!options.script.empty()) {
+        suppressNativeDialogs(true);        // a script answers them; nobody is there to
         std::string scriptError;
         if (!script.load(options.script, &scriptError)) {
             std::printf("script: %s\n", scriptError.c_str());
@@ -5706,6 +5715,12 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
             }
             running = false;
         }
+    }
+
+    // A script that ended the program (File > Quit) still says what it checked.
+    if (script.active()) {
+        script.finishEarly();
+        idleBroken = idleBroken || script.failures() > 0;
     }
 
     // Closing normally is the proof that nothing was lost, so the copies go --

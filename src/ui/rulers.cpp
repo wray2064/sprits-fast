@@ -140,6 +140,10 @@ void drawRulers(Editor& editor, CanvasView& canvas) {
     fromLeft = ImGui::IsItemActivated();
     const bool leftActive = ImGui::IsItemActive();
     ImGui::SetCursorScreenPos(cursor);
+    // The cursor is back past the last item's end, and a window that is told so
+    // without an item after it is told to grow by the cursor alone -- which ImGui
+    // reports as an error every frame. An empty item says where it stands.
+    ImGui::Dummy(ImVec2(0.f, 0.f));
 
     if ((fromTop || fromLeft) && editor.draggingGuide < 0) {
         // A marker under the press is that guide; anywhere else, a new one --

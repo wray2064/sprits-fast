@@ -3106,6 +3106,9 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::End();
         return;
     }
+    if (widgets::escapePutsAway()) {
+        editor.libraryOpen = false;
+    }
 
     if (ImGui::BeginTabBar("libraryTabs")) {
         const bool sprites = ImGui::BeginTabItem(tr("Sprites"));

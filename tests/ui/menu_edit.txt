@@ -1,0 +1,115 @@
+# The Edit menu: the clipboard, what a selection can be filled, stroked or made
+# into, and the turns and flips -- every item clicked where it is drawn.
+key ctrl+0
+tool pencil
+colour e08f40
+drag 2 2 9 2
+expect drawn 8 8
+
+# History is a window of its own; Escape puts it away.
+menu Edit > History...
+wait 2
+expect flag history on
+key escape
+wait 2
+expect flag history off
+
+# Copy and Paste: the paste floats until it is put down.
+tool select
+drag 2 2 5 2
+menu Edit > Copy
+menu Edit > Paste
+expect tool move
+drag 3 2 3 6
+key enter
+expect pixel 2 6 e08f40
+expect pixel 5 6 e08f40
+expect drawn 12 12
+
+# Cut takes the pixels out and keeps them for a paste.
+key ctrl+d
+tool select
+drag 2 6 5 6
+menu Edit > Cut
+expect pixel 2 6 empty
+expect drawn 8 8
+key ctrl+d
+
+# Stroke selection draws the outline of a marquee; Fill selection its inside.
+tool select
+drag 12 12 15 15
+menu Edit > Stroke selection
+key ctrl+d
+expect pixel 12 12 e08f40
+expect pixel 13 13 empty
+tool select
+drag 20 12 23 15
+menu Edit > Fill selection
+key ctrl+d
+expect pixel 21 13 e08f40
+
+# Delete takes a selection's pixels away.
+tool select
+drag 20 12 23 15
+menu Edit > Delete
+expect pixel 21 13 empty
+key ctrl+d
+
+# Brush from selection makes the drawing under a marquee the brush.
+tool select
+drag 2 2 5 2
+menu Edit > Brush from selection
+expect tool pencil
+key ctrl+d
+
+# Flips and turns of a selection: a bar with a notch under it.
+tool pencil
+drag 10 20 14 20
+click 10 21
+tool select
+drag 10 20 14 21
+menu Edit > Flip vertically
+key enter
+expect pixel 10 20 e08f40
+expect pixel 12 20 empty
+expect pixel 12 21 e08f40
+key ctrl+d
+tool select
+drag 10 20 14 21
+menu Edit > Flip horizontally
+key enter
+expect pixel 14 20 e08f40
+expect pixel 10 20 empty
+expect pixel 10 21 e08f40
+key ctrl+d
+tool select
+drag 10 20 14 21
+menu Edit > Rotate 180
+key enter
+expect pixel 14 20 e08f40
+expect pixel 10 21 e08f40
+expect pixel 14 21 empty
+key ctrl+d
+tool select
+drag 10 20 14 21
+menu Edit > Rotate 90 clockwise
+key enter
+key ctrl+d
+tool select
+drag 8 18 16 26
+menu Edit > Rotate 90 anticlockwise
+key enter
+key ctrl+d
+
+# Rotate freely puts a selection on a layer of its own, to turn by any angle.
+tool select
+drag 2 2 5 2
+menu Edit > Rotate freely
+expect layers 2
+key ctrl+d
+
+# Paste as new layer puts what was cut on a layer of its own.
+menu Edit > Paste as new layer
+expect layers 3
+key enter
+wait 2

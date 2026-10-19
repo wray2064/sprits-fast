@@ -19,6 +19,9 @@
 //     click-on + Frame            a widget by its label, as the last frame drew it:
 //                                 a button, a menu, a menu item, a checkbox;
 //                                 LABEL @2 is the second of several so called
+//     menu File > Export PNG > 2x  a path through the menus, each label clicked in turn
+//                                 (the first drawn of that name: the menu bar comes before
+//                                 the panels), and a pause after for the menus to close
 //     right-click-on Layer 1 / double-click-on Layer 1
 //     hover-on timeline tab       the pointer onto a widget, left there, with no click
 //     drag-onto Layer 2 => Layer 1   press on one widget, let go on another
@@ -46,7 +49,7 @@
 //     expect elements Rectangle 1 how many of an element kind the active layer has
 //     expect selected 16 [20]     pixels selected: exactly, or between
 //     expect layers 2 / expect frames 3 / expect tool pencil
-//     expect slices 1 / expect zoom 12 / expect brush 3
+//     expect slices 1 / expect guides 2 / expect zoom 12 / expect brush 3
 //     expect pointer 3 4          the canvas pixel under the pointer
 //     expect frame 2              the frame being edited, from 1
 //     expect rotation 90          the active layer's last Rotate, in degrees
@@ -57,8 +60,20 @@
 //     open shape_test.lsprite     a file opened, as a recent entry or a drop does
 //     start                       the start screen brought up, as File > Start screen does
 //     answer export-png FILE      a native file dialog answered, as the system's would:
-//                                 open, save-as, export-png, export-sheet, export-animation,
-//                                 import-theme, export-theme
+//                                 open, save-as, save-copy, export-png, export-sheet,
+//                                 export-animation, import-palette, export-palette,
+//                                 import-reference, import-sheet, import-theme, export-theme,
+//                                 project-folder, reference-folder. While a script runs the
+//                                 dialogs are never shown: a click that asks for one only
+//                                 records it
+//     expect dialog export-png    ... and this says which was asked for (`none`: no
+//                                 dialog was); reading it clears it
+//     expect flag rulers on       a switch in the menus: rulers, guides, grid, snap,
+//                                 symmetry-across, symmetry-down, preview, tile-grid,
+//                                 isometric, autosave, history, slices, library, kit,
+//                                 preferences, modified, tracks (the same layers in every
+//                                 frame), onion, timeline, pinned -- `on` or `off`
+//     expect tiled both           the tiled mode: off, across, down, both
 //     role panel 1d2229           a role of the working theme set (what the picker
 //                                 in Preferences > Appearance does); a program's own
 //                                 role by its id: role demo.mark ff00ff
@@ -110,6 +125,11 @@ class CanvasView;
 // ImGui does not name -- a combo -- so `click-on Ink mode` opens it.
 void nameForScripts(const char* label);
 
+// Counts what ImGui reports about how the interface was built, and keeps its red
+// boxes and its asserts off the person's screen; a script fails on the first.
+// Call once, after the context is made.
+void watchInterfaceErrors();
+
 class UiScript {
 public:
     // Reads and parses a script. False, with the line that is wrong, when it
@@ -125,6 +145,10 @@ public:
     // before ImGui::NewFrame: runs the checks that are due and feeds the next
     // frame's input.
     void feed(Editor& editor, CanvasView& canvas);
+
+    // For a script the program ended before its last step (a Quit): says what
+    // was checked up to there, as the end of a script does.
+    void finishEarly();
 
     // A screenshot asked for by `shot`, once the frame is drawn; empty when
     // none is due.
@@ -160,6 +184,7 @@ private:
     bool        pointerSet_ = false;
     float       pointerX_ = 0.f, pointerY_ = 0.f;   // canvas pixels, or the window's
     bool        pointerOnWindow_ = false;           // after a click-on: window coordinates
+    bool        reportedInterfaceError_ = false;    // ImGui's error, said once
     int         waitedFor_ = 0;                     // frames a click-on has waited for its widget
     uint64_t    pauseUntil_ = 0;                    // when a `pause` ends, in SDL ticks; 0 if none
     std::string shot_;

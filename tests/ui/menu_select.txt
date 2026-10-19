@@ -1,0 +1,36 @@
+# The Select menu: all, none, the last one again, and the opposite. The canvas
+# is 32 x 32, so everything is 1024 pixels.
+key ctrl+0
+menu Select > All
+expect selected 1024
+menu Select > Deselect
+expect selected 0
+menu Select > Reselect
+expect selected 1024
+menu Select > Deselect
+
+# Invert turns a marquee into everything else.
+tool select
+drag 2 2 5 5
+expect selected 16
+menu Select > Invert
+expect selected 1008
+menu Select > Invert
+expect selected 16
+
+# Modify grows, shrinks and outlines a marquee (one dialog each).
+menu Select > Modify > Contract...
+wait 2
+expect item OK
+click-on Cancel
+wait 2
+menu Select > Modify > Border...
+wait 2
+expect item OK
+click-on Cancel
+wait 2
+menu Select > Modify > Expand...
+wait 2
+click-on OK
+wait 2
+expect selected 36

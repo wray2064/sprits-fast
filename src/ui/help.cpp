@@ -125,8 +125,7 @@ void drawShortcuts(Editor& editor) {
     }
     // Escape puts it away, as it does every dialog (while the filter has the
     // keyboard it is the field's own way out first).
-    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-        !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+    if (widgets::escapePutsAway()) {
         editor.shortcutsOpen = false;
     }
     ImGui::SetNextItemWidth(-1.f);

@@ -1,0 +1,107 @@
+# Commands with a key that no other script presses: the brush smaller, the layer
+# stack, the next palette, a frame back, onion skin, the zoom out, snap, preview,
+# the library, a paste onto a layer of its own, a flip, an inverted marquee, and
+# the keys through the tabs.
+key ctrl+0
+tool pencil
+colour e08f40
+
+# Brush size, up and back down.
+key shift+]
+key shift+]
+expect brush 3
+key shift+[
+expect brush 2
+key shift+[
+expect brush 1
+
+# The stack: two layers; raised and lowered; merged down into one again (there
+# has to be something drawn to merge).
+click 3 3
+click-on Add
+expect layers 2
+key ctrl+[
+key ctrl+]
+expect layers 2
+key ctrl+e
+expect layers 1
+# Grouped, and ungrouped.
+click-on Add
+key ctrl+g
+key ctrl+shift+g
+
+# The next palette, by its key.
+key ctrl+p
+wait 2
+
+# Frames: one more, then back one; onion skin on and off.
+key t
+click-on + Frame
+expect frame 2
+key ,
+expect frame 1
+expect flag onion off
+key o
+expect flag onion on
+key o
+expect flag onion off
+
+# The zoom out by its key; snap to the tile grid, preview and the library.
+zoom 8
+key [
+expect zoom 7
+expect flag snap off
+key shift+s
+expect flag snap on
+key shift+s
+expect flag snap off
+expect flag preview on
+key p
+expect flag preview off
+key p
+expect flag preview on
+key ctrl+l
+wait 2
+expect flag library on
+key ctrl+l
+wait 2
+expect flag library off
+
+# A marquee over a bar: inverted, flipped upside down, copied and pasted as a layer.
+tool pencil
+drag 4 4 11 4
+click 4 5
+tool select
+drag 4 4 11 5
+key ctrl+c
+key shift+v
+key enter
+expect pixel 5 5 e08f40
+expect pixel 5 4 empty
+key ctrl+d
+tool select
+drag 4 4 5 5
+key ctrl+shift+i
+expect selected 1020
+key ctrl+d
+key ctrl+shift+v
+expect layers 3
+key enter
+
+# Tabs: a second document, 16 x 16; ctrl+tab and ctrl+shift+tab go between; ctrl+w closes.
+menu File > Start screen
+wait 2
+click-on Icon 16 x 16
+click-on Create
+wait 2
+expect tabs 2
+expect canvas 16 16
+key ctrl+tab
+wait 2
+expect canvas 32 32
+key ctrl+shift+tab
+wait 2
+expect canvas 16 16
+key ctrl+w
+wait 2
+expect tabs 1

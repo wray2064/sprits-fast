@@ -1,0 +1,84 @@
+# The View menu: the zoom, the grid and rulers and guides, the tile grid, tiled
+# mode and symmetry -- every item clicked where it is drawn, its switch checked.
+key ctrl+0
+zoom 8
+
+# Zoom in and out by a step; fit and reset bring the whole canvas back.
+menu View > Zoom in
+expect zoom 9
+menu View > Zoom out
+expect zoom 8
+menu View > Fit to window
+expect zoom 12 30
+zoom 8
+menu View > Reset view
+expect zoom 8 40
+
+# The pixel grid, rulers and guides are on to begin with; each goes off and on.
+expect flag grid on
+menu View > Pixel grid
+expect flag grid off
+menu View > Pixel grid
+expect flag grid on
+expect flag rulers on
+menu View > Rulers
+expect flag rulers off
+menu View > Rulers
+expect flag rulers on
+expect flag guides on
+menu View > Guides
+expect flag guides off
+menu View > Guides
+expect flag guides on
+
+# Clear guides is for when there are some: drag one out of the ruler first.
+menu View > Slices...
+wait 2
+expect flag slices on
+key escape
+wait 2
+expect flag slices off
+
+# Snap to grid keeps marquees and shapes to the tile grid, and shows it.
+expect flag snap off
+menu View > Snap to grid
+expect flag snap on
+expect flag tile-grid on
+menu View > Snap to grid
+expect flag snap off
+
+# The tile grid: shown, isometric, and its own size.
+menu View > Tile grid > Show
+expect flag tile-grid off
+menu View > Tile grid > Show
+expect flag tile-grid on
+menu View > Tile grid > Isometric
+expect flag isometric on
+menu View > Tile grid > Isometric
+expect flag isometric off
+
+# Tiled mode repeats the canvas beside itself.
+expect tiled off
+menu View > Tiled mode > Across
+expect tiled across
+menu View > Tiled mode > Down
+expect tiled down
+menu View > Tiled mode > Both ways
+expect tiled both
+menu View > Tiled mode > Off
+expect tiled off
+
+# Symmetry across and down; the preview window on and off.
+menu View > Symmetry across
+expect flag symmetry-across on
+menu View > Symmetry across
+expect flag symmetry-across off
+menu View > Symmetry down
+expect flag symmetry-down on
+menu View > Symmetry down
+expect flag symmetry-down off
+expect flag preview on
+menu View > Preview
+expect flag preview off
+menu View > Preview
+expect flag preview on

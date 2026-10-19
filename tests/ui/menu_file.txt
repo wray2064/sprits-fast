@@ -1,0 +1,162 @@
+# The File menu: every item, clicked where it is drawn. A script never sees a
+# native dialog -- a click that asks for one only records it, `expect dialog`
+# says which, and `answer` gives it a file as the system's would.
+tool pencil
+colour 123456
+click 3 3
+expect flag modified on
+
+# New... is the start screen's form; Escape puts it away.
+menu File > New...
+expect item Create
+key escape
+wait 2
+expect missing Create
+
+# Autosave: the interval, a copy written now, and off and on again -- turning it
+# off takes the copy away, so a script leaves nothing behind.
+menu File > Autosave > 5 minutes
+menu File > Autosave > 1 minute
+menu File > Autosave > 10 minutes
+menu File > Autosave > 2 minutes
+menu File > Autosave > Write a copy now
+menu File > Autosave > On
+expect flag autosave off
+menu File > Autosave > On
+expect flag autosave on
+
+# The library is a window of its own; Escape puts it away.
+menu File > Library...
+wait 2
+expect flag library on
+key escape
+wait 2
+expect flag library off
+
+# A reference comes in through a dialog of the system's.
+menu File > Import reference...
+expect dialog import-reference
+answer import-reference tests/ui/sheet.png
+wait 3
+expect item Reference section###referencesection
+click-on Done
+wait 2
+
+# Save asks where, for a document that has no file yet; then it has one.
+menu File > Save
+expect dialog save-as
+answer save-as menu_file_a.lsprite
+wait 3
+expect file menu_file_a.lsprite
+expect flag modified off
+menu File > Save
+expect dialog none
+
+# Save as... asks again, and the document moves to the new file.
+menu File > Save as...
+expect dialog save-as
+answer save-as menu_file_b.lsprite
+wait 3
+expect file menu_file_b.lsprite
+
+# A copy goes elsewhere and the document stays where it is.
+menu File > Save a copy...
+expect dialog save-copy
+answer save-copy menu_file_c.lsprite
+wait 3
+expect file menu_file_c.lsprite
+expect tabs 1
+
+# Export PNG: at each scale, and indexed. (The menu is drawn before the panels,
+# some of which have scales of their own, so its 1x, 2x and 4x are the first.)
+menu File > Export PNG > 1x
+expect dialog export-png
+answer export-png menu_file_1x.png
+wait 3
+expect file menu_file_1x.png
+menu File > Export PNG > 2x
+expect dialog export-png
+answer export-png menu_file_2x.png
+wait 3
+expect file menu_file_2x.png
+menu File > Export PNG > 4x
+expect dialog export-png
+menu File > Export PNG > 8x
+expect dialog export-png
+menu File > Export PNG > 16x
+expect dialog export-png
+menu File > Export PNG > Indexed, the palette as its table
+menu File > Export PNG > 1x
+expect dialog export-png
+answer export-png menu_file_indexed.png
+wait 3
+expect file menu_file_indexed.png
+menu File > Export PNG > Indexed, the palette as its table
+
+# Export sheet... and Export animation... open their settings; Choose a file asks.
+menu File > Export sheet...
+wait 2
+expect item Choose a file...
+click-on Choose a file...
+expect dialog export-sheet
+answer export-sheet menu_file_sheet.png
+wait 3
+expect file menu_file_sheet.png
+menu File > Export animation...
+wait 2
+expect item Choose a file...
+click-on Choose a file...
+expect dialog export-animation
+answer export-animation menu_file_anim.gif
+wait 3
+expect file menu_file_anim.gif
+
+# Export again repeats the last one, to the same file.
+remove menu_file_anim.gif
+menu File > Export again
+wait 3
+expect file menu_file_anim.gif
+
+# Open recent lists what was saved; Clear empties the list.
+menu File > Open recent > menu_file_b.lsprite
+wait 3
+expect tabs 1
+menu File > Open recent > Clear
+wait 2
+
+# Start screen, then back to the work.
+menu File > Start screen
+wait 2
+expect item Create
+click-on Start with a blank canvas
+wait 2
+
+# Open... asks for a file; a sprite sheet is cut into frames in a window.
+menu File > Open...
+expect dialog open
+answer open shape_test.lsprite
+wait 3
+expect tabs 2
+menu File > Import sprite sheet...
+expect dialog import-sheet
+answer import-sheet tests/ui/sheet.png
+wait 3
+expect item Open as frames
+click-on Open as frames
+wait 3
+expect tabs 3
+
+# Close tab puts away the one being worked on.
+menu File > Close tab
+wait 3
+expect tabs 2
+
+remove menu_file_a.lsprite
+remove menu_file_b.lsprite
+remove menu_file_c.lsprite
+remove menu_file_1x.png
+remove menu_file_2x.png
+remove menu_file_indexed.png
+remove menu_file_sheet.png
+remove menu_file_sheet.json
+remove menu_file_anim.gif

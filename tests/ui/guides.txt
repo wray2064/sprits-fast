@@ -1,0 +1,22 @@
+# Guides come off the rulers: a press on the top ruler and a drag down makes one
+# across the canvas, from the left ruler one down it. View > Guides hides them
+# (the rulers keep their markers), and View > Clear guides takes them all away.
+key ctrl+0
+expect guides 0
+
+drag-from ##ruler-top by 0 150
+expect guides 1
+drag-from ##ruler-left by 150 0
+expect guides 2
+
+# Hidden, they are still there; cleared, they are gone -- and one step of undo
+# brings them back.
+menu View > Guides
+expect flag guides off
+expect guides 2
+menu View > Guides
+expect flag guides on
+menu View > Clear guides
+expect guides 0
+key ctrl+z
+expect guides 2

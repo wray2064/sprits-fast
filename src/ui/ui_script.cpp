@@ -7,9 +7,11 @@
 #include "app/element.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/guides.h"
 #include "app/layers.h"
 #include "app/slices.h"
 #include "app/theme_store.h"
+#include "app/tracks.h"
 #include "app/transform.h"
 #include "ui/canvas_view.h"
 #include "ui/layout.h"
@@ -90,6 +92,42 @@ const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) { return 
 namespace fast {
 
 namespace {
+
+// The native dialogs a script can answer or expect, by the names it uses.
+const struct { const char* name; DialogResult::Kind kind; } kDialogNames[] = {
+    { "open",              DialogResult::Kind::Open },
+    { "save-as",           DialogResult::Kind::SaveAs },
+    { "save-copy",         DialogResult::Kind::SaveCopy },
+    { "export-png",        DialogResult::Kind::ExportPng },
+    { "export-sheet",      DialogResult::Kind::ExportSheet },
+    { "export-animation",  DialogResult::Kind::ExportAnimation },
+    { "import-palette",    DialogResult::Kind::ImportPalette },
+    { "export-palette",    DialogResult::Kind::ExportPalette },
+    { "import-reference",  DialogResult::Kind::ImportReference },
+    { "import-sheet",      DialogResult::Kind::ImportSheet },
+    { "import-theme",      DialogResult::Kind::ImportTheme },
+    { "export-theme",      DialogResult::Kind::ExportTheme },
+    { "project-folder",    DialogResult::Kind::ProjectFolder },
+    { "reference-folder",  DialogResult::Kind::ReferenceFolder },
+};
+
+DialogResult::Kind dialogFromName(const std::string& name) {
+    for (const auto& entry : kDialogNames) {
+        if (name == entry.name) {
+            return entry.kind;
+        }
+    }
+    return DialogResult::Kind::None;
+}
+
+std::string dialogName(DialogResult::Kind kind) {
+    for (const auto& entry : kDialogNames) {
+        if (entry.kind == kind) {
+            return entry.name;
+        }
+    }
+    return "none";
+}
 
 // The label as shown: what comes before any ## that only makes the ID unique.
 std::string shownLabel(const std::string& label) {
@@ -556,6 +594,34 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
             add(down);
             Step up = down; up.down = false; add(up);
         }
+    } else if (verb == "menu" && w.size() >= 2) {
+        // A path through the menus, `menu File > Export PNG > 2x`: each label
+        // clicked in turn, and two frames after the last for the menus to close --
+        // a File clicked while the menu is still open would shut it.
+        std::string rest = line.substr(line.find(verb) + verb.size() + 1);
+        size_t start = 0;
+        while (start <= rest.size()) {
+            size_t arrow = rest.find(" > ", start);
+            std::string label = rest.substr(start, arrow == std::string::npos ? std::string::npos
+                                                                               : arrow - start);
+            while (!label.empty() && label.back() == ' ') { label.pop_back(); }
+            if (label.empty()) { return fail("an empty step in the menu path"); }
+            Step at; at.kind = Step::Widget; at.text = label;
+            splitIndex(&at.text, &at.index);
+            // The menu bar is drawn before the panels, some of which have a button
+            // of the same name; a menu's is the first, unless the path says otherwise.
+            if (at.index == 0) { at.index = 1; }
+            at.skip = 2;
+            add(at);
+            Step down; down.kind = Step::Button; down.down = true; down.button = ImGuiMouseButton_Left;
+            add(down);
+            Step up = down; up.down = false; add(up);
+            if (arrow == std::string::npos) { break; }
+            start = arrow + 3;
+        }
+        Step settle; settle.kind = Step::Wait;
+        add(settle);
+        add(settle);
     } else if (verb == "hover-on" && w.size() >= 2) {
         // The pointer onto a widget and left there, with no click.
         Step at; at.kind = Step::Widget; at.text = line.substr(line.find(verb) + verb.size() + 1);
@@ -638,9 +704,42 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
     return true;
 }
 
+namespace {
+
+// What ImGui says about how the interface was built -- a cursor moved without an
+// item after it, a Push without its Pop, an id used twice. Counted, so that a
+// script fails on it; the first message is kept to say what it was.
+int gInterfaceErrors = 0;
+std::string gFirstInterfaceError;
+
+void onInterfaceError(ImGuiContext*, void*, const char* message) {
+    if (gInterfaceErrors++ == 0) {
+        gFirstInterfaceError = message != nullptr ? message : "";
+    }
+}
+
+} // namespace
+
+void watchInterfaceErrors() {
+    ImGuiIO& io = ImGui::GetIO();
+    // ImGui can draw each mistake as a red box and a tooltip, and stop on it. That
+    // is for the person building the interface; one using it should see neither.
+    io.ConfigErrorRecoveryEnableTooltip = false;
+    io.ConfigErrorRecoveryEnableAssert = false;
+    ImGui::GetCurrentContext()->ErrorCallback = onInterfaceError;
+}
+
 void UiScript::feed(Editor& editor, CanvasView& canvas) {
     if (!active()) {
         return;
+    }
+    if (gInterfaceErrors > 0 && !reportedInterfaceError_) {
+        reportedInterfaceError_ = true;
+        const int line = next_ > 0 && next_ <= steps_.size() ? steps_[next_ - 1].line : 0;
+        std::printf("FAIL script:%d: ImGui reported an error in how the interface was built: "
+                    "%s\n", line, gFirstInterfaceError.c_str());
+        ++failures_;
+        ++checks_;
     }
     // The frame just drawn is the one a label is looked for in.
     ImGui::GetCurrentContext()->TestEngineHookItems = true;
@@ -759,14 +858,7 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 // would have left it.
                 using Kind = DialogResult::Kind;
                 const std::string& which = step.args[0];
-                const Kind kind = which == "open" ? Kind::Open
-                                : which == "save-as" ? Kind::SaveAs
-                                : which == "import-theme" ? Kind::ImportTheme
-                                : which == "export-theme" ? Kind::ExportTheme
-                                : which == "export-png" ? Kind::ExportPng
-                                : which == "export-sheet" ? Kind::ExportSheet
-                                : which == "export-animation" ? Kind::ExportAnimation
-                                : Kind::None;
+                const Kind kind = dialogFromName(which);
                 if (kind == Kind::None) {
                     std::printf("FAIL script:%d: no dialog called %s\n", step.line, which.c_str());
                     ++failures_;
@@ -889,6 +981,15 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
     }
     finished_ = true;
     std::printf("script: %d check(s), %d failed\n", checks_, failures_);
+}
+
+void UiScript::finishEarly() {
+    if (!active()) {
+        return;
+    }
+    finished_ = true;
+    std::printf("script: %d check(s), %d failed (the program quit at step %zu of %zu)\n",
+                checks_, failures_, next_, steps_.size());
 }
 
 std::string UiScript::takeShot() {
@@ -1081,6 +1182,59 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
                                              ? topics[static_cast<size_t>(editor.guideTopic)].id
                                              : std::string("nothing")));
         }
+    } else if (step.text == "dialog" && a.size() == 1) {
+        // The native dialog the last click asked for (none was shown): `expect dialog
+        // export-png`, or `expect dialog none`. Reading it clears it.
+        SDL_LockMutex(editor.files.dialog.mutex);
+        const DialogResult::Kind asked = editor.files.dialog.asked;
+        editor.files.dialog.asked = DialogResult::Kind::None;
+        SDL_UnlockMutex(editor.files.dialog.mutex);
+        if (dialogName(asked) != a[0]) {
+            failed("the dialog asked for is " + dialogName(asked));
+        }
+    } else if (step.text == "flag" && a.size() == 2) {
+        // A switch in the menus, on or off: `expect flag rulers on`.
+        TileGrid& tiles = canvas.tileGrid();
+        const struct { const char* name; bool value; } flags[] = {
+            { "rulers",           editor.rulersOn },
+            { "guides",           editor.guidesShown },
+            { "grid",             canvas.gridVisible() },
+            { "snap",             editor.snapToGrid },
+            { "symmetry-across",  editor.symmetryAcross },
+            { "symmetry-down",    editor.symmetryDown },
+            { "preview",          editor.preview.visible },
+            { "tile-grid",        tiles.visible },
+            { "isometric",        tiles.isometric },
+            { "autosave",         editor.autosaveOn },
+            { "history",          editor.historyOpen },
+            { "slices",           editor.slicesOpen },
+            { "library",          editor.libraryOpen },
+            { "kit",              editor.kitOpen },
+            { "preferences",      editor.preferencesOpen },
+            { "modified",         editor.doc.modified() },
+            { "tracks",           tracksOn(editor.doc) },
+            { "onion",            editor.timeline.onion },
+            { "timeline",         editor.timeline.visible },
+            { "pinned",           editor.timeline.pinned },
+        };
+        bool known = false;
+        for (const auto& flag : flags) {
+            if (a[0] == flag.name) {
+                known = true;
+                if (flag.value != (a[1] == "on")) {
+                    failed(a[0] + " is " + (flag.value ? "on" : "off"));
+                }
+            }
+        }
+        if (!known) {
+            failed("no switch called " + a[0]);
+        }
+    } else if (step.text == "tiled" && a.size() == 1) {
+        const char* names[] = { "off", "across", "down", "both" };
+        const int mode = static_cast<int>(canvas.tiledMode());
+        if (mode < 0 || mode > 3 || a[0] != names[mode]) {
+            failed("tiled mode is " + std::string(mode >= 0 && mode <= 3 ? names[mode] : "?"));
+        }
     } else if (step.text == "theme" && a.size() == 1) {
         if (theme::current().id != a[0]) {
             failed("the theme is " + theme::current().id);
@@ -1138,6 +1292,11 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         const ls::Vec2i at = canvas.pointerPixel();
         if (at.x != std::atoi(a[0].c_str()) || at.y != std::atoi(a[1].c_str())) {
             failed("the pointer is over " + std::to_string(at.x) + ", " + std::to_string(at.y));
+        }
+    } else if (step.text == "guides") {
+        const size_t count = readGuides(editor.doc).size();
+        if (count != static_cast<size_t>(std::atoi(a[0].c_str()))) {
+            failed(std::to_string(count) + " guides");
         }
     } else if (step.text == "slices") {
         const size_t count = readSlices(editor.doc).size();

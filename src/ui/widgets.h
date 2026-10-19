@@ -131,6 +131,11 @@ bool beginModal(const char* name, bool* open, ImGuiWindowFlags flags = 0);
 int dialogButtons(const char* primary, const char* secondary = "Cancel",
                   bool primaryEnabled = true);
 
+// For a window that is not modal (History, the shortcut list, the user guide):
+// true when Escape was pressed for it -- it, or something in it, has the focus, and
+// no text field is taking the key as its own way out. Call between Begin and End.
+bool escapePutsAway();
+
 // --- the gallery -----------------------------------------------------------------------
 
 // Every component in every state, in a window of its own.

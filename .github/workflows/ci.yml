@@ -124,3 +124,6 @@ jobs:
             echo "$script"
             ./build/sprits_fast --script "$script"
           done
+          # What the tests touch, written from the code: it must be current, and
+          # a menu item or command added without a script shows up as a gap there.
+          python3 tools/qa_matrix.py --check

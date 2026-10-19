@@ -439,6 +439,10 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_theme_extension_tests PRIVATE fast_core)
     add_test(NAME fast_theme_extension COMMAND fast_theme_extension_tests)
 
+    add_executable(fast_text_util_tests tests/text_util_tests.cpp)
+    target_link_libraries(fast_text_util_tests PRIVATE fast_core)
+    add_test(NAME fast_text_util COMMAND fast_text_util_tests)
+
     add_executable(fast_vector_icon_tests tests/vector_icon_tests.cpp)
     target_link_libraries(fast_vector_icon_tests PRIVATE fast_core)
     target_compile_definitions(fast_vector_icon_tests PRIVATE

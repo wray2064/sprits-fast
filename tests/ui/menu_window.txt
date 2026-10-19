@@ -1,0 +1,33 @@
+# The Window menu: the preview and the timeline, shown and put away, and the
+# layouts. (The panels' own switches are in panels_dock.txt, the layouts in
+# layouts.txt.) Hiding the preview once left the canvas window with a cursor
+# ImGui reported as an error every frame; the script fails on such an error.
+expect flag preview on
+menu Window > Preview
+expect flag preview off
+wait 5
+menu Window > Preview
+expect flag preview on
+wait 5
+
+# The timeline: shown from the menu, pinned and unpinned, hidden again.
+expect flag timeline off
+menu Window > Timeline
+expect flag timeline on
+menu Window > Pin the timeline
+expect flag pinned on
+wait 3
+menu Window > Pin the timeline
+expect flag pinned off
+menu Window > Timeline
+expect flag timeline off
+
+# The layouts by their names, then everything back where it started.
+menu Window > Layouts > Animation
+wait 3
+menu Window > Layouts > Compact
+wait 3
+menu Window > Layouts > Drawing
+wait 3
+menu Window > Reset layout
+wait 3

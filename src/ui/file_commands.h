@@ -39,6 +39,9 @@ struct DialogResult {
     bool        ready = false;
     bool        cancelled = false;
     std::string path;
+    // The last dialog asked for, kept until a script reads it (`expect dialog`).
+    // Nothing else looks at it.
+    Kind        asked = Kind::None;
 
     void init()    { mutex = SDL_CreateMutex(); }
     void destroy() { if (mutex) { SDL_DestroyMutex(mutex); mutex = nullptr; } }
@@ -75,6 +78,11 @@ struct FileState {
     // save-as dialog knows to resume rather than stop.
     bool resumeAfterSave = false;
 };
+
+// While a UI script runs, the native dialogs are not shown (one would wait for a
+// person); the question is only recorded in DialogResult::asked, and the script
+// answers it with `answer`. Set by --script.
+void suppressNativeDialogs(bool suppress);
 
 // Opens the native dialogs. The answer arrives later, in DialogResult.
 void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc);

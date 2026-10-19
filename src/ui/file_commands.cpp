@@ -40,6 +40,17 @@ void onChosen(void* userdata, const char* const* files, int /*filter*/) {
     SDL_UnlockMutex(result->mutex);
 }
 
+bool gSuppressed = false;
+
+// Parks the question where its answer will land. False when it is not to be put
+// to anyone, because a script is running: the caller then shows nothing.
+bool begin(FileState& state, DialogResult::Kind kind) {
+    SDL_LockMutex(state.dialog.mutex);
+    state.dialog = { state.dialog.mutex, kind, false, false, {}, kind };
+    SDL_UnlockMutex(state.dialog.mutex);
+    return !gSuppressed;
+}
+
 // Where a dialog should start. The folder of the current file if there is one,
 // so saving a second time lands next to the first.
 std::string startingLocation(const Document& doc) {
@@ -51,10 +62,14 @@ std::string startingLocation(const Document& doc) {
 
 } // namespace
 
+void suppressNativeDialogs(bool suppress) {
+    gSuppressed = suppress;
+}
+
 void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::Open, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::Open)) {
+        return;
+    }
 
     const std::string location = startingLocation(doc);
     SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kOpenFilters,
@@ -63,9 +78,9 @@ void showOpenDialog(FileState& state, SDL_Window* window, const Document& doc) {
 }
 
 void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::SaveAs, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::SaveAs)) {
+        return;
+    }
 
     // Suggest the current file; for one never saved, the name it was given
     // when it was made, if it was given one.
@@ -78,9 +93,9 @@ void showSaveAsDialog(FileState& state, SDL_Window* window, const Document& doc)
 }
 
 void showSaveCopyDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::SaveCopy, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::SaveCopy)) {
+        return;
+    }
     const std::string suggestion = doc.path().empty()
                                  ? std::string()
                                  : withExtension(fileStem(doc.path()) + " copy", kFileExtension);
@@ -92,9 +107,9 @@ void showSaveCopyDialog(FileState& state, SDL_Window* window, const Document& do
 }
 
 void showExportDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportPng, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ExportPng)) {
+        return;
+    }
 
     static const SDL_DialogFileFilter pngFilters[] = {
         { "PNG image", "png" },
@@ -118,10 +133,9 @@ void showExportDialog(FileState& state, SDL_Window* window, const Document& doc)
 
 void showAnimationDialog(FileState& state, SDL_Window* window, const Document& doc,
                          const char* extension) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportAnimation,
-                     false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ExportAnimation)) {
+        return;
+    }
 
     static const SDL_DialogFileFilter gifFilters[] = {
         { "GIF animation", "gif" },
@@ -150,9 +164,9 @@ void showAnimationDialog(FileState& state, SDL_Window* window, const Document& d
 }
 
 void showSheetDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportSheet, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ExportSheet)) {
+        return;
+    }
 
     static const SDL_DialogFileFilter sheetFilters[] = {
         { "PNG image", "png" },
@@ -197,10 +211,9 @@ const SDL_DialogFileFilter kImageFilters[] = {
 } // namespace
 
 void showImportReferenceDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportReference,
-                     false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ImportReference)) {
+        return;
+    }
 
     const std::string location = startingLocation(doc);
     SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kImageFilters,
@@ -209,10 +222,9 @@ void showImportReferenceDialog(FileState& state, SDL_Window* window, const Docum
 }
 
 void showImportSheetDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportSheet,
-                     false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ImportSheet)) {
+        return;
+    }
 
     const std::string location = startingLocation(doc);
     SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kImageFilters,
@@ -222,28 +234,26 @@ void showImportSheetDialog(FileState& state, SDL_Window* window, const Document&
 
 void showProjectFolderDialog(FileState& state, SDL_Window* window,
                              const std::string& startingAt) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ProjectFolder,
-                     false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ProjectFolder)) {
+        return;
+    }
     SDL_ShowOpenFolderDialog(onChosen, &state.dialog, window,
                              startingAt.empty() ? nullptr : startingAt.c_str(), false);
 }
 
 void showReferenceFolderDialog(FileState& state, SDL_Window* window,
                                const std::string& startingAt) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ReferenceFolder,
-                     false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ReferenceFolder)) {
+        return;
+    }
     SDL_ShowOpenFolderDialog(onChosen, &state.dialog, window,
                              startingAt.empty() ? nullptr : startingAt.c_str(), false);
 }
 
 void showImportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportPalette, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ImportPalette)) {
+        return;
+    }
 
     const std::string location = startingLocation(doc);
     SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kPaletteFilters,
@@ -252,9 +262,9 @@ void showImportPaletteDialog(FileState& state, SDL_Window* window, const Documen
 }
 
 void showExportPaletteDialog(FileState& state, SDL_Window* window, const Document& doc) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportPalette, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ExportPalette)) {
+        return;
+    }
 
     const std::string suggestion = doc.path().empty()
                                  ? std::string("palette.gpl")
@@ -278,17 +288,17 @@ const SDL_DialogFileFilter kThemeFilters[] = {
 } // namespace
 
 void showImportThemeDialog(FileState& state, SDL_Window* window) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ImportTheme, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ImportTheme)) {
+        return;
+    }
     SDL_ShowOpenFileDialog(onChosen, &state.dialog, window, kThemeFilters,
                            static_cast<int>(SDL_arraysize(kThemeFilters)), nullptr, false);
 }
 
 void showExportThemeDialog(FileState& state, SDL_Window* window, const std::string& suggested) {
-    SDL_LockMutex(state.dialog.mutex);
-    state.dialog = { state.dialog.mutex, DialogResult::Kind::ExportTheme, false, false, {} };
-    SDL_UnlockMutex(state.dialog.mutex);
+    if (!begin(state, DialogResult::Kind::ExportTheme)) {
+        return;
+    }
     SDL_ShowSaveFileDialog(onChosen, &state.dialog, window, kThemeFilters,
                            static_cast<int>(SDL_arraysize(kThemeFilters)),
                            suggested.empty() ? nullptr : suggested.c_str());

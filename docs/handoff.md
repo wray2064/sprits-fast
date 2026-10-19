@@ -62,9 +62,11 @@ From PowerShell in this folder:
 
 | What | Command | Notes |
 |---|---|---|
-| Core and tests | `.\build.bat test` | `build\`, no window, seconds; 51 suites |
+| Core and tests | `.\build.bat test` | `build\`, no window, a minute and a half; 53 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 40 scripts; all must pass; CI runs them |
+| UI scripts | `.\tools\run_scripts.ps1` | 49 scripts, 895 checks; all must pass, and none may draw an ImGui error; CI runs them (one: `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt`) |
+| What no test touches | `python tools\qa_matrix.py` | writes `docs\qa-matrix.md`: every menu item, command and core module against its tests; the gaps list is empty |
+| Fuzzing | `.\tools\fuzz.ps1` | 21 targets under libFuzzer and AddressSanitizer; see `docs\fuzzing.md` |
 | The gallery | `.\tools\gallery.ps1` | every screen in every theme at 100% and 150%, 270 images and a contact sheet per screen in `build-gui\gallery`; look at it before calling a visual change done |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |
 
@@ -72,11 +74,9 @@ The engine is found at `../livesprite-engine` (`-DLIVESPRITE_DIR` to point
 elsewhere); CI clones it from `vars.LIVESPRITE_REPO`. Build trees record
 absolute paths, so after moving the folders, delete them and build again.
 
-Every UI script at once (prints the name of each one that fails):
-
-```powershell
-foreach ($f in Get-ChildItem tests\ui\*.txt) { $q = Start-Process build-gui\sprits_fast.exe -ArgumentList '--script',"tests\ui\$($f.Name)" -NoNewWindow -Wait -PassThru; if ($q.ExitCode) { $f.Name } }
-```
+`tools\run_scripts.ps1` prints each script with its check count, and the lines
+of any that failed; its exit code is how many did (`-Only menu_` runs the ones
+with that in the name).
 
 Useful flags:
 - `--self-test`, `--script FILE`;

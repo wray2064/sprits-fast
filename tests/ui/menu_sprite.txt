@@ -1,0 +1,115 @@
+# The Sprite menu: the canvas cropped, resized, turned and flipped, the colours
+# adjusted -- every item clicked where it is drawn, the size checked after it.
+key ctrl+0
+tool pencil
+colour e08f40
+drag 4 4 11 4
+click 4 5
+expect canvas 32 32
+
+# Trim crops to the smallest rectangle holding what is drawn; undo brings it back.
+menu Sprite > Trim
+expect canvas 8 2
+key ctrl+z
+expect canvas 32 32
+
+# Crop to selection keeps the marquee's rectangle.
+tool select
+drag 2 2 13 7
+menu Sprite > Crop to selection
+expect canvas 12 6
+key ctrl+z
+key ctrl+d
+expect canvas 32 32
+
+# Canvas size... is the window with the nine anchors; Resize makes it so.
+menu Sprite > Canvas size...
+wait 2
+expect item Resize
+click-on Cancel
+wait 2
+
+# Sprite size... scales everything: here to twice the size, by its button.
+menu Sprite > Sprite size...
+wait 2
+expect item Resize
+click-on 200%
+click-on Resize
+wait 2
+expect canvas 64 64
+key ctrl+z
+expect canvas 32 32
+
+# Enlarge makes every pixel a block; Reduce keeps one pixel of each block.
+menu Sprite > Enlarge > 2x
+expect canvas 64 64
+key ctrl+z
+menu Sprite > Enlarge > 3x
+expect canvas 96 96
+key ctrl+z
+menu Sprite > Enlarge > 4x
+expect canvas 128 128
+key ctrl+z
+menu Sprite > Enlarge > 8x
+expect canvas 256 256
+key ctrl+z
+menu Sprite > Reduce > 1/2
+expect canvas 16 16
+key ctrl+z
+menu Sprite > Reduce > 1/4
+expect canvas 8 8
+key ctrl+z
+menu Sprite > Reduce > 1/3
+key ctrl+z
+expect canvas 32 32
+
+# Adjust colours... changes the elements' own colours, never the pixels: invert,
+# then see it, then Cancel puts it back.
+menu Sprite > Adjust colours...
+wait 2
+expect item Apply
+click-on Invert
+click-on Cancel
+wait 2
+expect pixel 4 4 e08f40
+menu Sprite > Adjust colours...
+wait 2
+click-on Invert
+click-on Reset
+click-on Apply
+wait 2
+expect pixel 4 4 e08f40
+menu Sprite > Adjust colours...
+wait 2
+click-on Invert
+click-on Apply
+wait 2
+expect pixel 4 4 1f70bf
+
+# Same layers in every frame: on by default, off and on again.
+expect flag tracks on
+menu Sprite > Same layers in every frame
+expect flag tracks off
+menu Sprite > Same layers in every frame
+expect flag tracks on
+
+# The canvas turned and flipped, on a drawing 8 across and 2 down: its top row
+# whole, the row under it only the first pixel.
+menu Sprite > Trim
+expect canvas 8 2
+menu Sprite > Rotate canvas 90 clockwise
+expect canvas 2 8
+menu Sprite > Rotate canvas 90 anticlockwise
+expect canvas 8 2
+menu Sprite > Rotate canvas 180
+expect pixel 7 0 1f70bf
+expect pixel 0 0 empty
+expect pixel 0 1 1f70bf
+menu Sprite > Flip canvas horizontally
+expect pixel 0 0 1f70bf
+expect pixel 7 0 empty
+expect pixel 7 1 1f70bf
+menu Sprite > Flip canvas vertically
+expect pixel 7 0 1f70bf
+expect pixel 1 1 empty
+expect pixel 0 1 1f70bf

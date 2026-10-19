@@ -202,8 +202,7 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
                                        ImGuiWindowFlags_NoFocusOnAppearing;
         if (ImGui::Begin(title.c_str(), nullptr, flags)) {
             // Escape tucks a drawer that was kept open, as it ends every dialog.
-            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-                !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            if (widgets::escapePutsAway()) {
                 t.drawerOpen = false;
                 t.drawerHot = false;
             }

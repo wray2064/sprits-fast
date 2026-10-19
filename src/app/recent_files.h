@@ -31,6 +31,10 @@ public:
     void load();
     void save() const;
 
+    // A run that is not the person's -- a script, a capture -- keeps its list in
+    // memory: it neither reads theirs nor writes over it.
+    void keepInMemory() { inMemory_ = true; }
+
     // Moves `path` to the front, removing any earlier mention of it, and drops
     // whatever falls off the end.
     void add(const std::string& path);
@@ -46,6 +50,7 @@ public:
 
 private:
     std::vector<std::string> entries_;
+    bool inMemory_ = false;
 };
 
 // What the start screen shows about one recent entry, looked up on demand

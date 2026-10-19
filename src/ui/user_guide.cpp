@@ -317,8 +317,7 @@ void drawUserGuide(Editor& editor) {
     }
     // Escape puts it away, as it does every dialog; while the search box has the
     // keyboard it is the box's own way out first.
-    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-        !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+    if (widgets::escapePutsAway()) {
         editor.guideOpen = false;
     }
     editor.guideTopic = std::clamp(editor.guideTopic, 0, static_cast<int>(topics.size()) - 1);

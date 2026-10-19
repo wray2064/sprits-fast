@@ -75,6 +75,9 @@ bool readThumbnail(const std::string& utf8Path, std::vector<uint8_t>* out);
 struct LibraryFolders {
     std::string project;         // the sprites
     std::string references;      // the images
+    // True for a run that is not the person's (a script, a capture): it neither
+    // reads their folders nor writes over them.
+    bool        inMemory = false;
 
     void load();
     void save() const;
