@@ -61,6 +61,39 @@ void field(const char* label, float labelWidth = 0.f);
 // The width of the label column when none is given: it follows the font.
 float fieldLabelWidth();
 
+// What an ImGui control that writes its label after the control (a drag, a
+// slider, a combo given a label rather than an "##id") needs to the right of it:
+// `SetNextItemWidth(-labelRoom(shown))` leaves it exactly that, whatever the
+// language and the interface size make of it. `shown` is the text the control is
+// given, translated already when it is to be.
+float labelRoom(const char* shown);
+
+// --- rows of buttons ----------------------------------------------------------------
+//
+// A panel is as wide as the person made it, and a label is as wide as the font
+// and the language make it, so a row of buttons cannot be given widths in
+// pixels. These take them from the labels, and wrap rather than cut a label.
+
+// What a button needs to show `label` (translated) whole.
+float buttonWidth(const char* label);
+
+// Buttons that share the row's width equally: all on one row when the longest
+// label fits in its share, and in as few even rows as it takes when it does not.
+struct ButtonRow {
+    float width = 0.f;      // each button's width
+    int perRow = 1;         // how many go on a row
+};
+ButtonRow buttonRow(const char* const* labels, int count);
+// Call before button `index` of a ButtonRow: beside the last one, or the first
+// of the next row.
+void beside(const ButtonRow& row, int index);
+
+// For items of their own widths: puts the next item beside the last one when
+// `width` fits in what is left of the row, and on the line below when it does not.
+// `gap` is the space between them (the item spacing when not given). True when it
+// stayed on the line, false when it went below.
+bool sameLineIfFits(float width, float gap = -1.f);
+
 // --- status ------------------------------------------------------------------------
 
 enum class Tone { Neutral, Accent, Success, Warning, Danger, Info };

@@ -74,11 +74,33 @@ Units are muted and values primary. Section headers are `theme::sectionHeader`
   and the gaps, never the type. Ask `theme::metrics()`: `rowHeight`,
   `panelPadding`, `itemSpacing`, `sectionGap`, `sidebarWidth`.
 - **Interface size** (75 to 150%) scales text and every spacing, never the
-  canvas. A literal in a panel is a literal *for 100%*: write `38.f *
-  theme::scale()`, as the start screen does. A width that has to hold a label
-  comes from `ImGui::CalcTextSize`, not from a number.
+  canvas. A literal in a panel is a literal *for 100%*: write `theme::px(38.f)`
+  (what `38.f * theme::scale()` says, as the start screen's `k()` does).
+  `theme::metrics()` is already in pixels as drawn, so it may be added to a
+  width ImGui has scaled. A width that has to hold a label comes from
+  `ImGui::CalcTextSize`, not from a number.
 - A control that must fit a longer translation takes its width from its label
-  (`widgets::field` sizes its label column from the font).
+  (`widgets::field` sizes its label column from the font;
+  `widgets::labelRoom(shown)` is what a control that writes its label after
+  itself needs to its right; `widgets::buttonWidth(label)` is a button's own
+  width).
+- A row of buttons does not get widths in pixels: `widgets::buttonRow(labels, n)`
+  shares the row equally and wraps two-and-two when the longest word would not fit
+  its share (`widgets::beside(row, i)` before each button), and
+  `widgets::sameLineIfFits(width)` keeps the next item on the row only while it
+  fits. A panel is as wide as the person made it, and a word as wide as the font
+  and the language make it.
+- The docks are built for the size: `buildPreset` makes them 276 x the size wide
+  (at most 30% of the dock space, so the canvas keeps a share) and gives the
+  Layers list and the Timeline more of the height as the size grows, since the
+  window is as tall in pixels at 150% as at 100%.
+- A panel too narrow for its contents scrolls sideways rather than cutting a
+  label: open Fast's own panels with `beginPanel` (`ui/layout.h`), not
+  `ImGui::Begin(..., panelFlags())`. ImGui widens the work rect of a window that
+  may scroll sideways to the widest thing it held, and a window that always may
+  settles into a scrollbar with nothing to scroll; `beginPanel` asks for the bar
+  only when the panel overflowed last frame and keeps what fills the width to the
+  width that shows.
 
 ## Components (`ui/widgets.h`)
 
@@ -210,16 +232,30 @@ Register before anything reads a theme: `runApp` does, from the extension.
   writes every screen in every theme at 100% and 150% (some 270 images), and
   one contact sheet per screen with the nine themes side by side, plus an
   `index.html` to scroll them. **Look at it before calling a visual change
-  done.** It is how the start screen's footer was found clipped at 150%.
+  done.** It is how the start screen's footer and the docked panels were found
+  clipped at 150%.
+- **Fit at every size** (`tests/ui/panels_fit.txt`): `expect fits all` fails when
+  anything in a panel is wider than the panel or a sideways scrollbar has nothing
+  to scroll, at 75, 100 and 150% in English and Spanish, in the three layouts and
+  with eight tools in hand; `expect scrolls tool` is the other half.
 - **Spanish** (`assets/lang/es.txt`) is updated with every string, so a longer
   label is seen to fit.
 
 ## Known gaps (from the gallery, 2026-10-18)
 
-- At 150% the docked panels still clip: the Tool panel's rows, the Properties
-  tab ("Properti..."), the Transform buttons ("Rotat", "Offse") and the Layers
-  list, because their widths and the default panel widths are not yet taken
-  from the font and the interface size (rule 3). The start screen and the
-  dialogs fit.
+- A dock keeps the widths it had when the interface size is changed
+  afterwards, and Window > Layouts builds the arrangement again for the new one
+  (Preferences > Appearance says so under the size). The panels still show
+  everything: one too narrow for its contents scrolls sideways. Changing the
+  size does not rebuild a person's own arrangement, which would undo how they
+  had moved things.
+- A tab group of four (Animation and Compact put Elements, Properties,
+  Transform and Puppet in one) scrolls its tab strip at 100% as at 150%: the
+  tabs together are wider than a dock, and a strip that scrolls is ImGui's
+  answer.
 - Dialog footers written the older way (`beginModal`) have not all moved onto
   `dialogButtons`.
+- A program built on Fast opens its own panels with `ImGui::Begin(..., 
+  panelFlags())`, which does not scroll sideways: `beginPanel` is Fast's own.
+  Pract's two panels are as they were; changing them to `beginPanel` is one
+  line each.

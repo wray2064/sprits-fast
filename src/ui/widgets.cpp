@@ -7,6 +7,8 @@
 #include "app/theme_tokens.h"
 #include "ui/theme.h"
 
+#include <imgui_internal.h>
+
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -275,6 +277,58 @@ void field(const char* label, float labelWidth) {
     ImGui::SetNextItemWidth(-FLT_MIN);
 }
 
+float labelRoom(const char* shown) {
+    return ImGui::CalcTextSize(shown, nullptr, true).x + ImGui::GetStyle().ItemInnerSpacing.x;
+}
+
+float buttonWidth(const char* label) {
+    return ImGui::CalcTextSize(tr(label), nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.f;
+}
+
+ButtonRow buttonRow(const char* const* labels, int count) {
+    ButtonRow row;
+    if (count <= 0) {
+        return row;
+    }
+    // A label needs its own width and half of the button's usual padding either
+    // side: ImGui centres it and clips it a hair inside the padding, so the
+    // words show whole at that, and a row of short words is not split in two to
+    // keep padding nobody was looking at.
+    float widest = 0.f;
+    for (int i = 0; i < count; ++i) {
+        widest = std::max(widest, ImGui::CalcTextSize(tr(labels[i]), nullptr, true).x +
+                                      ImGui::GetStyle().FramePadding.x);
+    }
+    const float gap = ImGui::GetStyle().ItemSpacing.x;
+    const float avail = ImGui::GetContentRegionAvail().x;
+    int perRow = std::clamp(static_cast<int>((avail + gap) / (widest + gap)), 1, count);
+    // Even rows: four buttons that do not fit in a row go two and two, not
+    // three and one.
+    const int rows = (count + perRow - 1) / perRow;
+    perRow = (count + rows - 1) / rows;
+    row.perRow = perRow;
+    row.width = (avail - gap * static_cast<float>(perRow - 1)) / static_cast<float>(perRow);
+    return row;
+}
+
+void beside(const ButtonRow& row, int index) {
+    if (index % std::max(1, row.perRow) != 0) {
+        ImGui::SameLine();
+    }
+}
+
+bool sameLineIfFits(float width, float gap) {
+    if (gap < 0.f) {
+        gap = ImGui::GetStyle().ItemSpacing.x;
+    }
+    const ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (ImGui::GetItemRectMax().x + gap + width <= window->WorkRect.Max.x) {
+        ImGui::SameLine(0.f, gap);
+        return true;
+    }
+    return false;
+}
+
 // ----------------------------------------------------------------------- status --
 
 void badge(const char* text, Tone tone) {
@@ -472,7 +526,10 @@ void drawGallery(bool* open) {
     if (open == nullptr || !*open) {
         return;
     }
-    ImGui::SetNextWindowSize(ImVec2(620.f, 640.f), ImGuiCond_FirstUseEver);
+    const ImVec2 room = ImGui::GetMainViewport()->WorkSize;
+    ImGui::SetNextWindowSize(ImVec2(std::min(theme::px(620.f), room.x * 0.9f),
+                                    std::min(theme::px(640.f), room.y * 0.9f)),
+                             ImGuiCond_FirstUseEver);
     if (!ImGui::Begin(tr("Interface kit"), open)) {
         ImGui::End();
         return;
@@ -500,7 +557,10 @@ void drawGallery(bool* open) {
         ImGui::EndDisabled();
         ImGui::PopID();
         if (style != ButtonStyle::Danger) {
-            ImGui::SameLine();
+            // The next pair beside this one when the widest would fit, under it
+            // when not.
+            sameLineIfFits(buttonWidth("Secondary") + buttonWidth("Disabled") +
+                           ImGui::GetStyle().ItemSpacing.x);
         }
     }
     ImGui::NewLine();

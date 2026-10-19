@@ -12,6 +12,7 @@
 #include "app/theme_store.h"
 #include "app/transform.h"
 #include "ui/canvas_view.h"
+#include "ui/layout.h"
 #include "ui/reference_section.h"
 #include "ui/appearance.h"
 #include "ui/start_screen.h"
@@ -427,6 +428,13 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
             return fail("not an interface size from 75 to 150");
         }
         add(s);
+    } else if (verb == "language" && w.size() == 2) {
+        Step l; l.kind = Step::UseLanguage; l.text = w[1]; add(l);
+    } else if (verb == "layout" && w.size() == 2) {
+        if (w[1] != "drawing" && w[1] != "animation" && w[1] != "compact") {
+            return fail("not a layout: drawing, animation or compact");
+        }
+        Step l; l.kind = Step::UseLayout; l.text = w[1]; add(l);
     } else if (verb == "demo-roles" && w.size() == 1) {
         Step d; d.kind = Step::DemoRoles; add(d);
     } else if (verb == "zoom" && w.size() == 2) {
@@ -706,6 +714,20 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::UseScale:
                 editor.prefs.uiScale = static_cast<int>(step.x);
                 theme::setScale(step.x / 100.f);
+                return;
+            case Step::UseLanguage:
+                editor.prefs.language = step.text == "en" ? std::string() : step.text;
+                if (!applyLanguage(editor.prefs.language)) {
+                    std::printf("FAIL script:%d: no language called %s\n", step.line,
+                                step.text.c_str());
+                    ++failures_;
+                    ++checks_;
+                }
+                return;
+            case Step::UseLayout:
+                useLayoutPreset(editor, step.text == "animation" ? LayoutPreset::Animation
+                                        : step.text == "compact" ? LayoutPreset::Compact
+                                                                 : LayoutPreset::Drawing);
                 return;
             case Step::DemoRoles:
                 addExtraRoles(demoRoles());
@@ -987,6 +1009,53 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         const float height = window != nullptr ? window->Size.y : -1.f;
         if (height < std::atof(a[1].c_str()) || height > std::atof(a[2].c_str())) {
             failed(a[0] + " is " + std::to_string(height) + " tall");
+        }
+    } else if (step.text == "fits" && a.size() == 1) {
+        // Nothing in a panel wider than the panel: a label or a button cut off
+        // at its edge is content past the edge, which is what lets a panel
+        // scroll sideways (layout.cpp's panelFlags). `fits all` asks it of every
+        // panel that is showing, `fits layers` of one.
+        static const char* const kAll[] = { "tool", "palette", "layers", "elements", "properties",
+                                            "transform", "puppet", "references", "timeline",
+                                            "timelinedrawer" };
+        std::string wide;
+        for (const char* id : kAll) {
+            if (a[0] != "all" && a[0] != id) {
+                continue;
+            }
+            const ImGuiWindow* window = ImGui::FindWindowByName(("###" + std::string(id)).c_str());
+            if (window == nullptr || !window->Active || window->Hidden || window->SkipItems) {
+                continue;
+            }
+            // Any at all: a sliver of overflow still draws the scrollbar. And a
+            // scrollbar with nothing to scroll is as wrong as the overflow.
+            if (window->ScrollMax.x > 0.f) {
+                wide += std::string(wide.empty() ? "" : ", ") + id + " by " +
+                        std::to_string(window->ScrollMax.x).substr(0, 5) + " px";
+            } else if (window->ScrollbarX) {
+                wide += std::string(wide.empty() ? "" : ", ") + id + " (a sideways scrollbar "
+                        "with nothing to scroll)";
+            }
+        }
+        if (!wide.empty()) {
+            static const char* const kLayouts[] = { "drawing", "animation", "compact" };
+            const int preset = std::clamp(editor.panels.preset, 0, 2);
+            failed("wider than the panel: " + wide + "  [" +
+                   std::to_string(static_cast<int>(std::lround(theme::scale() * 100.f))) + "%, " +
+                   kLayouts[preset] + ", " +
+                   (editor.prefs.language.empty() ? "en" : editor.prefs.language) + ", " +
+                   std::to_string(static_cast<int>(editor.tool)) + "]");
+        }
+    } else if (step.text == "scrolls" && a.size() == 1) {
+        // The other half of `fits`: a panel that is too narrow for what it holds
+        // has a scrollbar along its bottom, and something to scroll to.
+        const ImGuiWindow* window = ImGui::FindWindowByName(("###" + a[0]).c_str());
+        if (window == nullptr || !window->Active) {
+            failed("no panel " + a[0]);
+        } else if (!(window->ScrollMax.x > 0.f)) {
+            failed(a[0] + " holds nothing wider than it is");
+        } else if (!window->ScrollbarX) {
+            failed(a[0] + " is too narrow for what it holds, and has no scrollbar");
         }
     } else if (step.text == "theme" && a.size() == 1) {
         if (theme::current().id != a[0]) {

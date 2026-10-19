@@ -3255,7 +3255,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // tool button and its padding: both follow the font, the density and the
     // interface size rather than a number.
     theme::pushText(theme::TextStyle::Caption);
-    const float statusHeight = ImGui::GetFrameHeight() + 8.f;
+    const float statusHeight = ImGui::GetFrameHeight() + theme::px(8.f);
     theme::popText();
     const float toolbarWidth = theme::toolRailWidth();
     const float bodyHeight = viewport->WorkSize.y - statusHeight;
@@ -3286,54 +3286,48 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // tabbed, floated, resized or closed as the person likes (see layout.h).
     drawDockSpace(editor, { left + toolbarWidth, top },
                   { viewport->WorkSize.x - toolbarWidth, bodyHeight });
-    const ImGuiWindowFlags kDockable = panelFlags();
     const auto title = [](const char* name, const char* id) {
         return std::string(tr(name)) + id;
     };
     if (editor.panels.tool) {
-        if (ImGui::Begin(title("Tool", panel::kTool).c_str(), &editor.panels.tool, kDockable)) {
+        if (beginPanel(title("Tool", panel::kTool).c_str(), &editor.panels.tool)) {
             drawToolPanel(editor);
         }
         ImGui::End();
     }
     if (editor.panels.palette) {
-        if (ImGui::Begin(title("Palette", panel::kPalette).c_str(), &editor.panels.palette,
-                         kDockable)) {
+        if (beginPanel(title("Palette", panel::kPalette).c_str(), &editor.panels.palette)) {
             drawPalettePanel(editor, canvas, window);
         }
         ImGui::End();
     }
     if (editor.panels.layers) {
-        if (ImGui::Begin(title("Layers", panel::kLayers).c_str(), &editor.panels.layers,
-                         kDockable)) {
+        if (beginPanel(title("Layers", panel::kLayers).c_str(), &editor.panels.layers)) {
             drawLayerPanel(editor, canvas);
         }
         ImGui::End();
     }
     if (editor.panels.elements) {
-        if (ImGui::Begin(title("Elements", panel::kElements).c_str(), &editor.panels.elements,
-                         kDockable)) {
+        if (beginPanel(title("Elements", panel::kElements).c_str(), &editor.panels.elements)) {
             drawElementsPanel(editor, canvas);
         }
         ImGui::End();
     }
     if (editor.panels.properties) {
-        if (ImGui::Begin(title("Properties", panel::kProperties).c_str(),
-                         &editor.panels.properties, kDockable)) {
+        if (beginPanel(title("Properties", panel::kProperties).c_str(),
+                       &editor.panels.properties)) {
             drawPropertiesPanel(editor, canvas);
         }
         ImGui::End();
     }
     if (editor.panels.transform) {
-        if (ImGui::Begin(title("Transform", panel::kTransform).c_str(), &editor.panels.transform,
-                         kDockable)) {
+        if (beginPanel(title("Transform", panel::kTransform).c_str(), &editor.panels.transform)) {
             drawTransformPanel(editor, canvas);
         }
         ImGui::End();
     }
     if (editor.panels.puppet) {
-        if (ImGui::Begin(title("Puppet", panel::kPuppet).c_str(), &editor.panels.puppet,
-                         kDockable)) {
+        if (beginPanel(title("Puppet", panel::kPuppet).c_str(), &editor.panels.puppet)) {
             drawPuppetPanel(editor, canvas);
         }
         ImGui::End();
@@ -3345,8 +3339,8 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                                   top + bodyHeight * 0.18f }, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize({ m.sidebarWidth * 1.2f, bodyHeight * 0.4f },
                                  ImGuiCond_FirstUseEver);
-        if (ImGui::Begin(title("References", panel::kReferences).c_str(),
-                         &editor.panels.references, kDockable)) {
+        if (beginPanel(title("References", panel::kReferences).c_str(),
+                       &editor.panels.references)) {
             drawReferencePanel(editor, canvas, window);
         }
         ImGui::End();
@@ -3479,8 +3473,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         };
         if (editor.timeline.pinned) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
-            if (ImGui::Begin(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible,
-                             kDockable)) {
+            if (beginPanel(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible)) {
                 drawTimelineHeader(editor, false);
                 strip();
             }

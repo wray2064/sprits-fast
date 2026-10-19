@@ -598,6 +598,9 @@ struct Editor {
         bool references = false;
         bool resetLayout = false;   // rebuild the dock as `preset`, on the next frame
         int  preset = 0;            // a LayoutPreset (ui/layout.h)
+        // The interface size the dock was last built at (0: not by this run). A
+        // dock keeps the widths it had when the size changes; Preferences says so.
+        float builtAtScale = 0.f;
     } panels;
     // A saved layout's text, to be put in force before the next frame begins.
     std::string pendingLayout;

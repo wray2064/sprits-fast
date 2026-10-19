@@ -32,6 +32,7 @@ Help > Keyboard shortcuts lists every key, and a click on one opens Preferences 
 Drag a panel by its tab to dock it beside another, share its place, or float it over the canvas. = Arrastra un panel por su pestaña para acoplarlo junto a otro, compartir su lugar o dejarlo flotando sobre el lienzo.
 INTERFACE = INTERFAZ
 interface size = tamaño de la interfaz
+The panels keep the widths they had. Window > Layouts, then one of the arrangements, sizes them for this interface size. = Los paneles conservan el ancho que tenían. Ventana > Disposiciones, y luego una de las disposiciones, los ajusta a este tamaño de interfaz.
 Reset = Restablecer
 Recent colours = Colores recientes
 Export again = Exportar de nuevo

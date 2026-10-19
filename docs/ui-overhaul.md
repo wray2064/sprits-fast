@@ -99,8 +99,8 @@ decisions. Progress:
       -- every screen, every theme, 100% and 150%, 270 images -- and tiles each
       screen's nine themes into a contact sheet. Its first run found the start
       screen's footer clipped at 150% (fixed: its sizes now follow the interface
-      size); the docked panels still clip at 150% (open, listed in
-      `visual-language.md`). Script words `theme`, `scale`, `for-each ... end-for`,
+      size), and then the docked panels (fixed: `docs/parity.md`'s log has the
+      causes; `tests/ui/panels_fit.txt` holds it). Script words `theme`, `scale`, `for-each ... end-for`,
       `demo-roles`, PNG `shot`; Escape closes Preferences and the shortcut list.
 
 Why this is critical: Pract is Fast's window run as a library. Everything
@@ -122,6 +122,8 @@ Pract's for free; a patchwork here is a patchwork multiplied there.
   family.
 - Fixed pixel widths clip: "size 1 ?" and the hint paragraphs in the Tool
   panel are cut off at the default width, and several panels break past 150%.
+  (The panels are fixed since: widths from the font and the interface size,
+  `docs/visual-language.md`.)
 
 **Hierarchy**
 - Every button is the same weight, so the one that matters (Create, Open,

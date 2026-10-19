@@ -187,7 +187,7 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
 
     theme::sectionHeader(tr("PATTERN"));
     int pattern = static_cast<int>(settings.pattern);
-    ImGui::SetNextItemWidth(-1.f);
+    ImGui::SetNextItemWidth(-theme::hintWidth());
     if (ImGui::Combo("##pattern", &pattern, ditherPatternNames().data(),
                      static_cast<int>(ditherPatternNames().size()))) {
         settings.pattern = static_cast<ls::DitherPatternKind>(pattern);
@@ -200,7 +200,7 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
 
     theme::sectionHeader(tr("VALUE"));
     int modulation = static_cast<int>(settings.modulation);
-    ImGui::SetNextItemWidth(-1.f);
+    ImGui::SetNextItemWidth(-theme::hintWidth());
     if (ImGui::Combo("##modulation", &modulation, ditherModulationNames().data(),
                      static_cast<int>(ditherModulationNames().size()))) {
         settings.modulation = static_cast<ls::DitherModulation>(modulation);
@@ -222,13 +222,13 @@ void drawDitherControls(Editor& editor, CanvasView& canvas, const PaintLayer& la
     } else {
         float start[2] = { settings.gradientStart.x, settings.gradientStart.y };
         float end[2]   = { settings.gradientEnd.x, settings.gradientEnd.y };
-        ImGui::SetNextItemWidth(-42.f);
+        ImGui::SetNextItemWidth(-widgets::labelRoom("from"));
         if (ImGui::DragFloat2("from", start, 0.25f, 0.f, 0.f, "%.0f")) {
             settings.gradientStart = { start[0], start[1] };
             changed = true;
         }
         bracketDrag(editor, editor.draggingDither, "Gradient");
-        ImGui::SetNextItemWidth(-42.f);
+        ImGui::SetNextItemWidth(-widgets::labelRoom("to"));
         if (ImGui::DragFloat2("to", end, 0.25f, 0.f, 0.f, "%.0f")) {
             settings.gradientEnd = { end[0], end[1] };
             changed = true;
@@ -540,12 +540,12 @@ void drawInkControls(Editor& editor) {
     const auto toU32 = [](const float rgba[4]) {
         return ImGui::GetColorU32(ImVec4(rgba[0], rgba[1], rgba[2], rgba[3]));
     };
-    theme::swatch("##fore", toU32(editor.color), true, 30.f);
+    theme::swatch("##fore", toU32(editor.color), true, theme::px(30.f));
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("What the left button paints with"));
     }
     ImGui::SameLine();
-    if (theme::swatch("##back", toU32(editor.backColor), false, 22.f)) {
+    if (theme::swatch("##back", toU32(editor.backColor), false, theme::px(22.f))) {
         swapInks(editor);
     }
     if (ImGui::IsItemHovered()) {
@@ -574,7 +574,7 @@ void drawInkControls(Editor& editor) {
 
     // Smaller than the column: the palette under it is used more often than
     // the picker, and a picker the width of the panel pushes it off screen.
-    ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x, 150.f));
+    ImGui::SetNextItemWidth(std::min(ImGui::GetContentRegionAvail().x, theme::px(150.f)));
     if (ImGui::ColorPicker4("##colour", editor.color,
                             ImGuiColorEditFlags_NoSidePreview |
                             ImGuiColorEditFlags_NoSmallPreview |
@@ -623,7 +623,7 @@ void drawPaletteQuickRow(Editor& editor, CanvasView& canvas,
     for (const PaletteInfo& info : palettes) {
         if (info.id == documents) { currentName = info.name.c_str(); }
     }
-    const float swapWidth = 30.f;
+    const float swapWidth = theme::px(30.f);
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - swapWidth -
                             theme::metrics().itemSpacing);
     if (ImGui::BeginCombo("##document-palette", currentName)) {
@@ -711,7 +711,7 @@ void drawPaletteList(Editor& editor, CanvasView& canvas,
             ImGui::SameLine();
             ImGui::Selectable(info.name.c_str(), false,
                               ImGuiSelectableFlags_AllowDoubleClick,
-                              ImVec2(ImGui::GetContentRegionAvail().x - 96.f, 0.f));
+                              ImVec2(ImGui::GetContentRegionAvail().x - theme::px(96.f), 0.f));
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 editor.renamingPalette = info.id;
                 std::snprintf(editor.paletteNameBuffer, sizeof(editor.paletteNameBuffer),
@@ -843,7 +843,7 @@ static void drawRecentColours(Editor& editor) {
         return;
     }
     theme::sectionHeader("RECENT");
-    const float gap = 2.f;
+    const float gap = theme::px(2.f);
     const float swatch = std::round(ImGui::GetFrameHeight() * 0.7f);
     const float width = ImGui::GetContentRegionAvail().x;
     const int perRow = std::max(1, static_cast<int>((width + gap) / (swatch + gap)));
@@ -913,7 +913,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // own spacing, so a palette follows the font, the density and the
     // interface size like everything else.
     const float swatchSize = std::round(ImGui::GetFrameHeight() * 0.95f);
-    const float spacing = std::max(4.f, theme::metrics().itemSpacing - 1.f);
+    const float spacing = std::max(theme::px(4.f), theme::metrics().itemSpacing - theme::px(1.f));
     const float available = ImGui::GetContentRegionAvail().x;
     const int perRow = (available > 0.f)
         ? static_cast<int>((available + spacing) / (swatchSize + spacing))
@@ -991,7 +991,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             }
             ImGui::TextDisabled("slot %u", entry.role);
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(150.f);
+            ImGui::SetNextItemWidth(theme::px(150.f));
             const bool entered = ImGui::InputTextWithHint(
                 "##name", "name", editor.slotNameBuffer, sizeof(editor.slotNameBuffer),
                 ImGuiInputTextFlags_EnterReturnsTrue);
@@ -1077,7 +1077,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
             editor.shadeBase = painting;
         }
         const std::vector<ls::Color> shades = shadesOf(editor.shadeBase, 3);
-        const float gap = 2.f;
+        const float gap = theme::px(2.f);
         const float width = ImGui::GetContentRegionAvail().x;
         const float swatch = std::floor((width - gap * static_cast<float>(shades.size() - 1)) /
                                         static_cast<float>(shades.size()));
@@ -1096,7 +1096,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                 ImGui::PushStyleColor(ImGuiCol_Border, theme::palette().accent);
             }
             if (ImGui::ColorButton("##shade", colour, ImGuiColorEditFlags_NoTooltip,
-                                   ImVec2(swatch, 14.f))) {
+                                   ImVec2(swatch, theme::px(14.f)))) {
                 Ink ink;
                 ink.colour = shade;
                 // A shade the palette already has paints through its slot.
@@ -1165,8 +1165,9 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // In and out, in the formats other programs use. Loading replaces the
     // palette, which is what loading a palette means everywhere else -- and
     // it recolours a sprite drawn through roles, which is the point of them.
-    const float half = (ImGui::GetContentRegionAvail().x - theme::metrics().itemSpacing) * 0.5f;
-    if (ImGui::Button(tr("Load..."), ImVec2(half, 0.f))) {
+    const char* const fileLabels[] = { "Load...", "Save..." };
+    const widgets::ButtonRow files = widgets::buttonRow(fileLabels, 2);
+    if (ImGui::Button(tr("Load..."), ImVec2(files.width, 0.f))) {
         showImportPaletteDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
@@ -1174,8 +1175,8 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                           "Replaces the palette this frame uses; layers drawn "
                           "through slots recolour."));
     }
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Save..."), ImVec2(half, 0.f))) {
+    widgets::beside(files, 1);
+    if (ImGui::Button(tr("Save..."), ImVec2(files.width, 0.f))) {
         showExportPaletteDialog(editor.files, window, editor.doc);
     }
     if (ImGui::IsItemHovered()) {
@@ -1185,8 +1186,9 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // Arranging and building: sort, a ramp between the two colours, an
     // adjustment of the whole palette, and the presets that ship with Fast.
-    const float quarter = (ImGui::GetContentRegionAvail().x -
-                           theme::metrics().itemSpacing * 3.f) * 0.25f;
+    const char* const toolLabels[] = { "Sort", "Ramp", "Adjust", "Presets" };
+    const widgets::ButtonRow tools = widgets::buttonRow(toolLabels, 4);
+    const float quarter = tools.width;
     if (ImGui::Button(tr("Sort"), ImVec2(quarter, 0.f))) {
         ImGui::OpenPopup("sort-palette");
     }
@@ -1204,7 +1206,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         ImGui::EndPopup();
     }
-    ImGui::SameLine();
+    widgets::beside(tools, 1);
     const bool rampable = editor.inkRole != ls::kColorRoleNone &&
                           editor.backRole != ls::kColorRoleNone &&
                           editor.inkRole != editor.backRole;
@@ -1220,7 +1222,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     }
     if (ImGui::BeginPopup("ramp-palette")) {
         static int steps = 3;
-        ImGui::SetNextItemWidth(120.f);
+        ImGui::SetNextItemWidth(theme::px(120.f));
         widgets::sliderInt(tr("steps"), &steps, 1, 16);
         if (ImGui::Button(tr("Add the ramp"))) {
             editor.doc.beginAction("Palette ramp");
@@ -1232,7 +1234,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         ImGui::EndPopup();
     }
-    ImGui::SameLine();
+    widgets::beside(tools, 2);
     if (ImGui::Button(tr("Adjust"), ImVec2(quarter, 0.f))) {
         editor.paletteAdjust = Editor::PaletteAdjust{};
         editor.paletteAdjust.base = entries;
@@ -1246,13 +1248,13 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (ImGui::BeginPopup("adjust-palette")) {
         Editor::PaletteAdjust& adjust = editor.paletteAdjust;
         bool changed = false;
-        ImGui::SetNextItemWidth(200.f);
+        ImGui::SetNextItemWidth(theme::px(200.f));
         changed |= widgets::sliderFloat(tr("hue"), &adjust.hue, -180.f, 180.f, "%.0f deg");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
-        ImGui::SetNextItemWidth(200.f);
+        ImGui::SetNextItemWidth(theme::px(200.f));
         changed |= widgets::sliderFloat(tr("saturation"), &adjust.saturation, -1.f, 1.f, "%.2f");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
-        ImGui::SetNextItemWidth(200.f);
+        ImGui::SetNextItemWidth(theme::px(200.f));
         changed |= widgets::sliderFloat(tr("lightness"), &adjust.lightness, -1.f, 1.f, "%.2f");
         bracketDrag(editor, editor.draggingPalette, "Adjust palette");
         if (changed) {
@@ -1264,7 +1266,7 @@ void drawPalettePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         ImGui::TextDisabled("%s", tr("From the palette as it was when this opened."));
         ImGui::EndPopup();
     }
-    ImGui::SameLine();
+    widgets::beside(tools, 3);
     if (ImGui::Button(tr("Presets"), ImVec2(quarter, 0.f))) {
         ImGui::OpenPopup("palette-presets");
     }
@@ -1512,12 +1514,14 @@ static void drawElementList(Editor& editor, CanvasView& canvas, PaintLayer* laye
         ImGui::ColorButton("##chip", ImGui::ColorConvertU32ToFloat4(
                                elementChip(editor, layer->layer, element)),
                            ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder,
-                           ImVec2(12.f, 12.f));
+                           ImVec2(theme::px(12.f), theme::px(12.f)));
         ImGui::SameLine();
         const std::string label = elementLabel(editor, element) + "##" +
                                   std::to_string(n);
         if (ImGui::Selectable(label.c_str(), &element == selected,
-                              0, ImVec2(ImGui::GetContentRegionAvail().x - 26.f, 0.f))) {
+                              0, ImVec2(ImGui::GetContentRegionAvail().x -
+                                        (widgets::buttonWidth("x") +
+                                         ImGui::GetStyle().ItemSpacing.x), 0.f))) {
             if (editor.activeElement != element.fill) {
                 editor.paintIntoElement = false;
             }
@@ -1541,7 +1545,9 @@ static void drawElementList(Editor& editor, CanvasView& canvas, PaintLayer* laye
         }
         ImGui::PopID();
     }
-    ImGui::SameLine();
+    // Beside the last row when there is room for it, under it when the row
+    // takes the width.
+    widgets::sameLineIfFits(theme::hintWidth());
     theme::hint(tr("A layer holds several marks: one element per colour its "
                 "pixels are painted in, and any shapes drawn onto it. Each "
                 "shape stays a shape; each colour stays a rule, so it can be "
@@ -1557,7 +1563,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
         ImGui::ColorButton("##picked", ImGui::ColorConvertU32ToFloat4(
                                elementChip(editor, layer->layer, *selected)),
                            ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoBorder,
-                           ImVec2(14.f, 14.f));
+                           ImVec2(theme::px(14.f), theme::px(14.f)));
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textBright);
         ImGui::TextUnformatted(elementLabel(editor, *selected).c_str());
@@ -1585,13 +1591,13 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 canvas.invalidate();
             }
             int at[2] = { spec.at.x, spec.at.y };
-            ImGui::SetNextItemWidth(-42.f);
+            ImGui::SetNextItemWidth(-widgets::labelRoom("at"));
             if (ImGui::DragInt2("at", at, 0.2f)) {
                 spec.at = { at[0], at[1] };
                 changed = true;
             }
             bracketDrag(editor, editor.editingShape, "Move text");
-            ImGui::SetNextItemWidth(-42.f);
+            ImGui::SetNextItemWidth(-widgets::labelRoom(tr("size")));
             if (widgets::sliderInt(tr("size"), &spec.scale, 1, 8, "%dx")) {
                 changed = true;
             }
@@ -1634,7 +1640,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
             if (path) {
                 // A polygon or a curve is its points, edited on the canvas;
                 // here it moves as a whole, by its top-left corner.
-                ImGui::SetNextItemWidth(-42.f);
+                ImGui::SetNextItemWidth(-widgets::labelRoom("at"));
                 if (ImGui::DragFloat2("at", from, 0.25f, 0.f, 0.f, "%.0f")) {
                     const ls::Vec2f by { std::round(from[0]) - params.from.x,
                                          std::round(from[1]) - params.from.y };
@@ -1673,14 +1679,14 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 };
                 from[0] = shown(from[0]); from[1] = shown(from[1]);
                 to[0] = shown(to[0]);     to[1] = shown(to[1]);
-                ImGui::SetNextItemWidth(-42.f);
+                ImGui::SetNextItemWidth(-widgets::labelRoom("from"));
                 if (ImGui::DragFloat2("from", from, 0.25f, 0.f, 0.f, "%.0f")) {
                     params.from = stored(from[0], from[1]);
                     changed = true;
                 }
                 bracketDrag(editor, editor.editingShape, "Edit shape");
 
-                ImGui::SetNextItemWidth(-42.f);
+                ImGui::SetNextItemWidth(-widgets::labelRoom("to"));
                 if (ImGui::DragFloat2("to", to, 0.25f, 0.f, 0.f, "%.0f")) {
                     params.to = stored(to[0], to[1]);
                     changed = true;
@@ -1692,7 +1698,7 @@ static void drawElementsPart(Editor& editor, CanvasView& canvas, PaintLayer* lay
                 // The rectangle's own radius, read back from its geometry. A
                 // radius set here is also the one the next rectangle starts
                 // with.
-                ImGui::SetNextItemWidth(-42.f);
+                ImGui::SetNextItemWidth(-widgets::labelRoom(tr("round")));
                 if (widgets::sliderFloat(tr("round"), &params.cornerRadius, 0.f, 12.f,
                                        "%.1f")) {
                     editor.shapeCorner = params.cornerRadius;
@@ -1799,7 +1805,7 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
             changed = true;
         }
         int offset[2] = { settings.dx, settings.dy };
-        ImGui::SetNextItemWidth(-60.f);
+        ImGui::SetNextItemWidth(-widgets::labelRoom("offset"));
         if (ImGui::SliderInt2("offset", offset, -kMaxShadowOffset, kMaxShadowOffset)) {
             settings.dx = offset[0];
             settings.dy = offset[1];
@@ -1816,7 +1822,7 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         }
         bracketDrag(editor, editor.editingShape, "Shadow colour");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-60.f);
+        ImGui::SetNextItemWidth(-widgets::labelRoom(tr("opacity##shadow")));
         if (widgets::sliderFloat(tr("opacity##shadow"), &settings.opacity, 0.f, 1.f, "%.2f")) {
             changed = true;
         }
@@ -1900,7 +1906,8 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     }
     bracketDrag(editor, editor.editingShape, "Outline colour");
 
-    ImGui::SameLine();
+    // Beside the colour when the longer of the two answers fits, under it when not.
+    widgets::sameLineIfFits(widgets::buttonWidth("use a palette slot"));
     const bool usingRole = settings.role != ls::kColorRoleNone;
     if (usingRole) {
         const std::string label = "slot " + std::to_string(settings.role);
@@ -1988,7 +1995,7 @@ namespace {
 // layers draw faint so the eye can find them without the checkbox.
 void drawLayerThumbnail(Editor& editor, CanvasView& canvas, ls::SpriteId sprite,
                         ls::LayerId layer, bool visible) {
-    constexpr float kBox = 22.f;
+    const float kBox = theme::px(22.f);
     const FrameCache::Entry* entry = canvas.frames().entryForLayer(editor.doc, sprite, layer);
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -2033,7 +2040,15 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
     }
 
     // --- the buttons ---------------------------------------------------------
-    if (ImGui::Button(tr("Add"), ImVec2(52.f, 0.f))) {
+    //
+    // As wide as their words need (a longer translation, a larger interface),
+    // and never narrower than they are at 100%; a row too narrow for all five
+    // wraps instead of cutting a word.
+    const float addWidth = std::max(theme::px(52.f), widgets::buttonWidth("Add"));
+    const float dupWidth = std::max(theme::px(46.f), widgets::buttonWidth("Dup"));
+    const float deleteWidth = std::max(theme::px(56.f), widgets::buttonWidth("Delete"));
+    const float arrowWidth = theme::px(22.f);
+    if (ImGui::Button(tr("Add"), ImVec2(addWidth, 0.f))) {
         PaintLayer layer;
         const std::string name = "Layer " + std::to_string(order.size() + 1);
         if (createPaintLayer(editor.doc, sprite, name, toColor(editor.color), &layer)) {
@@ -2073,28 +2088,28 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
               "Select a "
               "group's row to add inside it.");
     }
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Dup"), ImVec2(46.f, 0.f))) {
+    widgets::sameLineIfFits(dupWidth);
+    if (ImGui::Button(tr("Dup"), ImVec2(dupWidth, 0.f))) {
         duplicateActiveLayer(editor, canvas);
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("Duplicate the active layer  (Ctrl+J)"));
     }
-    ImGui::SameLine();
+    widgets::sameLineIfFits(deleteWidth);
     const bool canDelete = order.size() > 1;
     ImGui::BeginDisabled(!canDelete);
-    if (ImGui::Button(tr("Delete"), ImVec2(56.f, 0.f))) {
+    if (ImGui::Button(tr("Delete"), ImVec2(deleteWidth, 0.f))) {
         deleteSelectedLayers(editor, canvas);
     }
     ImGui::EndDisabled();
     if (!canDelete && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("%s", tr("A sprite needs at least one layer."));
     }
-    ImGui::SameLine();
-    if (ImGui::Button("^", ImVec2(22.f, 0.f))) { raiseActiveLayer(editor, canvas); }
+    widgets::sameLineIfFits(arrowWidth);
+    if (ImGui::Button("^", ImVec2(arrowWidth, 0.f))) { raiseActiveLayer(editor, canvas); }
     if (ImGui::IsItemHovered()) { ImGui::SetTooltip("%s", tr("Move up  (Ctrl+])")); }
-    ImGui::SameLine();
-    if (ImGui::Button(tr("v"), ImVec2(22.f, 0.f))) { lowerActiveLayer(editor, canvas); }
+    widgets::sameLineIfFits(arrowWidth);
+    if (ImGui::Button(tr("v"), ImVec2(arrowWidth, 0.f))) { lowerActiveLayer(editor, canvas); }
     if (ImGui::IsItemHovered()) { ImGui::SetTooltip("%s", tr("Move down  (Ctrl+[)")); }
 
     // --- the properties strip -------------------------------------------------
@@ -2114,7 +2129,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
         if (have) {
             int blend = static_cast<int>(onGroup ? groupProps.blend : layerProps.blend);
             float opacity = onGroup ? groupProps.opacity : layerProps.opacity;
-            ImGui::SetNextItemWidth(104.f);
+            ImGui::SetNextItemWidth(theme::px(104.f));
             if (ImGui::Combo("##blend", &blend, blendModeNames().data(),
                              static_cast<int>(blendModeNames().size()))) {
                 editor.doc.beginAction("Blend mode");
@@ -2130,7 +2145,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 ImGui::SetTooltip(onGroup ? "How the group, composited as one, lands on what is below"
                                           : "How this layer lands on what is below it");
             }
-            ImGui::SameLine();
+            // Beside the blend mode while the slider keeps room to say its value,
+            // under it when a narrow panel would squeeze the words out of it.
+            widgets::sameLineIfFits(ImGui::CalcTextSize("opacity 1.00").x +
+                                    ImGui::GetStyle().FramePadding.x * 4.f);
             ImGui::SetNextItemWidth(-1.f);
             if (widgets::sliderFloat("##opacity", &opacity, 0.f, 1.f, "opacity %.2f")) {
                 if (onGroup) {
@@ -2151,7 +2169,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                                       "highlight that stays inside the body. A move "
                                       "clears it, because \"below\" changed."));
                 }
-                ImGui::SameLine();
+                // Beside it when it fits, under it when it does not.
+                widgets::sameLineIfFits(ImGui::GetFrameHeight() +
+                                        ImGui::GetStyle().ItemInnerSpacing.x +
+                                        ImGui::CalcTextSize(tr("lock")).x);
                 bool locked = layerProps.locked;
                 if (ImGui::Checkbox(tr("lock"), &locked)) {
                     toggleActiveLayerLock(editor);
@@ -2223,7 +2244,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                     openCollapsed = !openCollapsed;
                 }
                 ImGui::SameLine();
-                if (theme::eyeToggle("##gvisible", group.visible, 18.f)) {
+                if (theme::eyeToggle("##gvisible", group.visible, theme::px(18.f))) {
                     editor.doc.beginAction(group.visible ? "Hide group" : "Show group");
                     setGroupVisible(editor.doc, openGroup, !group.visible);
                     editor.doc.endAction();
@@ -2300,10 +2321,10 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
 
         // The layer row.
         if (openGroup.valid()) {
-            ImGui::Indent(18.f);
+            ImGui::Indent(theme::px(18.f));
         }
         const bool visible = props.visible;
-        if (theme::eyeToggle("##visible", visible, 18.f)) {
+        if (theme::eyeToggle("##visible", visible, theme::px(18.f))) {
             if (ImGui::GetIO().KeyAlt) {
                 // Alt: this layer alone -- or, when it already is, all of them
                 // again. The quickest way to see what one layer draws.
@@ -2363,14 +2384,14 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
                 const ImVec2 at = ImGui::GetCursorScreenPos();
                 if (props.tagged) {
                     ImGui::GetWindowDrawList()->AddRectFilled(
-                        at, ImVec2(at.x + 3.f, at.y + 22.f),
+                        at, ImVec2(at.x + theme::px(3.f), at.y + theme::px(22.f)),
                         IM_COL32(props.tag.r, props.tag.g, props.tag.b, 255));
                 }
-                ImGui::Dummy(ImVec2(3.f, 22.f));
+                ImGui::Dummy(ImVec2(theme::px(3.f), theme::px(22.f)));
                 if (props.tagged && !props.notes.empty() && ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("%s", props.notes.c_str());
                 }
-                ImGui::SameLine(0.f, 3.f);
+                ImGui::SameLine(0.f, theme::px(3.f));
             }
             drawLayerThumbnail(editor, canvas, sprite, id, props.visible);
             ImGui::SameLine();
@@ -2397,7 +2418,7 @@ void drawLayerPanel(Editor& editor, CanvasView& canvas) {
             const bool selected = drawable && !editor.activeGroup.valid() && layerSelected(editor, id);
             ImGui::BeginDisabled(!drawable);
             // As tall as the thumbnail, so the highlight covers the row.
-            if (ImGui::Selectable(label.c_str(), selected, 0, ImVec2(0.f, 22.f))) {
+            if (ImGui::Selectable(label.c_str(), selected, 0, ImVec2(0.f, theme::px(22.f)))) {
                 selectLayer(editor, id, ImGui::GetIO().KeyCtrl);
             }
             ImGui::EndDisabled();
@@ -2628,14 +2649,14 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
         editor.propertiesLoaded = id;
     }
     bool open = true;
-    ImGui::SetNextWindowSize(ImVec2(340.f, 0.f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(theme::px(340.f), 0.f), ImGuiCond_Appearing);
     if (!ImGui::Begin("Layer properties", &open,
                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
     }
     // The name: kept when the field is left or Enter pressed, one undo step.
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("name")));
     ImGui::InputText(tr("name"), editor.propertiesName, sizeof(editor.propertiesName));
     if (ImGui::IsItemDeactivatedAfterEdit() && props.name != editor.propertiesName &&
         editor.propertiesName[0] != '\0') {
@@ -2645,7 +2666,7 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
     }
 
     int blend = static_cast<int>(props.blend);
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("blend")));
     if (ImGui::Combo(tr("blend"), &blend, blendModeNames().data(),
                      static_cast<int>(blendModeNames().size()))) {
         editor.doc.beginAction("Blend mode");
@@ -2654,14 +2675,14 @@ void drawLayerPropertiesPanel(Editor& editor, CanvasView& canvas) {
         canvas.invalidate();
     }
     float opacity = props.opacity;
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("opacity")));
     if (widgets::sliderFloat(tr("opacity"), &opacity, 0.f, 1.f, "%.2f")) {
         setLayerOpacity(editor.doc, id, opacity);
         canvas.invalidate();
     }
     bracketDrag(editor, editor.draggingLayerProperties, "Layer opacity");
     float cel = celOpacity(editor.doc, id);
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("cel opacity")));
     if (widgets::sliderFloat(tr("cel opacity"), &cel, 0.f, 1.f, "%.2f")) {
         setCelOpacity(editor.doc, id, cel);
         canvas.invalidate();
@@ -2839,7 +2860,9 @@ bool pasteReference(Editor& editor, CanvasView& canvas) {
 }
 
 void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
-    const float half = (ImGui::GetContentRegionAvail().x - theme::metrics().itemSpacing) * 0.5f;
+    const char* const importLabels[] = { "Import image...", "Paste image" };
+    const widgets::ButtonRow import = widgets::buttonRow(importLabels, 2);
+    const float half = import.width;
     if (ImGui::Button(tr("Import image..."), ImVec2(half, 0.f))) {
         showImportReferenceDialog(editor.files, window, editor.doc);
     }
@@ -2848,7 +2871,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
                           "stored in this document, so it travels with the "
                           "work and is never exported."));
     }
-    ImGui::SameLine();
+    widgets::beside(import, 1);
     ImGui::BeginDisabled(!clipboardHasImage());
     if (ImGui::Button(tr("Paste image"), ImVec2(half, 0.f))) {
         pasteReference(editor, canvas);
@@ -2872,7 +2895,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     for (size_t i = 0; i < editor.references.size(); ++i) {
         Reference reference = editor.references[i];
         ImGui::PushID(reference.id.c_str());
-        if (theme::eyeToggle("##visible", reference.visible, 16.f)) {
+        if (theme::eyeToggle("##visible", reference.visible, theme::px(16.f))) {
             reference.visible = !reference.visible;
             editor.doc.beginAction(reference.visible ? "Show reference"
                                                      : "Hide reference");
@@ -2885,7 +2908,9 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
         ImGui::SameLine();
         const bool selected = reference.id == editor.activeReference;
         if (ImGui::Selectable(reference.name.c_str(), selected, 0,
-                              ImVec2(ImGui::GetContentRegionAvail().x - 24.f, 0.f))) {
+                              ImVec2(ImGui::GetContentRegionAvail().x -
+                                     (widgets::buttonWidth("x") +
+                                      ImGui::GetStyle().ItemSpacing.x), 0.f))) {
             editor.activeReference = reference.id;
         }
         if (ImGui::IsItemHovered()) {
@@ -2925,7 +2950,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     bracketDrag(editor, editor.draggingReference, "Reference opacity");
 
     float position[2] = { edited.x, edited.y };
-    ImGui::SetNextItemWidth(-42.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom("at"));
     if (ImGui::DragFloat2("at", position, 0.25f, 0.f, 0.f, "%.1f")) {
         edited.x = position[0];
         edited.y = position[1];
@@ -2933,7 +2958,7 @@ void drawReferencePanel(Editor& editor, CanvasView& canvas, SDL_Window* window) 
     }
     bracketDrag(editor, editor.draggingReference, "Move reference");
 
-    ImGui::SetNextItemWidth(-42.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("scale")));
     if (ImGui::DragFloat(tr("scale"), &edited.scale, 0.01f, 0.01f, 64.f, "%.3f")) {
         changed = true;
     }
@@ -3034,7 +3059,8 @@ bool drawTile(CanvasView& canvas, const ReferenceCache::Entry* picture,
               const char* name, bool selected, float size) {
     ImGui::PushID(name);
     const ImVec2 at = ImGui::GetCursorScreenPos();
-    const bool clicked = ImGui::InvisibleButton("tile", ImVec2(size, size + 18.f));
+    const bool clicked = ImGui::InvisibleButton(
+        "tile", ImVec2(size, size + ImGui::GetTextLineHeight() + theme::px(4.f)));
     const bool hovered = ImGui::IsItemHovered();
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const theme::Palette& c = theme::palette();
@@ -3062,7 +3088,7 @@ bool drawTile(CanvasView& canvas, const ReferenceCache::Entry* picture,
                                : ImGui::GetColorU32(c.text),
                       theme::metrics().rounding, 0, selected ? 2.f : 1.f);
     }
-    draw->AddText(ImVec2(at.x, at.y + size + 3.f),
+    draw->AddText(ImVec2(at.x, at.y + size + theme::px(3.f)),
                   ImGui::GetColorU32(hovered ? c.text : c.textDim), name);
     ImGui::PopID();
     (void)canvas;
@@ -3075,7 +3101,7 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (!editor.libraryOpen) {
         return;
     }
-    ImGui::SetNextWindowSize(ImVec2(520.f, 420.f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(theme::px(520.f), theme::px(420.f)), ImGuiCond_Appearing);
     if (!ImGui::Begin("Library", &editor.libraryOpen)) {
         ImGui::End();
         return;
@@ -3107,7 +3133,7 @@ void drawLibraryPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawFolderRow(editor, window, editor.libraryShowingReferences);
     ImGui::Separator();
 
-    const float tile = 84.f;
+    const float tile = theme::px(84.f);
     const float step = tile + theme::metrics().itemSpacing;
     const int perRow = std::max(1, static_cast<int>(
         (ImGui::GetContentRegionAvail().x + theme::metrics().itemSpacing) / step));
@@ -3232,8 +3258,11 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
                           static_cast<float>(size.value.y) * 0.5f };
     }();
 
-    const float third = (ImGui::GetContentRegionAvail().x -
-                         theme::metrics().itemSpacing * 3.f) / 4.f;
+    // Four buttons that share the width, and wrap two and two when the panel is
+    // too narrow for the longest word (a larger interface, a longer language).
+    const char* const addLabels[] = { "Rotate", "Scale", "Mirror", "Offset" };
+    const widgets::ButtonRow add = widgets::buttonRow(addLabels, 4);
+    const float third = add.width;
 
     // A rotation or a scale comes with the gizmo to drive it: the Move tool
     // shows it on the canvas (transform_gizmo.h).
@@ -3245,7 +3274,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
         editor.say("Drag the ring to turn it, Shift for steps of 15 degrees -- or type the angle");
         canvas.invalidate();
     }
-    ImGui::SameLine();
+    widgets::beside(add, 1);
     if (ImGui::Button(tr("Scale"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add scale");
         addScale(editor.doc, layer->layer, {1.f, 1.f}, centre);
@@ -3254,14 +3283,14 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
         editor.say("Drag an arrow to stretch it, the square for both, Shift for quarter steps");
         canvas.invalidate();
     }
-    ImGui::SameLine();
+    widgets::beside(add, 2);
     if (ImGui::Button(tr("Mirror"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add mirror");
         addMirror(editor.doc, layer->layer, ls::MirrorAxis::X, centre);
         editor.doc.endAction();
         canvas.invalidate();
     }
-    ImGui::SameLine();
+    widgets::beside(add, 3);
     if (ImGui::Button(tr("Offset"), ImVec2(third, 0.f))) {
         editor.doc.beginAction("Add offset");
         addOffset(editor.doc, layer->layer, {0.f, 0.f});
@@ -3299,7 +3328,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
         ImGui::PopStyleColor();
 
         bool changed = false;
-        ImGui::SetNextItemWidth(-30.f);
+        ImGui::SetNextItemWidth(-theme::px(30.f));
         // Numbers typed, not slid: a slider's steps are the panel's width,
         // and 90 is where a typed 90 lands. The gizmo drags them by hand.
         if (entry.kind == TransformKind::Rotate) {
@@ -3342,7 +3371,7 @@ void drawTransformPanel(Editor& editor, CanvasView& canvas) {
             for (const auto& k : kinds) {
                 if (k.policy == entry.sampling) { current = k.name; }
             }
-            ImGui::SetNextItemWidth(-30.f);
+            ImGui::SetNextItemWidth(-theme::px(30.f));
             if (ImGui::BeginCombo("##sampling", current)) {
                 for (const auto& k : kinds) {
                     if (ImGui::Selectable(k.name, k.policy == entry.sampling)) {
@@ -3428,37 +3457,46 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
     const float artWidth = static_cast<float>(canvas.compiledWidth()) * scale;
     const float artHeight = static_cast<float>(canvas.compiledHeight()) * scale;
 
-    const float padding = 10.f;
-    const float swatchRow = 16.f;
+    // The sample itself is in pixels of the artwork (1x to 4x), never scaled by the
+    // interface; the box round it and the controls under it are, and their widths
+    // follow the font.
+    const float padding = theme::px(10.f);
+    const float swatchRow = theme::px(16.f);
+    const float gap = theme::px(3.f);
+    const float margin = theme::px(14.f);
 
     // Two rows of controls, not one: the scales and the colour, then the
     // backdrops. Sizing the box for one leaves the second hanging outside it.
     const float controlsHeight =
-        ImGui::GetFrameHeight() + theme::metrics().itemSpacing + swatchRow + 12.f;
+        ImGui::GetFrameHeight() + theme::metrics().itemSpacing + swatchRow + theme::px(12.f);
+
+    // The 1x to 4x buttons: a digit and an x, so the same width in every language.
+    const float scaleWidth = theme::px(26.f);
 
     // Wide enough for the controls even when the sprite is tiny, which it
     // usually is: a 16x16 at 1x is smaller than the buttons under it.
     // Wide enough for eight backdrop swatches in a row, whatever the sprite.
-    const float backdropRow = 8.f * swatchRow + 7.f * 3.f;
+    const float backdropRow = 8.f * swatchRow + 7.f * gap;
     const float boxWidth = std::max(artWidth + padding * 2.f,
-                                    backdropRow + padding * 2.f + 4.f);
+                                    backdropRow + padding * 2.f + theme::px(4.f));
     const float boxHeight = artHeight + controlsHeight + padding * 2.f;
     // The room it takes from the view -- the box, its distance from the edge
     // and a gap -- which fitting the artwork keeps clear.
-    canvas.setCornerOverlay({ boxWidth + 14.f + 8.f, boxHeight + 14.f + 8.f });
+    canvas.setCornerOverlay({ boxWidth + margin + theme::px(8.f),
+                              boxHeight + margin + theme::px(8.f) });
 
     // Bottom right of the canvas, out of the way of the artwork, which is
     // usually centred.
     const ImVec2 windowMin = ImGui::GetWindowPos();
     const ImVec2 windowSize = ImGui::GetWindowSize();
-    const ImVec2 at(windowMin.x + windowSize.x - boxWidth - 14.f,
-                    windowMin.y + windowSize.y - boxHeight - 14.f);
+    const ImVec2 at(windowMin.x + windowSize.x - boxWidth - margin,
+                    windowMin.y + windowSize.y - boxHeight - margin);
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     draw->AddRectFilled(at, ImVec2(at.x + boxWidth, at.y + boxHeight),
-                        ImGui::GetColorU32(c.windowBackground), 4.f);
+                        ImGui::GetColorU32(c.windowBackground), theme::px(4.f));
     draw->AddRect(at, ImVec2(at.x + boxWidth, at.y + boxHeight),
-                  ImGui::GetColorU32(c.border), 4.f);
+                  ImGui::GetColorU32(c.border), theme::px(4.f));
 
     const ImVec2 artAt(at.x + (boxWidth - artWidth) * 0.5f, at.y + padding);
     canvas.drawSample(draw, artAt, scale,
@@ -3505,13 +3543,13 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
 
     // The controls sit inside the box as a real ImGui region, so they can be
     // clicked rather than only looked at.
-    ImGui::SetCursorScreenPos(ImVec2(at.x + padding, at.y + artHeight + padding + 4.f));
+    ImGui::SetCursorScreenPos(ImVec2(at.x + padding, at.y + artHeight + padding + theme::px(4.f)));
     ImGui::BeginGroup();
     ImGui::PushID("preview");
 
     for (int step = 1; step <= 4; ++step) {
         if (step > 1) {
-            ImGui::SameLine(0.f, 3.f);
+            ImGui::SameLine(0.f, gap);
         }
         const bool selected = editor.preview.scale == step;
         ImGui::PushStyleColor(ImGuiCol_Button,
@@ -3519,23 +3557,23 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
         ImGui::PushStyleColor(ImGuiCol_Text, selected ? c.accent : c.textDim);
         char label[8];
         std::snprintf(label, sizeof(label), "%dx", step);
-        if (ImGui::Button(label, ImVec2(26.f, 0.f))) {
+        if (ImGui::Button(label, ImVec2(scaleWidth, 0.f))) {
             editor.preview.scale = step;
         }
         ImGui::PopStyleColor(2);
     }
 
-    ImGui::SameLine(0.f, 8.f);
+    ImGui::SameLine(0.f, theme::px(8.f));
     if (theme::swatch("transparent", IM_COL32(0, 0, 0, 0),
-                      editor.preview.transparent, 18.f)) {
+                      editor.preview.transparent, theme::px(18.f))) {
         editor.preview.transparent = true;
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("No background"));
     }
 
-    ImGui::SameLine(0.f, 3.f);
-    ImGui::SetNextItemWidth(40.f);
+    ImGui::SameLine(0.f, gap);
+    ImGui::SetNextItemWidth(theme::px(40.f));
     if (ImGui::ColorEdit4("##bg", editor.preview.color,
                           ImGuiColorEditFlags_NoInputs |
                           ImGuiColorEditFlags_NoLabel)) {
@@ -3548,7 +3586,7 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
     // The situations a sprite has to survive, one click each.
     for (size_t i = 0; i < sizeof(kBackdrops) / sizeof(kBackdrops[0]); ++i) {
         if (i % 8 != 0) {
-            ImGui::SameLine(0.f, 3.f);
+            ImGui::SameLine(0.f, gap);
         }
         const ImU32 colour = kBackdrops[i].colour;
         // Packed without ImGui::GetColorU32, which multiplies in the global
@@ -3558,7 +3596,7 @@ void drawPreviewOverlay(Editor& editor, CanvasView& canvas) {
             colour == ImGui::ColorConvertFloat4ToU32(
                 ImVec4(editor.preview.color[0], editor.preview.color[1],
                        editor.preview.color[2], editor.preview.color[3]));
-        if (theme::swatch(kBackdrops[i].name, colour, selected, 16.f)) {
+        if (theme::swatch(kBackdrops[i].name, colour, selected, swatchRow)) {
             const ImVec4 unpacked = ImGui::ColorConvertU32ToFloat4(colour);
             editor.preview.color[0] = unpacked.x;
             editor.preview.color[1] = unpacked.y;

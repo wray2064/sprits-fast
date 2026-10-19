@@ -1,0 +1,118 @@
+# Nothing in a docked panel is wider than the panel, at any interface size, in
+# either language: a label cut at the panel's edge, or a button that runs off it,
+# shows here as contents the panel could scroll sideways to reach.
+#
+# (Rule 3 of docs/visual-language.md: every pixel count is for 100%. The panels
+# take their widths from the font and the interface size, and the dock itself is
+# built wider as the size goes up.) The tabs of a panel group scroll by design,
+# and what a person sees of that is in the gallery (tools/gallery.ps1).
+
+# Something in every panel: a scene on two layers, a shape element, a second frame.
+tool rectangle
+colour 3a6ea5
+drag 2 2 29 18
+tool pencil
+colour e08f40
+drag 6 22 16 22
+click-on Add
+wait 3
+tool rectangle
+colour c0392b
+drag 8 24 20 26
+wait 3
+
+for-each language en es
+language {language}
+for-each scale 75 100 150
+scale {scale}
+wait 3
+for-each arrangement drawing animation compact
+layout {arrangement}
+wait 6
+
+# The Tool panel changes with the tool in hand.
+tool pencil
+wait 3
+expect fits all
+tool eraser
+wait 3
+expect fits all
+tool bucket
+wait 3
+expect fits all
+tool spray
+wait 3
+expect fits all
+tool gradient
+wait 3
+expect fits all
+tool wand
+wait 3
+expect fits all
+tool rectangle
+wait 3
+expect fits all
+tool select
+wait 3
+expect fits all
+
+end-for
+
+# The Timeline when it is a drawer rather than a panel: a tab at the canvas's
+# edge, and the strip it opens over it. (T tucks a drawer that was kept open;
+# the script cannot click "Hide" by name in every language.)
+layout drawing
+wait 6
+click-on timeline tab
+wait 6
+expect fits all
+key t
+wait 6
+expect item timeline tab
+
+end-for
+end-for
+
+# A dock keeps the width it had when the interface grows afterwards (Window >
+# Layouts builds it again for the new size): the panels too narrow for what they
+# hold scroll sideways, rather than cut a label off, and the others still fit.
+language en
+tool pencil
+scale 100
+wait 3
+layout drawing
+wait 8
+scale 150
+wait 10
+expect scrolls tool
+expect scrolls palette
+expect fits layers
+expect fits elements
+expect fits properties
+expect fits transform
+
+# The docks are built for the size they are built at, and no wider than the
+# window can spare: the same room for the contents at 150% as at 100% (the
+# window here is 1440 pixels wide, so the cap -- 30% of the dock space -- is
+# 409 pixels), and the Layers list a taller share of its column so that rows show.
+language en
+scale 75
+wait 3
+layout drawing
+wait 6
+expect width layers 200 215
+scale 100
+wait 3
+layout drawing
+wait 6
+expect width layers 270 282
+expect height layers 240 270
+scale 150
+wait 3
+layout drawing
+wait 6
+expect width layers 395 420
+expect height layers 300 420
+
+scale 100
+language en

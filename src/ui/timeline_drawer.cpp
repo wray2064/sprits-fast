@@ -148,7 +148,10 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
 
     const float tabWidth = std::min(200.f * k, areaSize.x);
     const float tabHeight = std::min(24.f * k, areaSize.y);
-    const float stripHeight = std::min(220.f * k, areaSize.y * 0.6f);
+    // Taller than the interface size alone makes it as that grows: the strip is
+    // narrower in its own pixels, so its controls wrap onto more rows.
+    const float stripHeight =
+        std::min(220.f * k * (1.f + 0.6f * std::max(0.f, k - 1.f)), areaSize.y * 0.6f);
     const ImVec2 areaEnd(areaPos.x + areaSize.x, areaPos.y + areaSize.y);
     const ImVec2 stripMin(areaPos.x, areaEnd.y - stripHeight);
     const ImVec2 tabMin(areaPos.x + (areaSize.x - tabWidth) * 0.5f, areaEnd.y - tabHeight);
@@ -216,6 +219,9 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
     ImGui::SetNextWindowSize(ImVec2(tabMax.x - tabMin.x, tabMax.y - tabMin.y));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
+    // The tab is shorter than a window may be by default (WindowMinSize), and a
+    // window made taller than the tab hangs over the status bar below it.
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1.f, 1.f));
     const ImGuiWindowFlags tabFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove |
                                       ImGuiWindowFlags_NoBackground |
@@ -229,8 +235,11 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
         const float round = 5.f * k;
         draw->AddRectFilled(tabMin, tabMax, ImGui::GetColorU32(hovered ? p.controlHovered : p.raised),
                             round, ImDrawFlags_RoundCornersTop);
+        // Thickness before flags (ImGui 1.92.8 swapped them): the flags alone
+        // in that place are a 48-pixel outline, which fills the tab in the
+        // border colour and leaves its label nothing to be read against.
         draw->AddRect(tabMin, tabMax, ImGui::GetColorU32(hovered ? p.accent : p.border), round,
-                      ImDrawFlags_RoundCornersTop);
+                      1.f, ImDrawFlags_RoundCornersTop);
         // A chevron up: the strip rises from here.
         const float cx = tabMin.x + 14.f * k;
         const float cy = tabMin.y + size.y * 0.5f;
@@ -263,7 +272,7 @@ void drawTimelineDrawer(Editor& editor, ImVec2 areaPos, ImVec2 areaSize,
         }
     }
     ImGui::End();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
 }
 
 } // namespace fast

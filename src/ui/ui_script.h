@@ -63,7 +63,15 @@
 //                                 in Preferences > Appearance does); a program's own
 //                                 role by its id: role demo.mark ff00ff
 //     theme midnight              a theme chosen by its id, as Preferences does
-//     scale 150                   the interface size, in percent
+//     scale 150                   the interface size, in percent (75 to 150)
+//     language es                 the interface in a language the lang folder has (en:
+//                                 English), as Preferences does
+//     layout drawing              the dock rebuilt as drawing, animation or compact, as
+//                                 Window > Layouts does -- by name, so it works in any language
+//     expect fits all             no panel's contents wider than the panel (a label or a
+//                                 button cut off at its edge): `all`, or one panel by its id
+//     expect scrolls tool         a panel too narrow for what it holds has a sideways
+//                                 scrollbar to reach it by
 //     demo-roles                  registers three sample roles of a made-up program
 //                                 (demo.mark, demo.label, demo.tint), as an
 //                                 AppExtension would, so what they do can be checked
@@ -125,7 +133,8 @@ private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
                     Reference, Open, Start, Answer, Remove, ZoomTo, Role,
-                    Wheel, UseTheme, UseScale, DemoRoles, Pause } kind = Wait;
+                    Wheel, UseTheme, UseScale, DemoRoles, Pause, UseLanguage,
+                    UseLayout } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         int         index = 0;             // Widget: which of several, from 1; 0 the last drawn

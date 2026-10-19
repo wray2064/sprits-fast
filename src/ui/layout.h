@@ -91,4 +91,16 @@ void drawDockSpace(Editor& editor, ImVec2 pos, ImVec2 size);
 // The flags a panel window is begun with: it moves, resizes, docks and tabs.
 ImGuiWindowFlags panelFlags();
 
+// Begins a docked panel the way Fast's own are: `panelFlags()`, and a panel
+// narrower than its contents scrolls sideways rather than cutting a label or a
+// button off at its edge. Use it in place of ImGui::Begin(title, open, flags),
+// and end it with ImGui::End(), as for any window; true while the panel shows.
+//
+// A window that scrolls sideways lays its full-width items (a row of buttons that
+// share the width, a wrapped hint, a line) out to the widest thing it held last
+// frame, so one that once overflowed would keep every row that wide for good. A
+// panel is begun here with that undone: what fills the width fills the width the
+// person can see, and only what is fixed wider than that is scrolled to.
+bool beginPanel(const char* title, bool* open);
+
 } // namespace fast

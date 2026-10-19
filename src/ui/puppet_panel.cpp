@@ -11,6 +11,7 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 #include "ui/ui_script.h"
+#include "ui/widgets.h"
 
 #include <algorithm>
 #include <cmath>
@@ -81,10 +82,7 @@ void besideIfItFits(const char* label) {
     const ImGuiStyle& style = ImGui::GetStyle();
     const float wide = ImGui::GetFrameHeight() + style.ItemInnerSpacing.x +
                        ImGui::CalcTextSize(label).x;
-    const float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-    if (ImGui::GetItemRectMax().x + style.ItemSpacing.x + wide <= right) {
-        ImGui::SameLine();
-    }
+    widgets::sameLineIfFits(wide);
 }
 
 void setMode(Editor& editor, Mode mode) {
@@ -128,7 +126,8 @@ void partRow(Editor& editor, ls::SpriteId part) {
         }
     }
     if (angle[0] != '\0') {
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30.f);
+        ImGui::SameLine(ImGui::GetContentRegionAvail().x -
+                        std::max(theme::px(30.f), ImGui::CalcTextSize(angle).x));
         ImGui::TextDisabled("%s", angle);
     }
     ImGui::PopID();
@@ -168,7 +167,7 @@ void partFromActiveLayer(Editor& editor) {
 
 // The pose of the picked part, and what is done with a pose: first in the
 // panel while posing, so capturing is never scrolled out of reach.
-void drawPoseControls(Editor& editor, CanvasView& canvas, ls::SpriteId part, float half) {
+void drawPoseControls(Editor& editor, CanvasView& canvas, ls::SpriteId part) {
     Editor::PuppetView& view = editor.puppet;
     theme::sectionHeader(tr("POSE"));
     float angle = jointAngle(editor.doc, part);
@@ -189,12 +188,16 @@ void drawPoseControls(Editor& editor, CanvasView& canvas, ls::SpriteId part, flo
         }
         holdForUndo(editor, editor.draggingTransform, "Pose");
     }
-    if (ImGui::Button(tr("Rest pose"), ImVec2(half, 0.f))) {
+    // Two buttons that share the width, and stack when the panel is too narrow
+    // for the longer word.
+    const char* const poseLabels[] = { "Rest pose", "Capture pose" };
+    const widgets::ButtonRow poseRow = widgets::buttonRow(poseLabels, 2);
+    if (ImGui::Button(tr("Rest pose"), ImVec2(poseRow.width, 0.f))) {
         restPose(editor.doc, root);
         canvas.invalidate();
     }
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Capture pose"), ImVec2(half, 0.f))) {
+    widgets::beside(poseRow, 1);
+    if (ImGui::Button(tr("Capture pose"), ImVec2(poseRow.width, 0.f))) {
         const int at = capturePose(editor.doc, root, editor.timeline.activeFrame);
         if (at >= 0) {
             editor.timeline.activeFrame = at;
@@ -250,9 +253,8 @@ void drawPuppetPanel(Editor& editor, CanvasView& canvas) {
     ImGui::BeginDisabled(!picked);
     if (ImGui::RadioButton(tr("Pose"), mode == 2)) { setMode(editor, Mode::Pose); }
     ImGui::EndDisabled();
-    const float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     if (view.mode == Mode::Pose && view.part.valid()) {
-        drawPoseControls(editor, canvas, view.part, half);
+        drawPoseControls(editor, canvas, view.part);
     }
 
     // The parts, as the puppets they hang in.
@@ -274,8 +276,10 @@ void drawPuppetPanel(Editor& editor, CanvasView& canvas) {
             stack.insert(stack.end(), children.rbegin(), children.rend());
         }
     }
+    const char* const partLabels[] = { "Part from layer", "Delete part" };
+    const widgets::ButtonRow partRowLayout = widgets::buttonRow(partLabels, 2);
     ImGui::BeginDisabled(view.mode != Mode::Frames || editor.active() == nullptr);
-    if (ImGui::Button(tr("Part from layer"), ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Part from layer"), ImVec2(partRowLayout.width, 0.f))) {
         partFromActiveLayer(editor);
     }
     ImGui::EndDisabled();
@@ -283,9 +287,9 @@ void drawPuppetPanel(Editor& editor, CanvasView& canvas) {
         ImGui::SetTooltip("%s", tr("The frame's picked layer becomes a part, drawn where it "
                                    "was (Frames)."));
     }
-    ImGui::SameLine();
+    widgets::beside(partRowLayout, 1);
     ImGui::BeginDisabled(!picked);
-    if (ImGui::Button(tr("Delete part"), ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Delete part"), ImVec2(partRowLayout.width, 0.f))) {
         deletePart(editor.doc, view.part);
         view.part = ls::SpriteId{};
         setMode(editor, Mode::Frames);
@@ -350,12 +354,14 @@ void drawPuppetPanel(Editor& editor, CanvasView& canvas) {
     // Joint and sockets.
     const ls::Vec2f joint = jointPosition(editor.doc, part);
     ImGui::Text("%s %.1f, %.1f", tr("joint"), static_cast<double>(joint.x), static_cast<double>(joint.y));
+    const char* const placeLabels[] = { "Place joint", "Add socket" };
+    const widgets::ButtonRow placeRow = widgets::buttonRow(placeLabels, 2);
     ImGui::BeginDisabled(view.mode != Mode::DrawPart);
-    if (ImGui::Button(tr("Place joint"), ImVec2(half, 0.f))) {
+    if (ImGui::Button(tr("Place joint"), ImVec2(placeRow.width, 0.f))) {
         view.placing = view.placing == Placing::Joint ? Placing::None : Placing::Joint;
     }
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Add socket"), ImVec2(half, 0.f))) {
+    widgets::beside(placeRow, 1);
+    if (ImGui::Button(tr("Add socket"), ImVec2(placeRow.width, 0.f))) {
         view.placing = view.placing == Placing::Socket ? Placing::None : Placing::Socket;
     }
     ImGui::EndDisabled();

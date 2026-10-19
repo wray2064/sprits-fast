@@ -64,7 +64,7 @@ From PowerShell in this folder:
 |---|---|---|
 | Core and tests | `.\build.bat test` | `build\`, no window, seconds; 49 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 38 scripts; all must pass; CI runs them |
+| UI scripts | `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt` | 39 scripts; all must pass; CI runs them |
 | The gallery | `.\tools\gallery.ps1` | every screen in every theme at 100% and 150%, 270 images and a contact sheet per screen in `build-gui\gallery`; look at it before calling a visual change done |
 | Release | `.\build-release.bat` | `dist\SpritsFast`: windowed, optimised, with `lang\` and the C++ runtime DLLs; copy the folder anywhere |
 

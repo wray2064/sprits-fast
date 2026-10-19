@@ -132,6 +132,16 @@ program -- which is the argument for having them.
   of the panel. The hook now keeps an early label until its item arrives.
   `tests/ui/panels_dock.txt` floats a panel by its tab, opens References and
   resets the layout.
+- **Panels cut a label or a button off at 150%.** Fixed widths in pixels were
+  right at 100% and wrong at any other size or in a longer language, and the
+  docks were 276 pixels wide whatever the size. `tests/ui/panels_fit.txt`
+  asks, at 75, 100 and 150% in English and Spanish, in each layout and with
+  eight tools in hand, that nothing in a docked panel is wider than the panel
+  (`expect fits all`: content past the edge is what a cut label is) and that a
+  panel left too narrow scrolls (`expect scrolls`). The gallery
+  (`tools\gallery.ps1`) is what shows the rest -- a label cut inside its own
+  button is not content past an edge -- and is looked at before a visual change
+  is called done.
 - **UI scripts failed at random on a desktop someone was using.** A scripted
   window still took the machine's real mouse, keys and focus changes, so a
   pointer passing over it or a click in another window landed mid-run, and a

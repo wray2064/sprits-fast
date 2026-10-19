@@ -161,11 +161,23 @@ void apply() {
     style = pristine;
     const Palette& c = gPalette;
     const DensitySteps steps = stepsFor(gDensity);
-    kMetrics.itemSpacing = steps.itemSpacing;
-    kMetrics.panelPadding = steps.panelPadding;
-    kMetrics.sectionGap = steps.sectionGap;
-    kMetrics.rowHeight = steps.rowHeight;
-    const Metrics& m = kMetrics;
+    // What the style is built from is for 100% (it is scaled at the end, below);
+    // what metrics() hands to the panels is the same, already at the person's
+    // interface size, because a panel adds it to widths ImGui has scaled (a gap
+    // between buttons) and a measure at 100% beside them would not fit.
+    Metrics m;
+    m.itemSpacing = steps.itemSpacing;
+    m.panelPadding = steps.panelPadding;
+    m.sectionGap = steps.sectionGap;
+    m.rowHeight = steps.rowHeight;
+    kMetrics = m;
+    kMetrics.rowHeight *= gScale;
+    kMetrics.panelPadding *= gScale;
+    kMetrics.itemSpacing *= gScale;
+    kMetrics.sectionGap *= gScale;
+    kMetrics.sidebarWidth *= gScale;
+    kMetrics.toolbarHeight *= gScale;
+    kMetrics.rounding *= gScale;
 
     // Geometry. Slightly rounded rather than pill-shaped: this is a tool for
     // drawing on a square grid, and softness here reads as imprecision.
@@ -277,6 +289,10 @@ void setScale(float scale) {
 
 float scale() {
     return gScale;
+}
+
+float px(float at100) {
+    return at100 * gScale;
 }
 
 void loadFonts(float scale) {

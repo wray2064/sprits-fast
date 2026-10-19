@@ -11,6 +11,7 @@
 
 #include <imgui_internal.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -108,7 +109,14 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
     ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace, size);
 
-    const float side = theme::metrics().sidebarWidth;
+    // Every measure here is for 100% and grows with the interface size, so a
+    // panel is as roomy at 150% as it is at 100% -- up to what the window can
+    // spare: a dock takes at most 30% of the width (and never less than it has at
+    // 100%), the Timeline at most half the height, so the canvas keeps the rest.
+    const float k = theme::scale();
+    const float sideAt100 = theme::metrics().sidebarWidth / k;
+    const float side = std::min(theme::metrics().sidebarWidth,
+                                std::max(sideAt100, size.x * 0.30f));
     ImGuiID centre = dockspace;
     const ImGuiID left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left,
                                                      side / size.x, nullptr, &centre);
@@ -116,12 +124,29 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
                                                       side / (size.x - side), nullptr, &centre);
     // The height the Timeline has when it is pinned: its rows and the frame
     // strip under them, with the header row that holds Unpin.
-    const float timelineHeight = preset == LayoutPreset::Animation ? 0.36f * size.y : 246.f;
+    // A larger interface leaves the strip narrower in its own pixels, so its
+    // controls wrap onto more rows, and it needs more than the interface size
+    // alone gives it.
+    const float strip = 246.f * k * (1.f + 0.6f * std::max(0.f, k - 1.f));
+    const float wanted = preset != LayoutPreset::Animation ? strip
+                         : k > 1.f                          ? std::max(0.36f * size.y, strip)
+                                                            : 0.36f * size.y;
+    const float timelineHeight = std::min(wanted, std::max(246.f, 0.5f * size.y));
     const ImGuiID bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down,
                                                        timelineHeight / size.y, nullptr, &centre);
+    // The height a window has, in logical pixels, falls as the interface grows
+    // (900 pixels are 600 of them at 150%), while a panel's rows do not get any
+    // shorter: so the panels that need the room -- the Tool's options, the
+    // Layers list -- take a larger share of a column as the size goes up, from
+    // what they have at 100% to what is given here for 150%.
+    const float t = std::clamp((k - 1.f) / 0.5f, 0.f, 1.f);
+    const auto grow = [t](float at100, float at150) { return at100 + (at150 - at100) * t; };
+
     ImGuiID palette = 0;
     const ImGuiID tool = ImGui::DockBuilderSplitNode(
-        left, ImGuiDir_Up, preset == LayoutPreset::Compact ? 0.42f : 0.40f, nullptr, &palette);
+        left, ImGuiDir_Up,
+        preset == LayoutPreset::Compact ? grow(0.42f, 0.48f) : grow(0.40f, 0.46f), nullptr,
+        &palette);
 
     ImGui::DockBuilderDockWindow(panel::kTool, tool);
     ImGui::DockBuilderDockWindow(panel::kPalette, palette);
@@ -130,11 +155,14 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
 
     if (preset == LayoutPreset::Drawing) {
         ImGuiID below = 0;
-        const ImGuiID layers = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.30f, nullptr, &below);
+        const ImGuiID layers = ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, grow(0.30f, 0.38f),
+                                                           nullptr, &below);
         ImGuiID rest = 0;
-        const ImGuiID elements = ImGui::DockBuilderSplitNode(below, ImGuiDir_Up, 0.16f, nullptr, &rest);
+        const ImGuiID elements = ImGui::DockBuilderSplitNode(below, ImGuiDir_Up,
+                                                             grow(0.16f, 0.19f), nullptr, &rest);
         ImGuiID transform = 0;
-        const ImGuiID properties = ImGui::DockBuilderSplitNode(rest, ImGuiDir_Up, 0.70f, nullptr,
+        const ImGuiID properties = ImGui::DockBuilderSplitNode(rest, ImGuiDir_Up,
+                                                               grow(0.70f, 0.60f), nullptr,
                                                                &transform);
         ImGui::DockBuilderDockWindow(panel::kLayers, layers);
         ImGui::DockBuilderDockWindow(panel::kElements, elements);
@@ -146,7 +174,8 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
         // the rest at a time in the space below.
         ImGuiID tabs = 0;
         const ImGuiID layers = ImGui::DockBuilderSplitNode(
-            right, ImGuiDir_Up, preset == LayoutPreset::Animation ? 0.50f : 0.34f, nullptr, &tabs);
+            right, ImGuiDir_Up, preset == LayoutPreset::Animation ? 0.50f : grow(0.34f, 0.42f),
+            nullptr, &tabs);
         ImGui::DockBuilderDockWindow(panel::kLayers, layers);
         ImGui::DockBuilderDockWindow(panel::kElements, tabs);
         ImGui::DockBuilderDockWindow(panel::kProperties, tabs);
@@ -419,6 +448,7 @@ void drawDockSpace(Editor& editor, ImVec2 pos, ImVec2 size) {
     if (editor.panels.resetLayout || node == nullptr) {
         editor.panels.resetLayout = false;
         buildPreset(dockspace, size, static_cast<LayoutPreset>(editor.panels.preset));
+        editor.panels.builtAtScale = theme::scale();
         ImGui::MarkIniSettingsDirty();
     }
     // Panels dock round the canvas, never over it.
@@ -433,6 +463,32 @@ void drawDockSpace(Editor& editor, ImVec2 pos, ImVec2 size) {
 
 ImGuiWindowFlags panelFlags() {
     return ImGuiWindowFlags_NoCollapse;
+}
+
+bool beginPanel(const char* title, bool* open) {
+    // The scrollbar is asked for only by a panel that did overflow last frame. A
+    // window that may always scroll sideways settles into showing its bar for
+    // good once a vertical bar has come and gone beside it -- the bar's height
+    // pushes the content into a vertical bar, whose width pushes the content
+    // wider than the window, and ImGui forces the bar on to stop the flicker --
+    // so a panel with nothing too wide for it would carry a bar with nothing to
+    // scroll. Overflow is measured whether the bar is allowed or not.
+    const ImGuiWindow* before = ImGui::FindWindowByName(title);
+    const bool overflowed = before != nullptr && before->ScrollMax.x > 0.f;
+    const bool shown = ImGui::Begin(
+        title, open, panelFlags() | (overflowed ? ImGuiWindowFlags_HorizontalScrollbar : 0));
+    if (shown) {
+        // Begin gives the work rect the width of last frame's widest content when
+        // the window may scroll sideways (imgui.cpp, work_rect_size_x); put it back
+        // to the visible width. Content wider than that still counts, and still
+        // scrolls: it is the cursor's furthest reach that sizes the scroll.
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        const float visible = window->Size.x - window->WindowPadding.x * 2.f -
+                              (window->DecoOuterSizeX1 + window->DecoOuterSizeX2);
+        window->WorkRect.Max.x = std::min(window->WorkRect.Max.x,
+                                          window->WorkRect.Min.x + visible);
+    }
+    return shown;
 }
 
 } // namespace fast

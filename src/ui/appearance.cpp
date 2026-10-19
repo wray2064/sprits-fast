@@ -411,6 +411,15 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
             theme::setScale(1.f);
             result.changed = true;
         }
+        // The panels were sized for the interface size they were built at, and
+        // keep their widths when it changes -- a panel too narrow for its
+        // contents scrolls sideways -- so the way to sized ones is said here.
+        if (editor.panels.builtAtScale > 0.f &&
+            std::fabs(editor.panels.builtAtScale - theme::scale()) > 0.04f) {
+            widgets::banner(widgets::Tone::Info,
+                            "The panels keep the widths they had. Window > Layouts, then one "
+                            "of the arrangements, sizes them for this interface size.");
+        }
         widgets::field("density");
         const char* densities[] = { "Compact", "Comfortable", "Spacious" };
         if (widgets::segmented("density", &editor.prefs.density, densities, 3)) {

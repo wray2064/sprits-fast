@@ -29,8 +29,10 @@
 namespace fast {
 namespace {
 
-constexpr float kThumbSize = 56.f;    // the frame cell, in screen pixels
-constexpr float kStepSize  = 34.f;    // a step chip, which carries a number
+// The frame cell and a step chip, which carries a number: pixel counts for 100%,
+// as they are at the person's interface size.
+float thumbSize() { return theme::px(56.f); }
+float stepSize() { return theme::px(34.f); }
 
 // A step row is a second list under the frames, so the panel is taller when a
 // cycle is selected. It is not always shown because most of the time there is
@@ -115,7 +117,7 @@ void drawCycleControls(Editor& editor) {
 
     ImGui::TextColored(c.textDim, "Cycle");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(150.f);
+    ImGui::SetNextItemWidth(theme::px(150.f));
 
     // "Every frame" is not a cycle, it is what a document without one plays.
     // Naming it in the same list is how a person discovers cycles exist.
@@ -142,7 +144,8 @@ void drawCycleControls(Editor& editor) {
         ImGui::EndCombo();
     }
 
-    ImGui::SameLine();
+    // From here the controls wrap rather than run off the strip.
+    widgets::sameLineIfFits(widgets::buttonWidth("New"));
     ImGui::BeginDisabled(editor.cycles.size() >= kMaxCycles || frameCount == 0);
     if (ImGui::Button(tr("New"))) {
         const int at = addCycle(editor.doc, "cycle " +
@@ -159,7 +162,7 @@ void drawCycleControls(Editor& editor) {
     }
     ImGui::EndDisabled();
 
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("Rename"));
     ImGui::BeginDisabled(timeline.activeCycle < 0);
     if (ImGui::Button(tr("Rename"))) {
         const std::string& name =
@@ -168,7 +171,7 @@ void drawCycleControls(Editor& editor) {
                       "%s", name.c_str());
         ImGui::OpenPopup("rename cycle");
     }
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("Delete##cycle"));
     if (ImGui::Button(tr("Delete##cycle"))) {
         if (deleteCycle(editor.doc, timeline.activeCycle, frameCount)) {
             resyncFrames(editor);
@@ -178,10 +181,11 @@ void drawCycleControls(Editor& editor) {
 
     // The loop mode belongs to the cycle, not to the editor: "hurt" plays once
     // and "walk" loops, in the same document, at the same time.
-    ImGui::SameLine();
+    widgets::sameLineIfFits(ImGui::CalcTextSize("when it ends").x +
+                            ImGui::GetStyle().ItemSpacing.x + theme::px(112.f));
     ImGui::TextColored(c.textDim, "when it ends");
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(112.f);
+    ImGui::SetNextItemWidth(theme::px(112.f));
     if (timeline.activeCycle >= 0) {
         // A copy: choosing a mode re-reads the cycle list under a reference.
         const Cycle cycle = editor.cycles[static_cast<size_t>(timeline.activeCycle)];
@@ -203,15 +207,15 @@ void drawCycleControls(Editor& editor) {
 
     // How long this cycle runs, which is not the same as how long the frames
     // add up to: a cycle can leave frames out, or play one twice.
-    ImGui::SameLine();
     const Cycle playing = activeCycle(editor);
     const int length = cycleDurationMs(editor.frames, playing);
     const std::string summary = std::to_string(playing.frames.size()) + " steps, " +
                                 timingOf(length);
+    widgets::sameLineIfFits(ImGui::CalcTextSize(summary.c_str()).x);
     ImGui::TextColored(c.textDim, "%s", summary.c_str());
 
     if (ImGui::BeginPopup("rename cycle")) {
-        ImGui::SetNextItemWidth(200.f);
+        ImGui::SetNextItemWidth(theme::px(200.f));
         const bool done = ImGui::InputText("##name", timeline.cycleNameBuffer,
                                            sizeof(timeline.cycleNameBuffer),
                                            ImGuiInputTextFlags_EnterReturnsTrue);
@@ -263,7 +267,7 @@ void drawStepRow(Editor& editor) {
                           static_cast<int64_t>(SDL_GetTicks() - timeline.startedAtMs))
         : -1;
 
-    ImGui::BeginChild("steps", ImVec2(0.f, kStepSize + 8.f), false,
+    ImGui::BeginChild("steps", ImVec2(0.f, stepSize() + theme::px(8.f)), false,
                       ImGuiWindowFlags_HorizontalScrollbar);
     ImDrawList* draw = ImGui::GetWindowDrawList();
 
@@ -279,7 +283,7 @@ void drawStepRow(Editor& editor) {
         const int frame = cycle.frames[static_cast<size_t>(i)];
         const ImVec2 chip = ImGui::GetCursorScreenPos();
 
-        if (ImGui::InvisibleButton("step", ImVec2(kStepSize, kStepSize))) {
+        if (ImGui::InvisibleButton("step", ImVec2(stepSize(), stepSize()))) {
             timeline.playing = false;
             timeline.selectedStep = i;
             selectFrame(editor, frame);     // safe to go on: `cycle` is a copy
@@ -319,7 +323,7 @@ void drawStepRow(Editor& editor) {
                               "drag to reorder", i + 1, frame + 1);
         }
 
-        const ImVec2 corner(chip.x + kStepSize, chip.y + kStepSize);
+        const ImVec2 corner(chip.x + stepSize(), chip.y + stepSize());
         const bool selected = (i == timeline.selectedStep);
         draw->AddRectFilled(chip, corner,
                             ImGui::GetColorU32(selected ? c.controlActive : c.control),
@@ -338,8 +342,8 @@ void drawStepRow(Editor& editor) {
 
         const std::string label = std::to_string(frame + 1);
         const ImVec2 size = ImGui::CalcTextSize(label.c_str());
-        draw->AddText(ImVec2(chip.x + (kStepSize - size.x) * 0.5f,
-                             chip.y + (kStepSize - size.y) * 0.5f),
+        draw->AddText(ImVec2(chip.x + (stepSize() - size.x) * 0.5f,
+                             chip.y + (stepSize() - size.y) * 0.5f),
                       ImGui::GetColorU32(selected ? c.textBright : c.text),
                       label.c_str());
         ImGui::PopID();
@@ -350,7 +354,7 @@ void drawStepRow(Editor& editor) {
     // can be put in the middle of a sequence that already exists.
     ImGui::SameLine(0.f, 8.f);
     ImGui::BeginDisabled(cycle.frames.size() >= kMaxFramesPerCycle);
-    if (ImGui::Button("+", ImVec2(kStepSize, kStepSize))) {
+    if (ImGui::Button("+", ImVec2(stepSize(), stepSize()))) {
         const int at = addCycleStep(editor.doc, timeline.activeCycle,
                                     timeline.selectedStep, timeline.activeFrame,
                                     frameCount);
@@ -375,7 +379,7 @@ float timelinePanelHeight(const Editor& editor) {
     if (!editor.timeline.visible) {
         return 0.f;
     }
-    return editor.timeline.activeCycle >= 0 ? kBaseHeight + kStepsHeight : kBaseHeight;
+    return theme::px(editor.timeline.activeCycle >= 0 ? kBaseHeight + kStepsHeight : kBaseHeight);
 }
 
 void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
@@ -449,17 +453,6 @@ void drawOnionSkin(Editor& editor, CanvasView& canvas, ImDrawList* draw,
     for (int i = timeline.onionAfter;  i >= 1; --i) { ghost(neighbour(i), true,  i); }
 }
 
-// Continues the row if `width` still fits to the right of the last item, and
-// starts a new one if it does not: the controls wrap instead of running into
-// each other when the timeline is narrow.
-static void sameLineIfFits(float width, float gap) {
-    const float right = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() -
-                        ImGui::GetStyle().WindowPadding.x;
-    if (ImGui::GetItemRectMax().x + gap + width <= right) {
-        ImGui::SameLine(0.f, gap);
-    }
-}
-
 void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     if (!editor.timeline.visible) {
         return;
@@ -482,7 +475,11 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             selectFrame(editor, frameToShow(editor, SDL_GetTicks()));
         }
     }
-    ImGui::SameLine();
+
+    // The buttons that follow wrap onto a second line when the strip is too
+    // narrow for them all (a pinned timeline beside wide docks, a larger
+    // interface), rather than running off its edge.
+    widgets::sameLineIfFits(widgets::buttonWidth("+ Frame"));
 
     const bool busy = editor.busy();
     int first = 0;
@@ -506,7 +503,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         ImGui::SetTooltip("%s", tr("Duplicate this frame, or the selected run  (Ctrl+Shift+D)\n"
                           "The copy owns its own drawing."));
     }
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("+ Linked"));
     ImGui::BeginDisabled(!tracksOn(editor.doc) || ranged);
     if (ImGui::Button(tr("+ Linked"))) {
         // A copy whose every layer is the same cel as the original's: drawing
@@ -536,7 +533,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
                           "the same cels, so a stroke on either lands on both. Unlink a "
                           "layer from its row's menu."));
     }
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("+ Empty"));
     if (ImGui::Button(tr("+ Empty"))) {
         const int at = addEmptyFrame(editor, timeline.activeFrame);
         if (at >= 0) {
@@ -544,7 +541,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             selectFrame(editor, at);
         }
     }
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("Delete"));
     ImGui::BeginDisabled(editor.frames.size() <= 1);
     if (widgets::button("Delete", widgets::ButtonStyle::Danger)) {
         const int from = ranged ? first : timeline.activeFrame;
@@ -558,7 +555,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         }
     }
     ImGui::EndDisabled();
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("Reverse"));
     ImGui::BeginDisabled(!ranged);
     if (ImGui::Button(tr("Reverse"))) {
         if (reverseFrames(editor.doc, first, last)) {
@@ -572,7 +569,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         ImGui::SetTooltip(ranged ? "Put the selected frames in the opposite order."
                                  : "Shift+click a second frame to select a run to reverse.");
     }
-    ImGui::SameLine();
+    widgets::sameLineIfFits(widgets::buttonWidth("Tween"));
     ImGui::BeginDisabled(!ranged || last - first < 2 || !tracksOn(editor.doc) ||
                          editor.active() == nullptr);
     if (ImGui::Button(tr("Tween"))) {
@@ -617,8 +614,8 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     // The duration of the frame being looked at. One number, on the frame it
     // belongs to, rather than a global frame rate -- a hold at the top of a
     // jump is the most ordinary thing in a sprite animation.
-    sameLineIfFits(ImGui::CalcTextSize(tr("Hold")).x + ImGui::GetFontSize() * 7.5f,
-                   ImGui::GetFontSize() * 1.2f);
+    widgets::sameLineIfFits(ImGui::CalcTextSize(tr("Hold")).x + ImGui::GetFontSize() * 7.5f,
+                            ImGui::GetFontSize() * 1.2f);
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(c.textMuted, "%s", tr("Hold"));
     ImGui::SameLine();
@@ -640,8 +637,8 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             ImGui::SetTooltip("%s", tr("The hold of every selected frame"));
         }
     }
-    sameLineIfFits(ImGui::CalcTextSize(tr("Speed")).x + ImGui::GetFontSize() * 6.f,
-                   ImGui::GetFontSize() * 0.8f);
+    widgets::sameLineIfFits(ImGui::CalcTextSize(tr("Speed")).x + ImGui::GetFontSize() * 6.f,
+                            ImGui::GetFontSize() * 0.8f);
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(c.textMuted, "%s", tr("Speed"));
     ImGui::SameLine();
@@ -652,7 +649,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
                           "timing, or faster to see the motion. The holds are "
                           "not changed."));
     }
-    sameLineIfFits(ImGui::GetFontSize() * 7.f, ImGui::GetFontSize() * 1.2f);
+    widgets::sameLineIfFits(ImGui::GetFontSize() * 7.f, ImGui::GetFontSize() * 1.2f);
     widgets::toggle("Onion", &timeline.onion);
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tr("The frames either side, faint, under this one.\n"
@@ -663,9 +660,9 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         ImGui::OpenPopup("onion-settings");
     }
     if (ImGui::BeginPopup("onion-settings")) {
-        ImGui::SetNextItemWidth(120.f);
+        ImGui::SetNextItemWidth(theme::px(120.f));
         widgets::sliderInt(tr("behind"), &timeline.onionBefore, 0, 4);
-        ImGui::SetNextItemWidth(120.f);
+        ImGui::SetNextItemWidth(theme::px(120.f));
         widgets::sliderInt(tr("ahead"), &timeline.onionAfter, 0, 4);
         ImGui::Checkbox(tr("Neighbours in the cycle"), &timeline.onionInCycle);
         if (ImGui::IsItemHovered()) {
@@ -689,7 +686,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         const std::string summary =
             std::to_string(editor.frames.size()) + " frames, " + timingOf(total);
         const float width = ImGui::CalcTextSize(summary.c_str()).x;
-        sameLineIfFits(width, ImGui::GetFontSize());
+        widgets::sameLineIfFits(width, ImGui::GetFontSize());
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(c.textMuted, "%s", summary.c_str());
     }
@@ -713,7 +710,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
     }
 
     const float stripHeight = timeline.activeCycle >= 0
-        ? -(kStepSize + 12.f)
+        ? -(stepSize() + theme::px(12.f))
         : 0.f;
     ImGui::BeginChild("strip", ImVec2(0.f, stripHeight), false,
                       ImGuiWindowFlags_HorizontalScrollbar);
@@ -733,7 +730,9 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         const bool selected = (i == timeline.activeFrame);
         const bool playhead = (i == showing);
 
-        if (ImGui::InvisibleButton("cell", ImVec2(kThumbSize, kThumbSize + 16.f))) {
+        // The cell, and under it a line for the frame's name and its hold.
+        const float labelRow = ImGui::GetTextLineHeight() + theme::px(2.f);
+        if (ImGui::InvisibleButton("cell", ImVec2(thumbSize(), thumbSize() + labelRow))) {
             timeline.playing = false;
             // Shift+click selects the run from the frame already selected to
             // this one; a plain click selects this frame alone.
@@ -839,13 +838,13 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             ImGui::EndDragDropTarget();
         }
 
-        const ImVec2 corner(cell.x + kThumbSize, cell.y + kThumbSize);
+        const ImVec2 corner(cell.x + thumbSize(), cell.y + thumbSize());
         draw->AddRectFilled(cell, corner, ImGui::GetColorU32(c.canvasBackground),
                             theme::metrics().rounding);
         // A frame in the selected run: a band under its cell.
         if (ranged && i >= first && i <= last) {
-            draw->AddRectFilled(ImVec2(cell.x - 2.f, cell.y - 2.f),
-                                ImVec2(corner.x + 2.f, corner.y + 18.f),
+            draw->AddRectFilled(ImVec2(cell.x - theme::px(2.f), cell.y - theme::px(2.f)),
+                                ImVec2(corner.x + theme::px(2.f), corner.y + labelRow + theme::px(2.f)),
                                 ImGui::ColorConvertFloat4ToU32(
                                     ImVec4(c.accent.x, c.accent.y, c.accent.z, 0.18f)),
                                 theme::metrics().rounding);
@@ -869,7 +868,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         // until its turn comes round.
 
         if (entry != nullptr) {
-            drawThumbnail(draw, canvas, *entry, cell, kThumbSize);
+            drawThumbnail(draw, canvas, *entry, cell, thumbSize());
         }
 
         // The selected frame gets the accent ring; the playhead gets a bar
@@ -885,8 +884,8 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
                           theme::metrics().rounding, 0, 1.f);
         }
         if (playhead && timeline.playing) {
-            draw->AddRectFilled(ImVec2(cell.x, corner.y + 2.f),
-                                ImVec2(corner.x, corner.y + 5.f),
+            draw->AddRectFilled(ImVec2(cell.x, corner.y + theme::px(2.f)),
+                                ImVec2(corner.x, corner.y + theme::px(5.f)),
                                 ImGui::ColorConvertFloat4ToU32(c.accent));
         }
 
@@ -901,13 +900,14 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
             }
             for (int dot = 0; dot < times && dot < 4; ++dot) {
                 draw->AddCircleFilled(
-                    ImVec2(corner.x - 6.f - static_cast<float>(dot) * 7.f, cell.y + 6.f),
-                    2.5f, ImGui::ColorConvertFloat4ToU32(c.accent));
+                    ImVec2(corner.x - theme::px(6.f) - static_cast<float>(dot) * theme::px(7.f),
+                           cell.y + theme::px(6.f)),
+                    theme::px(2.5f), ImGui::ColorConvertFloat4ToU32(c.accent));
             }
         }
 
         const std::string label = labelOf(frame, i);
-        draw->AddText(ImVec2(cell.x + 3.f, corner.y + 6.f),
+        draw->AddText(ImVec2(cell.x + theme::px(3.f), corner.y + theme::px(6.f)),
                       ImGui::GetColorU32(selected ? c.textBright : c.textDim),
                       label.c_str());
 
@@ -915,7 +915,7 @@ void drawTimelinePanel(Editor& editor, CanvasView& canvas) {
         // visible without clicking each frame to find it.
         const std::string held = timingOf(frame.durationMs);
         const float width = ImGui::CalcTextSize(held.c_str()).x;
-        draw->AddText(ImVec2(corner.x - width - 3.f, corner.y + 6.f),
+        draw->AddText(ImVec2(corner.x - width - theme::px(3.f), corner.y + theme::px(6.f)),
                       ImGui::GetColorU32(c.textDim), held.c_str());
 
         ImGui::PopID();
@@ -938,7 +938,7 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
     AnimationSettings& settings = editor.animation;
 
     ImGui::OpenPopup("Export animation");
-    ImGui::SetNextWindowSize(ImVec2(430.f, 0.f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(theme::px(430.f), 0.f), ImGuiCond_Appearing);
     if (!widgets::beginModal("Export animation", &editor.animationPanelOpen,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
@@ -947,12 +947,12 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
     theme::sectionHeader(tr("FORMAT"));
     const char* formats[] = { "GIF", "Animated PNG", "PNG sequence", "WebP" };
     int format = static_cast<int>(settings.format);
-    ImGui::SetNextItemWidth(160.f);
+    ImGui::SetNextItemWidth(theme::px(160.f));
     if (ImGui::Combo("##format", &format, formats, 4)) {
         settings.format = static_cast<AnimationFormat>(format);
     }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(110.f);
+    ImGui::SetNextItemWidth(theme::px(110.f));
     int scale = static_cast<int>(settings.scale);
     if (ImGui::DragInt("##scale", &scale, 0.1f, 1,
                        static_cast<int>(ExportSettings::kMaxScale), "%dx")) {
@@ -1015,7 +1015,8 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
     ImGui::BeginDisabled(steps.empty());
-    if (ImGui::Button(tr("Choose a file..."), ImVec2(150.f, 0.f))) {
+    if (ImGui::Button(tr("Choose a file..."),
+                      ImVec2(std::max(theme::px(150.f), widgets::buttonWidth("Choose a file...")), 0.f))) {
         showAnimationDialog(editor.files, window, editor.doc,
                             animationExtension(settings.format));
         editor.animationPanelOpen = false;
@@ -1023,7 +1024,8 @@ void drawAnimationPanel(Editor& editor, SDL_Window* window) {
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"),
+                      ImVec2(std::max(theme::px(90.f), widgets::buttonWidth("Cancel")), 0.f))) {
         editor.animationPanelOpen = false;
         ImGui::CloseCurrentPopup();
     }
@@ -1038,7 +1040,7 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
     SheetSettings& settings = editor.sheet;
 
     ImGui::OpenPopup("Export sheet");
-    ImGui::SetNextWindowSize(ImVec2(430.f, 0.f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(theme::px(430.f), 0.f), ImGuiCond_Appearing);
     if (!widgets::beginModal("Export sheet", &editor.sheetPanelOpen,
                                 ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
@@ -1080,13 +1082,13 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
 
     const char* layouts[] = { "Grid", "One row", "One column" };
     int layout = static_cast<int>(settings.layout);
-    ImGui::SetNextItemWidth(140.f);
+    ImGui::SetNextItemWidth(theme::px(140.f));
     if (ImGui::Combo("##layout", &layout, layouts, 3)) {
         settings.layout = static_cast<SheetLayout>(layout);
     }
     if (settings.layout == SheetLayout::Grid) {
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(120.f);
+        ImGui::SetNextItemWidth(theme::px(120.f));
         // Zero means choose, which is what most people want and what the label
         // has to say, or the field looks broken.
         ImGui::DragInt("##columns", &settings.columns, 0.2f, 0, 64,
@@ -1094,7 +1096,7 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
     }
 
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(110.f);
+    ImGui::SetNextItemWidth(theme::px(110.f));
     int scale = static_cast<int>(settings.scale);
     if (ImGui::DragInt("##scale", &scale, 0.1f, 1,
                        static_cast<int>(ExportSettings::kMaxScale), "%dx")) {
@@ -1103,12 +1105,12 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
 
     int border = static_cast<int>(settings.border);
     int spacing = static_cast<int>(settings.spacing);
-    ImGui::SetNextItemWidth(110.f);
+    ImGui::SetNextItemWidth(theme::px(110.f));
     if (ImGui::DragInt("##border", &border, 0.1f, 0, 64, "border %d")) {
         settings.border = static_cast<uint32_t>(std::max(0, border));
     }
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(110.f);
+    ImGui::SetNextItemWidth(theme::px(110.f));
     if (ImGui::DragInt("##spacing", &spacing, 0.1f, 0, 64, "spacing %d")) {
         settings.spacing = static_cast<uint32_t>(std::max(0, spacing));
     }
@@ -1129,7 +1131,7 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
     if (settings.writeManifest) {
         const char* formats[] = { "Fast's own", "Aseprite JSON (hash)", "Aseprite JSON (array)" };
         int format = static_cast<int>(settings.manifestFormat);
-        ImGui::SetNextItemWidth(220.f);
+        ImGui::SetNextItemWidth(theme::px(220.f));
         if (ImGui::Combo("##manifestformat", &format, formats, 3)) {
             settings.manifestFormat = static_cast<SheetManifestFormat>(format);
         }
@@ -1179,14 +1181,16 @@ void drawSheetPanel(Editor& editor, SDL_Window* window) {
 
     ImGui::Dummy(ImVec2(0.f, theme::metrics().itemSpacing));
     ImGui::BeginDisabled(!workable);
-    if (ImGui::Button(tr("Choose a file..."), ImVec2(150.f, 0.f))) {
+    if (ImGui::Button(tr("Choose a file..."),
+                      ImVec2(std::max(theme::px(150.f), widgets::buttonWidth("Choose a file...")), 0.f))) {
         showSheetDialog(editor.files, window, editor.doc);
         editor.sheetPanelOpen = false;
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button(tr("Cancel"), ImVec2(90.f, 0.f))) {
+    if (ImGui::Button(tr("Cancel"),
+                      ImVec2(std::max(theme::px(90.f), widgets::buttonWidth("Cancel")), 0.f))) {
         editor.sheetPanelOpen = false;
         ImGui::CloseCurrentPopup();
     }

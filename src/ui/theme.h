@@ -88,6 +88,8 @@ bool isLight();
 void setLight(bool light);
 
 // Spacing, in pixels, so panels line up without magic numbers scattered about.
+// These are the pixels as drawn: the density's steps already multiplied by the
+// person's interface size, so a panel may add them to a width ImGui scaled.
 struct Metrics {
     float rowHeight     = 24.f;
     float panelPadding  = 10.f;
@@ -131,6 +133,11 @@ void apply();
 // every later apply() (a change of theme, say).
 void setScale(float scale);
 float scale();
+// A pixel count written for 100%, as it is at the person's interface size. Every
+// literal width or height a panel draws with goes through this, or comes from
+// the font (CalcTextSize, GetFrameHeight): a bare number is right at 100% and
+// clips at 150% (docs/visual-language.md, rule 3).
+float px(float at100);
 
 // Loads a readable interface font.
 //

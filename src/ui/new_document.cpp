@@ -38,14 +38,22 @@ bool drawNewDocumentFields(FileState::NewDocument& spec) {
     // The sizes pixel art is usually made at, and portrait to landscape as
     // Photoshop's orientation does.
     widgets::field("sizes");
+    // They wrap, under the first, when the form is narrower than the seven: in the
+    // start screen's column, or at a larger interface size.
+    const float sizesLeft = ImGui::GetCursorPosX();
+    bool firstSize = true;
     for (int size : { 16, 24, 32, 48, 64, 128, 256 }) {
         const std::string label = std::to_string(size);
+        if (!firstSize &&
+            !widgets::sameLineIfFits(ImGui::CalcTextSize(label.c_str()).x +
+                                     ImGui::GetStyle().FramePadding.x * 2.f)) {
+            ImGui::SetCursorPosX(sizesLeft);
+        }
+        firstSize = false;
         if (ImGui::SmallButton(label.c_str())) {
             width = height = size;
         }
-        ImGui::SameLine();
     }
-    ImGui::NewLine();
     widgets::field("");
     if (ImGui::SmallButton(tr("Swap width and height"))) {
         std::swap(width, height);

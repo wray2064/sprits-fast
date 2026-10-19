@@ -10,6 +10,7 @@
 #include "ui/panels.h"
 #include "ui/theme.h"
 #include "ui/ui_script.h"
+#include "ui/widgets.h"
 
 #include <imgui.h>
 
@@ -99,12 +100,12 @@ void drawReferenceSectionWindow(Editor& editor, CanvasView& canvas) {
 
     // A sprite sheet's grid: the cell size and the gap between cells.
     int cell[2] = { view.cellWidth, view.cellHeight };
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("cell")));
     if (ImGui::InputInt2(tr("cell"), cell)) {
         view.cellWidth = std::clamp(cell[0], 0, static_cast<int>(reference.width));
         view.cellHeight = std::clamp(cell[1], 0, static_cast<int>(reference.height));
     }
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("gap")));
     if (ImGui::InputInt(tr("gap"), &view.gap)) {
         view.gap = std::clamp(view.gap, 0, 256);
     }
@@ -207,7 +208,7 @@ void drawReferenceSectionWindow(Editor& editor, CanvasView& canvas) {
     // Typed.
     int rect[4] = { static_cast<int>(reference.shownX()), static_cast<int>(reference.shownY()),
                     static_cast<int>(reference.shownWidth()), static_cast<int>(reference.shownHeight()) };
-    ImGui::SetNextItemWidth(-60.f);
+    ImGui::SetNextItemWidth(-widgets::labelRoom(tr("x y w h")));
     if (ImGui::InputInt4(tr("x y w h"), rect, ImGuiInputTextFlags_EnterReturnsTrue)) {
         apply(editor, canvas, reference, static_cast<uint32_t>(std::max(0, rect[0])),
               static_cast<uint32_t>(std::max(0, rect[1])), static_cast<uint32_t>(std::max(0, rect[2])),
