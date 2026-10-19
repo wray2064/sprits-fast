@@ -24,3 +24,7 @@ ui_selftest_themes/
 ui_selftest_layouts/
 ui_selftest_gallery_*.png
 theme_store_test_folder/
+
+# Fuzzing: the sanitizer build, its corpora and crashes, and the last input tried.
+build-fuzz/
+fuzz_last_input.bin

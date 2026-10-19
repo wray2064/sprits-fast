@@ -259,6 +259,7 @@ endif()
 # ---------------------------------------------------------------- the tests --
 
 option(FAST_BUILD_TESTS "Build the tests" ON)
+option(FAST_FUZZ "Also build the libFuzzer entry point (use build-fuzz.bat: it adds AddressSanitizer)" OFF)
 if (FAST_BUILD_TESTS)
     enable_testing()
 
@@ -369,6 +370,23 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_theme_tokens_tests tests/theme_tokens_tests.cpp)
     target_link_libraries(fast_theme_tokens_tests PRIVATE fast_core)
     add_test(NAME fast_theme_tokens COMMAND fast_theme_tokens_tests)
+
+    # The fuzz targets: every reader of data the program did not write (see
+    # tests/fuzz/fuzz_targets.h). The driver is the quick run every test run
+    # makes; the libFuzzer entry point is for build-fuzz.bat.
+    add_executable(fast_fuzz_driver tests/fuzz/fuzz_driver.cpp tests/fuzz/fuzz_targets.cpp)
+    target_include_directories(fast_fuzz_driver PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    target_link_libraries(fast_fuzz_driver PRIVATE fast_core)
+    add_test(NAME fast_fuzz_quick
+             COMMAND fast_fuzz_driver --iterations 300 --seed 1
+                     --regressions ${CMAKE_CURRENT_SOURCE_DIR}/tests/fuzz/regressions)
+    if (FAST_FUZZ AND MSVC)
+        add_executable(fast_libfuzzer tests/fuzz/libfuzzer_main.cpp tests/fuzz/fuzz_targets.cpp)
+        target_include_directories(fast_libfuzzer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+        target_link_libraries(fast_libfuzzer PRIVATE fast_core)
+        target_compile_options(fast_libfuzzer PRIVATE /fsanitize=fuzzer)
+        target_link_options(fast_libfuzzer PRIVATE /fsanitize=fuzzer)
+    endif()
 
     add_executable(fast_theme_extension_tests tests/theme_extension_tests.cpp)
     target_link_libraries(fast_theme_extension_tests PRIVATE fast_core)
