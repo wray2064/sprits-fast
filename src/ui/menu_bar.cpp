@@ -34,8 +34,10 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         return;
     }
     if (ImGui::BeginMenu(tr("File"))) {
+        // New is the start screen: the same presets and details, and the files to go back
+        // to, rather than a second, plainer window asking the same questions.
         if (ImGui::MenuItem(tr("New..."), keysLabel(editor.keys, "file.new").c_str())) {
-            editor.newDocumentOpen = true;
+            openStartScreen(editor);
         }
         if (ImGui::BeginMenu(tr("Autosave"))) {
             if (ImGui::MenuItem(tr("On"), nullptr, editor.autosaveOn,

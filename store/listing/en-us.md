@@ -75,7 +75,7 @@ Upload the images in `store/screenshots/` in the order of their file names. Capt
 1. `01-drawing.png` -- A drawing in progress: tools on the left, layers and properties on the right.
 2. `02-timeline.png` -- The timeline opened over the canvas with its frames.
 3. `03-animation.png` -- The Animation layout, with the timeline pinned.
-4. `04-start.png` -- The start screen: ways in, presets with pictures, recent files, new document options.
+4. `04-start.png` -- The start screen: ways in, preset sizes, recent files, new document options.
 5. `05-themes.png` -- Nine themes, from OLED to high contrast to Famicom.
 6. `06-appearance.png` -- Your own colours for every part of the interface.
 

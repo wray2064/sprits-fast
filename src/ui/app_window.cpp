@@ -324,7 +324,6 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     drawModifyPanel(editor);
     drawTilemapDialog(editor, canvas);
     drawAdjustPanel(editor, canvas);
-    drawNewDocumentPanel(editor, canvas, window);
     drawTextPanel(editor, canvas);
     drawHistoryPanel(editor, canvas);
     drawPreferencesPanel(editor, canvas, window);

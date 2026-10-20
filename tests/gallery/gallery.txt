@@ -106,14 +106,7 @@ click-on Drawing
 wait 5
 
 # ---- dialogs and windows ----
-click-on File
-click-on New...
-wait 4
-shot {theme}_{scale}_new-document.png
-wait 3
-click-on Cancel
-wait 3
-
+# (File > New is the start screen, shot below.)
 click-on Help
 click-on About...
 wait 3

@@ -64,7 +64,7 @@ From PowerShell in this folder:
 |---|---|---|
 | Core and tests | `.\build.bat test` | `build\`, no window, a minute and a half; 53 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\tools\run_scripts.ps1` | 52 scripts, 933 checks; all must pass, and none may draw an ImGui error; CI runs them (one: `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt`) |
+| UI scripts | `.\tools\run_scripts.ps1` | 52 scripts, 938 checks; all must pass, and none may draw an ImGui error; CI runs them (one: `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt`) |
 | What no test touches | `python tools\qa_matrix.py` | writes `docs\qa-matrix.md`: every menu item, command and core module against its tests; the gaps list is empty |
 | Fuzzing | `.\tools\fuzz.ps1` | 21 targets under libFuzzer and AddressSanitizer; see `docs\fuzzing.md` |
 | The gallery | `.\tools\gallery.ps1` | every screen in every theme at 100% and 150%, 270 images and a contact sheet per screen in `build-gui\gallery`; look at it before calling a visual change done |
@@ -162,7 +162,7 @@ starts with a comment saying what it is and why.
 - `app_window.cpp` holds the window's layout and the main loop. What it once held
   is split, and shared through `app_internal.h`: `menu_bar` (the menus), `dialogs`
   (the windows that open from them: canvas and sprite size, adjust colours, the sheet
-  import, history, text, New), `preferences_panel`, `file_actions` (open, save,
+  import, history, text), `preferences_panel`, `file_actions` (open, save,
   close, quit and the questions in front of them), `stroke_input` (what the mouse
   does on the canvas), `shortcuts` (what the keys do), `headless` (the command line)
   and `self_test`.

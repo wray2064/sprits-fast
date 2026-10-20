@@ -459,9 +459,6 @@ struct Editor {
     bool              animationFromCycle = true;
     AnimationSettings animation;
 
-    // Whether the New document window is up.
-    bool newDocumentOpen = false;
-
     // The start screen: what greets the person when the program opens, and
     // File > Start screen brings back. `startRecent` is looked up when it
     // opens, not every frame (see describeRecent).

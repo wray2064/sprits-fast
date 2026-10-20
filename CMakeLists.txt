@@ -174,7 +174,6 @@ if (FAST_BUILD_GUI)
         src/ui/preferences_panel.cpp
         src/ui/file_actions.cpp
         src/ui/thumbnails.cpp
-        src/ui/start_art.cpp
         src/ui/stroke_input.cpp
         src/ui/shortcuts.cpp
         src/ui/headless.cpp

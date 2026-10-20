@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
-// dialogs.cpp -- the windows that open from the menus: the sheet import, canvas and sprite size, adjust colours, modify selection, history, text, new document.
+// dialogs.cpp -- the windows that open from the menus: the sheet import, canvas and sprite size, adjust colours, modify selection, history and text. (New is the start screen.)
 // See app_internal.h for how the window's files divide.
 
 #include "ui/app_internal.h"
@@ -9,7 +9,6 @@
 #include "app/pixel_font.h"
 #include "app/file_io.h"
 #include "app/i18n.h"
-#include "ui/new_document.h"
 #include "ui/widgets.h"
 #include "ui/panels.h"
 #include "ui/theme.h"
@@ -135,30 +134,6 @@ void drawTextPanel(Editor& editor, CanvasView& canvas) {
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
-}
-
-// The New window: a size -- typed, or one of the sizes sprites are usually
-// drawn at -- what the canvas starts on, and which palette.
-void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window) {
-    if (!editor.newDocumentOpen) {
-        return;
-    }
-    FileState::NewDocument& spec = editor.files.newDocument;
-    if (!widgets::beginDialog("New document", &editor.newDocumentOpen,
-                              widgets::DialogSize::Medium)) {
-        return;
-    }
-    const bool fits = drawNewDocumentFields(spec);
-    const int choice = widgets::dialogButtons("Create", "Cancel", fits);
-    if (choice == 1) {
-        editor.newDocumentOpen = false;
-        ImGui::CloseCurrentPopup();
-        requestAction(editor, canvas, window, PendingAction::NewDocument);
-    } else if (choice == 2) {
-        editor.newDocumentOpen = false;
-        ImGui::CloseCurrentPopup();
-    }
-    widgets::endDialog();
 }
 
 // The grid a sprite sheet is cut on. Numbers rather than a drawn grid on the

@@ -82,13 +82,23 @@ click-on Create
 wait 2
 expect canvas 144 160
 
-# File > New asks the same questions of the same answers: what was last set
-# on the start screen is what it starts from.
+# File > New is the start screen: the same cards, the same answers as they were last set,
+# and Ctrl+N is the same.
 click-on File
 click-on New...
+wait 2
+expect item Open...
+expect item Library...
+expect item Create
 click-on Create
 wait 2
 expect canvas 144 160
+key ctrl+n
+wait 2
+expect item Handheld 160 x 144
+key escape
+wait 2
+expect missing Create
 
 # A double click on a card goes straight to the document.
 click-on File

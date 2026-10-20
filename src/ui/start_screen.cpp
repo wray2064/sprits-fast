@@ -11,7 +11,6 @@
 #include "app/tips.h"
 #include "ui/new_document.h"
 #include "ui/reference_cache.h"
-#include "ui/start_art.h"
 #include "ui/tabs.h"
 #include "ui/theme.h"
 #include "ui/thumbnails.h"
@@ -48,7 +47,7 @@ Branding& branding() {
     return b;
 }
 
-// The start screen asks the New window's questions in a panel of its own, over
+// The start screen asks File > New's questions in a panel of its own (File > New brings it up), over
 // the very same answers (Editor::files.newDocument): a template card fills
 // them in, the fields change them, and Create makes the document from them.
 void createFromAnswers(Editor& editor, CanvasView& canvas, SDL_Window* window) {
@@ -225,8 +224,8 @@ void drawActions(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 // --- the middle: a new canvas, and what was being worked on --------------------------
 
 // One preset: its name and size, and the canvas it makes in its proportions (each fitted
-// to the card, not to one another) on the chequer the canvas will show, with a picture of
-// what the size is for. `chosen` is set by a press, `doubled` by a double press.
+// to the card, not to one another) on the chequer the canvas will show. `chosen` is set by
+// a press, `doubled` by a double press.
 void drawCard(const Editor& editor, const NewTemplate& t, const ImVec2& size, bool selected,
               bool* chosen, bool* doubled) {
     const theme::Palette& c = theme::palette();
@@ -280,7 +279,7 @@ void drawCard(const Editor& editor, const NewTemplate& t, const ImVec2& size, bo
     const ImU32 light = rgb(editor.prefs.checkerLight);
     const ImU32 dark = rgb(editor.prefs.checkerDark);
     draw->AddRectFilled(from, to, dark);
-    const float square = std::max(4.f, std::min(shape.x, shape.y) / 8.f);
+    const float square = std::max(4.f, std::min(shape.x, shape.y) / 6.f);
     draw->PushClipRect(from, to, true);
     for (float y = 0.f; y < shape.y; y += square) {
         for (float x = 0.f; x < shape.x; x += square) {
@@ -291,7 +290,6 @@ void drawCard(const Editor& editor, const NewTemplate& t, const ImVec2& size, bo
         }
     }
     draw->PopClipRect();
-    drawPresetArt(draw, t.name, from, to);
     draw->AddRect(from, to, u32(c.textDim));
 }
 

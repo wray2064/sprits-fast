@@ -28,10 +28,13 @@ key ctrl+z
 key ctrl+z
 expect pixel 12 10 e08f40
 
-# File > New: a 64 x 64 document, in a tab of its own.
+# File > New (the start screen): a 64 x 64 document, in a tab of its own.
 click-on File
 click-on New...
+wait 3
 click-on 64
+wait 3
 click-on Create
+wait 3
 expect canvas 64 64
 expect tabs 2

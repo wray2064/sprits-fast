@@ -10,6 +10,7 @@
 #include "ui/shape_tools.h"
 #include "ui/help.h"
 #include "ui/slice_tool.h"
+#include "ui/start_screen.h"
 #include "ui/tabs.h"
 #include "ui/selection_tools.h"
 #include "ui/timeline_drawer.h"
@@ -126,7 +127,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     if (fired("colour.swap")) { swapInks(editor); }
 
     // Files.
-    if (fired("file.new")) { editor.newDocumentOpen = true; }
+    if (fired("file.new")) { openStartScreen(editor); }
     if (fired("file.open")) { requestAction(editor, canvas, window, PendingAction::OpenDialog); }
     if (fired("file.save")) { saveOrAsk(editor, canvas, window); }
     if (fired("file.save-as")) { showSaveAsDialog(editor.files, window, editor.doc); }

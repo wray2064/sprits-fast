@@ -42,7 +42,6 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window);
 
 void drawHistoryPanel(Editor& editor, CanvasView& canvas);
 void drawTextPanel(Editor& editor, CanvasView& canvas);
-void drawNewDocumentPanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
 void drawSheetImportPanel(Editor& editor, CanvasView& canvas, SDL_Window* window);
 void drawCanvasSizePanel(Editor& editor, CanvasView& canvas);
 void drawAdjustPanel(Editor& editor, CanvasView& canvas);
