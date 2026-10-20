@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <sstream>
 
 // ------------------------------------------------------ the test engine hooks --
