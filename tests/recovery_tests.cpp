@@ -15,6 +15,7 @@
 #include "app/document.h"
 #include "app/file_io.h"
 #include "app/image_io.h"
+#include "app/library.h"
 #include "app/paint.h"
 #include "app/recovery.h"
 #include "app/reference.h"
@@ -135,6 +136,10 @@ void testASessionWritesOnItsIntervalAndOnlyWhenItShould() {
     CHECK(fileExists(session.path()));
     CHECK(session.haveCopy());
     CHECK(session.lastWriteSeconds() == clock + 61);
+    // The copy carries a picture of the work, for the question after a crash.
+    std::vector<uint8_t> picture;
+    CHECK(readThumbnail(session.path(), &picture));
+    CHECK(!picture.empty());
 
     // The document did not notice.
     CHECK(doc.path().empty());
@@ -297,9 +302,126 @@ void testTheCopyCarriesEverything() {
     session.clear();
 }
 
+// ---- what is offered after a crash: the last work only, and the rest put away ----
+//
+// These use a folder of their own under the working directory, never the person's
+// recovery folder.
+
+const char* kScratch = "recovery_archive_test";
+
+void clearScratch() {
+    for (const char* sub : { "", "/older" }) {
+        for (const DirectoryEntry& entry : listDirectory(std::string(kScratch) + sub)) {
+            if (!entry.directory) {
+                deleteFile(entry.path);
+            }
+        }
+    }
+}
+
+// A file standing in for a recovery copy: only its name and its bytes matter to the
+// code under test, except where a test says it is a real document.
+void fakeCopy(int session, const std::string& originalPath = std::string()) {
+    const std::string stem = std::string(kScratch) + "/session-" + std::to_string(session) + "-0";
+    std::string error;
+    const std::vector<uint8_t> bytes { 'x', 'y' };
+    writeFileAtomic(stem + ".lsprite", bytes, &error);
+    if (!originalPath.empty()) {
+        writeFileAtomic(stem + ".from",
+                        std::vector<uint8_t>(originalPath.begin(), originalPath.end()), &error);
+    }
+}
+
+void testOnlyTheLatestWorkIsOfferedAndTheRestIsPutAway() {
+    createDirectory(kScratch);
+    clearScratch();
+    fakeCopy(100);
+    fakeCopy(300, "C:/art/hero walk.lsprite");
+    fakeCopy(200);
+
+    std::vector<RecoveredWork> found = findRecoveredWorkIn(kScratch);
+    REQUIRE(found.size() == 3);
+    // Written in the same second, so the names decide: the newest session first.
+    CHECK(found[0].path.find("session-300-0") != std::string::npos);
+    CHECK(found[1].path.find("session-200-0") != std::string::npos);
+    CHECK(found[2].path.find("session-100-0") != std::string::npos);
+    CHECK(found[0].name == "hero walk.lsprite");
+    CHECK(found[0].originalPath == "C:/art/hero walk.lsprite");
+    CHECK(found[1].name == "untitled");
+
+    // The first is left; the others go to older/, neither offered nor lost.
+    CHECK(archiveOlderRecoveredWork(found) == 2);
+    CHECK(directoryExists(archivedRecoveryDirectory(found)));
+    CHECK(fileName(archivedRecoveryDirectory(found)) == "older");
+    const std::vector<RecoveredWork> after = findRecoveredWorkIn(kScratch);
+    REQUIRE(after.size() == 1);
+    CHECK(after[0].path == found[0].path);
+    CHECK(fileExists(std::string(kScratch) + "/older/session-200-0.lsprite"));
+    CHECK(fileExists(std::string(kScratch) + "/older/session-100-0.lsprite"));
+
+    // One copy alone has nothing older to move.
+    CHECK(archiveOlderRecoveredWork(after) == 0);
+    clearScratch();
+}
+
+void testTheArchiveKeepsTheNewestTen() {
+    createDirectory(kScratch);
+    clearScratch();
+    for (int session = 1; session <= 14; ++session) {
+        fakeCopy(1000 + session);
+    }
+    const std::vector<RecoveredWork> found = findRecoveredWorkIn(kScratch);
+    REQUIRE(found.size() == 14);
+    CHECK(archiveOlderRecoveredWork(found) == 13);
+    // The archive holds ten, the newest ten of the thirteen moved (1004..1013); the
+    // three oldest were let go, and 1014, the one offered, was never moved.
+    int archived = 0;
+    for (const DirectoryEntry& entry : listDirectory(std::string(kScratch) + "/older")) {
+        if (!entry.directory && hasExtension(entry.name, ".lsprite")) {
+            ++archived;
+        }
+    }
+    CHECK(archived == 10);
+    CHECK(fileExists(std::string(kScratch) + "/older/session-1013-0.lsprite"));
+    CHECK(fileExists(std::string(kScratch) + "/older/session-1004-0.lsprite"));
+    CHECK(!fileExists(std::string(kScratch) + "/older/session-1003-0.lsprite"));
+    CHECK(fileExists(std::string(kScratch) + "/session-1014-0.lsprite"));
+    clearScratch();
+}
+
+void testACopyIsSummarisedFromItself() {
+    createDirectory(kScratch);
+    clearScratch();
+    Document doc;
+    REQUIRE(build(doc));
+    std::string error;
+    const std::string real = std::string(kScratch) + "/session-7-0.lsprite";
+    REQUIRE(doc.saveCopy(real, &error));
+    fakeCopy(8);
+
+    RecoveredWork good;
+    good.path = real;
+    const RecoverySummary summary = summariseRecoveredWork(good);
+    CHECK(summary.readable);
+    CHECK(summary.width == kCanvas);
+    CHECK(summary.height == kCanvas);
+    CHECK(summary.frames >= 1);
+
+    // A file that is not a document is reported as unreadable, not as nothing.
+    RecoveredWork bad;
+    bad.path = std::string(kScratch) + "/session-8-0.lsprite";
+    CHECK(!summariseRecoveredWork(bad).readable);
+    RecoveredWork none;
+    CHECK(!summariseRecoveredWork(none).readable);
+    clearScratch();
+}
+
 } // namespace
 
 int main() {
+    testOnlyTheLatestWorkIsOfferedAndTheRestIsPutAway();
+    testTheArchiveKeepsTheNewestTen();
+    testACopyIsSummarisedFromItself();
     testACopyIsNotTheFile();
     testASessionWritesOnItsIntervalAndOnlyWhenItShould();
     testASessionThatStartsAtZeroStillWrites();

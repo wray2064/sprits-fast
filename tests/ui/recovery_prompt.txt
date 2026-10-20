@@ -1,0 +1,38 @@
+# After a crash only the work lost last is offered (what it is, in words and a picture, is
+# for a person to judge in a screenshot). Later keeps it for next time, Discard
+# asks twice, Recover opens it as unsaved work. The copy a script recovers or discards is
+# its own, made from tests/ui/start_fixture.lsprite, never that file.
+recovered tests/ui/start_fixture.lsprite
+wait 3
+expect item Recover
+expect item Discard
+expect item Later
+
+# Later puts the question away and leaves the copy where it is.
+click-on Later
+wait 3
+expect missing Recover
+expect file ui_selftest_recovered.lsprite
+
+# Discard is one press to ask and another to do: the first changes the button, and the
+# work is still there.
+recovered tests/ui/start_fixture.lsprite
+wait 3
+click-on Discard
+wait 3
+expect item Discard for good
+expect item Recover
+expect file ui_selftest_recovered.lsprite
+click-on Discard for good
+wait 3
+expect missing Recover
+expect nofile ui_selftest_recovered.lsprite
+
+# Work that had a name says so; Recover opens it as a document still to be saved.
+recovered tests/ui/start_fixture.lsprite C:/art/hero_walk.lsprite
+wait 3
+click-on Recover
+wait 3
+expect missing Recover
+expect nofile ui_selftest_recovered.lsprite
+expect flag modified on

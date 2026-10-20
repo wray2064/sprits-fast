@@ -57,10 +57,33 @@ struct RecoveredWork {
 std::string recoveryDirectory();
 
 // Anything left by a session that did not end normally. Sorted newest first.
-// Reading this does not delete anything: the person decides.
+// Reading this does not delete anything but copies a month old, which nobody
+// would believe: the person decides.
 std::vector<RecoveredWork> findRecoveredWork();
+// The same, in a folder of the caller's (a test's own, not the person's).
+std::vector<RecoveredWork> findRecoveredWorkIn(const std::string& directory);
 
 bool discardRecoveredWork(const RecoveredWork& work);
+
+// What a copy holds, to tell the person which work it is: read from the copy
+// itself, on a scratch document that is put away again. `readable` is false for a
+// copy that will not open (it is still offered: the person may want it gone).
+struct RecoverySummary {
+    bool     readable = false;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    int      frames = 0;
+};
+RecoverySummary summariseRecoveredWork(const RecoveredWork& work);
+
+// Only the newest copy is offered after a crash -- the work that was lost last --
+// and once it is dealt with the older ones, from sessions long gone, are put out of
+// the way: moved to an `older` folder beside them, where they are neither offered nor
+// lost, and of which the ten newest are kept. `found` is the list findRecoveredWork
+// gave (newest first); the first is left where it is. Returns how many were moved.
+int archiveOlderRecoveredWork(const std::vector<RecoveredWork>& found);
+// The folder they are moved to, for telling the person.
+std::string archivedRecoveryDirectory(const std::vector<RecoveredWork>& found);
 
 // One program's autosave. Constructed once, claims a file name of its own,
 // and is responsible for removing it on the way out.

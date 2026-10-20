@@ -450,6 +450,11 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         o.text = line.substr(line.find("open") + 5);
         while (!o.text.empty() && o.text.back() == ' ') { o.text.pop_back(); }
         add(o);
+    } else if (verb == "recovered" && w.size() >= 2) {
+        Step r; r.kind = Step::Recovered;
+        r.text = w[1];
+        if (w.size() >= 3) { r.args.push_back(w[2]); }
+        add(r);
     } else if (verb == "answer" && w.size() >= 3) {
         Step a; a.kind = Step::Answer;
         a.args.push_back(w[1]);
@@ -783,6 +788,30 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
             case Step::Start:
                 openStartScreen(editor);
                 return;
+            case Step::Recovered: {
+                // A copy of the file stands in for what a crash left, so the real one
+                // is never what Recover or Discard removes.
+                std::vector<uint8_t> bytes;
+                std::string error;
+                const std::string copy = "ui_selftest_recovered.lsprite";
+                if (!readFile(step.text, bytes, &error) || !writeFileAtomic(copy, bytes, &error)) {
+                    std::printf("FAIL script:%d: could not make a recovery copy of %s: %s\n",
+                                step.line, step.text.c_str(), error.c_str());
+                    ++failures_;
+                    ++checks_;
+                    return;
+                }
+                RecoveredWork work;
+                work.path = copy;
+                work.originalPath = step.args.empty() ? std::string() : step.args[0];
+                work.name = work.originalPath.empty() ? std::string("untitled")
+                                                      : fileName(work.originalPath);
+                work.savedSeconds = static_cast<uint64_t>(std::time(nullptr)) - 300;
+                editor.recovered = { work };
+                editor.recoverySummaryOf.clear();
+                editor.askingToRecover = true;
+                return;
+            }
             case Step::ZoomTo:
                 canvas.setZoom(step.x);
                 return;

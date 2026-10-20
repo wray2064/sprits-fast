@@ -12,14 +12,19 @@
 #include "app/palette_io.h"
 #include "app/ui_state.h"
 #include "app/i18n.h"
+#include "app/recent_files.h"
+#include "app/recovery.h"
 #include "ui/appearance.h"
 #include "ui/widgets.h"
 #include "ui/tabs.h"
 #include "ui/panels.h"
 #include "ui/reference_section.h"
+#include "ui/theme.h"
+#include "ui/thumbnails.h"
 
 #include <algorithm>
 #include <cstdint>
+#include <ctime>
 #include <string>
 #include <utility>
 #include <vector>
@@ -316,91 +321,161 @@ void requestAction(Editor& editor, CanvasView& canvas, SDL_Window* window,
 }
 
 
-// What was found waiting from a session that did not end normally.
+namespace {
+
+// "19 Oct 2026, 19:33" in the person's own time. The month is the C locale's.
+std::string clockText(uint64_t seconds) {
+    const std::time_t when = static_cast<std::time_t>(seconds);
+    std::tm local {};
+#if defined(_WIN32)
+    localtime_s(&local, &when);
+#else
+    localtime_r(&when, &local);
+#endif
+    char text[64];
+    std::strftime(text, sizeof(text), "%d %b %Y, %H:%M", &local);
+    return text;
+}
+
+// A recovered copy is opened as an unsaved document of its own, which the person
+// saves where they want it, and the copy is put away.
+void recoverWork(Editor& editor, CanvasView& canvas, const RecoveredWork& work) {
+    // Through openPath, so the view state and everything else in the package comes
+    // back. It opens as the *copy*, which is then marked as changed: the original on
+    // disk is untouched until the person saves.
+    openPath(editor, canvas, work.path);
+    // It is not that file: the recovery copy is about to be deleted, and Save must
+    // ask where it really goes rather than writing back into the settings folder.
+    editor.doc.forgetPath();
+    editor.doc.markModified();
+    if (!work.originalPath.empty()) {
+        editor.say("Recovered. Save it back over " + fileName(work.originalPath) +
+                   " when you are happy with it.");
+    } else {
+        editor.say("Recovered work that had never been saved.");
+    }
+    discardRecoveredWork(work);
+}
+
+} // namespace
+
+// What was found waiting from a session that did not end normally: the work that was
+// lost last, and nothing else. A list of copies, each called "untitled", asks the
+// person to work out which is which; one piece of work, with its picture, its size,
+// when it was last written and where it was going, asks only whether to keep it.
+// Copies of earlier sessions, long forgotten, are put aside (not deleted) once this one
+// is dealt with, and the prompt says so.
 //
-// The choice is deliberately not "recover or not". It is: open this, or throw
-// it away -- and throwing away is one click further, behind naming what is
-// being lost. Work that survived a crash has already been through enough.
+// "Later" leaves everything where it is and asks again next time: closing the question
+// is not saying the work is worthless. "Discard" asks twice, since it is the one thing
+// here that cannot be undone.
 void drawRecoveryPrompt(Editor& editor, CanvasView& canvas) {
     if (!editor.askingToRecover || editor.recovered.empty()) {
         return;
     }
-    if (!ImGui::IsPopupOpen("Unfinished work")) {
-        ImGui::OpenPopup("Unfinished work");
+    const RecoveredWork work = editor.recovered.front();       // the newest
+    const size_t older = editor.recovered.size() - 1;
+    if (editor.recoverySummaryOf != work.path) {
+        editor.recoverySummary = summariseRecoveredWork(work);
+        editor.recoverySummaryOf = work.path;
+        editor.recoveryConfirmDiscard = false;
+    }
+    const RecoverySummary& summary = editor.recoverySummary;
+    const theme::Palette& c = theme::palette();
+    const float k = theme::scale();
+
+    if (!ImGui::IsPopupOpen("###unfinished")) {
+        ImGui::OpenPopup("###unfinished");
     }
     ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
                             ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if (!widgets::beginModal("Unfinished work", nullptr,
-                                ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!widgets::beginModal("Recover your work?###unfinished", nullptr,
+                             ImGuiWindowFlags_AlwaysAutoResize)) {
         return;
     }
+    const float width = 440.f * k;
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width);
 
-    ImGui::TextWrapped("%s", tr("Sprit's'fast closed without saving last time. These "
-                       "copies were kept:"));
-    ImGui::Dummy(ImVec2(0.f, 4.f));
+    ImGui::TextColored(c.textDim, "%s", tr("Sprit's'fast closed before this was saved."));
+    ImGui::Dummy(ImVec2(0.f, 8.f * k));
 
-    for (size_t i = 0; i < editor.recovered.size(); ++i) {
-        const RecoveredWork& work = editor.recovered[i];
-        ImGui::PushID(static_cast<int>(i));
-        if (ImGui::Button(tr("Open"))) {
-            // Through openPath, so the view state and everything else in the
-            // package comes back. It opens as the *copy*, which is then
-            // marked as changed -- the person saves it where they want it,
-            // and the original on disk is untouched until they do.
-            openPath(editor, canvas, work.path);
-            // It is not that file: the recovery copy is about to be deleted,
-            // and Save must ask where it really goes rather than writing back
-            // into the settings folder.
-            editor.doc.forgetPath();
-            editor.doc.markModified();
-            if (!work.originalPath.empty()) {
-                editor.say("Recovered. Save it back over " +
-                           fileName(work.originalPath) + " when you are happy with it.");
-            } else {
-                editor.say("Recovered work that had never been saved.");
-            }
-            discardRecoveredWork(work);
-            editor.recovered.erase(editor.recovered.begin() +
-                                   static_cast<ptrdiff_t>(i));
-            editor.askingToRecover = !editor.recovered.empty();
-            if (!editor.askingToRecover) {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::PopID();
-            ImGui::EndPopup();
-            return;
-        }
-        ImGui::SameLine();
-        ImGui::TextUnformatted(work.name.c_str());
-        if (!work.originalPath.empty() && ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s", work.originalPath.c_str());
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton(tr("Discard"))) {
-            discardRecoveredWork(work);
-            editor.recovered.erase(editor.recovered.begin() +
-                                   static_cast<ptrdiff_t>(i));
-            editor.askingToRecover = !editor.recovered.empty();
-            if (!editor.askingToRecover) {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::PopID();
-            ImGui::EndPopup();
-            return;
-        }
-        ImGui::PopID();
+    int budget = 1;
+    const float picture = 96.f * k;
+    drawDocumentThumbnail(canvas, work.path, picture, true, &budget);
+    ImGui::SameLine(0.f, 14.f * k);
+    ImGui::BeginGroup();
+    const bool named = !work.originalPath.empty();
+    theme::pushText(theme::TextStyle::Title);
+    ImGui::TextColored(c.textBright, "%s", named ? work.name.c_str() : tr("Untitled"));
+    theme::popText();
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    const std::string age = ageText(work.savedSeconds, now);
+    ImGui::TextColored(c.text, "%s", (std::string(tr("Last written")) + " " +
+                                       (age.empty() ? clockText(work.savedSeconds)
+                                                    : age)).c_str());
+    ImGui::TextColored(c.textDim, "%s", clockText(work.savedSeconds).c_str());
+    if (summary.readable) {
+        std::string holds = std::to_string(summary.width) + " x " + std::to_string(summary.height) +
+                            " px, " + std::to_string(summary.frames) + " " +
+                            tr(summary.frames == 1 ? "frame" : "frames");
+        ImGui::TextColored(c.textDim, "%s", holds.c_str());
+    } else {
+        ImGui::TextColored(c.warning, "%s", tr("This copy could not be read."));
     }
+    ImGui::EndGroup();
 
-    ImGui::Dummy(ImVec2(0.f, 6.f));
-    if (ImGui::Button(tr("Later"))) {
-        // Kept, not deleted: closing the question is not the same as saying
-        // the work is worthless, and it will be offered again next time.
+    ImGui::Dummy(ImVec2(0.f, 6.f * k));
+    if (named) {
+        ImGui::TextColored(c.textDim, "%s", (std::string(tr("It was being saved as")) + " " +
+                                              work.originalPath).c_str());
+    } else {
+        ImGui::TextColored(c.textDim, "%s", tr("It had not been saved yet, so it has no file name."));
+    }
+    if (older > 0) {
+        ImGui::Dummy(ImVec2(0.f, 4.f * k));
+        const std::string folder = archivedRecoveryDirectory(editor.recovered);
+        ImGui::TextColored(c.textDim, "%s",
+                           (std::to_string(older) + " " +
+                            tr(older == 1 ? "older copy from an earlier session will be kept in"
+                                          : "older copies from earlier sessions will be kept in") +
+                            " " + folder + ".").c_str());
+    }
+    ImGui::PopTextWrapPos();
+    ImGui::Dummy(ImVec2(0.f, 10.f * k));
+
+    const auto finish = [&]() {
+        archiveOlderRecoveredWork(editor.recovered);
+        editor.recovered.clear();
         editor.askingToRecover = false;
+        editor.recoveryConfirmDiscard = false;
         ImGui::CloseCurrentPopup();
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", tr("Leave them where they are. You will be asked again "
-                          "next time."));
+    };
+    if (widgets::button(tr("Recover"), widgets::ButtonStyle::Primary)) {
+        recoverWork(editor, canvas, work);
+        finish();
+    } else {
+        ImGui::SameLine();
+        if (editor.recoveryConfirmDiscard) {
+            if (widgets::button(tr("Discard for good"), widgets::ButtonStyle::Danger)) {
+                discardRecoveredWork(work);
+                finish();
+            }
+        } else if (widgets::button(tr("Discard"))) {
+            editor.recoveryConfirmDiscard = true;
+        }
+        if (editor.askingToRecover) {
+            ImGui::SameLine();
+            if (widgets::button(tr("Later"))) {
+                // Kept, not deleted: it will be offered again next time.
+                editor.askingToRecover = false;
+                editor.recoveryConfirmDiscard = false;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", tr("Leave it where it is. You will be asked again "
+                                           "next time."));
+            }
+        }
     }
     ImGui::EndPopup();
 }

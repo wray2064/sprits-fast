@@ -2,8 +2,12 @@
 
 ## The program closed and I lost work
 
-Start it again. If there is a recovery copy it offers it: **Open** to recover it as an unsaved document. Copies are kept while
-you have unsaved changes (every couple of minutes by default) and are never written over your file. See
+Start it again. If the last session ended without saving, it asks **Recover your work?** about the work you lost last, with a
+picture of it, its name (or *Untitled*), when it was last written, its size and where it was being saved. **Recover** opens
+it as an unsaved document: use Save to say where it goes. **Later** leaves it for next time; **Discard** asks twice, because
+it cannot be undone. Copies are written while you have unsaved changes (every couple of minutes by default) and are never
+written over your file. Copies left by earlier crashes are not offered again: once you have dealt with the latest, they are
+moved to an `older` folder beside the recovery copies (the ten newest are kept). See
 [Opening, saving and exporting](topic:files).
 
 ## Where are my settings?

@@ -3,10 +3,13 @@
 
 #include "app/recovery.h"
 
+#include "app/animation.h"
 #include "app/file_io.h"
+#include "app/library.h"
 
 #include <algorithm>
 #include <ctime>
+#include <functional>
 
 namespace fast {
 namespace {
@@ -39,8 +42,11 @@ std::string recoveryDirectory() {
 }
 
 std::vector<RecoveredWork> findRecoveredWork() {
+    return findRecoveredWorkIn(recoveryDirectory());
+}
+
+std::vector<RecoveredWork> findRecoveredWorkIn(const std::string& directory) {
     std::vector<RecoveredWork> out;
-    const std::string directory = recoveryDirectory();
     if (directory.empty()) {
         return out;
     }
@@ -74,8 +80,11 @@ std::vector<RecoveredWork> findRecoveredWork() {
                                               : fileName(work.originalPath);
         out.push_back(std::move(work));
     }
+    // Newest first; two written in the same second go by their names, which carry
+    // the session's start (session-<seconds>-<n>), so the order never wobbles.
     std::sort(out.begin(), out.end(), [](const RecoveredWork& a, const RecoveredWork& b) {
-        return a.savedSeconds > b.savedSeconds;
+        return a.savedSeconds != b.savedSeconds ? a.savedSeconds > b.savedSeconds
+                                                : a.path > b.path;
     });
     return out;
 }
@@ -88,6 +97,84 @@ bool discardRecoveredWork(const RecoveredWork& work) {
         joinPath(directoryOf(work.path), fileStem(work.path) + kOriginExtension);
     deleteFile(origin);
     return deleteFile(work.path);
+}
+
+RecoverySummary summariseRecoveredWork(const RecoveredWork& work) {
+    RecoverySummary summary;
+    Document probe;
+    std::string error;
+    if (work.path.empty() || !probe.open(work.path, &error)) {
+        return summary;
+    }
+    const auto size = probe.engine().getCanvasSize(probe.id());
+    if (size.ok()) {
+        summary.width = static_cast<uint32_t>(size.value.x);
+        summary.height = static_cast<uint32_t>(size.value.y);
+    }
+    summary.frames = static_cast<int>(readFrames(probe).size());
+    summary.readable = true;
+    return summary;
+}
+
+namespace {
+
+constexpr size_t kArchivedKept = 10;
+
+// A file moved into a folder: copied, then removed, since there is no rename across
+// what file_io offers. False when the original could not be read or the copy written;
+// the original is only removed after the copy is safe.
+bool moveInto(const std::string& file, const std::string& folder) {
+    std::vector<uint8_t> bytes;
+    std::string error;
+    if (!readFile(file, bytes, &error) ||
+        !writeFileAtomic(joinPath(folder, fileName(file)), bytes, &error)) {
+        return false;
+    }
+    return deleteFile(file);
+}
+
+std::string sidecarOf(const std::string& copy) {
+    return joinPath(directoryOf(copy), fileStem(copy) + kOriginExtension);
+}
+
+} // namespace
+
+std::string archivedRecoveryDirectory(const std::vector<RecoveredWork>& found) {
+    return found.empty() ? std::string() : joinPath(directoryOf(found.front().path), "older");
+}
+
+int archiveOlderRecoveredWork(const std::vector<RecoveredWork>& found) {
+    if (found.size() < 2) {
+        return 0;
+    }
+    const std::string older = archivedRecoveryDirectory(found);
+    if (older.empty() || (!directoryExists(older) && !createDirectory(older))) {
+        return 0;
+    }
+    int moved = 0;
+    for (size_t i = 1; i < found.size(); ++i) {
+        const std::string sidecar = sidecarOf(found[i].path);
+        if (moveInto(found[i].path, older)) {
+            ++moved;
+            if (fileExists(sidecar)) {
+                moveInto(sidecar, older);
+            }
+        }
+    }
+    // Only the newest few are kept: the names carry the time (session-<seconds>-<n>),
+    // so by name is by age, and the oldest go.
+    std::vector<std::string> kept;
+    for (const DirectoryEntry& entry : listDirectory(older)) {
+        if (!entry.directory && hasExtension(entry.name, kCopyExtension)) {
+            kept.push_back(entry.path);
+        }
+    }
+    std::sort(kept.begin(), kept.end(), std::greater<std::string>());
+    for (size_t i = kArchivedKept; i < kept.size(); ++i) {
+        deleteFile(sidecarOf(kept[i]));
+        deleteFile(kept[i]);
+    }
+    return moved;
 }
 
 bool RecoverySession::begin() {
@@ -140,6 +227,10 @@ bool RecoverySession::writeNow(Document& doc, uint64_t nowSeconds) {
         return false;
     }
     std::string error;
+    // A picture goes with the copy, as it does with a save, so the question after a
+    // crash can show what the lost work looked like. (The document is changed already:
+    // there is nothing to write otherwise.)
+    updateThumbnail(doc);
     // saveCopy, not save: the document must not come away believing it lives
     // in the recovery folder or that it has no unsaved changes.
     if (!doc.saveCopy(path_, &error)) {

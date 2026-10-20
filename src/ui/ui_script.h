@@ -59,6 +59,9 @@
 //                                 Import reference does once the file is chosen
 //     open shape_test.lsprite     a file opened, as a recent entry or a drop does
 //     start                       the start screen brought up, as File > Start screen does
+//     recovered FILE [PATH]       FILE as the copy a crashed session left (it is copied first,
+//                                 so recovering or discarding takes the copy, never FILE);
+//                                 PATH is where it was being saved, if it had been
 //     answer export-png FILE      a native file dialog answered, as the system's would:
 //                                 open, save-as, save-copy, export-png, export-sheet,
 //                                 export-animation, import-palette, export-palette,
@@ -161,7 +164,7 @@ private:
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
                     Reference, Open, Start, Answer, Remove, ZoomTo, Role,
                     Wheel, UseTheme, UseScale, DemoRoles, Pause, UseLanguage,
-                    UseLayout } kind = Wait;
+                    UseLayout, Recovered } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         int         index = 0;             // Widget: which of several, from 1; 0 the last drawn

@@ -705,8 +705,11 @@ struct Editor {
     // copy still there at startup is proof the last session ended badly.
     RecoverySession recovery;
     bool            autosaveOn = true;
-    std::vector<RecoveredWork> recovered;    // found at startup, waiting to be asked about
+    std::vector<RecoveredWork> recovered;    // found at startup, newest first; the first is asked about
     bool            askingToRecover = false;
+    RecoverySummary recoverySummary;         // what that copy holds, read once
+    std::string     recoverySummaryOf;       // the copy the summary is of
+    bool            recoveryConfirmDiscard = false;   // "Discard" has been pressed once
 
     FileState   files;
     bool        quitRequested = false;
