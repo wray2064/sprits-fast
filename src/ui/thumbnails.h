@@ -25,4 +25,9 @@ class CanvasView;
 bool drawDocumentThumbnail(CanvasView& canvas, const std::string& path, float size,
                            bool enabled = true, int* budget = nullptr);
 
+// The same, painted at `from` without making an item, for a card that is one item
+// as a whole.
+void paintDocumentThumbnail(CanvasView& canvas, const std::string& path, ImVec2 from, float size,
+                            bool enabled = true, int* budget = nullptr);
+
 } // namespace fast

@@ -30,7 +30,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 
 | Menu item | Scripts |
 |---|---|
-| File | keys_more.txt, menu_file.txt, menu_file.txt +32 |
+| File | canvas_fit.txt, canvas_fit.txt, keys_more.txt +34 |
 | File > New... | menu_file.txt |
 | File > Autosave | menu_file.txt, menu_file.txt, menu_file.txt +4 |
 | File > Autosave > On | menu_file.txt, menu_file.txt |
@@ -41,7 +41,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | File > Open... | menu_file.txt |
 | File > Open recent | menu_file.txt, menu_file.txt |
 | File > Open recent > Clear | menu_file.txt |
-| File > Start screen | keys_more.txt, menu_file.txt |
+| File > Start screen | canvas_fit.txt, canvas_fit.txt, keys_more.txt +1 |
 | File > Save | menu_file.txt, menu_file.txt |
 | File > Save as... | menu_file.txt |
 | File > Save a copy... | menu_file.txt |
@@ -125,7 +125,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 |---|---|---|---|---|
 | Tools | `tool.pencil` | Pencil | cel_opacity.txt, command_search.txt, custom_brush.txt +21 | keymap_tests.cpp |
 | Tools | `tool.spray` | Spray | fill_and_keys.txt, panels_fit.txt | none |
-| Tools | `tool.eraser` | Eraser | cel_opacity.txt, command_search.txt, copy_shapes.txt +23 | keymap_tests.cpp |
+| Tools | `tool.eraser` | Eraser | cel_opacity.txt, command_search.txt, copy_shapes.txt +24 | keymap_tests.cpp |
 | Tools | `tool.bucket` | Fill | fill_and_keys.txt, panels_and_menus.txt, panels_fit.txt +2 | none |
 | Tools | `tool.gradient` | Gradient | fill_and_keys.txt, panels_fit.txt, rotate_and_fill.txt | none |
 | Tools | `tool.picker` | Pick colour | fill_and_keys.txt | none |
@@ -140,7 +140,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | Tools | `tool.polygon-lasso` | Polygon lasso | paths_and_text.txt | none |
 | Tools | `tool.polygon` | Polygon | paths_and_text.txt | none |
 | Tools | `tool.curve` | Curve | paths_and_text.txt | none |
-| Tools | `tool.slice` | Slice | cel_opacity.txt, command_search.txt, copy_shapes.txt +31 | none |
+| Tools | `tool.slice` | Slice | canvas_fit.txt, cel_opacity.txt, command_search.txt +32 | none |
 | Tools | `tool.wand` | Magic wand | panels_fit.txt, selection.txt | none |
 | Tools | `tool.move` | Move | copy_shapes.txt, edit_and_view.txt, fill_and_keys.txt +6 | none |
 | Tools | `tool.hand` | Hand | start_screen.txt | none |
@@ -155,7 +155,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | File | `file.library` | Library | keys_more.txt, menu_file.txt | none |
 | File | `file.export-again` | Export again | export_again.txt | none |
 | Help | `app.search` | Search commands | command_search.txt | none |
-| Help | `app.guide` | User guide | user_guide.txt | none |
+| Help | `app.guide` | User guide | start_welcome.txt, user_guide.txt | none |
 | File | `file.close` | Close tab | keys_more.txt, menu_file.txt, quit.txt | none |
 | File | `file.quit` | Quit | quit.txt | none |
 | Edit | `edit.undo` | Undo | edit_and_view.txt, element_and_new.txt, fill_and_keys.txt +11 | keymap_tests.cpp |
@@ -185,12 +185,12 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | Animation | `anim.onion` | Onion skin | keys_more.txt | none |
 | Animation | `anim.duplicate` | Duplicate frame | fill_and_keys.txt, frame_menu.txt | none |
 | View | `view.timeline` | Timeline | frame_menu.txt, keys_more.txt, panels_and_menus.txt +5 | none |
-| View | `view.preview` | Preview | keys_more.txt, menu_view.txt | none |
+| View | `view.preview` | Preview | canvas_fit.txt, keys_more.txt, menu_view.txt | none |
 | View | `view.references` | References | panels_dock.txt | none |
 | View | `view.reset-layout` | Reset layout | layouts.txt, panels_dock.txt | none |
 | View | `view.zoom-in` | Zoom in | edit_and_view.txt | none |
 | View | `view.zoom-out` | Zoom out | keys_more.txt, menu_view.txt | none |
-| View | `view.fit` | Fit to window | edit_and_view.txt, frame_menu.txt, gizmo.txt +13 | none |
+| View | `view.fit` | Fit to window | canvas_fit.txt, edit_and_view.txt, frame_menu.txt +14 | none |
 | View | `view.snap` | Snap to grid | keys_more.txt, menu_view.txt | none |
 | View | `view.next-tab` | Next tab | keys_more.txt | none |
 | View | `view.previous-tab` | Previous tab | keys_more.txt | none |
@@ -223,7 +223,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | `ink` | adjust_tests.cpp, anim_export_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, clip_image_tests.cpp, import_tests.cpp, ink_tests.cpp, layers_tests.cpp, palette_tools_tests.cpp, selection_tests.cpp, text_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp, transform_tests.cpp, turning_tests.cpp |
 | `keymap` | keymap_tests.cpp |
 | `layers` | aseprite_tests.cpp, layers_tests.cpp, puppet_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp |
-| `library` | reference_tests.cpp |
+| `library` | recovery_tests.cpp, reference_tests.cpp |
 | `paint` | adjust_tests.cpp, anim_export_tests.cpp, animation_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, clip_image_tests.cpp, dither_tests.cpp, element_tests.cpp, export_tests.cpp, ink_tests.cpp, layers_tests.cpp, paint_tests.cpp, palette_io_tests.cpp, palette_tools_tests.cpp, puppet_tests.cpp, recovery_tests.cpp, reference_tests.cpp, robustness_tests.cpp, selection_tests.cpp, sheet_tests.cpp, system_tests.cpp, text_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp, transform_tests.cpp, turning_tests.cpp |
 | `palette` | adjust_tests.cpp, aseprite_tests.cpp, clip_image_tests.cpp, element_tests.cpp, import_tests.cpp, ink_tests.cpp, palette_io_tests.cpp, palette_tests.cpp, palette_tools_tests.cpp, selection_tests.cpp, shape_tests.cpp, system_tests.cpp, text_tests.cpp |
 | `palette_io` | palette_io_tests.cpp, palette_tools_tests.cpp, system_tests.cpp |

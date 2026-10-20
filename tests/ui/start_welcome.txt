@@ -1,0 +1,51 @@
+# The start screen of a first run, with nothing recent to go back to: it says where to
+# begin instead of "nothing here". Each way in is a card, and the ones that teach open the
+# user guide at their topic.
+start
+wait 4
+expect item Open...
+expect item Import sprite sheet...
+expect item Library...
+expect item User guide
+expect item Icon 16 x 16
+expect item Handheld 160 x 144
+expect item Your first sprite
+expect item Make it move
+expect item Learn the keys
+expect item Create
+expect item Next tip
+
+# A card that teaches puts the start screen away and opens the guide at its topic.
+click-on Make it move
+wait 4
+expect missing Create
+expect guide animation
+key escape
+wait 3
+expect guide closed
+
+start
+wait 3
+click-on Learn the keys
+wait 4
+expect guide shortcuts
+key escape
+wait 3
+
+start
+wait 3
+click-on Your first sprite
+wait 4
+expect guide getting-started
+key escape
+wait 3
+
+# The User guide card opens it too, wherever it was left.
+start
+wait 3
+click-on User guide
+wait 4
+expect missing Create
+key escape
+wait 3
+expect guide closed

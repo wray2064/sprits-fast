@@ -72,7 +72,7 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       written from the code; CI checks it is current
 - [x] Gaps filled: 63 menu items, 22 commands and one module were untouched; now none
       (Paste as reference needs a system-clipboard picture and says so). Nine new UI
-      scripts, `text_util_tests`; 49 scripts and 53 suites pass
+      scripts, `text_util_tests`; 49 scripts and 53 suites pass (52 and 933 checks since the start screen and the recovery prompt)
 - [x] A script fails on any ImGui error; that found a real bug (hiding the Preview left
       the canvas window with a cursor ImGui flagged every frame), fixed
 - [~] The hand-run checks in `docs/testing.md`: the ones a script can do are already
@@ -107,7 +107,7 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       left to the owner (documented in `store/certification-notes.md`)
 
 ### 6. Final
-- [x] Release build; 53 suites, the self-test and all 49 UI scripts (895 checks) pass on
+- [x] Release build; 53 suites, the self-test and all 52 UI scripts (933 checks) pass on
       the debug build and on the release exe that goes in the package; the fuzz quick run
       is one of the suites; the gallery matches; the Store screenshots still equal the
       gallery's images; `dist\SpritsFast-1.0.0.0-x64.msix` rebuilt (4.5 MB)

@@ -447,9 +447,16 @@ const IconSource kIconSources[] = {
     { kIcon_pentagon, kIcon_pentagon_size },             // Polygon
     { kIcon_spline, kIcon_spline_size },                 // Curve
     { kIcon_slice, kIcon_slice_size },                   // Slice
+    { kIconOwn_folder_open, kIconOwn_folder_open_size }, // FolderOpen
+    { kIconOwn_sheet, kIconOwn_sheet_size },             // Sheet
+    { kIconOwn_images, kIconOwn_images_size },           // Images
+    { kIconOwn_book, kIconOwn_book_size },               // Book
+    { kIconOwn_bulb, kIconOwn_bulb_size },               // Bulb
+    { kIconOwn_keyboard, kIconOwn_keyboard_size },       // Keyboard
+    { kIconOwn_file_plus, kIconOwn_file_plus_size },     // FilePlus
 };
 constexpr size_t kIconCount = sizeof(kIconSources) / sizeof(kIconSources[0]);
-static_assert(kIconCount == static_cast<size_t>(Icon::Slice) + 1,
+static_assert(kIconCount == static_cast<size_t>(Icon::FilePlus) + 1,
               "every Icon has a source, in the enum's order");
 
 // Read once, on first use. An icon that will not read is simply not drawn.

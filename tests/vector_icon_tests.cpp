@@ -13,6 +13,9 @@
 #ifndef ICON_DIR
 #error "ICON_DIR is set by CMake to assets/icons/lucide"
 #endif
+#ifndef OWN_ICON_DIR
+#error "OWN_ICON_DIR is set by CMake to assets/icons/fast"
+#endif
 
 static int failures = 0;
 
@@ -163,6 +166,33 @@ void testTheShippedIconsRead() {
     CHECK(fast::fileExists(std::string(ICON_DIR) + "/LICENSE"));
 }
 
+// The ones drawn for this program are held to the same rules: 24 x 24, strokes, inside
+// their square, every point a number.
+void testTheOwnIconsRead() {
+    const char* names[] = { "folder-open", "sheet", "images", "book", "bulb", "keyboard", "file-plus" };
+    for (const char* name : names) {
+        std::vector<uint8_t> bytes;
+        std::string error;
+        CHECK(fast::readFile(std::string(OWN_ICON_DIR) + "/" + name + ".svg", bytes, &error));
+        fast::VectorIcon icon;
+        CHECK(fast::parseVectorIcon(std::string(bytes.begin(), bytes.end()), &icon, &error));
+        CHECK(icon.width == 24.f && icon.height == 24.f);
+        CHECK(!icon.strokes.empty());
+        float lowX, lowY, highX, highY;
+        fast::iconBounds(icon, &lowX, &lowY, &highX, &highY);
+        if (!(lowX >= 1.f && lowY >= 1.f && highX <= 23.f && highY <= 23.f)) {
+            std::printf("  %s is outside its square: %.2f %.2f %.2f %.2f\n", name, lowX, lowY, highX, highY);
+        }
+        CHECK(lowX >= 1.f && lowY >= 1.f && highX <= 23.f && highY <= 23.f);
+        for (const fast::IconStroke& stroke : icon.strokes) {
+            CHECK(stroke.points.size() >= 2);
+            for (const auto& p : stroke.points) {
+                CHECK(std::isfinite(p.first) && std::isfinite(p.second));
+            }
+        }
+    }
+}
+
 // An icon set is somebody else's file.
 void testAHostileFileIsSurvivable() {
     fast::VectorIcon icon;
@@ -220,6 +250,7 @@ int main() {
     testArcs();
     testShapes();
     testTheShippedIconsRead();
+    testTheOwnIconsRead();
     testAHostileFileIsSurvivable();
 
     if (failures == 0) {

@@ -64,7 +64,7 @@ From PowerShell in this folder:
 |---|---|---|
 | Core and tests | `.\build.bat test` | `build\`, no window, a minute and a half; 53 suites |
 | The window | `.\build-gui.bat` | `build-gui\sprits_fast.exe`; SDL3 the first time takes minutes |
-| UI scripts | `.\tools\run_scripts.ps1` | 49 scripts, 895 checks; all must pass, and none may draw an ImGui error; CI runs them (one: `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt`) |
+| UI scripts | `.\tools\run_scripts.ps1` | 52 scripts, 933 checks; all must pass, and none may draw an ImGui error; CI runs them (one: `.\build-gui\sprits_fast.exe --script tests\ui\<name>.txt`) |
 | What no test touches | `python tools\qa_matrix.py` | writes `docs\qa-matrix.md`: every menu item, command and core module against its tests; the gaps list is empty |
 | Fuzzing | `.\tools\fuzz.ps1` | 21 targets under libFuzzer and AddressSanitizer; see `docs\fuzzing.md` |
 | The gallery | `.\tools\gallery.ps1` | every screen in every theme at 100% and 150%, 270 images and a contact sheet per screen in `build-gui\gallery`; look at it before calling a visual change done |

@@ -174,6 +174,7 @@ if (FAST_BUILD_GUI)
         src/ui/preferences_panel.cpp
         src/ui/file_actions.cpp
         src/ui/thumbnails.cpp
+        src/ui/start_art.cpp
         src/ui/stroke_input.cpp
         src/ui/shortcuts.cpp
         src/ui/headless.cpp
@@ -241,6 +242,15 @@ if (FAST_BUILD_GUI)
                    kIcon_${icon_symbol}
                    ${CMAKE_CURRENT_BINARY_DIR}/generated/icon_${icon_symbol}.h)
         string(APPEND FAST_ICON_INCLUDES "#include \"icon_${icon_symbol}.h\"\n")
+    endforeach()
+    # And seven drawn for this program (assets/icons/fast/), the same way.
+    set(FAST_OWN_ICONS folder-open sheet images book bulb keyboard file-plus)
+    foreach(icon ${FAST_OWN_ICONS})
+        string(REPLACE "-" "_" icon_symbol "${icon}")
+        embed_file(${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/fast/${icon}.svg
+                   kIconOwn_${icon_symbol}
+                   ${CMAKE_CURRENT_BINARY_DIR}/generated/icon_own_${icon_symbol}.h)
+        string(APPEND FAST_ICON_INCLUDES "#include \"icon_own_${icon_symbol}.h\"\n")
     endforeach()
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/generated/icons_embedded.h "${FAST_ICON_INCLUDES}")
     # The user guide, compiled in (Help > User guide): one Markdown file a topic under
@@ -462,7 +472,8 @@ if (FAST_BUILD_TESTS)
     add_executable(fast_vector_icon_tests tests/vector_icon_tests.cpp)
     target_link_libraries(fast_vector_icon_tests PRIVATE fast_core)
     target_compile_definitions(fast_vector_icon_tests PRIVATE
-        ICON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/lucide")
+        ICON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/lucide"
+        OWN_ICON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/fast")
     add_test(NAME fast_vector_icon COMMAND fast_vector_icon_tests)
 
     add_executable(fast_theme_store_tests tests/theme_store_tests.cpp)

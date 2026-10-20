@@ -4,9 +4,13 @@ Five minutes from an empty canvas to a sprite you can use.
 
 ## 1. Start
 
-When the program opens it shows the **start screen**: templates to start from, the files
-you opened recently, and a tip. Pick a template card (**Tile 32 x 32** is a good first
-one) and press **Create**, or choose **Start with a blank canvas**.
+When the program opens it shows the **start screen**. On the left, the ways in: **Open...**,
+**Import sprite sheet...**, the **Library**, and this **User guide**. In the middle, a card for
+each preset size with a picture of what it is for, and under them the files you opened
+recently, each with a picture of its own (the first time, there are three ways into this guide
+instead). On the right, the details of the new document, and a tip below. Pick a preset card
+(**Tile 32 x 32** is a good first one) and press **Create**, or choose **Start with a blank
+canvas**.
 
 To make a canvas of your own size, set the width and height on the right of the start
 screen, or use **File > New**, which asks the same questions: name, size, background and

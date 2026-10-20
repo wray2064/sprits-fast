@@ -14,8 +14,8 @@
 
 namespace fast {
 
-bool drawDocumentThumbnail(CanvasView& canvas, const std::string& path, float size, bool enabled,
-                           int* budget) {
+void paintDocumentThumbnail(CanvasView& canvas, const std::string& path, ImVec2 from, float size,
+                            bool enabled, int* budget) {
     // The picture each save leaves in the file, read without opening it.
     const ReferenceCache::Entry* picture = nullptr;
     if (enabled) {
@@ -33,11 +33,7 @@ bool drawDocumentThumbnail(CanvasView& canvas, const std::string& path, float si
         }
     }
 
-    ImGui::BeginDisabled(!enabled);
-    const bool clicked = ImGui::InvisibleButton("##thumb", ImVec2(size, size));
-    ImGui::EndDisabled();
-    const ImVec2 from = ImGui::GetItemRectMin();
-    const ImVec2 to = ImGui::GetItemRectMax();
+    const ImVec2 to(from.x + size, from.y + size);
     ImDrawList* draw = ImGui::GetWindowDrawList();
     draw->AddRectFilled(from, to, ImGui::GetColorU32(theme::palette().canvasBackground), 3.f);
     if (picture != nullptr && picture->texture != nullptr && picture->width > 0 &&
@@ -51,6 +47,14 @@ bool drawDocumentThumbnail(CanvasView& canvas, const std::string& path, float si
         draw->AddImage(reinterpret_cast<ImTextureID>(picture->texture), at, ImVec2(at.x + w, at.y + h));
     }
     draw->AddRect(from, to, ImGui::GetColorU32(theme::palette().border), 3.f);
+}
+
+bool drawDocumentThumbnail(CanvasView& canvas, const std::string& path, float size, bool enabled,
+                           int* budget) {
+    ImGui::BeginDisabled(!enabled);
+    const bool clicked = ImGui::InvisibleButton("##thumb", ImVec2(size, size));
+    ImGui::EndDisabled();
+    paintDocumentThumbnail(canvas, path, ImGui::GetItemRectMin(), size, enabled, budget);
     return clicked;
 }
 
