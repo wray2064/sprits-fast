@@ -74,6 +74,7 @@
 //                                 preferences, modified, tracks (the same layers in every
 //                                 frame), onion, timeline, pinned -- `on` or `off`
 //     expect tiled both           the tiled mode: off, across, down, both
+//     expect centred              the artwork in the middle of the canvas's area
 //     role panel 1d2229           a role of the working theme set (what the picker
 //                                 in Preferences > Appearance does); a program's own
 //                                 role by its id: role demo.mark ff00ff

@@ -1,0 +1,45 @@
+# A canvas that has just been made or fitted sits in the middle of its area, with the
+# preview showing or not, at any size -- and the artwork stays inside its area, never
+# drawn over the tab bar above it.
+key ctrl+0
+wait 3
+expect centred
+
+# The preview is in the corner by default; hiding it changes nothing about where the
+# canvas is.
+key p
+wait 3
+key ctrl+0
+wait 3
+expect centred
+key p
+wait 3
+key ctrl+0
+wait 3
+expect centred
+
+# A larger document, and a wider one: the zoom gives way to the preview, the canvas
+# does not.
+menu File > Start screen
+wait 2
+click-on Character 64 x 64
+click-on Create
+wait 3
+expect canvas 64 64
+key ctrl+0
+wait 3
+expect centred
+menu File > Start screen
+wait 2
+click-on Scene 320 x 180
+click-on Create
+wait 3
+expect canvas 320 180
+key ctrl+0
+wait 3
+expect centred
+
+# Zoomed far past the area, the artwork is cut at the area's edge and never drawn over the
+# tab bar above it (looked at in a screenshot: the script cannot see pixels).
+zoom 30
+wait 3

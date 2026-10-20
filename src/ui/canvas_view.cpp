@@ -128,39 +128,26 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
             return std::clamp(std::floor(std::min((w - margin) / tw, (h - margin) / th) + 0.5f),
                               1.f, 64.f);
         };
-        // Whether the artwork, centred at `z` and moved by the pan, reaches
-        // under the corner overlay.
-        const auto covered = [&](float z, float px, float py) {
+        // Whether the artwork, centred at `z`, reaches under the corner overlay.
+        const auto covered = [&](float z) {
             if (cornerOverlay_.x <= 0.f || cornerOverlay_.y <= 0.f) {
                 return false;
             }
-            const float right = (available.x + tw * z) * 0.5f + px;
-            const float bottom = (available.y + th * z) * 0.5f + py;
+            const float right = (available.x + tw * z) * 0.5f;
+            const float bottom = (available.y + th * z) * 0.5f;
             return right > available.x - cornerOverlay_.x &&
                    bottom > available.y - cornerOverlay_.y;
         };
+        // The artwork is always centred: a canvas pushed to one side to dodge the
+        // preview looks like a mistake, and the first thing seen of a new document.
+        // If the preview would be on top of it, it is the zoom that gives way.
         float zoom = fitIn(available.x, available.y);
-        float px = 0.f;
-        float py = 0.f;
-        if (covered(zoom, px, py)) {
-            // Beside the overlay or above it, whichever leaves the artwork
-            // bigger; then smaller still if rounding put it back under.
-            const float beside = fitIn(available.x - cornerOverlay_.x, available.y);
-            const float above = fitIn(available.x, available.y - cornerOverlay_.y);
-            if (beside >= above) {
-                zoom = beside;
-                px = -cornerOverlay_.x * 0.5f;
-            } else {
-                zoom = above;
-                py = -cornerOverlay_.y * 0.5f;
-            }
-            while (zoom > 1.f && covered(zoom, px, py)) {
-                zoom -= 1.f;
-            }
+        while (zoom > 1.f && covered(zoom)) {
+            zoom -= 1.f;
         }
         setZoom(zoom);
-        panX_ = px;
-        panY_ = py;
+        panX_ = 0.f;
+        panY_ = 0.f;
         fitPending_ = false;
         fitted_ = true;
         fittedArea_ = available;
@@ -229,6 +216,11 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const theme::Palette& c = theme::palette();
+
+    // Everything below is the canvas's, and stays inside its own area: this window
+    // also holds the tab bar above it, which a zoomed or panned artwork used to be
+    // drawn over.
+    draw->PushClipRect(topLeft, ImVec2(topLeft.x + available.x, topLeft.y + available.y), true);
 
     // A soft shadow under the artwork, so it reads as a sheet on a surface
     // rather than a hole in the panel.
@@ -388,6 +380,8 @@ bool CanvasView::draw(Document& doc, ls::SpriteId sprite, ls::Vec2i* hovered,
     } else if (hovered != nullptr) {
         *hovered = { -1, -1 };
     }
+
+    draw->PopClipRect();
 
     return inside && windowHovered;
 }

@@ -684,7 +684,7 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         for (int i = 0; i < frames; ++i) {
             Step s; s.kind = Step::Wait; add(s);
         }
-    } else if (verb == "expect" && w.size() >= 3) {
+    } else if (verb == "expect" && (w.size() >= 3 || (w.size() == 2 && w[1] == "centred"))) {
         Step s; s.kind = Step::Expect; s.text = w[1];
         s.args.assign(w.begin() + 2, w.end());
         if (s.text == "item" || s.text == "missing") {
@@ -1228,6 +1228,19 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
         }
         if (!known) {
             failed("no switch called " + a[0]);
+        }
+    } else if (step.text == "centred") {
+        // The artwork in the middle of the canvas's area, to the pixel: `expect centred`.
+        const ImVec2 at = canvas.artworkOrigin();
+        const ImVec2 corner = canvas.viewTopLeft();
+        const ImVec2 room = canvas.viewSize();
+        const float w = static_cast<float>(canvas.compiledWidth()) * canvas.zoom();
+        const float h = static_cast<float>(canvas.compiledHeight()) * canvas.zoom();
+        const float offsetX = (at.x + w * 0.5f) - (corner.x + room.x * 0.5f);
+        const float offsetY = (at.y + h * 0.5f) - (corner.y + room.y * 0.5f);
+        if (std::fabs(offsetX) > 1.f || std::fabs(offsetY) > 1.f) {
+            failed("the artwork is " + std::to_string(static_cast<int>(offsetX)) + ", " +
+                   std::to_string(static_cast<int>(offsetY)) + " pixels from the middle");
         }
     } else if (step.text == "tiled" && a.size() == 1) {
         const char* names[] = { "off", "across", "down", "both" };
