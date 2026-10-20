@@ -277,3 +277,7 @@ The engine's model is in `../livesprite-engine/docs/concepts.md`.
 - `docs/parity.md` is ticked, and its log written, in the commit that lands
   the change.
 - CI is the gate.
+
+## The help, in the program and on the web
+
+Topics: `assets/help/NN-id.md` and `assets/help/es/NN-id.md`. The site checkout (`manictrashpanda-site`, owner-controlled, its own deploy) copies them with `node scripts/sync-livesprite-help.mjs` and builds the pages with `node scripts/build-livesprite.mjs`; then `npm run deploy` there. Change a topic, keep both languages in step (the guide test fails otherwise), and re-run those three.

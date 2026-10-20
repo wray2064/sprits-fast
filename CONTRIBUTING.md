@@ -58,3 +58,7 @@ A feature that touches another one -- most do -- also gets a line in
 `tests/system_tests.cpp`, which holds one realistic document to a few promises
 through everything at once. What that file checks, and the script for what
 only a person at the window can judge, is in [docs/testing.md](docs/testing.md).
+
+## The help
+
+The user guide is Markdown in `assets/help/` (English) and `assets/help/es/` (Spanish): one file a topic, the same file names in both, compiled into the program. A test keeps the two sets the same topics, sections and tables, with no broken link. The website help library is built from these same files (see `docs/handoff.md`), so fix a mistake once.

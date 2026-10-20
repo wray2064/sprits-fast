@@ -26,6 +26,13 @@ source). It is being prepared for the Microsoft Store
 ([store/README.md](store/README.md) is the submission kit); until then, build it
 below, or take a build from a release and run `Install.ps1` in it.
 
+**On the web**: the [Sprit's'fast page](https://manictrashpanda.dev/livesprite/fast/)
+([en español](https://manictrashpanda.dev/livesprite/fast/es/)), the
+[LiveSprite introduction](https://manictrashpanda.dev/livesprite/) and the
+[help library](https://manictrashpanda.dev/livesprite/fast/help/)
+([ayuda](https://manictrashpanda.dev/livesprite/fast/help/es/)): the same guide
+that is in the program, in English and Spanish.
+
 **Help is in the program**: press **F1** for the user guide, searchable and
 offline; **Help > Keyboard shortcuts** lists every key and lets you change it;
 `Ctrl+Shift+P` finds any command by a few letters. Problems and requests:
