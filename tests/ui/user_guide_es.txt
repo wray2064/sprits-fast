@@ -1,0 +1,48 @@
+# The user guide in Spanish: with the language set to Spanish the guide is the Spanish
+# one (its own titles, its own links, the same topics), and back in English it is the
+# English one again.
+language es
+expect guide closed
+
+click-on Ayuda
+click-on Guía de usuario
+wait 4
+expect guide welcome
+expect item Bienvenida
+expect item Primeros pasos
+expect item Dibujar
+expect item Abrir, guardar y exportar
+expect item Solución de problemas y límites
+expect item Licencias
+expect missing Getting started
+
+# A topic from the list, and the search in Spanish.
+click-on Dibujar
+wait 3
+expect guide drawing
+click-on ##guideSearch
+type paleta
+wait 4
+expect item Color y paletas
+expect missing Marionetas de recortes
+click-on Color y paletas
+wait 3
+expect guide colour
+
+key escape
+wait 3
+key escape
+wait 3
+expect guide closed
+
+# Back in English the guide is English again.
+language en
+key f1
+wait 4
+expect item Getting started
+expect missing Primeros pasos
+key escape
+wait 3
+key escape
+wait 3
+expect guide closed

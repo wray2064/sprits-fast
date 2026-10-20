@@ -173,6 +173,56 @@ void testTheGuideIsWhole() {
     CHECK(topics[hits[0].topic].id == "colour");
 }
 
+std::vector<GuideTopic> loadGuide(const std::filesystem::path& folder) {
+    std::vector<std::filesystem::path> files;
+    for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+        if (entry.path().extension() == ".md") { files.push_back(entry.path()); }
+    }
+    std::sort(files.begin(), files.end());
+    std::vector<GuideSource> sources;
+    for (const auto& file : files) {
+        std::ifstream in(file, std::ios::binary);
+        GuideSource source;
+        source.id = topicIdFromFileName(file.filename().string());
+        source.text.assign((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        sources.push_back(source);
+    }
+    return parseGuide(sources);
+}
+
+// The Spanish guide is the English one, topic for topic: the same ids in the same order,
+// the same sections, no link that goes nowhere.
+void testTheSpanishGuideMatches() {
+    const std::vector<GuideTopic> english = loadGuide(GUIDE_DIR);
+    const std::vector<GuideTopic> spanish = loadGuide(std::filesystem::path(GUIDE_DIR) / "es");
+    REQUIRE(english.size() == spanish.size());
+    for (size_t i = 0; i < english.size(); ++i) {
+        CHECK(english[i].id == spanish[i].id);
+        CHECK(english[i].title != spanish[i].title);
+        // The same number of headings and tables, so nothing was left out in translation.
+        size_t englishHeadings = 0, spanishHeadings = 0, englishTables = 0, spanishTables = 0;
+        for (const Block& block : english[i].blocks) {
+            englishHeadings += (block.kind == BlockKind::Heading && block.level == 2) ? 1 : 0;
+            englishTables += block.kind == BlockKind::Table ? 1 : 0;
+        }
+        for (const Block& block : spanish[i].blocks) {
+            spanishHeadings += (block.kind == BlockKind::Heading && block.level == 2) ? 1 : 0;
+            spanishTables += block.kind == BlockKind::Table ? 1 : 0;
+        }
+        if (englishHeadings != spanishHeadings || englishTables != spanishTables) {
+            std::printf("  %s differs in sections or tables\n", english[i].id.c_str());
+        }
+        CHECK(englishHeadings == spanishHeadings);
+        CHECK(englishTables == spanishTables);
+    }
+    const std::string broken = firstBrokenLink(spanish);
+    if (!broken.empty()) { std::printf("  broken link: %s\n", broken.c_str()); }
+    CHECK(broken.empty());
+    const std::vector<GuideHit> hits = searchGuide(spanish, "paleta");
+    REQUIRE(!hits.empty());
+    CHECK(spanish[hits[0].topic].id == "colour");
+}
+
 } // namespace
 
 int main() {
@@ -182,6 +232,7 @@ int main() {
     testSearch();
     testHostileInput();
     testTheGuideIsWhole();
+    testTheSpanishGuideMatches();
     if (failures == 0) {
         std::printf("fast_guide: all checks passed\n");
         return 0;

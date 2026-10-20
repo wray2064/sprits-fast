@@ -125,7 +125,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 |---|---|---|---|---|
 | Tools | `tool.pencil` | Pencil | cel_opacity.txt, command_search.txt, custom_brush.txt +21 | keymap_tests.cpp |
 | Tools | `tool.spray` | Spray | fill_and_keys.txt, panels_fit.txt | none |
-| Tools | `tool.eraser` | Eraser | cel_opacity.txt, command_search.txt, copy_shapes.txt +25 | keymap_tests.cpp |
+| Tools | `tool.eraser` | Eraser | cel_opacity.txt, command_search.txt, copy_shapes.txt +26 | keymap_tests.cpp |
 | Tools | `tool.bucket` | Fill | fill_and_keys.txt, panels_and_menus.txt, panels_fit.txt +2 | none |
 | Tools | `tool.gradient` | Gradient | fill_and_keys.txt, panels_fit.txt, rotate_and_fill.txt | none |
 | Tools | `tool.picker` | Pick colour | fill_and_keys.txt | none |
@@ -155,7 +155,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | File | `file.library` | Library | keys_more.txt, menu_file.txt | none |
 | File | `file.export-again` | Export again | export_again.txt | none |
 | Help | `app.search` | Search commands | command_search.txt | none |
-| Help | `app.guide` | User guide | start_welcome.txt, user_guide.txt | none |
+| Help | `app.guide` | User guide | start_welcome.txt, user_guide.txt, user_guide_es.txt | none |
 | File | `file.close` | Close tab | keys_more.txt, menu_file.txt, quit.txt | none |
 | File | `file.quit` | Quit | quit.txt | none |
 | Edit | `edit.undo` | Undo | edit_and_view.txt, element_and_new.txt, fill_and_keys.txt +11 | keymap_tests.cpp |

@@ -22,16 +22,28 @@ namespace {
 
 // --- the topics ---------------------------------------------------------------------
 
-std::vector<GuideSource> embeddedSources() {
+std::vector<GuideSource> embeddedSources(bool spanish) {
     std::vector<GuideSource> sources;
     for (const EmbeddedHelp& file : kEmbeddedHelp) {
         std::string text(reinterpret_cast<const char*>(file.data), file.size);
         std::string name = file.file;
-        if (name.size() > 4 && name.compare(name.size() - 4, 4, ".txt") == 0) {
+        const bool isSpanishFile = name.rfind("es/", 0) == 0;
+        const bool isText = name.size() > 4 && name.compare(name.size() - 4, 4, ".txt") == 0;
+        // The licences are one text for both languages; a topic is read in the language
+        // asked for, in English where it has no translation yet.
+        if (isSpanishFile != spanish && !isText) {
+            continue;
+        }
+        if (isText) {
             // A plain text file (the licences) is a topic that shows it as written.
-            const std::string title = topicIdFromFileName(name) == "licences" ? "Licences" : name;
-            text = "# " + title + "\n\nThe licence of everything Sprit's'fast is built on, with the "
-                   "text each asks to travel with it.\n\n```\n" + text + "\n```\n";
+            const std::string title = topicIdFromFileName(name) == "licences"
+                                          ? (spanish ? "Licencias" : "Licences") : name;
+            text = "# " + title + "\n\n" +
+                   (spanish ? "La licencia de todo aquello sobre lo que se construye Sprit's'fast, con el "
+                              "texto que cada una pide que lo acompañe."
+                            : "The licence of everything Sprit's'fast is built on, with the "
+                              "text each asks to travel with it.") +
+                   "\n\n```\n" + text + "\n```\n";
         }
         GuideSource source;
         source.id = topicIdFromFileName(name);
@@ -275,9 +287,14 @@ bool isHttps(const std::string& target) {
 
 } // namespace
 
-const std::vector<GuideTopic>& userGuide() {
-    static const std::vector<GuideTopic> topics = parseGuide(embeddedSources());
-    return topics;
+const std::vector<GuideTopic>& userGuide(const std::string& language) {
+    static const std::vector<GuideTopic> english = parseGuide(embeddedSources(false));
+    static const std::vector<GuideTopic> spanish = parseGuide(embeddedSources(true));
+    // Spanish when asked for and written; every other language reads the English.
+    if (language == "es" && spanish.size() > 1) {
+        return spanish;
+    }
+    return english;
 }
 
 void openUserGuide(Editor& editor, const char* topicId) {
@@ -286,7 +303,7 @@ void openUserGuide(Editor& editor, const char* topicId) {
     editor.guideOpen = true;
     editor.guideSearch[0] = '\0';
     if (topicId != nullptr) {
-        const std::vector<GuideTopic>& topics = userGuide();
+        const std::vector<GuideTopic>& topics = userGuide(editor.prefs.language);
         for (size_t i = 0; i < topics.size(); ++i) {
             if (topics[i].id == topicId) {
                 editor.guideTopic = static_cast<int>(i);
@@ -301,7 +318,7 @@ void drawUserGuide(Editor& editor) {
     if (!editor.guideOpen) {
         return;
     }
-    const std::vector<GuideTopic>& topics = userGuide();
+    const std::vector<GuideTopic>& topics = userGuide(editor.prefs.language);
     if (topics.empty()) {
         editor.guideOpen = false;
         return;

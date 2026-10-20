@@ -1200,7 +1200,7 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
     } else if (step.text == "guide" && a.size() == 1) {
         // The user guide is open at a topic, by its id: `expect guide drawing`; or
         // `expect guide closed`.
-        const std::vector<GuideTopic>& topics = userGuide();
+        const std::vector<GuideTopic>& topics = userGuide(editor.prefs.language);
         if (a[0] == "closed") {
             if (editor.guideOpen) { failed("the guide is open"); }
         } else if (!editor.guideOpen) {

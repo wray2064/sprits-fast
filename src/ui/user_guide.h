@@ -14,12 +14,13 @@
 #include "app/guide.h"
 #include "ui/editor.h"
 
+#include <string>
 #include <vector>
 
 namespace fast {
 
-// Every topic, read once.
-const std::vector<GuideTopic>& userGuide();
+// Every topic in `language` ("es" for Spanish, anything else English), read once.
+const std::vector<GuideTopic>& userGuide(const std::string& language);
 
 // Opens the guide, at `topicId` when it names one (otherwise where it was left).
 void openUserGuide(Editor& editor, const char* topicId = nullptr);
