@@ -49,7 +49,7 @@ class CanvasView {
 public:
     explicit CanvasView(SDL_Renderer* renderer)
         : renderer_(renderer), frames_(renderer), references_(renderer),
-          libraryThumbs_(renderer) {}
+          libraryThumbs_(renderer), extensionTextures_(renderer) {}
 
     CanvasView(const CanvasView&) = delete;
     CanvasView& operator=(const CanvasView&) = delete;
@@ -65,6 +65,10 @@ public:
     const FrameCache& frames() const { return frames_; }
     ReferenceCache&   referenceTextures() { return references_; }
     ReferenceCache&   libraryThumbnails() { return libraryThumbs_; }
+    // Textures for a program built on Fast (AppExtension::underlay and its
+    // windows). Fast never prunes it: the program keeps what it holds, under
+    // keys of its own, with retainOnlyKeys/clear.
+    ReferenceCache&   extensionTextures() { return extensionTextures_; }
 
     // Where a canvas pixel lands on screen, and the reverse, for anything
     // drawing or picking in canvas coordinates outside this class -- the
@@ -241,6 +245,7 @@ private:
     FrameCache      frames_;
     ReferenceCache  references_;
     ReferenceCache  libraryThumbs_;
+    ReferenceCache  extensionTextures_;
     int           hoverSize_ = 1;
     ls::Vec2i     pointer_ { -1, -1 };
     ls::Vec2f     pointerExact_ { -1.f, -1.f };

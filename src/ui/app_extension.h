@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+struct ImDrawList;
+
 namespace fast {
 
 struct Editor;
@@ -53,6 +55,18 @@ struct AppExtension {
     // animation system of its own draws it here, where the timeline docks. It
     // may still call Fast's drawTimelinePanel (ui/panels.h) for any part of it.
     std::function<void(Editor&, CanvasView&)> timeline;
+    // Under the artwork, in the canvas window, for the frame on show: pictures the
+    // program wants behind the drawing -- a reference per frame, a guide that
+    // follows the animation. Called each time the canvas is drawn, after Fast's
+    // own references that sit behind it and before the onion skin. It is given
+    // the draw list and the canvas's origin (screen pixels of canvas pixel 0,0)
+    // and zoom exactly as Fast's references get them, so a picture placed in
+    // canvas pixels lines up with the drawing at every zoom; `frame` is the index
+    // of the frame on show (as Editor::frames counts them). Textures are the
+    // program's own to make and keep (CanvasView::extensionTextures() is there
+    // for the purpose; Fast never prunes it).
+    std::function<void(Editor&, CanvasView&, ImDrawList*, float originX, float originY,
+                       float zoom, int frame)> underlay;
 };
 
 // Runs the editor: its command line, its window, until it is closed. What

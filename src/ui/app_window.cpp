@@ -201,8 +201,11 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                   : editor.sprite;
     const bool overCanvas = canvas.draw(
         editor.doc, onScreen, &hovered,
-        [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
+        [&editor, &canvas, showing](ImDrawList* draw, ImVec2 origin, float zoom) {
             drawReferences(editor, canvas, draw, origin, zoom, true);
+            if (gExtension != nullptr && gExtension->underlay) {
+                gExtension->underlay(editor, canvas, draw, origin.x, origin.y, zoom, showing);
+            }
             drawOnionSkin(editor, canvas, draw, origin, zoom);
         },
         [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
