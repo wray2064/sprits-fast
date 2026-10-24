@@ -27,6 +27,7 @@
 #include "ui/widgets.h"
 #include "ui/rulers.h"
 #include "ui/slice_tool.h"
+#include "ui/stage_bar.h"
 #include "ui/tabs.h"
 #include "ui/tile_tools.h"
 #include "ui/ui_script.h"
@@ -42,6 +43,7 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -77,9 +79,12 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const float statusHeight = ImGui::GetFrameHeight() + theme::px(8.f);
     theme::popText();
     const float toolbarWidth = theme::toolRailWidth();
-    const float bodyHeight = viewport->WorkSize.y - statusHeight;
+    // A program with stages has their bar across the top of the work area.
+    const float barHeight = stageBarHeight(editor);
+    drawStageBar(editor, barHeight);
+    const float bodyHeight = viewport->WorkSize.y - statusHeight - barHeight;
     const float left = viewport->WorkPos.x;
-    const float top = viewport->WorkPos.y;
+    const float top = viewport->WorkPos.y + barHeight;
 
     constexpr ImGuiWindowFlags kPanel =
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
@@ -483,6 +488,19 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     registerPanelSettings(editor);
     if (interactive) {
         loadLayout();
+    }
+    if (!extension.stages.empty()) {
+        editor.stages = extension.stages;
+        editor.stageStatus = extension.stageStatus;
+        editor.stageLayouts.resize(editor.stages.size());
+        const int start = std::clamp(extension.startStage, 0,
+                                     static_cast<int>(editor.stages.size()) - 1);
+        if (editor.stages[static_cast<size_t>(start)].base >= 0) {
+            // Fast's own arrangement: whatever the person left it as stays.
+            editor.stage = start;
+        } else {
+            useStage(editor, start);
+        }
     }
 
     CanvasView canvas(renderer);

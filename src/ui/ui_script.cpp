@@ -279,6 +279,24 @@ std::vector<ExtraRole> demoRoles() {
     return { mark, label, tint };
 }
 
+// The sample stages `demo-stages` gives the window: Fast's Drawing layout, a stage that is
+// exactly two panels, and Fast's Animation layout -- the three ways a stage is built.
+std::vector<Stage> demoStages() {
+    Stage first;
+    first.id = "one";
+    first.title = "Draw";
+    first.base = 0;
+    Stage second;
+    second.id = "two";
+    second.title = "Layers only";
+    second.panels = { { panel::kTool, DockRegion::Left }, { panel::kLayers, DockRegion::Right } };
+    Stage third;
+    third.id = "three";
+    third.title = "Animate";
+    third.base = 1;
+    return { first, second, third };
+}
+
 // --- loops ----------------------------------------------------------------------
 //
 // `for-each theme` ... `end-for` repeats the lines between, once for every
@@ -490,6 +508,8 @@ bool UiScript::parse(const std::string& line, int number, std::string* error) {
         Step l; l.kind = Step::UseLayout; l.text = w[1]; add(l);
     } else if (verb == "demo-roles" && w.size() == 1) {
         Step d; d.kind = Step::DemoRoles; add(d);
+    } else if (verb == "demo-stages" && w.size() == 1) {
+        Step d; d.kind = Step::DemoStages; add(d);
     } else if (verb == "zoom" && w.size() == 2) {
         Step z; z.kind = Step::ZoomTo;
         if (!fast::number(w[1], &z.x)) { return fail("not a zoom"); }
@@ -869,6 +889,13 @@ void UiScript::feed(Editor& editor, CanvasView& canvas) {
                 return;
             case Step::DemoRoles:
                 addExtraRoles(demoRoles());
+                return;
+            case Step::DemoStages:
+                editor.stages = demoStages();
+                editor.stage = -1;
+                editor.stageLayouts.clear();
+                editor.stageStatus = [](Editor&) { return std::string("sample status"); };
+                useStage(editor, 0);
                 return;
             case Step::Pause: {
                 // Real time with the frames running, a frame at a time.
@@ -1317,6 +1344,12 @@ void UiScript::expect(const Step& step, Editor& editor, CanvasView& canvas) {
             failed(size.ok() ? "the canvas is " + std::to_string(size.value.x) + " x " +
                                    std::to_string(size.value.y)
                              : std::string("no canvas"));
+        }
+    } else if (step.text == "stage" && a.size() == 1) {
+        const bool known = editor.stage >= 0 && editor.stage < static_cast<int>(editor.stages.size());
+        const std::string now = known ? editor.stages[static_cast<size_t>(editor.stage)].id : "none";
+        if (now != a[0]) {
+            failed("the stage is " + now);
         }
     } else if (step.text == "tabs") {
         const int count = static_cast<int>(tabCount(editor));

@@ -189,6 +189,7 @@ if (FAST_BUILD_GUI)
         src/ui/reference_section.cpp
         src/ui/keys.cpp
         src/ui/layout.cpp
+        src/ui/stage_bar.cpp
         src/ui/os_clipboard.cpp
         src/ui/shape_tools.cpp
         src/ui/tabs.cpp

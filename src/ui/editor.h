@@ -35,6 +35,7 @@
 #include "app/selection.h"
 #include "app/sheet.h"
 #include "app/text.h"
+#include "ui/app_extension.h"
 #include "ui/canvas_view.h"
 #include "ui/file_commands.h"
 
@@ -613,6 +614,13 @@ struct Editor {
     } panels;
     // A saved layout's text, to be put in force before the next frame begins.
     std::string pendingLayout;
+    // The stages a program built on Fast gave the window (app_extension.h), the one in
+    // force (-1: none), the line the bar shows for it, and each stage's arrangement
+    // as the person left it, kept for the session (ImGui's own layout text).
+    std::vector<Stage>        stages;
+    int                       stage = -1;
+    std::function<std::string(Editor&)> stageStatus;
+    std::vector<std::string>  stageLayouts;
     // The Save layout dialog: whether it is up and what is typed in it.
     bool        saveLayoutOpen = false;
     char        layoutName[48] = {};

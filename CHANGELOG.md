@@ -5,6 +5,7 @@
 - Lossless WebP pictures can be read wherever an image is (references, imports), not
   only written. Lossy WebP is not read, and says so.
 - Pictures with many colours are written to WebP much smaller.
+- For programs built on Fast: a bar of numbered stages, each a saved arrangement of the panels.
 
 ## 1.0.0 -- 2026-10
 

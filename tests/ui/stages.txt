@@ -1,0 +1,32 @@
+﻿# Stages: a program built on Fast gives the window a bar of numbered stages, each a
+# saved arrangement of the dock. Any stage opens at any time; Next goes on; Ctrl+n
+# opens one by number; what the person made of a stage is there when they come back.
+demo-stages
+wait 5
+expect stage one
+expect item 1  Draw
+expect item 2  Layers only
+expect item 3  Animate
+expect item Rotate
+expect missing Play
+
+# A stage that is exactly the panels it lists: no Transform, no Timeline.
+click-on 2  Layers only
+wait 5
+expect stage two
+expect missing Rotate
+expect missing Play
+
+# Next goes to the one after it, which is Fast's Animation layout with the strip pinned.
+click-on Next: Animate  >
+wait 5
+expect stage three
+expect item Play
+expect missing Next: Animate  >
+
+# Back by number, and the stage left is as it was.
+key ctrl+1
+wait 5
+expect stage one
+expect item Rotate
+expect missing Play

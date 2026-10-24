@@ -140,7 +140,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | Tools | `tool.polygon-lasso` | Polygon lasso | paths_and_text.txt | none |
 | Tools | `tool.polygon` | Polygon | paths_and_text.txt | none |
 | Tools | `tool.curve` | Curve | paths_and_text.txt | none |
-| Tools | `tool.slice` | Slice | canvas_fit.txt, cel_opacity.txt, command_search.txt +32 | none |
+| Tools | `tool.slice` | Slice | canvas_fit.txt, cel_opacity.txt, command_search.txt +33 | none |
 | Tools | `tool.wand` | Magic wand | panels_fit.txt, selection.txt | none |
 | Tools | `tool.move` | Move | copy_shapes.txt, edit_and_view.txt, fill_and_keys.txt +6 | none |
 | Tools | `tool.hand` | Hand | start_screen.txt | none |

@@ -94,6 +94,9 @@
 //     demo-roles                  registers three sample roles of a made-up program
 //                                 (demo.mark, demo.label, demo.tint), as an
 //                                 AppExtension would, so what they do can be checked
+//     demo-stages                 gives the window three sample stages (ids one, two, three),
+//                                 as an AppExtension would, and opens the first
+//     expect stage two            the stage in force, by id
 //     for-each theme              the lines up to `end-for`, once for every theme
 //     for-each scale 100 150      ... or once for each value listed; inside, {theme}
 //                                 or {scale} is the value, in any line. Loops nest.
@@ -164,7 +167,7 @@ private:
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
                     Reference, Open, Start, Answer, Remove, ZoomTo, Role,
                     Wheel, UseTheme, UseScale, DemoRoles, Pause, UseLanguage,
-                    UseLayout, Recovered } kind = Wait;
+                    UseLayout, Recovered, DemoStages } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         int         index = 0;             // Widget: which of several, from 1; 0 the last drawn

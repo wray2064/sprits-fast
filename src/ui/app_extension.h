@@ -23,6 +23,36 @@ namespace fast {
 struct Editor;
 class CanvasView;
 
+// --- stages ---------------------------------------------------------------------------
+//
+// A program whose work has an order -- prepare, import, draw, arrange -- can give the
+// window a bar of numbered stages. A stage is a saved arrangement of the dock: which
+// panels show and where, over the one document. Any stage can be opened at any time;
+// the bar says where the work is and what is next, and locks nothing. (Affinity's
+// personas are the same mechanism without the order.)
+
+// Where a panel goes in the dock. Left and Right are columns; the Lower ones sit under
+// them, Bottom spans the width under the canvas.
+enum class DockRegion { Left, LeftLower, Right, RightLower, Bottom };
+
+struct StagePanel {
+    // The panel's window id, the part after ### in its title ("###tool",
+    // "###pract.importer"). Fast's own panels have ids in ui/layout.h (panel::).
+    std::string id;
+    DockRegion  region = DockRegion::Right;
+};
+
+struct Stage {
+    std::string id;                      // "import": for scripts and for saved state
+    std::string title;                   // what the bar says
+    // Fast's own arrangement under the stage (a LayoutPreset: 0 Drawing, 1 Animation,
+    // 2 Compact), with the panels below added to it; or -1: the stage is exactly the
+    // panels listed, Fast's included, and the Fast panels it does not list are closed.
+    int         base = -1;
+    std::vector<StagePanel> panels;
+    float       sideWidth = 1.f;         // the columns' width, against Fast's own
+};
+
 struct AppExtension {
     std::string title = "Sprit's'fast";
     // The folder its settings, recent files, layout and recovery copies live
@@ -67,6 +97,12 @@ struct AppExtension {
     // for the purpose; Fast never prunes it).
     std::function<void(Editor&, CanvasView&, ImDrawList*, float originX, float originY,
                        float zoom, int frame)> underlay;
+    // A bar of numbered stages over the dock (see Stage). Empty: no bar, and the window
+    // is Fast's. `startStage` is the one the window opens in; `stageStatus` is the
+    // line the bar shows for the stage in force ("8 references, 3 on frames").
+    std::vector<Stage> stages;
+    int startStage = 0;
+    std::function<std::string(Editor&)> stageStatus;
 };
 
 // Runs the editor: its command line, its window, until it is closed. What
