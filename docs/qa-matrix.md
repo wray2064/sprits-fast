@@ -6,7 +6,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 
 - **Menu items:** 87 of 88 are clicked by a UI script (1 more cannot be, and say why below).
 - **Commands:** 71 of 71 are chosen, pressed or run by a script or a core test.
-- **Core modules:** 52 of 52 have a core test.
+- **Core modules:** 53 of 53 have a core test.
 
 ## Gaps
 
@@ -250,4 +250,5 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | `transform` | bucket_tests.cpp, canvas_ops_tests.cpp, dither_tests.cpp, palette_tests.cpp, selection_tests.cpp, tracks_tests.cpp, transform_tests.cpp, turning_tests.cpp |
 | `ui_state` | ui_state_tests.cpp |
 | `vector_icon` | vector_icon_tests.cpp |
-| `webp` | webp_tests.cpp |
+| `webp` | webp_decode_tests.cpp, webp_tests.cpp |
+| `webp_decode` | webp_decode_tests.cpp |

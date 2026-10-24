@@ -393,6 +393,11 @@ if (FAST_BUILD_TESTS)
     target_link_libraries(fast_webp_tests PRIVATE fast_core)
     add_test(NAME fast_webp COMMAND fast_webp_tests)
 
+    add_executable(fast_webp_decode_tests tests/webp_decode_tests.cpp)
+    target_include_directories(fast_webp_decode_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    target_link_libraries(fast_webp_decode_tests PRIVATE fast_core)
+    add_test(NAME fast_webp_decode COMMAND fast_webp_decode_tests)
+
     add_executable(fast_tracks_tests tests/tracks_tests.cpp)
     target_link_libraries(fast_tracks_tests PRIVATE fast_core)
     add_test(NAME fast_tracks COMMAND fast_tracks_tests)
