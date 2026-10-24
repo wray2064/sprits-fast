@@ -768,4 +768,55 @@ void processDialogResult(Editor& editor, CanvasView& canvas, SDL_Window* window)
     }
 }
 
+// ----------------------------------------------- for a program built on Fast --
+
+bool newDocumentTab(Editor& editor, CanvasView& canvas, const FileState::NewDocument& spec,
+                    const std::function<bool(Editor&)>& fill) {
+    const bool reuse = documentIsBlank(editor);
+    if (!reuse) {
+        openTab(editor, canvas);
+    }
+    bool made = newDocument(editor, spec);
+    if (made && fill) {
+        made = fill(editor);
+    }
+    if (!made) {
+        if (!reuse) {
+            closeActiveTab(editor, canvas);
+        }
+        return false;
+    }
+    resyncFrames(editor);
+    resyncLayers(editor);
+    selectFrame(editor, 0);
+    canvas.frames().clear();
+    canvas.requestFit();
+    canvas.invalidate();
+    editor.timeline.visible = editor.frames.size() > 1;
+    // Setting a document up is not editing it, as in newDocument.
+    editor.doc.markUnmodified();
+    editor.doc.clearHistory();
+    return true;
+}
+
+bool openFileTab(Editor& editor, CanvasView& canvas, const std::string& path, bool asCopy) {
+    const bool reuse = documentIsBlank(editor);
+    if (!reuse) {
+        openTab(editor, canvas);
+    }
+    if (!openPath(editor, canvas, path)) {
+        if (!reuse) {
+            closeActiveTab(editor, canvas);
+        }
+        return false;
+    }
+    if (asCopy) {
+        editor.doc.forgetPath();
+        editor.doc.markModified();            // it is not saved anywhere yet
+        editor.files.recent.remove(path);
+        editor.files.recent.save();
+    }
+    return true;
+}
+
 } // namespace fast
