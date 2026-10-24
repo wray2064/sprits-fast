@@ -132,7 +132,8 @@ void buildStageDock(ImGuiID dockspace, ImVec2 size, const Stage& stage) {
     const float k = theme::scale();
     const float sideAt100 = theme::metrics().sidebarWidth / k;
     const float side = std::min(theme::metrics().sidebarWidth * stage.sideWidth,
-                                std::max(sideAt100 * stage.sideWidth, size.x * 0.30f));
+                                std::max(sideAt100 * stage.sideWidth,
+                                         size.x * 0.30f * (1.f + 0.5f * (stage.sideWidth - 1.f))));
     ImGuiID centre = dockspace;
     ImGuiID left = 0;
     ImGuiID right = 0;
@@ -184,7 +185,8 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset, const Stag
     const float sideAt100 = theme::metrics().sidebarWidth / k;
     const float widen = stage != nullptr ? stage->sideWidth : 1.f;
     const float side = std::min(theme::metrics().sidebarWidth * widen,
-                                std::max(sideAt100 * widen, size.x * 0.30f));
+                                std::max(sideAt100 * widen,
+                                         size.x * 0.30f * (1.f + 0.5f * (widen - 1.f))));
     ImGuiID centre = dockspace;
     const ImGuiID left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left,
                                                      side / size.x, nullptr, &centre);
