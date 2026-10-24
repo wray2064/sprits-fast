@@ -3,6 +3,8 @@
 
 #include "app/webp.h"
 
+#include "app/webp_predict.h"
+
 #include <algorithm>
 #include <map>
 #include <queue>
@@ -377,8 +379,92 @@ void writeImageData(BitWriter& bits, const std::vector<uint32_t>& pixels, uint32
     }
 }
 
-// The VP8L bitstream for one picture.
-bool vp8l(const ls::RasterBuffer& image, std::vector<uint8_t>* out, std::string* error) {
+// A picture's colours as the predictor transform leaves them: green taken out
+// of red and blue, then each pixel less its guess from the pixels already
+// written, the guess chosen per 16 x 16 block from a few modes by whichever
+// leaves the smallest residuals. Writes the two transforms and returns what
+// is left to code.
+std::vector<uint32_t> predictorTransform(BitWriter& bits, std::vector<uint32_t> pixels,
+                                         uint32_t w, uint32_t h) {
+    using namespace webp_detail;
+    bits.put(1, 1);                                       // a transform
+    bits.put(2, 2);                                       // subtract green
+    for (uint32_t& p : pixels) {
+        const uint32_t green = (p >> 8) & 0xFFu;
+        const uint32_t red = (((p >> 16) & 0xFFu) - green) & 0xFFu;
+        const uint32_t blue = ((p & 0xFFu) - green) & 0xFFu;
+        p = (p & 0xFF00FF00u) | (red << 16) | blue;
+    }
+
+    constexpr int kSizeBits = 4;
+    const uint32_t across = (w + (1u << kSizeBits) - 1u) >> kSizeBits;
+    const uint32_t down = (h + (1u << kSizeBits) - 1u) >> kSizeBits;
+    static const int kModes[] = { 1, 2, 3, 4, 7, 11, 12, 13 };
+
+    const auto guessAt = [&](int mode, size_t i, uint32_t x, uint32_t y) {
+        if (y == 0) {
+            return x == 0 ? 0xFF000000u : pixels[i - 1];
+        }
+        if (x == 0) {
+            return pixels[i - w];
+        }
+        return predict(mode, pixels[i - 1], pixels[i - w], pixels[i - w + 1], pixels[i - w - 1]);
+    };
+
+    std::vector<uint32_t> modes(static_cast<size_t>(across) * down, 0xFF000100u);
+    for (uint32_t by = 0; by < down; ++by) {
+        for (uint32_t bx = 0; bx < across; ++bx) {
+            const uint32_t x0 = bx << kSizeBits;
+            const uint32_t y0 = by << kSizeBits;
+            const uint32_t x1 = std::min(w, x0 + (1u << kSizeBits));
+            const uint32_t y1 = std::min(h, y0 + (1u << kSizeBits));
+            uint64_t bestCost = ~0ull;
+            int best = 1;
+            for (int mode : kModes) {
+                uint64_t cost = 0;
+                for (uint32_t y = std::max(y0, 1u); y < y1 && cost < bestCost; ++y) {
+                    for (uint32_t x = std::max(x0, 1u); x < x1; ++x) {
+                        const size_t i = static_cast<size_t>(y) * w + x;
+                        const uint32_t d = subPixels(pixels[i], guessAt(mode, i, x, y));
+                        for (int shift = 0; shift < 32; shift += 8) {
+                            const uint32_t v = (d >> shift) & 0xFFu;
+                            cost += std::min(v, 256u - v);
+                        }
+                    }
+                }
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    best = mode;
+                }
+            }
+            modes[static_cast<size_t>(by) * across + bx] =
+                0xFF000000u | (static_cast<uint32_t>(best) << 8);
+        }
+    }
+
+    bits.put(1, 1);
+    bits.put(0, 2);                                       // predictor
+    bits.put(kSizeBits - 2, 3);
+    bits.put(0, 1);                                       // no colour cache for the modes
+    writeImageData(bits, modes, across, true);
+
+    std::vector<uint32_t> residual(pixels.size());
+    for (uint32_t y = 0; y < h; ++y) {
+        for (uint32_t x = 0; x < w; ++x) {
+            const size_t i = static_cast<size_t>(y) * w + x;
+            const int mode =
+                static_cast<int>((modes[(y >> kSizeBits) * across + (x >> kSizeBits)] >> 8) & 0xFu);
+            residual[i] = subPixels(pixels[i], guessAt(mode, i, x, y));
+        }
+    }
+    return residual;
+}
+
+// The VP8L bitstream for one picture. `transform` asks for the predictor
+// transform when the picture has too many colours to index; `indexed` says
+// whether it had few enough.
+bool vp8lCore(const ls::RasterBuffer& image, bool transform, bool* indexed,
+              std::vector<uint8_t>* out, std::string* error) {
     if (image.empty() || image.width > 16384 || image.height > 16384) {
         if (error != nullptr) {
             *error = "WebP pictures are 1 to 16384 pixels on a side";
@@ -456,13 +542,32 @@ bool vp8l(const ls::RasterBuffer& image, std::vector<uint8_t>* out, std::string*
             }
         }
     } else {
-        coded = std::move(argb);
+        coded = transform ? predictorTransform(bits, std::move(argb), w, h) : std::move(argb);
     }
+    *indexed = index.size() <= 256;
     bits.put(0, 1);                          // no more transforms
     bits.put(0, 1);                          // no colour cache
     bits.put(0, 1);                          // one set of prefix codes for the whole image
     writeImageData(bits, coded, imageWidth, true);
     *out = bits.finish();
+    return true;
+}
+
+// The smaller of the plain coding and, for a picture that is not indexed, the
+// predicted one. A photograph is a fraction of its raw size predicted; a
+// picture of flat colour is not helped, and is kept as it was.
+bool vp8l(const ls::RasterBuffer& image, std::vector<uint8_t>* out, std::string* error) {
+    bool indexed = false;
+    if (!vp8lCore(image, false, &indexed, out, error)) {
+        return false;
+    }
+    if (!indexed) {
+        std::vector<uint8_t> predicted;
+        bool ignored = false;
+        if (vp8lCore(image, true, &ignored, &predicted, nullptr) && predicted.size() < out->size()) {
+            *out = std::move(predicted);
+        }
+    }
     return true;
 }
 

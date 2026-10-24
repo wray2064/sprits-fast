@@ -45,8 +45,8 @@ struct ImageInfo {
 // this build reads or the size is refused.
 bool imageInfo(const std::vector<uint8_t>& bytes, ImageInfo* out, std::string* error);
 
-// Decodes to RGBA8. PNG, JPEG, BMP and GIF; anything else is refused by name
-// rather than guessed at.
+// Decodes to RGBA8. PNG, JPEG, BMP, GIF and lossless WebP; anything else is
+// refused by name rather than guessed at.
 bool decodeImage(const std::vector<uint8_t>& bytes, ls::RasterBuffer* out,
                  std::string* error);
 

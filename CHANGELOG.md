@@ -1,5 +1,11 @@
 # Changes
 
+## Unreleased
+
+- Lossless WebP pictures can be read wherever an image is (references, imports), not
+  only written. Lossy WebP is not read, and says so.
+- Pictures with many colours are written to WebP much smaller.
+
 ## 1.0.0 -- 2026-10
 
 The first release for the Microsoft Store.

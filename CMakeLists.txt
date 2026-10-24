@@ -104,6 +104,7 @@ add_library(fast_core STATIC
     src/app/clip_image.cpp
     src/app/grid_snap.cpp
     src/app/webp.cpp
+    src/app/webp_decode.cpp
     src/app/tracks.cpp
     src/app/puppet.cpp
     src/app/adjust.cpp

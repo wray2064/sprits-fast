@@ -11,6 +11,7 @@
 #include "app/guides.h"
 #include "app/i18n.h"
 #include "app/image_io.h"
+#include "app/webp.h"
 #include "app/import_aseprite.h"
 #include "app/keymap.h"
 #include "app/layers.h"
@@ -424,6 +425,8 @@ void imageFile(const uint8_t* data, size_t size) {
     (void)countGifFrames(bytes);
 }
 
+std::vector<Bytes> webpSeeds();
+
 std::vector<Bytes> imageSeeds() {
     std::vector<Bytes> seeds;
     ls::RasterBuffer raster = ls::makeRaster(5, 4);
@@ -434,6 +437,49 @@ std::vector<Bytes> imageSeeds() {
     std::string error;
     if (encodeImageAsPng(raster, &png, &error)) {
         seeds.push_back(png);
+    }
+    for (Bytes& webp : webpSeeds()) {
+        seeds.push_back(std::move(webp));
+    }
+    return seeds;
+}
+
+// Lossless WebP through its own reader: container, prefix codes, the four
+// transforms, copies. What comes back must be as large as the header said.
+void webpFile(const uint8_t* data, size_t size) {
+    const Bytes bytes(data, data + size);
+    uint32_t width = 0;
+    uint32_t height = 0;
+    std::string error;
+    const bool sized = webpSize(bytes, &width, &height, &error);
+    ls::RasterBuffer raster;
+    if (decodeWebp(bytes, &raster, &error)) {
+        INVARIANT(sized && raster.width == width && raster.height == height);
+        INVARIANT(raster.pixels.size() >= static_cast<size_t>(raster.stride) * raster.height);
+    }
+}
+
+std::vector<Bytes> webpSeeds() {
+    std::vector<Bytes> seeds;
+    std::string error;
+    // Indexed (a few colours), and predicted (a gradient, too many to index).
+    for (int style = 0; style < 3; ++style) {
+        const uint32_t side = style == 0 ? 9u : 40u;
+        ls::RasterBuffer raster = ls::makeRaster(side, side);
+        for (uint32_t y = 0; y < side; ++y) {
+            for (uint32_t x = 0; x < side; ++x) {
+                const uint8_t v = style == 0 ? static_cast<uint8_t>(((x + y) % 3) * 90)
+                                  : style == 1 ? static_cast<uint8_t>(x * 5 + y)
+                                               : static_cast<uint8_t>((x * y) ^ (x << 2));
+                ls::writePixel(raster, static_cast<int32_t>(x), static_cast<int32_t>(y),
+                               ls::Color{ v, static_cast<uint8_t>(y * 6), static_cast<uint8_t>(255 - v),
+                                          static_cast<uint8_t>(style == 0 && x == 0 ? 0 : 255) });
+            }
+        }
+        Bytes webp;
+        if (encodeWebp(raster, &webp, &error)) {
+            seeds.push_back(webp);
+        }
     }
     return seeds;
 }
@@ -605,7 +651,9 @@ const std::vector<Target>& targets() {
         { "aseprite", "an Aseprite file: parse", asepriteFile, asepriteSeeds },
         { "aseprite-import", "an Aseprite file: parse and build a document",
           asepriteImport, asepriteSeeds },
-        { "image", "PNG, JPEG, BMP and GIF: header, decode, frames", imageFile, imageSeeds },
+        { "image", "PNG, JPEG, BMP, GIF and WebP: header, decode, frames", imageFile, imageSeeds },
+        { "webp", "lossless WebP: container, prefix codes, transforms, copies", webpFile,
+          webpSeeds },
         { "package", "a .lsprite package: open, then read everything Fast keeps in it",
           packageFile, packageSeeds },
         { "metadata", "the metadata Fast keeps on a document, as hostile text", metadataText,

@@ -6,6 +6,7 @@
 
 #include "app/export_png.h"
 #include "app/file_io.h"
+#include "app/webp.h"
 
 #include <algorithm>
 #include <cstring>
@@ -70,6 +71,17 @@ bool imageInfo(const std::vector<uint8_t>& bytes, ImageInfo* out, std::string* e
     int width = 0;
     int height = 0;
     int channels = 0;
+    if (looksLikeWebp(bytes)) {
+        uint32_t w = 0;
+        uint32_t h = 0;
+        if (!webpSize(bytes, &w, &h, error) || !sizeAllowed(static_cast<int>(w), static_cast<int>(h), error)) {
+            return false;
+        }
+        out->width = w;
+        out->height = h;
+        out->channels = 4;
+        return true;
+    }
     if (stbi_info_from_memory(bytes.data(), static_cast<int>(bytes.size()),
                               &width, &height, &channels) == 0) {
         if (error) {
@@ -98,6 +110,10 @@ bool decodeImage(const std::vector<uint8_t>& bytes, ls::RasterBuffer* out,
     ImageInfo info;
     if (!imageInfo(bytes, &info, error)) {
         return false;
+    }
+
+    if (looksLikeWebp(bytes)) {
+        return decodeWebp(bytes, out, error);
     }
 
     int width = 0;
@@ -305,7 +321,7 @@ ls::RasterBuffer downscaleNearest(const ls::RasterBuffer& raster, uint32_t longe
 }
 
 bool looksLikeImageName(const std::string& utf8Path) {
-    static const char* kNames[] = { ".png", ".jpg", ".jpeg", ".bmp", ".gif" };
+    static const char* kNames[] = { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp" };
     for (const char* name : kNames) {
         if (hasExtension(utf8Path, name)) {
             return true;

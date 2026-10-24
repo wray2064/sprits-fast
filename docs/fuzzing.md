@@ -15,7 +15,8 @@ and does with them what the program does. `fast_fuzz_driver --list` prints them.
 |---|---|
 | `aseprite` | an Aseprite file: the parse |
 | `aseprite-import` | an Aseprite file: the parse and the document built from it |
-| `image` | PNG, JPEG, BMP and GIF: header, decode, frames |
+| `image` | PNG, JPEG, BMP, GIF and WebP: header, decode, frames |
+| `webp` | lossless WebP: container, prefix codes, transforms, copies |
 | `package` | a `.lsprite` package: open it, then read everything Fast keeps in it |
 | `metadata` | what Fast keeps on a document (layers, sprites, the document), as hostile text |
 | `theme` | a `.lstheme` file: parse, check, repair, write, read back |
