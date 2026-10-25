@@ -7,6 +7,7 @@
 #include "app/clip_image.h"
 #include "app/file_io.h"
 #include "app/i18n.h"
+#include "app/limits.h"
 #include "app/palette_io.h"
 #include "app/palette_tools.h"
 #include "app/templates.h"
@@ -245,6 +246,15 @@ int frameToShow(const Editor& editor, uint64_t nowMs) {
     return at < 0 ? editor.timeline.activeFrame : at;
 }
 
+void applyStoredLimits() {
+    std::vector<uint8_t> bytes;
+    std::string error;
+    const std::string prefs = preferencesPath();
+    if (!prefs.empty() && readFile(prefs, bytes, &error)) {
+        setLimitsLifted(loadPreferences(std::string(bytes.begin(), bytes.end())).liftLimits);
+    }
+}
+
 void loadSettings(Editor& editor) {
     std::vector<uint8_t> bytes;
     std::string error;
@@ -257,6 +267,7 @@ void loadSettings(Editor& editor) {
     if (!keys.empty() && readFile(keys, bytes, &error)) {
         editor.keys.load(std::string(bytes.begin(), bytes.end()));
     }
+    setLimitsLifted(editor.prefs.liftLimits);
     applyLanguage(editor.prefs.language);
     editor.recentColours.set(decodeRecentColours(editor.prefs.recentColours));
     // What the preferences say a new document is, the New window starts from.

@@ -5,6 +5,9 @@
 - Lossless WebP pictures can be read wherever an image is (references, imports), not
   only written. Lossy WebP is not read, and says so.
 - Pictures with many colours are written to WebP much smaller.
+- Edit > Preferences > Experimental > Lift the size limits: the canvas, frames, cycles, puppet
+  parts, references, brush and the reach of outlines and shadows are comfortable defaults, and
+  one switch removes them, up to what the computer can hold.
 
 ## 1.0.0 -- 2026-10
 

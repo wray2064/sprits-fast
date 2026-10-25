@@ -13,6 +13,7 @@
 // view, a few per UI frame, so opening a long animation is not a two-second
 // pause before the window appears.
 
+#include "app/limits.h"
 #include "ui/panels.h"
 #include "app/i18n.h"
 #include "ui/theme.h"
@@ -146,7 +147,7 @@ void drawCycleControls(Editor& editor) {
 
     // From here the controls wrap rather than run off the strip.
     widgets::sameLineIfFits(widgets::buttonWidth("New"));
-    ImGui::BeginDisabled(editor.cycles.size() >= kMaxCycles || frameCount == 0);
+    ImGui::BeginDisabled(editor.cycles.size() >= limits().cycles || frameCount == 0);
     if (ImGui::Button(tr("New"))) {
         const int at = addCycle(editor.doc, "cycle " +
                                 std::to_string(editor.cycles.size() + 1), frameCount);
@@ -353,7 +354,7 @@ void drawStepRow(Editor& editor) {
     // and it lands after the selected step rather than at the end, so a step
     // can be put in the middle of a sequence that already exists.
     ImGui::SameLine(0.f, 8.f);
-    ImGui::BeginDisabled(cycle.frames.size() >= kMaxFramesPerCycle);
+    ImGui::BeginDisabled(cycle.frames.size() >= limits().framesPerCycle);
     if (ImGui::Button("+", ImVec2(stepSize(), stepSize()))) {
         const int at = addCycleStep(editor.doc, timeline.activeCycle,
                                     timeline.selectedStep, timeline.activeFrame,

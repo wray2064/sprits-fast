@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/animation.h"
 #include "app/puppet.h"
 #include "app/text_util.h"
@@ -220,7 +221,7 @@ std::vector<Cycle> renumbered(const std::vector<Cycle>& cycles,
 
 int duplicateFrame(Document& doc, int index) {
     const std::vector<ls::SpriteId> sprites = spritesOf(doc);
-    if (!inRange(index, sprites.size()) || sprites.size() >= kMaxFrames) {
+    if (!inRange(index, sprites.size()) || sprites.size() >= limits().frames) {
         return -1;
     }
 
@@ -256,7 +257,7 @@ int duplicateFrame(Document& doc, int index) {
 
 int addFrame(Document& doc, int index) {
     const std::vector<ls::SpriteId> sprites = spritesOf(doc);
-    if (sprites.size() >= kMaxFrames) {
+    if (sprites.size() >= limits().frames) {
         return -1;
     }
     // An index outside the list means "at the end", which is what a plain New
@@ -407,7 +408,7 @@ int duplicateFrames(Document& doc, int first, int last) {
         return -1;
     }
     const int count = last - first + 1;
-    if (sprites.size() + static_cast<size_t>(count) > kMaxFrames) {
+    if (sprites.size() + static_cast<size_t>(count) > limits().frames) {
         return -1;
     }
     // Each frame is copied beside itself and the copy carried to the end of
@@ -464,14 +465,14 @@ bool setFrameName(Document& doc, int index, const std::string& name) {
 bool setCycles(Document& doc, const std::vector<Cycle>& cycles, int frameCount) {
     std::vector<Cycle> cleaned;
     for (const Cycle& cycle : cycles) {
-        if (cleaned.size() >= kMaxCycles) {
+        if (cleaned.size() >= kReadCycles) {
             break;
         }
         Cycle kept;
         kept.name = trimName(cycle.name);
         kept.loop = cycle.loop;
         for (int index : cycle.frames) {
-            if (kept.frames.size() >= kMaxFramesPerCycle) {
+            if (kept.frames.size() >= kReadFramesPerCycle) {
                 break;
             }
             if (inRange(index, static_cast<size_t>(std::max(frameCount, 0)))) {
@@ -520,7 +521,7 @@ int addCycle(Document& doc, const std::string& name, int frameCount) {
         return -1;
     }
     std::vector<Cycle> cycles = readCycles(doc, frameCount);
-    if (cycles.size() >= kMaxCycles) {
+    if (cycles.size() >= limits().cycles) {
         return -1;
     }
     Cycle made = everyFrame(frameCount);
@@ -572,7 +573,7 @@ int addCycleStep(Document& doc, int cycleIndex, int afterStep, int frame,
             return false;
         }
         std::vector<int>& steps = cycles[static_cast<size_t>(cycleIndex)].frames;
-        if (steps.size() >= kMaxFramesPerCycle) {
+        if (steps.size() >= limits().framesPerCycle) {
             return false;
         }
         const size_t at = inRange(afterStep, steps.size())
@@ -716,7 +717,7 @@ int frameAt(const std::vector<Frame>& frames, const Cycle& cycle, int64_t elapse
 Cycle everyFrame(int frameCount) {
     Cycle cycle;
     cycle.loop = LoopMode::Loop;
-    for (int i = 0; i < frameCount && cycle.frames.size() < kMaxFramesPerCycle; ++i) {
+    for (int i = 0; i < frameCount && cycle.frames.size() < limits().framesPerCycle; ++i) {
         cycle.frames.push_back(i);
     }
     return cycle;
@@ -755,7 +756,7 @@ bool decodeCycles(const std::string& text, std::vector<Cycle>* out) {
 
     // +1 for the header line itself, and a hard cap so a pathological file
     // cannot make this walk forever.
-    const std::vector<std::string> lines = splitOn(text, '\n', kMaxCycles + 1);
+    const std::vector<std::string> lines = splitOn(text, '\n', kReadCycles + 1);
     for (size_t line = 1; line < lines.size(); ++line) {
         if (lines[line].empty()) {
             continue;                 // the trailing newline, and blank lines
@@ -774,7 +775,7 @@ bool decodeCycles(const std::string& text, std::vector<Cycle>* out) {
         }
         cycle.loop = static_cast<LoopMode>(loop);
 
-        for (const std::string& piece : splitOn(fields[2], ',', kMaxFramesPerCycle)) {
+        for (const std::string& piece : splitOn(fields[2], ',', kReadFramesPerCycle)) {
             int index = 0;
             // Negative indices are dropped here; indices past the end of the
             // frame list are dropped by readCycles, which is the only place
@@ -787,7 +788,7 @@ bool decodeCycles(const std::string& text, std::vector<Cycle>* out) {
             continue;
         }
         out->push_back(std::move(cycle));
-        if (out->size() >= kMaxCycles) {
+        if (out->size() >= kReadCycles) {
             break;
         }
     }

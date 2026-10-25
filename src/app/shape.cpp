@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/shape.h"
 
 #include "app/palette.h"
@@ -710,8 +711,8 @@ bool setShadow(Document& doc, const PaintLayer& layer, const ShadowSettings& set
         }
         sprite = info.value.sprite;
     }
-    const float dx = static_cast<float>(std::clamp(settings.dx, -kMaxShadowOffset, kMaxShadowOffset));
-    const float dy = static_cast<float>(std::clamp(settings.dy, -kMaxShadowOffset, kMaxShadowOffset));
+    const float dx = static_cast<float>(std::clamp(settings.dx, -limits().shadowOffset, limits().shadowOffset));
+    const float dy = static_cast<float>(std::clamp(settings.dy, -limits().shadowOffset, limits().shadowOffset));
     const float opacity = std::clamp(settings.opacity, 0.f, 1.f);
     const ls::OperationId existing = shadowOperation(doc, layer);
     if (existing.valid()) {
@@ -790,7 +791,7 @@ bool setOutline(Document& doc, const PaintLayer& layer, const OutlineSettings& s
     }
 
     const float thickness = static_cast<float>(
-        std::min(std::max(settings.thickness, 1), kMaxOutlineThickness));
+        std::min(std::max(settings.thickness, 1), limits().outlineThickness));
 
     const ls::OperationId existing = outlineOperation(doc, layer);
     if (existing.valid()) {

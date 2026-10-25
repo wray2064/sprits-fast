@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/brush.h"
 
 #include "app/paint.h"
@@ -13,7 +14,7 @@ namespace fast {
 
 std::vector<ls::Vec2i> brushStamp(ls::Vec2i at, int size, bool round) {
     std::vector<ls::Vec2i> out;
-    size = std::clamp(size, 1, kMaxBrushSize);
+    size = std::clamp(size, 1, limits().brushSize);
     // Odd sizes centre on the pixel; even ones hang right and down from it,
     // which keeps the pointer's pixel inside the stamp at every size.
     const int before = (size - 1) / 2;

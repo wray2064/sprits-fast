@@ -1,0 +1,12 @@
+# Preferences > Experimental: the size limits are comfortable defaults, lifted by one switch.
+# A scripted run does not touch the person's settings.
+click-on Edit
+click-on Preferences...
+wait 2
+click-on Experimental
+wait 2
+expect item Lift the size limits
+click-on Lift the size limits
+wait 2
+click-on Lift the size limits
+wait 2

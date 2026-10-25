@@ -4,6 +4,7 @@
 // templates_tests.cpp — the sizes a new file usually starts at, and the tips
 // shown beside them on the start screen.
 
+#include "app/limits.h"
 #include "app/document.h"
 #include "app/palette_tools.h"
 #include "app/templates.h"
@@ -31,9 +32,9 @@ void testEveryTemplateIsMakeable() {
     CHECK(!fast::newTemplates().empty());
     for (const fast::NewTemplate& t : fast::newTemplates()) {
         CHECK(!t.name.empty());
-        CHECK(t.width >= 1 && t.width <= fast::kMaxCanvasDimension);
-        CHECK(t.height >= 1 && t.height <= fast::kMaxCanvasDimension);
-        CHECK(static_cast<uint64_t>(t.width) * t.height <= fast::kMaxCanvasPixels);
+        CHECK(t.width >= 1 && t.width <= fast::limits().canvasDimension);
+        CHECK(t.height >= 1 && t.height <= fast::limits().canvasDimension);
+        CHECK(static_cast<uint64_t>(t.width) * t.height <= fast::limits().canvasPixels);
         CHECK(t.background >= 0 && t.background <= 3);
         CHECK(t.preset >= -1 && t.preset < static_cast<int>(fast::palettePresets().size()));
 

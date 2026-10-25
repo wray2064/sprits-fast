@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/reference.h"
 
 #include "app/file_io.h"
@@ -115,7 +116,7 @@ bool decodeReferences(const std::string& text, std::vector<Reference>* out) {
 
     size_t at = text.find('\n');
     size_t guard = 0;
-    while (at != std::string::npos && ++guard <= kMaxReferences + 4) {
+    while (at != std::string::npos && ++guard <= kReadReferences + 4) {
         const size_t start = at + 1;
         if (start >= text.size()) {
             break;
@@ -156,7 +157,7 @@ bool decodeReferences(const std::string& text, std::vector<Reference>* out) {
                                 toUnsigned(fields[11], 0), toUnsigned(fields[12], 0));
         }
         out->push_back(std::move(reference));
-        if (out->size() >= kMaxReferences) {
+        if (out->size() >= kReadReferences) {
             break;
         }
     }
@@ -278,9 +279,9 @@ bool addReference(Document& doc, const std::string& name,
         return false;
     }
     std::vector<Reference> references = readReferences(doc);
-    if (references.size() >= kMaxReferences) {
+    if (references.size() >= limits().references) {
         if (error) {
-            *error = "this document already holds " + std::to_string(kMaxReferences) +
+            *error = "this document already holds " + std::to_string(limits().references) +
                      " references";
         }
         return false;
@@ -299,14 +300,14 @@ bool addReference(Document& doc, const std::string& name,
     if (!encodeImageAsPng(raster, &png, error)) {
         return false;
     }
-    if (png.size() > kMaxReferenceBytes) {
+    if (png.size() > limits().referenceBytes) {
         if (error) {
             *error = "the image is " + std::to_string(png.size() / (1024 * 1024)) +
                      " MB once stored, which is more than a reference may be";
         }
         return false;
     }
-    if (referenceBytesUsed(doc) + png.size() > kMaxReferenceTotalBytes) {
+    if (referenceBytesUsed(doc) + png.size() > limits().referenceTotalBytes) {
         if (error) {
             *error = "the references would outweigh the artwork; remove one first";
         }

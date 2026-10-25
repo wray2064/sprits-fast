@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/import_aseprite.h"
 #include "app/layers.h"
 
@@ -246,13 +247,13 @@ bool parseAseprite(const std::vector<uint8_t>& bytes, AseFile* out, std::string*
     if (ase.depth != 32 && ase.depth != 16 && ase.depth != 8) {
         return fail(error, "it has a colour depth Aseprite does not write");
     }
-    if (frames == 0 || frames > kMaxFrames) {
+    if (frames == 0 || frames > limits().frames) {
         return fail(error, "it has " + std::to_string(frames) + " frames; Fast holds " +
-                    std::to_string(kMaxFrames));
+                    std::to_string(limits().frames));
     }
-    if (ase.width == 0 || ase.height == 0 || ase.width > kMaxCanvasDimension ||
-        ase.height > kMaxCanvasDimension ||
-        static_cast<uint64_t>(ase.width) * ase.height > kMaxCanvasPixels) {
+    if (ase.width == 0 || ase.height == 0 || ase.width > limits().canvasDimension ||
+        ase.height > limits().canvasDimension ||
+        static_cast<uint64_t>(ase.width) * ase.height > limits().canvasPixels) {
         return fail(error, "its canvas is not a size Fast works on");
     }
 

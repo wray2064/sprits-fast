@@ -4,6 +4,7 @@
 // dialogs.cpp -- the windows that open from the menus: the sheet import, canvas and sprite size, adjust colours, modify selection, history and text. (New is the start screen.)
 // See app_internal.h for how the window's files divide.
 
+#include "app/limits.h"
 #include "ui/app_internal.h"
 
 #include "app/pixel_font.h"
@@ -211,8 +212,8 @@ void drawCanvasSizePanel(Editor& editor, CanvasView& canvas) {
     ImGui::InputInt(tr("width"), &dialog.width);
     ImGui::SetNextItemWidth(120.f);
     ImGui::InputInt(tr("height"), &dialog.height);
-    dialog.width = std::clamp(dialog.width, 1, static_cast<int>(kMaxCanvasDimension));
-    dialog.height = std::clamp(dialog.height, 1, static_cast<int>(kMaxCanvasDimension));
+    dialog.width = std::clamp(dialog.width, 1, static_cast<int>(limits().canvasDimension));
+    dialog.height = std::clamp(dialog.height, 1, static_cast<int>(limits().canvasDimension));
 
     ImGui::Dummy(ImVec2(0.f, 4.f));
     ImGui::TextUnformatted("Keep the drawing at");
@@ -442,13 +443,13 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
     };
     ImGui::SetNextItemWidth(120.f);
     if (ImGui::InputInt(tr("width"), &dialog.width)) {
-        dialog.width = std::clamp(dialog.width, 1, static_cast<int>(kMaxCanvasDimension));
+        dialog.width = std::clamp(dialog.width, 1, static_cast<int>(limits().canvasDimension));
         fromPixels(true);
     }
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.f);
     if (ImGui::InputInt(tr("height"), &dialog.height)) {
-        dialog.height = std::clamp(dialog.height, 1, static_cast<int>(kMaxCanvasDimension));
+        dialog.height = std::clamp(dialog.height, 1, static_cast<int>(limits().canvasDimension));
         fromPixels(false);
     }
     const auto fromPercent = [&](bool across) {
@@ -460,9 +461,9 @@ void drawSpriteSizePanel(Editor& editor, CanvasView& canvas) {
             }
         }
         dialog.width = std::clamp(static_cast<int>(std::lround(w0 * dialog.percentX / 100.f)), 1,
-                                  static_cast<int>(kMaxCanvasDimension));
+                                  static_cast<int>(limits().canvasDimension));
         dialog.height = std::clamp(static_cast<int>(std::lround(h0 * dialog.percentY / 100.f)), 1,
-                                   static_cast<int>(kMaxCanvasDimension));
+                                   static_cast<int>(limits().canvasDimension));
     };
     ImGui::SetNextItemWidth(120.f);
     if (ImGui::InputFloat(tr("% across"), &dialog.percentX, 25.f, 100.f, "%.1f")) {

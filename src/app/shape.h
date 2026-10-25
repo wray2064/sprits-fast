@@ -21,6 +21,7 @@
 // distinct editable object rather than a mark on a shared surface, and the layer
 // stack is already the place where objects are listed.
 
+#include "app/limits.h"
 #include "app/document.h"
 #include "app/paint.h"
 
@@ -164,11 +165,6 @@ enum class OutlineScope : uint8_t {
     Sprite,     // everything the sprite draws, however many layers that is
 };
 
-// The maximum a line may be. Beyond a few pixels an outline stops reading as a
-// line and starts eating the sprite, and on a 16-pixel canvas four is already
-// most of it.
-constexpr int kMaxOutlineThickness = 8;
-
 struct OutlineSettings {
     OutlineScope   scope     = OutlineScope::Layer;
     int            thickness = 1;
@@ -210,8 +206,8 @@ struct ShadowSettings {
     float         opacity = 0.5f;
 };
 
-// The furthest a shadow is offset, either way.
-constexpr int kMaxShadowOffset = 16;
+// The furthest a shadow is offset, either way, and how thick an outline may be, are in
+// app/limits.h.
 
 bool hasShadow(Document& doc, const PaintLayer& layer);
 bool setShadow(Document& doc, const PaintLayer& layer, const ShadowSettings& settings);

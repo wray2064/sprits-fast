@@ -4,6 +4,7 @@
 // shortcuts.cpp -- what the keys do.
 // See app_internal.h for how the window's files divide.
 
+#include "app/limits.h"
 #include "ui/app_internal.h"
 
 #include "ui/keys.h"
@@ -117,7 +118,7 @@ void handleShortcuts(Editor& editor, CanvasView& canvas, SDL_Window* window) {
 
     // The brush and the colours.
     if (fired("brush.bigger")) {
-        editor.brush.size = std::min(kMaxBrushSize, editor.brush.size + 1);
+        editor.brush.size = std::min(limits().brushSize, editor.brush.size + 1);
         editor.say("Brush " + std::to_string(editor.brush.size));
     }
     if (fired("brush.smaller")) {

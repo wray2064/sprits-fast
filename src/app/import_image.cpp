@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/import_image.h"
 
 #include "app/animation.h"
@@ -72,14 +73,14 @@ bool documentFromFrames(Document& doc, const std::string& name,
             return fail("its frames are not all the same size");
         }
     }
-    if (width > kMaxCanvasDimension || height > kMaxCanvasDimension ||
-        static_cast<uint64_t>(width) * height > kMaxCanvasPixels) {
+    if (width > limits().canvasDimension || height > limits().canvasDimension ||
+        static_cast<uint64_t>(width) * height > limits().canvasPixels) {
         return fail("at " + std::to_string(width) + " x " + std::to_string(height) +
                     " it is larger than a canvas Fast works on");
     }
-    if (frames.size() > kMaxFrames) {
+    if (frames.size() > limits().frames) {
         return fail("it has " + std::to_string(frames.size()) + " frames; Fast holds " +
-                    std::to_string(kMaxFrames));
+                    std::to_string(limits().frames));
     }
 
     std::vector<uint32_t> colours;
@@ -242,10 +243,10 @@ bool sliceSheet(const ls::RasterBuffer& sheet, uint32_t cellWidth, uint32_t cell
     }
     const uint32_t columns = sheet.width / cellWidth;
     const uint32_t rows = sheet.height / cellHeight;
-    if (static_cast<size_t>(columns) * rows > kMaxFrames) {
+    if (static_cast<size_t>(columns) * rows > limits().frames) {
         if (error) {
             *error = "that grid makes " + std::to_string(columns * rows) +
-                     " frames; Fast holds " + std::to_string(kMaxFrames);
+                     " frames; Fast holds " + std::to_string(limits().frames);
         }
         return false;
     }

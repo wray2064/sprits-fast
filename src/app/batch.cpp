@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/batch.h"
 
 #include "app/animation.h"
@@ -76,7 +77,7 @@ bool parseBatch(const std::vector<std::string>& args, BatchJob* out, std::string
             job.scale = static_cast<uint32_t>(value);
         } else if (arg == "--frame") {
             long long value = 0;
-            if (!hasValue || !number(args[++i], 1, static_cast<long long>(kMaxFrames), &value)) {
+            if (!hasValue || !number(args[++i], 1, static_cast<long long>(limits().frames), &value)) {
                 return fail("--frame takes a frame number, counted from 1");
             }
             job.frame = static_cast<int>(value);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/canvas_ops.h"
 #include "app/tilemap.h"
 #include "app/layers.h"
@@ -569,9 +570,9 @@ void remapDocument(Document& doc, const Remap& remap, ls::Vec2i newSize) {
 }
 
 bool sizeAllowed(int64_t width, int64_t height, std::string* error) {
-    if (width < 1 || height < 1 || width > kMaxCanvasDimension ||
-        height > kMaxCanvasDimension ||
-        static_cast<uint64_t>(width) * static_cast<uint64_t>(height) > kMaxCanvasPixels) {
+    if (width < 1 || height < 1 || width > limits().canvasDimension ||
+        height > limits().canvasDimension ||
+        static_cast<uint64_t>(width) * static_cast<uint64_t>(height) > limits().canvasPixels) {
         if (error) {
             *error = std::to_string(width) + " x " + std::to_string(height) +
                      " is not a canvas size Fast works on";

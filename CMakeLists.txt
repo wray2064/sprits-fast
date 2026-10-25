@@ -91,6 +91,7 @@ add_library(fast_core STATIC
     src/app/ink.cpp
     src/app/keymap.cpp
     src/app/library.cpp
+    src/app/limits.cpp
     src/app/reference.cpp
     src/app/selection.cpp
     src/app/recovery.cpp
@@ -395,6 +396,10 @@ if (FAST_BUILD_TESTS)
     target_include_directories(fast_webp_decode_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
     target_link_libraries(fast_webp_decode_tests PRIVATE fast_core)
     add_test(NAME fast_webp_decode COMMAND fast_webp_decode_tests)
+
+    add_executable(fast_limits_tests tests/limits_tests.cpp)
+    target_link_libraries(fast_limits_tests PRIVATE fast_core)
+    add_test(NAME fast_limits COMMAND fast_limits_tests)
 
     add_executable(fast_tracks_tests tests/tracks_tests.cpp)
     target_link_libraries(fast_tracks_tests PRIVATE fast_core)

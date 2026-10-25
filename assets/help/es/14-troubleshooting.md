@@ -51,6 +51,11 @@ la disposición **Compacta** (**Ventana > Disposiciones**).
 | Una imagen abierta como obra | una fotografía con miles de colores se rechaza y se sugiere como referencia |
 | Un GIF | 256 colores por fotograma, sin transparencia parcial |
 
+Las primeras filas son valores cómodos por defecto, no muros. **Editar > Preferencias... > Experimental > Quitar los
+límites de tamaño** los quita, hasta lo que tu equipo pueda sostener: un lienzo mayor, más fotogramas, ciclos, piezas
+de marioneta y referencias, un pincel más grande. Se aplica a lo que crees o abras después, y un lienzo muy grande puede
+ser lento y usar mucha memoria. Un archivo hecho con los límites quitados se abre y se guarda entero cuando están activados.
+
 ## Archivos de Aseprite
 
 Pasa todo lo que el formato describe. Lo que no pasa se dice, no se descarta: un conjunto de mosaicos

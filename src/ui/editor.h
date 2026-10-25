@@ -772,6 +772,9 @@ void resyncLayers(Editor& editor);
 // Reads the keys and preferences from the settings folder, and writes them
 // back. Writing is atomic; a missing folder means nothing is kept, silently.
 void loadSettings(Editor& editor);
+// Reads only whether the limits are lifted (Experimental), early enough that the first
+// document the program makes or opens is made under them.
+void applyStoredLimits();
 
 // The folder of language catalogues beside the program, and switching to one
 // ("" for English). False when the catalogue could not be read.

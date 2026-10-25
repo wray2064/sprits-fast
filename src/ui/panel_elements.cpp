@@ -4,6 +4,7 @@
 // panel_elements.cpp -- the elements of a layer and the picked one's properties.
 // Declared in panels.h; what the panel files share is in panels_internal.h.
 
+#include "app/limits.h"
 #include "ui/panels_internal.h"
 #include "app/i18n.h"
 #include "ui/theme.h"
@@ -500,7 +501,7 @@ void drawShadowSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
         }
         int offset[2] = { settings.dx, settings.dy };
         ImGui::SetNextItemWidth(-widgets::labelRoom("offset"));
-        if (ImGui::SliderInt2("offset", offset, -kMaxShadowOffset, kMaxShadowOffset)) {
+        if (ImGui::SliderInt2("offset", offset, -limits().shadowOffset, limits().shadowOffset)) {
             settings.dx = offset[0];
             settings.dy = offset[1];
             changed = true;
@@ -585,7 +586,7 @@ void drawOutlineSection(Editor& editor, CanvasView& canvas, PaintLayer* layer) {
     }
 
     ImGui::SetNextItemWidth(-1.f);
-    widgets::sliderInt("##thickness", &settings.thickness, 1, kMaxOutlineThickness,
+    widgets::sliderInt("##thickness", &settings.thickness, 1, limits().outlineThickness,
                      "thickness  %d");
     bracketDrag(editor, editor.editingShape, "Outline thickness");
 

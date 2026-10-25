@@ -45,6 +45,11 @@ drag the line beside it wider, or use the **Compact** layout (**Window > Layouts
 | A picture opened as artwork | a photograph with thousands of colours is refused, and suggested as a reference instead |
 | A GIF | 256 colours a frame, no partial transparency |
 
+The first rows are comfortable defaults, not walls. **Edit > Preferences... > Experimental > Lift the size limits**
+removes them, up to what your computer can hold: a larger canvas, more frames, cycles, puppet parts and references, a
+bigger brush. It applies to what you make or open afterwards, and a very large canvas can be slow and use a great deal
+of memory. A file made with the limits lifted still opens and saves whole when they are on.
+
 ## Aseprite files
 
 Everything carries over that the format describes. What does not is said, not dropped: a tileset kept in another file,

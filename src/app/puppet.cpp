@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/puppet.h"
 
 #include "app/animation.h"
@@ -136,7 +137,7 @@ namespace {
 
 // A part with no layers yet: the sprite, its name and its joint.
 ls::SpriteId makePart(Document& doc, const std::string& name, ls::Vec2f joint) {
-    if (partsOf(doc).size() >= kMaxParts) {
+    if (partsOf(doc).size() >= limits().parts) {
         return ls::SpriteId{};
     }
     auto made = doc.engine().createSprite(doc.id());

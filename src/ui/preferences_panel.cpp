@@ -4,6 +4,7 @@
 // preferences_panel.cpp -- the Preferences window, and the view settings it sets.
 // See app_internal.h for how the window's files divide.
 
+#include "app/limits.h"
 #include "ui/app_internal.h"
 
 #include "app/palette_tools.h"
@@ -13,6 +14,7 @@
 #include "ui/widgets.h"
 #include "ui/panels.h"
 #include "ui/theme.h"
+#include "ui/ui_script.h"
 
 #include <algorithm>
 #include <cctype>
@@ -76,10 +78,10 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
             int size[2] = { static_cast<int>(prefs.newWidth), static_cast<int>(prefs.newHeight) };
             ImGui::SetNextItemWidth(200.f);
             if (ImGui::InputInt2("size", size)) {
-                size[0] = std::clamp(size[0], 1, static_cast<int>(kMaxCanvasDimension));
-                size[1] = std::clamp(size[1], 1, static_cast<int>(kMaxCanvasDimension));
+                size[0] = std::clamp(size[0], 1, static_cast<int>(limits().canvasDimension));
+                size[1] = std::clamp(size[1], 1, static_cast<int>(limits().canvasDimension));
                 if (static_cast<uint64_t>(size[0]) * static_cast<uint64_t>(size[1]) <=
-                    kMaxCanvasPixels) {
+                    limits().canvasPixels) {
                     prefs.newWidth = static_cast<uint32_t>(size[0]);
                     prefs.newHeight = static_cast<uint32_t>(size[1]);
                     changed = true;
@@ -188,6 +190,40 @@ void drawPreferencesPanel(Editor& editor, CanvasView& canvas, SDL_Window* window
                 applyViewPreferences(prefs, canvas);
             }
             changed = changed || appearance.changed;
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem(tr("Experimental"))) {
+            ImGui::TextWrapped("%s", tr("Things that are off until asked for."));
+            ImGui::Dummy(ImVec2(0.f, 4.f));
+            if (ImGui::Checkbox(tr("Lift the size limits"), &prefs.liftLimits)) {
+                setLimitsLifted(prefs.liftLimits);
+                changed = true;
+            }
+            fast::nameForScripts("Lift the size limits");
+            const Limits& now = limits();
+            ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+            ImGui::TextWrapped("%s", tr("The defaults keep the canvas, the timeline and the "
+                                        "interface quick on an ordinary machine. Lifted, nothing "
+                                        "but what the machine can hold stops a bigger canvas, "
+                                        "more frames, more parts or a larger brush. It applies "
+                                        "to what is made or opened afterwards, and a very large "
+                                        "canvas can be slow and use a great deal of memory."));
+            ImGui::PopStyleColor();
+            ImGui::Dummy(ImVec2(0.f, 4.f));
+            theme::sectionHeader(tr("IN FORCE NOW"));
+            ImGui::Text("%s  %u x %u (%llu pixels)", tr("Canvas up to"), now.canvasDimension,
+                        now.canvasDimension, static_cast<unsigned long long>(now.canvasPixels));
+            ImGui::Text("%s  %zu", tr("Frames"), now.frames);
+            ImGui::Text("%s  %zu", tr("Cycles"), now.cycles);
+            ImGui::Text("%s  %zu", tr("Cutout parts"), now.parts);
+            ImGui::Text("%s  %zu", tr("References"), now.references);
+            ImGui::Text("%s  %d", tr("Brush size"), now.brushSize);
+            if (prefs.liftLimits) {
+                ImGui::PushStyleColor(ImGuiCol_Text, theme::palette().textDim);
+                ImGui::TextWrapped("%s", tr("Without it: 4096 x 4096 pixels, 512 frames, 64 cycles, "
+                                            "256 parts, 16 references, brush 32."));
+                ImGui::PopStyleColor();
+            }
             ImGui::EndTabItem();
         }
         const ImGuiTabItemFlags keysFlags =

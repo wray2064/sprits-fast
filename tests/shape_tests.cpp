@@ -11,6 +11,7 @@
 // In every other pixel editor a shape becomes pixels on mouse release, so every
 // test below would be impossible there rather than merely failing.
 
+#include "app/limits.h"
 #include "app/file_io.h"
 #include "app/palette.h"
 #include "app/element.h"
@@ -416,7 +417,7 @@ void testOutlineThicknessIsBounded() {
     fast::OutlineSettings settings;
     settings.thickness = 9999;
     REQUIRE(fast::setOutline(canvas.doc, shape.paint, settings));
-    CHECK(fast::outlineOf(canvas.doc, shape.paint).thickness == fast::kMaxOutlineThickness);
+    CHECK(fast::outlineOf(canvas.doc, shape.paint).thickness == fast::limits().outlineThickness);
 
     settings.thickness = 0;
     REQUIRE(fast::setOutline(canvas.doc, shape.paint, settings));

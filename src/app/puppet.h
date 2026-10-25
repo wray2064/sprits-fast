@@ -43,8 +43,6 @@ constexpr const char* kPartKey = "fast.part";     // on a part: its name
 constexpr const char* kPoseKey = "fast.pose";     // on a captured frame: its pose
 constexpr const char* kJointName = "joint";       // a part's pivot
 
-constexpr size_t kMaxParts = 256;
-
 // ------------------------------------------------------------------ parts --
 
 bool isPart(Document& doc, ls::SpriteId sprite);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "ui/new_document.h"
 
 #include "app/document.h"
@@ -58,9 +59,9 @@ bool drawNewDocumentFields(FileState::NewDocument& spec) {
     if (ImGui::SmallButton(tr("Swap width and height"))) {
         std::swap(width, height);
     }
-    spec.width = static_cast<uint32_t>(std::clamp(width, 1, static_cast<int>(kMaxCanvasDimension)));
-    spec.height = static_cast<uint32_t>(std::clamp(height, 1, static_cast<int>(kMaxCanvasDimension)));
-    const bool fits = static_cast<uint64_t>(spec.width) * spec.height <= kMaxCanvasPixels;
+    spec.width = static_cast<uint32_t>(std::clamp(width, 1, static_cast<int>(limits().canvasDimension)));
+    spec.height = static_cast<uint32_t>(std::clamp(height, 1, static_cast<int>(limits().canvasDimension)));
+    const bool fits = static_cast<uint64_t>(spec.width) * spec.height <= limits().canvasPixels;
 
     ImGui::Dummy(ImVec2(0.f, 4.f));
     widgets::field("background");

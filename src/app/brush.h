@@ -21,8 +21,6 @@
 
 namespace fast {
 
-constexpr int kMaxBrushSize = 32;
-
 struct BrushSettings {
     int  size = 1;               // pixels across
     bool round = false;          // round rather than square, which only shows from 3 up

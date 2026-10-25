@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/preferences.h"
 #include "app/theme_tokens.h"
 
@@ -73,6 +74,7 @@ std::string savePreferences(const Preferences& p) {
     out += "view.grid-opacity = " + std::to_string(p.gridOpacity) + "\n";
     out += "view.theme = " + p.themeId + "\n";
     out += "start.show = " + std::string(p.showStart ? "1" : "0") + "\n";
+    out += "experimental.lift-limits = " + std::string(p.liftLimits ? "1" : "0") + "\n";
     out += "colour.recent = " + p.recentColours + "\n";
     out += "view.scale = " + std::to_string(p.uiScale) + "\n";
     out += "view.density = " + std::to_string(p.density) + "\n";
@@ -100,9 +102,9 @@ Preferences loadPreferences(const std::string& text) {
         const std::string name = trim(line.substr(0, equals));
         const std::string value = trim(line.substr(equals + 1));
         if (name == "new.width") {
-            p.newWidth = static_cast<uint32_t>(number(value, 1, kMaxCanvasDimension, 32));
+            p.newWidth = static_cast<uint32_t>(number(value, 1, limits().canvasDimension, 32));
         } else if (name == "new.height") {
-            p.newHeight = static_cast<uint32_t>(number(value, 1, kMaxCanvasDimension, 32));
+            p.newHeight = static_cast<uint32_t>(number(value, 1, limits().canvasDimension, 32));
         } else if (name == "new.background") {
             p.newBackground = static_cast<int>(number(value, 0, 3, 0));
         } else if (name == "new.palette") {
@@ -151,6 +153,8 @@ Preferences loadPreferences(const std::string& text) {
             }
         } else if (name == "start.show") {
             p.showStart = number(value, 0, 1, 1) == 1;
+        } else if (name == "experimental.lift-limits") {
+            p.liftLimits = number(value, 0, 1, 0) == 1;
         } else if (name == "view.language") {
             // A name, not a path: letters and a dash only.
             bool plain = value.size() <= 16;
@@ -161,7 +165,7 @@ Preferences loadPreferences(const std::string& text) {
         }
     }
     // A new canvas has to be one Fast works on, whatever the two sides say.
-    if (static_cast<uint64_t>(p.newWidth) * p.newHeight > kMaxCanvasPixels) {
+    if (static_cast<uint64_t>(p.newWidth) * p.newHeight > limits().canvasPixels) {
         p.newWidth = 32;
         p.newHeight = 32;
     }

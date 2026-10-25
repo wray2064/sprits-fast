@@ -53,11 +53,7 @@ constexpr int kMinFrameMs     = 1;
 constexpr int kMaxFrameMs     = 60000;
 constexpr int kDefaultFrameMs = 100;      // 10 fps, the usual pixel-art starting point
 
-// Fast's policy, not the engine's. A compile is area times layers times frames,
-// and the interface has to draw a strip of every one of them.
-constexpr size_t kMaxFrames          = 512;
-constexpr size_t kMaxCycles          = 64;
-constexpr size_t kMaxFramesPerCycle  = 1024;   // a cycle may repeat a frame
+// How many frames, cycles and steps may be made is in app/limits.h.
 constexpr size_t kMaxNameLength      = 64;
 
 struct Frame {

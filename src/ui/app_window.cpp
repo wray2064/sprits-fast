@@ -444,6 +444,9 @@ int fast::runApp(int argc, char** argv) {
         editor.files.recent.keepInMemory();
     }
     editor.files.recent.load();
+    if (!headless) {
+        applyStoredLimits();
+    }
     // Where the panels were left, kept between sessions -- except for a run
     // that is scripted or captured, which starts from the default so what it
     // checks does not depend on how the panels were last arranged.

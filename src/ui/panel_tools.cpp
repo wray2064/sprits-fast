@@ -4,6 +4,7 @@
 // panel_tools.cpp -- the toolbar and the tool panel.
 // Declared in panels.h; what the panel files share is in panels_internal.h.
 
+#include "app/limits.h"
 #include "ui/panels_internal.h"
 #include "app/i18n.h"
 #include "ui/theme.h"
@@ -364,7 +365,7 @@ void drawToolPanel(Editor& editor) {
     if (editor.tool == Tool::Pencil || editor.tool == Tool::Eraser) {
         theme::sectionHeader(tr("BRUSH"));
         ImGui::SetNextItemWidth(-theme::hintWidth());
-        widgets::sliderInt("##size", &editor.brush.size, 1, kMaxBrushSize, "size  %d");
+        widgets::sliderInt("##size", &editor.brush.size, 1, limits().brushSize, "size  %d");
         ImGui::SameLine();
         theme::hint(tr("Shift+] and Shift+[ change it from the keyboard. Even "
                     "sizes hang right and down from the pointer's pixel."));

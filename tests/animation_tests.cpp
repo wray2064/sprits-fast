@@ -10,6 +10,7 @@
 // cycle has to still play the same pictures in the same order, which is the bug
 // every timeline written in a hurry has.
 
+#include "app/limits.h"
 #include "app/animation.h"
 #include "app/document.h"
 #include "app/paint.h"
@@ -437,7 +438,7 @@ void testTheNumberOfCyclesIsBounded() {
     }
     std::vector<Cycle> read;
     REQUIRE(decodeCycles(text, &read));
-    CHECK(read.size() <= kMaxCycles);
+    CHECK(read.size() <= kReadCycles);
 }
 
 
@@ -592,10 +593,10 @@ void testCyclesAreBounded() {
     Document doc;
     REQUIRE(build(doc));
 
-    for (size_t i = 0; i < kMaxCycles + 8; ++i) {
+    for (size_t i = 0; i < limits().cycles + 8; ++i) {
         addCycle(doc, "c" + std::to_string(i), 1);
     }
-    CHECK(readCycles(doc, 1).size() == kMaxCycles);
+    CHECK(readCycles(doc, 1).size() == limits().cycles);
 }
 
 } // namespace

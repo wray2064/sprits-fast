@@ -3,6 +3,7 @@
 
 // brush_tests.cpp — what a stroke lays down.
 
+#include "app/limits.h"
 #include "app/brush.h"
 
 #include <cstdio>
@@ -54,7 +55,7 @@ void testStamps() {
     // Sizes are clamped.
     CHECK(brushStamp({ 0, 0 }, 0, false).size() == 1);
     CHECK(brushStamp({ 0, 0 }, 999, false).size() ==
-          static_cast<size_t>(kMaxBrushSize) * static_cast<size_t>(kMaxBrushSize));
+          static_cast<size_t>(limits().brushSize) * static_cast<size_t>(limits().brushSize));
 }
 
 void testStrokesCoverTheLineOnce() {

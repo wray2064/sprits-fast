@@ -6,7 +6,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 
 - **Menu items:** 87 of 88 are clicked by a UI script (1 more cannot be, and say why below).
 - **Commands:** 71 of 71 are chosen, pressed or run by a script or a core test.
-- **Core modules:** 53 of 53 have a core test.
+- **Core modules:** 54 of 54 have a core test.
 
 ## Gaps
 
@@ -54,7 +54,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | File > Quit | quit.txt, quit.txt |
 | Edit | menu_edit.txt, menu_edit.txt, menu_edit.txt +12 |
 | Edit > History... | menu_edit.txt |
-| Edit > Preferences... | appearance.txt, escape_closes.txt, interface_size.txt +1 |
+| Edit > Preferences... | appearance.txt, escape_closes.txt, experimental.txt +2 |
 | Edit > Cut | menu_edit.txt |
 | Edit > Copy | menu_edit.txt |
 | Edit > Paste | menu_edit.txt |
@@ -200,14 +200,14 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | Module | Tests |
 |---|---|
 | `adjust` | adjust_tests.cpp |
-| `animation` | anim_export_tests.cpp, animation_tests.cpp, aseprite_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, import_tests.cpp, layers_tests.cpp, palette_tests.cpp, puppet_tests.cpp, sheet_tests.cpp, slices_tests.cpp, system_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp |
+| `animation` | anim_export_tests.cpp, animation_tests.cpp, aseprite_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, import_tests.cpp, layers_tests.cpp, limits_tests.cpp, palette_tests.cpp, puppet_tests.cpp, sheet_tests.cpp, slices_tests.cpp, system_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp |
 | `batch` | batch_tests.cpp |
 | `brush` | brush_tests.cpp |
 | `bucket` | bucket_tests.cpp, turning_tests.cpp |
 | `canvas_ops` | canvas_ops_tests.cpp, puppet_tests.cpp, slices_tests.cpp, text_tests.cpp, tilemap_tests.cpp, turning_tests.cpp |
 | `clip_image` | clip_image_tests.cpp |
 | `dither` | adjust_tests.cpp, dither_tests.cpp, palette_io_tests.cpp, palette_tests.cpp, sheet_tests.cpp, system_tests.cpp, turning_tests.cpp |
-| `document` | adjust_tests.cpp, anim_export_tests.cpp, animation_tests.cpp, aseprite_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, clip_image_tests.cpp, document_tests.cpp, element_tests.cpp, file_io_tests.cpp, import_tests.cpp, ink_tests.cpp, layers_tests.cpp, palette_io_tests.cpp, palette_tools_tests.cpp, puppet_tests.cpp, recovery_tests.cpp, reference_tests.cpp, selection_tests.cpp, sheet_tests.cpp, slices_tests.cpp, system_tests.cpp, templates_tests.cpp, text_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp |
+| `document` | adjust_tests.cpp, anim_export_tests.cpp, animation_tests.cpp, aseprite_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, clip_image_tests.cpp, document_tests.cpp, element_tests.cpp, file_io_tests.cpp, import_tests.cpp, ink_tests.cpp, layers_tests.cpp, limits_tests.cpp, palette_io_tests.cpp, palette_tools_tests.cpp, puppet_tests.cpp, recovery_tests.cpp, reference_tests.cpp, selection_tests.cpp, sheet_tests.cpp, slices_tests.cpp, system_tests.cpp, templates_tests.cpp, text_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp |
 | `element` | adjust_tests.cpp, aseprite_tests.cpp, canvas_ops_tests.cpp, clip_image_tests.cpp, dither_tests.cpp, element_tests.cpp, import_tests.cpp, ink_tests.cpp, palette_tools_tests.cpp, selection_tests.cpp, shape_tests.cpp, text_tests.cpp, turning_tests.cpp |
 | `export_anim` | anim_export_tests.cpp |
 | `export_png` | export_tests.cpp, reference_tests.cpp |
@@ -224,12 +224,13 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | `keymap` | keymap_tests.cpp |
 | `layers` | aseprite_tests.cpp, layers_tests.cpp, puppet_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp |
 | `library` | recovery_tests.cpp, reference_tests.cpp |
+| `limits` | animation_tests.cpp, brush_tests.cpp, limits_tests.cpp, reference_tests.cpp, shape_tests.cpp, templates_tests.cpp |
 | `paint` | adjust_tests.cpp, anim_export_tests.cpp, animation_tests.cpp, batch_tests.cpp, canvas_ops_tests.cpp, clip_image_tests.cpp, dither_tests.cpp, element_tests.cpp, export_tests.cpp, ink_tests.cpp, layers_tests.cpp, paint_tests.cpp, palette_io_tests.cpp, palette_tools_tests.cpp, puppet_tests.cpp, recovery_tests.cpp, reference_tests.cpp, robustness_tests.cpp, selection_tests.cpp, sheet_tests.cpp, system_tests.cpp, text_tests.cpp, tilemap_tests.cpp, tracks_tests.cpp, transform_tests.cpp, turning_tests.cpp |
 | `palette` | adjust_tests.cpp, aseprite_tests.cpp, clip_image_tests.cpp, element_tests.cpp, import_tests.cpp, ink_tests.cpp, palette_io_tests.cpp, palette_tests.cpp, palette_tools_tests.cpp, selection_tests.cpp, shape_tests.cpp, system_tests.cpp, text_tests.cpp |
 | `palette_io` | palette_io_tests.cpp, palette_tools_tests.cpp, system_tests.cpp |
 | `palette_tools` | palette_tools_tests.cpp, templates_tests.cpp |
 | `pixel_font` | text_tests.cpp |
-| `preferences` | preferences_tests.cpp, recent_colours_tests.cpp |
+| `preferences` | limits_tests.cpp, preferences_tests.cpp, recent_colours_tests.cpp |
 | `puppet` | puppet_tests.cpp |
 | `recent_colours` | recent_colours_tests.cpp |
 | `recent_files` | recent_files_tests.cpp |

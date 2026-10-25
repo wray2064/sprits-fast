@@ -39,6 +39,9 @@ struct Preferences {
     std::string themeId = "slate";
     bool     lightTheme = false;
     bool     showStart = true;        // the start screen when the program opens
+    // Experimental > lift the limits (app/limits.h): the canvas, frames, parts and the
+    // rest as large as the machine can hold, for what is made or opened afterwards.
+    bool     liftLimits = false;
     int      uiScale = 100;           // interface scale, percent: text and spacing
     int      density = 1;             // 0 compact, 1 comfortable, 2 spacious: the air, not the type
     uint32_t tipIndex = 0;            // which tip the start screen shows next (see app/tips.h)

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/document.h"
 #include "app/file_io.h"
 #include "app/paint.h"
@@ -26,10 +27,10 @@ Document::Document() : engine_(ls::LSContext::create()) {
     // did not choose. It also decides which files will open: a document larger
     // than this is refused by the reader instead of arriving as something the
     // canvas cannot draw.
-    ls::CanvasLimits limits;
-    limits.maxDimension = kMaxCanvasDimension;
-    limits.maxPixels = kMaxCanvasPixels;
-    engine_->setCanvasLimits(limits);
+    ls::CanvasLimits canvasLimits;
+    canvasLimits.maxDimension = limits().canvasDimension;
+    canvasLimits.maxPixels = limits().canvasPixels;
+    engine_->setCanvasLimits(canvasLimits);
 }
 Document::~Document() = default;
 

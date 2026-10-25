@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the Sprit's'fast authors
 
+#include "app/limits.h"
 #include "app/sheet.h"
 #include "app/file_io.h"
 
@@ -138,10 +139,10 @@ bool planSheet(int frameCount, uint32_t cellWidth, uint32_t cellHeight,
     const uint64_t height = static_cast<uint64_t>(plan.rows) * plan.cellHeight +
                             static_cast<uint64_t>(plan.rows - 1) * plan.spacing +
                             2ull * plan.border;
-    if (width > kMaxCanvasDimension || height > kMaxCanvasDimension) {
+    if (width > limits().canvasDimension || height > limits().canvasDimension) {
         return fail("that sheet is longer than 16384 pixels on a side");
     }
-    if (width * height > kMaxCanvasPixels) {
+    if (width * height > limits().canvasPixels) {
         return fail("that sheet is more pixels than Fast will write; "
                     "try fewer columns, a smaller scale, or one cycle at a time");
     }

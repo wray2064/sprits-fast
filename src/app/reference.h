@@ -40,12 +40,7 @@ namespace fast {
 constexpr const char* kReferenceListEntry = "fast/references.txt";
 constexpr const char* kReferencePrefix    = "fast/ref/";
 
-// Eight megabytes of PNG per reference and sixteen across the document. A
-// package holds far more, but a reference that doubles the size of the work is
-// a surprise, and the person who wants that can scale the image down first.
-constexpr size_t kMaxReferenceBytes = 8u * 1024u * 1024u;
-constexpr size_t kMaxReferenceTotalBytes = 16u * 1024u * 1024u;
-constexpr size_t kMaxReferences = 16;
+// How many references, and how many bytes of them, may be added is in app/limits.h.
 
 // The longest side a reference is kept at. Above this it is scaled down on
 // import -- nearest, so pixel-art references stay crisp -- because a 6000-pixel

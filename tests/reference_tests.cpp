@@ -7,6 +7,7 @@
 // undoes like anything else. A thumbnail can be read without opening the file.
 // A library is a folder, listed.
 
+#include "app/limits.h"
 #include "app/document.h"
 #include "app/export_png.h"
 #include "app/file_io.h"
@@ -271,7 +272,7 @@ void testTheLimitsHold() {
     std::string error;
 
     // Sixteen is the ceiling, and the seventeenth is refused with a reason.
-    for (size_t i = 0; i < kMaxReferences; ++i) {
+    for (size_t i = 0; i < limits().references; ++i) {
         Reference made;
         REQUIRE(addReference(doc, "r" + std::to_string(i) + ".png",
                              makePng(4, 4, ls::Color{ 2, 2, 2, 255 }), &made, &error));
@@ -281,7 +282,7 @@ void testTheLimitsHold() {
     CHECK(!addReference(doc, "one-too-many.png", makePng(4, 4, ls::Color{ 3, 3, 3, 255 }),
                         &extra, &error));
     CHECK(!error.empty());
-    CHECK(readReferences(doc).size() == kMaxReferences);
+    CHECK(readReferences(doc).size() == limits().references);
 
     // Not an image at all is refused before anything is stored.
     Document other;
