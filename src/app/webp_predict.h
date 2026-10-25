@@ -6,6 +6,7 @@
 // made of, once, for the reader and the writer: whatever one adds the other
 // subtracts, so they must be the same functions. Pixels are 0xAARRGGBB.
 
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 

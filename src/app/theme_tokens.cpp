@@ -10,7 +10,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
-#include <set>
 #include <utility>
 
 namespace fast {
@@ -297,8 +296,6 @@ bool tokenFromName(const std::string& name, Token* out) {
 }
 
 namespace {
-
-constexpr size_t kMaxIdLength = 48;
 
 std::vector<Theme>& themeStore() {
     static std::vector<Theme> themes = makeThemes();
