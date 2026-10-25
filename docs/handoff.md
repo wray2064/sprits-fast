@@ -6,9 +6,15 @@ it is in, where everything lives, and the traps that have already cost time.
 Last rewritten 2026-10-18. `docs/parity.md` is the checklist and the log,
 newest first; read it next.
 
-Fast is built on the **LiveSprite engine** (`../livesprite-engine`,
-`wray2064/livesprite-engine`), a sibling checkout. This file covers Fast's code
-and the engine as Fast uses it.
+Fast is one of three projects kept side by side in one folder:
+- the **LiveSprite engine** (`../livesprite-engine`, `wray2064/livesprite-engine`);
+- **Fast** itself (this repository);
+- **Sprit's'pract**, the proprietary suite. Until 2026-10-24 it ran Fast's window as a
+  library; it is now a separate application with an editor of its own, and shares only
+  the engine and the document format with Fast.
+
+The workspace's own handoff, kept beside the three, covers the plan across
+them. This file covers Fast's code and the engine as Fast uses it.
 
 ---
 
@@ -25,15 +31,22 @@ transforms move geometry, and patterns and dithers are evaluated at output.
 
 **What Fast is.** Everything Aseprite, LibreSprite, Spriteloop and Pixelorama
 do for a pixel artist, done better wherever the engine allows, plus a
-complete cutout puppet system, posed and captured by hand.
+complete cutout puppet system, posed and captured by hand. Multiview, 3D,
+video, palette and silhouette extraction, atlases, IK and key poses belong to
+Pract.
 
-**Puppets stay engine-native.** A Fast puppet must open in any program that
-reads LiveSprite documents and work as it is:
+**Puppets stay engine-native.** A Fast puppet must open in Pract and work as
+it is:
 - parts are sprites;
 - joints are pivots;
 - sockets and hanging are engine sockets and attachments;
 - a pose is the joints' rotations.
 Nothing another program would need may live in Fast-only side data.
+
+**Fast knows nothing of Pract.** (History: until 2026-10-24 Pract was built through
+generic seams in Fast -- `fast::AppExtension` and `fast::claimEntryPrefix`. They are gone.
+Fast is open source and every feature in its code is exposed to the user; nothing may exist
+in it for another product.)
 
 **Colours are roles.** An operation names a palette slot, and the palette
 turns it into a colour at compile time. That is why palette swapping works
@@ -172,7 +185,7 @@ starts with a comment saying what it is and why.
   person's own, saved by name).
 - `canvas_view` and `frame_cache` draw the canvas.
 - `ui_script` runs the scripts.
-- `app_extension.h` is the seam another program builds on.
+- `program.h` is what the program calls itself (title, version, links) and `runApp`.
 
 Other docs:
 - `docs/architecture.md`: why Fast is built the way it is.

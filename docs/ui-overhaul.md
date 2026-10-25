@@ -3,6 +3,12 @@
 Status: **approved 2026-10-18; building in stages.** Section 5 records the
 decisions. Progress:
 
+> **Note, 2026-10-24.** This design was written when another program was meant to extend
+> Fast's window. That part was dropped: Fast has no program-defined roles or themes
+> (`ExtraRole`, `AppExtension`, `addExtraRoles`, `addBuiltinThemes`, the `demo-roles`
+> script word are gone), and the other program is now a separate application. Where
+> the text below describes that extension API, it is history; everything else stands.
+
 - [x] **Stage 1, foundation.** `app/theme_tokens` (38 roles, the `.lstheme`
       file format, eight built-in themes, derived accent roles, WCAG contrast
       checker) with the `fast_theme_tokens` suite, which fails if any built-in
@@ -85,19 +91,28 @@ decisions. Progress:
       `visual-language.md`, "Where a panel lives"). Unpinned by default, pinned by
       the Animation layout; saved in the layout file and in saved layouts (a layout
       file written before it, with the timeline shown, reads as pinned).
-- [x] **Stage 6, `visual-language.md`, the gallery.**
-      `docs/visual-language.md` is
+- [x] **Stage 6, the Pract seam, `visual-language.md`, the gallery.**
+      `AppExtension::roles` and `::themes`: a program registers roles of its own
+      (`ExtraRole`: an id like `pract.track`, a label and group, a default for a
+      dark and a light theme, optional contrast targets against a surface of
+      Fast's) and built-in themes as `.lstheme` text. Roles are drawn with
+      `theme::extra("pract.track")`, set by theme files, listed in
+      Preferences > Appearance beside Fast's, checked and repaired by the same
+      readability panel, and kept in a theme saved from a program that does not
+      know them. Pract registers its own theme (`pract/look`), and no roles yet:
+      it draws nothing of its own that needs one. `docs/visual-language.md` is
       the working reference. `tools/gallery.ps1` runs `tests/gallery/gallery.txt`
       -- every screen, every theme, 100% and 150%, 270 images -- and tiles each
       screen's nine themes into a contact sheet. Its first run found the start
       screen's footer clipped at 150% (fixed: its sizes now follow the interface
       size), and then the docked panels (fixed: `docs/parity.md`'s log has the
       causes; `tests/ui/panels_fit.txt` holds it). Script words `theme`, `scale`, `for-each ... end-for`,
-      PNG `shot`; Escape closes Preferences and the shortcut list.
+      `demo-roles`, PNG `shot`; Escape closes Preferences and the shortcut list.
 
-Why this is critical: every panel is built from the same widgets, colours and
-spacing. A visual language made once is free for every screen; a patchwork is a
-patchwork multiplied.
+Why this is critical: Pract is Fast's window run as a library. Everything
+Pract draws -- its timeline, References, Arranger, Practipuppets -- is built
+from Fast's widgets, colours and spacing. A visual language made once here is
+Pract's for free; a patchwork here is a patchwork multiplied there.
 
 ## 1. What is wrong now (audited 2026-10-18, from screenshots and the code)
 
@@ -135,7 +150,7 @@ patchwork multiplied.
 **Themes and customisation**
 - Two fixed palettes (Slate, Paper), 15 colours each, and one fixed accent.
   No user colours, no import/export, no high-contrast theme, no density
-  choice.
+  choice, and nothing Pract could extend without editing Fast's source.
 - The font is whatever the platform ships (Segoe UI here, DejaVu or the ImGui
   bitmap font elsewhere), so the program looks different on every machine.
 
@@ -149,7 +164,8 @@ patchwork multiplied.
    4.5:1, controls and icons 3:1, in *every* theme, checked by a test.
 3. **One place for every decision.** No colour, size or spacing literal in a
    panel: it names a token or uses a component.
-4. **A person can change it.** Themes are text files.
+4. **A person can change it, Pract can extend it.** Themes are text files;
+   Pract adds tokens and themes through the same seam, not by patching Fast.
 5. **Fixed layout that bends.** Widths come from the font and the density, so
    a larger interface or a longer Spanish label never clips.
 
@@ -187,6 +203,9 @@ Semantic, not literal -- named for what they are for.
 - **Safety net:** when a custom theme fails the contrast check the editor says
   which pair and by how much, and offers the nearest passing value -- it warns,
   it never forbids.
+- **Pract:** `AppExtension` gains a way to register extra tokens (Pract's
+  timeline track colours, its reference tints) with defaults per base theme,
+  and extra built-in themes, so a Fast theme file styles Pract's windows too.
 
 ### 2.4 Typography
 - One family, two weights (regular, semibold), a monospace for numbers and hex
@@ -238,7 +257,8 @@ interface size and density settings.
 
 ## 3. How it is built, in stages
 
-Each stage lands on its own (committed, pushed, all tests and scripts green).
+Each stage lands on its own (committed, pushed, all tests and scripts green)
+so Pract can rebase onto any of them.
 
 1. **Foundation (core, no window).** `tokens`, the theme file format, the
    built-in themes, the contrast checker. Tests: file parse and round trip,
@@ -257,7 +277,8 @@ Each stage lands on its own (committed, pushed, all tests and scripts green).
    contrast warnings.
 5. **Layout and icons.** The designed default layout, named layouts, the icon
    set if one is chosen.
-6. **Documentation.** `docs/visual-language.md` (the tokens, components and when to use each),
+6. **Pract seam and documentation.** The extension API for tokens and themes,
+   `docs/visual-language.md` (the tokens, components and when to use each),
    and a gallery script that renders every screen in every built-in theme to
    images, so a change of look is reviewed by eye in one pass.
 
