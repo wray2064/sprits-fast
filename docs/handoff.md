@@ -6,14 +6,9 @@ it is in, where everything lives, and the traps that have already cost time.
 Last rewritten 2026-10-18. `docs/parity.md` is the checklist and the log,
 newest first; read it next.
 
-Fast is one of three projects kept side by side in one folder:
-- the **LiveSprite engine** (`../livesprite-engine`, `wray2064/livesprite-engine`);
-- **Fast** itself (this repository);
-- **Sprit's'pract**, the proprietary suite that runs Fast's window as a
-  library and adds its own toolkits.
-
-The workspace's own handoff, kept beside the three, covers the plan across
-them. This file covers Fast's code and the engine as Fast uses it.
+Fast is built on the **LiveSprite engine** (`../livesprite-engine`,
+`wray2064/livesprite-engine`), a sibling checkout. This file covers Fast's code
+and the engine as Fast uses it.
 
 ---
 
@@ -30,21 +25,15 @@ transforms move geometry, and patterns and dithers are evaluated at output.
 
 **What Fast is.** Everything Aseprite, LibreSprite, Spriteloop and Pixelorama
 do for a pixel artist, done better wherever the engine allows, plus a
-complete cutout puppet system, posed and captured by hand. Multiview, 3D,
-video, palette and silhouette extraction, atlases, IK and key poses belong to
-Pract.
+complete cutout puppet system, posed and captured by hand.
 
-**Puppets stay engine-native.** A Fast puppet must open in Pract and work as
-it is:
+**Puppets stay engine-native.** A Fast puppet must open in any program that
+reads LiveSprite documents and work as it is:
 - parts are sprites;
 - joints are pivots;
 - sockets and hanging are engine sockets and attachments;
 - a pose is the joints' rotations.
 Nothing another program would need may live in Fast-only side data.
-
-**Seams, not names.** Fast knows nothing of Pract. What Pract needs is a
-generic seam: `fast::AppExtension` (menus, panels, timeline, icon, title,
-preferences folder) and `fast::claimEntryPrefix`.
 
 **Colours are roles.** An operation names a palette slot, and the palette
 turns it into a colour at compile time. That is why palette swapping works
@@ -192,8 +181,8 @@ Other docs:
 - `docs/translating.md`: adding a language.
 - `docs/icons-needed.md`: the icon set (Lucide) and the icons still to add.
 - `docs/visual-language.md`: the working reference for building a screen --
-  roles, type, space, components, icons, themes, and what a program built on
-  Fast adds. Read it before drawing anything.
+  roles, type, space, components, icons and themes. Read it before drawing
+  anything.
 - `docs/ui-overhaul.md`: the design, the stages and where they stand.
 - `README.md`: the feature tour.
 

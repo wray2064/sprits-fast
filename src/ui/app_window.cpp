@@ -26,8 +26,8 @@
 #include "ui/start_screen.h"
 #include "ui/widgets.h"
 #include "ui/rulers.h"
+#include "ui/program.h"
 #include "ui/slice_tool.h"
-#include "ui/stage_bar.h"
 #include "ui/tabs.h"
 #include "ui/tile_tools.h"
 #include "ui/ui_script.h"
@@ -43,7 +43,6 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -54,15 +53,6 @@
 #include "fast_icon_32.h"
 
 using namespace fast;
-
-namespace {
-// What the program running this window adds to it (see app_extension.h).
-const AppExtension* gExtension = nullptr;
-} // namespace
-
-const AppExtension* fast::currentExtension() {
-    return gExtension;
-}
 
 namespace {
 
@@ -79,12 +69,9 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     const float statusHeight = ImGui::GetFrameHeight() + theme::px(8.f);
     theme::popText();
     const float toolbarWidth = theme::toolRailWidth();
-    // A program with stages has their bar across the top of the work area.
-    const float barHeight = stageBarHeight(editor);
-    drawStageBar(editor, barHeight);
-    const float bodyHeight = viewport->WorkSize.y - statusHeight - barHeight;
+    const float bodyHeight = viewport->WorkSize.y - statusHeight;
     const float left = viewport->WorkPos.x;
-    const float top = viewport->WorkPos.y + barHeight;
+    const float top = viewport->WorkPos.y;
 
     constexpr ImGuiWindowFlags kPanel =
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
@@ -206,11 +193,8 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
                   : editor.sprite;
     const bool overCanvas = canvas.draw(
         editor.doc, onScreen, &hovered,
-        [&editor, &canvas, showing](ImDrawList* draw, ImVec2 origin, float zoom) {
+        [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
             drawReferences(editor, canvas, draw, origin, zoom, true);
-            if (gExtension != nullptr && gExtension->underlay) {
-                gExtension->underlay(editor, canvas, draw, origin.x, origin.y, zoom, showing);
-            }
             drawOnionSkin(editor, canvas, draw, origin, zoom);
         },
         [&editor, &canvas](ImDrawList* draw, ImVec2 origin, float zoom) {
@@ -291,13 +275,7 @@ void drawWindow(Editor& editor, CanvasView& canvas, SDL_Window* window) {
     // a drawer over the bottom of the canvas that opens when wanted and tucks
     // away, so a person drawing has the whole window.
     if (editor.timeline.visible) {
-        const auto strip = [&editor, &canvas]() {
-            if (gExtension != nullptr && gExtension->timeline) {
-                gExtension->timeline(editor, canvas);
-            } else {
-                drawTimelinePanel(editor, canvas);
-            }
-        };
+        const auto strip = [&editor, &canvas]() { drawTimelinePanel(editor, canvas); };
         if (editor.timeline.pinned) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.f, 6.f));
             if (beginPanel(title("Timeline", panel::kTimeline).c_str(), &editor.timeline.visible)) {
@@ -355,14 +333,10 @@ namespace {
 // wherever a platform has no icon in the executable, the taskbar or dock.
 // Each size is decoded from a PNG compiled into the program; a small one is
 // offered beside the large so the title bar need not shrink 256 to 16.
-void setWindowIcon(SDL_Window* window, const AppExtension& extension) {
+void setWindowIcon(SDL_Window* window) {
     std::vector<std::vector<uint8_t>> pngs;
-    if (!extension.icon.empty()) {
-        pngs.push_back(extension.icon);
-    } else {
-        pngs.emplace_back(kFastIcon256, kFastIcon256 + kFastIcon256_size);
-        pngs.emplace_back(kFastIcon32, kFastIcon32 + kFastIcon32_size);
-    }
+    pngs.emplace_back(kFastIcon256, kFastIcon256 + kFastIcon256_size);
+    pngs.emplace_back(kFastIcon32, kFastIcon32 + kFastIcon32_size);
     std::vector<ls::RasterBuffer> images(pngs.size());
     SDL_Surface* icon = nullptr;
     for (size_t i = 0; i < pngs.size(); ++i) {
@@ -392,15 +366,7 @@ void setWindowIcon(SDL_Window* window, const AppExtension& extension) {
 
 } // namespace
 
-int fast::runApp(int argc, char** argv, const AppExtension& extension) {
-    gExtension = &extension;
-    // Before anything reads a setting.
-    setPreferencesFolder(extension.preferencesFolder);
-    // Before anything reads a theme: the roles and themes of a program built on
-    // Fast join Fast's own, so Preferences lists them and a theme file can set
-    // them (app/theme_tokens.h).
-    addExtraRoles(extension.roles);
-    addBuiltinThemes(extension.themes);
+int fast::runApp(int argc, char** argv) {
     // --export makes this a batch run: open, write, exit, with no window --
     // what a build script wants. See app/batch.h for the options.
     {
@@ -429,7 +395,7 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow(extension.title.c_str(), 1440, 900,
+    SDL_Window* window = SDL_CreateWindow(program::kTitle, 1440, 900,
                                           SDL_WINDOW_RESIZABLE |
                                           SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (window == nullptr) {
@@ -437,11 +403,8 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
         SDL_Quit();
         return 1;
     }
-    setWindowIcon(window, extension);
-    configureProgram(extension,
-                     extension.icon.empty()
-                         ? std::vector<uint8_t>(kFastIcon256, kFastIcon256 + kFastIcon256_size)
-                         : extension.icon);
+    setWindowIcon(window);
+    configureProgram(std::vector<uint8_t>(kFastIcon256, kFastIcon256 + kFastIcon256_size));
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     if (renderer == nullptr) {
@@ -488,19 +451,6 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
     registerPanelSettings(editor);
     if (interactive) {
         loadLayout();
-    }
-    if (!extension.stages.empty()) {
-        editor.stages = extension.stages;
-        editor.stageStatus = extension.stageStatus;
-        editor.stageLayouts.resize(editor.stages.size());
-        const int start = std::clamp(extension.startStage, 0,
-                                     static_cast<int>(editor.stages.size()) - 1);
-        if (editor.stages[static_cast<size_t>(start)].base >= 0) {
-            // Fast's own arrangement: whatever the person left it as stays.
-            editor.stage = start;
-        } else {
-            useStage(editor, start);
-        }
     }
 
     CanvasView canvas(renderer);
@@ -1015,9 +965,6 @@ int fast::runApp(int argc, char** argv, const AppExtension& extension) {
             }
         }
         drawWindow(editor, canvas, window);
-        if (extension.panels) {
-            extension.panels(editor, canvas);
-        }
 
         ImGui::Render();
         if (interactive) {

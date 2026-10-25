@@ -579,9 +579,6 @@ void drawMenuBar(Editor& editor, CanvasView& canvas, SDL_Window* window) {
         }
         ImGui::EndMenu();
     }
-    if (currentExtension() != nullptr && currentExtension()->menus) {
-        currentExtension()->menus(editor, canvas);
-    }
     drawHelpMenu(editor);
     ImGui::EndMainMenuBar();
 }

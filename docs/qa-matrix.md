@@ -54,7 +54,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | File > Quit | quit.txt, quit.txt |
 | Edit | menu_edit.txt, menu_edit.txt, menu_edit.txt +12 |
 | Edit > History... | menu_edit.txt |
-| Edit > Preferences... | appearance.txt, escape_closes.txt, extension_roles.txt +2 |
+| Edit > Preferences... | appearance.txt, escape_closes.txt, interface_size.txt +1 |
 | Edit > Cut | menu_edit.txt |
 | Edit > Copy | menu_edit.txt |
 | Edit > Paste | menu_edit.txt |
@@ -125,7 +125,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 |---|---|---|---|---|
 | Tools | `tool.pencil` | Pencil | cel_opacity.txt, command_search.txt, custom_brush.txt +21 | keymap_tests.cpp |
 | Tools | `tool.spray` | Spray | fill_and_keys.txt, panels_fit.txt | none |
-| Tools | `tool.eraser` | Eraser | cel_opacity.txt, command_search.txt, copy_shapes.txt +26 | keymap_tests.cpp |
+| Tools | `tool.eraser` | Eraser | cel_opacity.txt, command_search.txt, copy_shapes.txt +25 | keymap_tests.cpp |
 | Tools | `tool.bucket` | Fill | fill_and_keys.txt, panels_and_menus.txt, panels_fit.txt +2 | none |
 | Tools | `tool.gradient` | Gradient | fill_and_keys.txt, panels_fit.txt, rotate_and_fill.txt | none |
 | Tools | `tool.picker` | Pick colour | fill_and_keys.txt | none |
@@ -140,7 +140,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | Tools | `tool.polygon-lasso` | Polygon lasso | paths_and_text.txt | none |
 | Tools | `tool.polygon` | Polygon | paths_and_text.txt | none |
 | Tools | `tool.curve` | Curve | paths_and_text.txt | none |
-| Tools | `tool.slice` | Slice | canvas_fit.txt, cel_opacity.txt, command_search.txt +33 | none |
+| Tools | `tool.slice` | Slice | canvas_fit.txt, cel_opacity.txt, command_search.txt +32 | none |
 | Tools | `tool.wand` | Magic wand | panels_fit.txt, selection.txt | none |
 | Tools | `tool.move` | Move | copy_shapes.txt, edit_and_view.txt, fill_and_keys.txt +6 | none |
 | Tools | `tool.hand` | Hand | start_screen.txt | none |
@@ -150,8 +150,8 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | Brush | `colour.swap` | Swap the two colours | help.txt | none |
 | File | `file.new` | New | element_and_new.txt, start_screen.txt, tilemap.txt | none |
 | File | `file.open` | Open | kit.txt, menu_file.txt | none |
-| File | `file.save` | Save | appearance.txt, command_search.txt, export_again.txt +4 | none |
-| File | `file.save-as` | Save as | appearance.txt, extension_roles.txt | none |
+| File | `file.save` | Save | appearance.txt, command_search.txt, export_again.txt +3 | none |
+| File | `file.save-as` | Save as | appearance.txt | none |
 | File | `file.library` | Library | keys_more.txt, menu_file.txt | none |
 | File | `file.export-again` | Export again | export_again.txt | none |
 | Help | `app.search` | Search commands | command_search.txt | none |
@@ -243,7 +243,7 @@ each gap gets a script or a test case until the list is empty (or the item is ex
 | `text` | text_tests.cpp, text_util_tests.cpp |
 | `text_util` | text_util_tests.cpp |
 | `theme_store` | theme_store_tests.cpp |
-| `theme_tokens` | preferences_tests.cpp, theme_extension_tests.cpp, theme_tokens_tests.cpp |
+| `theme_tokens` | preferences_tests.cpp, theme_tokens_tests.cpp |
 | `tilemap` | aseprite_tests.cpp, tilemap_tests.cpp |
 | `tips` | templates_tests.cpp |
 | `tracks` | puppet_tests.cpp, tracks_tests.cpp |

@@ -35,7 +35,7 @@ that a frame like any other, to fix by hand. Each part is a row of the timeline,
 
 - Turning or flipping the canvas turns the puppet and every capture with it.
 - A puppet is built from the engine's own pivots, sockets and attachments, and the pose each frame was captured
-  from is written on it. A program that animates puppets itself (Sprit's'pract) opens a Fast puppet as it is.
+  from is written on it.
 - A document may have up to 256 parts.
 
 See also [Animation](topic:animation) for what to do with the frames you capture.

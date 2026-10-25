@@ -131,15 +131,6 @@ const Palette& palette() { return gPalette; }
 
 const Theme& current() { return gTheme; }
 
-ImVec4 extra(const char* id) {
-    return toImVec4(gTheme.extraColour(id));
-}
-
-ImU32 extraU32(const char* id) {
-    const Rgba c = gTheme.extraColour(id);
-    return IM_COL32(c.r, c.g, c.b, c.a);
-}
-
 void setTheme(const Theme& theme) {
     gTheme = theme;
     gPalette = paletteFor(gTheme);

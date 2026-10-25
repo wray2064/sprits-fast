@@ -77,11 +77,6 @@ ImVec4 toImVec4(Rgba colour);
 
 // The theme in force: its colours are what palette() says.
 const Theme& current();
-// A role a program built on Fast registered (AppExtension::roles), as the theme
-// in force has it: what its windows draw with instead of a literal colour. An
-// id that was never registered is magenta.
-ImVec4 extra(const char* id);
-ImU32 extraU32(const char* id);
 // Puts a theme in force and re-applies the ImGui style. The built-in ones are
 // in app/theme_tokens.h; a person's come from `*.lstheme` files.
 void setTheme(const Theme& theme);

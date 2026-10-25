@@ -17,8 +17,8 @@
 //   - Pin puts it back in the dock under the canvas, a panel like the rest,
 //     which is what an animation layout wants; Unpin makes it a drawer again.
 //
-// What is in the strip is the Timeline's own (drawTimelinePanel, or what a
-// program built on Fast puts there); this only decides where it is and when.
+// What is in the strip is the Timeline's own (drawTimelinePanel); this only
+// decides where it is and when.
 
 #include "ui/editor.h"
 

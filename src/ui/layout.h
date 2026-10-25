@@ -53,11 +53,6 @@ const char* presetName(LayoutPreset preset);
 // Rebuilds the dock as `preset` on the next frame, with the panels it wants open.
 void useLayoutPreset(Editor& editor, LayoutPreset preset);
 
-// Puts the dock in the arrangement of stage `index` (Editor::stages): the one the person
-// left it in if they have been there, else the stage's own. Keeps the arrangement of the
-// stage it leaves. Takes effect on the next frame; no-op for a stage that does not exist.
-void useStage(Editor& editor, int index);
-
 struct SavedLayout {
     std::string id;     // "my-layout": the file's name
     std::string name;   // "My layout"

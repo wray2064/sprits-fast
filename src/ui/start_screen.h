@@ -20,7 +20,6 @@
 // links and logo -- because the start screen was the first thing to need
 // them; Help > About reads them from here.
 
-#include "ui/app_extension.h"
 #include "ui/canvas_view.h"
 #include "ui/editor.h"
 
@@ -41,9 +40,9 @@ struct ProgramInfo {
     std::string licence;
 };
 
-// The program as the window has it: the extension's name and links, and the
-// logo (PNG bytes). Once, after the window exists.
-void configureProgram(const AppExtension& extension, const std::vector<uint8_t>& logoPng);
+// The program as the window has it (ui/program.h), and the logo (PNG bytes).
+// Once, after the window exists.
+void configureProgram(const std::vector<uint8_t>& logoPng);
 const ProgramInfo& programInfo();
 
 // The logo as a texture, made on first use; null when there is none or it

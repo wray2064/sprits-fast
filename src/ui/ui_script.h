@@ -79,8 +79,7 @@
 //     expect tiled both           the tiled mode: off, across, down, both
 //     expect centred              the artwork in the middle of the canvas's area
 //     role panel 1d2229           a role of the working theme set (what the picker
-//                                 in Preferences > Appearance does); a program's own
-//                                 role by its id: role demo.mark ff00ff
+//                                 in Preferences > Appearance does)
 //     theme midnight              a theme chosen by its id, as Preferences does
 //     scale 150                   the interface size, in percent (75 to 150)
 //     language es                 the interface in a language the lang folder has (en:
@@ -91,12 +90,6 @@
 //                                 button cut off at its edge): `all`, or one panel by its id
 //     expect scrolls tool         a panel too narrow for what it holds has a sideways
 //                                 scrollbar to reach it by
-//     demo-roles                  registers three sample roles of a made-up program
-//                                 (demo.mark, demo.label, demo.tint), as an
-//                                 AppExtension would, so what they do can be checked
-//     demo-stages                 gives the window three sample stages (ids one, two, three),
-//                                 as an AppExtension would, and opens the first
-//     expect stage two            the stage in force, by id
 //     for-each theme              the lines up to `end-for`, once for every theme
 //     for-each scale 100 150      ... or once for each value listed; inside, {theme}
 //                                 or {scale} is the value, in any line. Loops nest.
@@ -166,8 +159,8 @@ private:
     struct Step {
         enum Kind { Pos, Button, Key, Text, Wait, Tool, Colour, Expect, Shot, Widget, ScreenMove,
                     Reference, Open, Start, Answer, Remove, ZoomTo, Role,
-                    Wheel, UseTheme, UseScale, DemoRoles, Pause, UseLanguage,
-                    UseLayout, Recovered, DemoStages } kind = Wait;
+                    Wheel, UseTheme, UseScale, Pause, UseLanguage,
+                    UseLayout, Recovered } kind = Wait;
         float       x = 0.f, y = 0.f;      // Pos: canvas pixels, or a widget's label in text
         int         button = 0;
         int         index = 0;             // Widget: which of several, from 1; 0 the last drawn

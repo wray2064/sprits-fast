@@ -3,6 +3,8 @@
 
 #include "ui/start_screen.h"
 
+#include "ui/program.h"
+
 #include "app/file_io.h"
 #include "app/i18n.h"
 #include "app/image_io.h"
@@ -510,17 +512,17 @@ void drawTip(Editor& editor) {
 
 } // namespace
 
-void configureProgram(const AppExtension& extension, const std::vector<uint8_t>& logoPng) {
+void configureProgram(const std::vector<uint8_t>& logoPng) {
     Branding& b = branding();
-    b.info.title = extension.title;
+    b.info.title = program::kTitle;
 #ifdef FAST_VERSION
-    b.info.version = extension.version.empty() ? std::string(FAST_VERSION) : extension.version;
+    b.info.version = FAST_VERSION;
 #else
-    b.info.version = extension.version;
+    b.info.version = program::kVersion;
 #endif
-    b.info.homepage = extension.homepage;
-    b.info.issues = extension.issues;
-    b.info.licence = extension.licence;
+    b.info.homepage = program::kHomepage;
+    b.info.issues = program::kIssues;
+    b.info.licence = program::kLicence;
     b.logoPng = logoPng;
     b.tried = false;
     b.logo = nullptr;       // a texture belongs to a renderer; the old one is not reused

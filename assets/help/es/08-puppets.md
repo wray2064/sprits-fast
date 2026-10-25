@@ -36,8 +36,7 @@ fila de la línea de tiempo, la misma en cada captura.
 
 - Girar o voltear el lienzo gira la marioneta y todas sus capturas con él.
 - Una marioneta se construye con los pivotes, enchufes y anclajes propios del motor, y la pose desde la
-  que se capturó cada fotograma queda escrita en ella. Un programa que anima marionetas por sí mismo
-  (Sprit's'pract) abre una marioneta de Fast tal como es.
+  que se capturó cada fotograma queda escrita en ella.
 - Un documento puede tener hasta 256 piezas.
 
 Consulta también [Animación](topic:animation) para saber qué hacer con los fotogramas que capturas.

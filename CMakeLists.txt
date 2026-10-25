@@ -165,9 +165,7 @@ option(FAST_BUILD_GUI "Build the windowed editor (fetches SDL3 and Dear ImGui)" 
 if (FAST_BUILD_GUI)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
-    # The window as a library, so a program built on Fast runs the same window
-    # with its own additions (src/ui/app_extension.h); Fast's own program is
-    # the window with nothing added.
+    # The window, as a library the program links.
     add_library(fast_ui STATIC
         src/ui/app_window.cpp
         src/ui/menu_bar.cpp
@@ -189,7 +187,6 @@ if (FAST_BUILD_GUI)
         src/ui/reference_section.cpp
         src/ui/keys.cpp
         src/ui/layout.cpp
-        src/ui/stage_bar.cpp
         src/ui/os_clipboard.cpp
         src/ui/shape_tools.cpp
         src/ui/tabs.cpp
@@ -475,10 +472,6 @@ if (FAST_BUILD_TESTS)
     target_compile_definitions(fast_guide_tests PRIVATE
         GUIDE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/help")
     add_test(NAME fast_guide COMMAND fast_guide_tests)
-
-    add_executable(fast_theme_extension_tests tests/theme_extension_tests.cpp)
-    target_link_libraries(fast_theme_extension_tests PRIVATE fast_core)
-    add_test(NAME fast_theme_extension COMMAND fast_theme_extension_tests)
 
     add_executable(fast_text_util_tests tests/text_util_tests.cpp)
     target_link_libraries(fast_text_util_tests PRIVATE fast_core)

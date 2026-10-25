@@ -18,7 +18,6 @@
 #include "ui/canvas_view.h"
 #include "ui/editor.h"
 
-#include <functional>
 #include <string>
 
 struct SDL_Window;
@@ -57,20 +56,6 @@ int modifiedOtherTab(const Editor& editor);
 
 // Every tab's autosave copy removed: the program is closing cleanly.
 void clearAllRecovery(Editor& editor);
-
-// For a program built on Fast that makes documents of its own (from a template, an
-// import): a new document in a tab of its own, as File > New makes one -- a blank
-// untouched tab is replaced instead -- and shown fitted. `fill` may change the
-// document the new tab holds (frames, cycles, a palette) before it is shown; what it
-// does is not an undo step and the document starts unmodified, as a new one does.
-// False, with the tab closed again, when it cannot be made or `fill` says it failed.
-bool newDocumentTab(Editor& editor, CanvasView& canvas, const FileState::NewDocument& spec,
-                    const std::function<bool(Editor&)>& fill);
-
-// The file at `path` opened in a tab of its own, as File > Open does. With `asCopy` it
-// has no path -- the first save asks where -- so a template or a model file is never
-// written over. False, with the tab closed again, when it cannot be opened.
-bool openFileTab(Editor& editor, CanvasView& canvas, const std::string& path, bool asCopy);
 
 // The row of tabs over the canvas.
 void drawTabBar(Editor& editor, CanvasView& canvas, SDL_Window* window);

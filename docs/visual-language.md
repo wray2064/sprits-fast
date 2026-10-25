@@ -1,7 +1,6 @@
 # The visual language
 
-How Fast looks, in the terms a screen is built from, and how a program built on
-Fast (Pract) adds to it without patching it. The design and its reasons are in
+How Fast looks, in the terms a screen is built from. The design and its reasons are in
 `ui-overhaul.md`; this is the working reference: **what to reach for, and when.**
 
 Four rules, and everything below follows from them:
@@ -151,8 +150,6 @@ A panel that should behave this way takes the same shape: a tab that says enough
 to be worth looking at, a short dwell before it opens and a longer one before it
 tucks (so a slip of the pointer neither opens nor closes it), stays open while a
 field or a drag inside it is in use, and a Pin that makes it an ordinary panel.
-A program built on Fast gets this for the Timeline for free: what it puts there
-(`AppExtension::timeline`) is the strip, in either form.
 
 ## Icons (`theme::drawIcon`)
 
@@ -180,52 +177,13 @@ is the chosen tool). Never a bitmap, never an icon font. To add one, see
 - Layouts: Window > Layouts has Drawing, Animation and Compact, and the person's
   own, saved by name.
 
-## What a program built on Fast adds (`ui/app_extension.h`)
-
-Pract draws things Fast has no role for. It does not paint them a literal
-colour and it does not patch Fast: it **registers roles and themes**.
-
-```cpp
-fast::AppExtension extension;
-extension.roles = { /* ExtraRole */ };       // colours its own windows draw with
-extension.themes = { /* .lstheme text */ };  // built-in themes of its own
-```
-
-**A role** (`ExtraRole`) has an id (`pract.track`: the program, a dot, a name;
-lower-case, digits, dashes; at most 48 characters), a label and a group for the
-Appearance tab, a default for a dark and for a light theme, whether it has an
-opacity, and -- optionally -- how it is read: a surface of Fast's to be seen
-against and the two contrast targets (standard and high-contrast). A role that
-says how it is read is checked with the rest: it appears in the readability
-panel, **Fix them** repairs it, and a test can hold it to its target.
-
-Draw with it:
-
-```cpp
-ImGui::GetWindowDrawList()->AddRectFilled(a, b, fast::theme::extraU32("pract.track"));
-```
-
-A theme file may set it (`pract.track = #3ccbb5`); a theme that does not has
-the default for its polarity. A theme saved from a program that does not know a
-role keeps the line, so nothing a file carried is lost by opening it elsewhere
-(at most 64 roles in a program, and 64 kept per theme). An id nobody registered
-draws **magenta**, so a misspelt one is seen at once.
-
-**A theme** is a `.lstheme` text that begins `base =` one of Fast's. It is added
-after Fast's dark (or light) themes, a person's own themes can start from it,
-and the checker covers it. Pract's own is `src/pract/look/look.cpp`, with a
-test (`tests/look_tests.cpp`) that it reads.
-
-Register before anything reads a theme: `runApp` does, from the extension.
-
 ## How it is checked
 
 - **Core tests**: every built-in theme meets the targets
-  (`tests/theme_tokens_tests.cpp`); the file format, hostile input, the
-  extension seam (`tests/theme_extension_tests.cpp`); the icons parse
+  (`tests/theme_tokens_tests.cpp`); the file format, hostile input; the icons parse
   (`tests/vector_icon_tests.cpp`).
 - **UI scripts** (`tests/ui`): one per interaction, including `appearance`,
-  `extension_roles`, `layouts` and `gallery_smoke`. The script language is in
+  `layouts` and `gallery_smoke`. The script language is in
   `src/ui/ui_script.h`; `for-each theme`, `theme`, `scale` and `shot x.png` are
   what the gallery is made of.
 - **The gallery**: `.\tools\gallery.ps1` runs `tests/gallery/gallery.txt` and
@@ -255,7 +213,3 @@ Register before anything reads a theme: `runApp` does, from the extension.
   answer.
 - Dialog footers written the older way (`beginModal`) have not all moved onto
   `dialogButtons`.
-- A program built on Fast opens its own panels with `ImGui::Begin(..., 
-  panelFlags())`, which does not scroll sideways: `beginPanel` is Fast's own.
-  Pract's two panels are as they were; changing them to `beginPanel` is one
-  line each.

@@ -101,7 +101,7 @@ std::vector<Bytes> themeSeeds() {
         seeds.push_back(bytesOf(serializeTheme(theme)));
     }
     seeds.push_back(bytesOf("lstheme 1\nname = Mine\nbase = midnight\naccent = #28c8b4\n"
-                            "pract.track = #ff0000\n"));
+                            "unknownRole = #ff0000\n"));
     return seeds;
 }
 

@@ -656,4 +656,3 @@ of = de
 Done = Listo
 Show only part of the image: a cell of a sprite sheet. = Mostrar solo una parte de la imagen: una celda de una hoja de sprites.
 Show only part of the image -- one cell of a sprite sheet, say. The whole image is kept, so another part can be picked later. = Muestra solo una parte de la imagen -- una celda de una hoja de sprites, por ejemplo. Se guarda la imagen entera, así que luego se puede elegir otra parte.
-Next = Siguiente

@@ -240,7 +240,7 @@ void testForeignEntriesSurviveARoundTrip() {
     // Write a file as though another application had made it.
     std::vector<PackageEntry> theirs;
     PackageEntry note;
-    note.name = "pract/arranger.json";
+    note.name = "other/arranger.json";
     note.contentType = "application/json";
     const std::string payload = "{\"cell\":[4,2]}";
     note.data.assign(payload.begin(), payload.end());
@@ -271,27 +271,9 @@ void testForeignEntriesSurviveARoundTrip() {
     CHECK(third.foreignEntryCount() == 1);
     CHECK(third.uiState() == "{\"zoom\":4}");
 
-    // Once the program running is the one those entries belong to -- it
-    // claimed their prefix -- they are its companions: read, changed, saved.
-    CHECK(!third.setCompanion("pract/timeline.json", "application/json", {1}));
-    fast::claimEntryPrefix("pract/");
-    fast::claimEntryPrefix("fast/");          // Fast's own: nothing changes
-    fast::claimEntryPrefix("no-slash");       // not a prefix: ignored
-    fast::Document fourth;
-    REQUIRE(fourth.open(path, &error));
-    CHECK(fourth.foreignEntryCount() == 0);
-    const std::vector<uint8_t>* arranger = fourth.companion("pract/arranger.json");
-    REQUIRE(arranger != nullptr);
-    CHECK(std::string(arranger->begin(), arranger->end()) == payload);
-    CHECK(fourth.setCompanion("pract/timeline.json", "application/json", {1, 2}));
-    CHECK(!fourth.setCompanion("other/timeline.json", "application/json", {1}));
-    CHECK(!fourth.setCompanion("pract/", "application/json", {1}));
-    REQUIRE(fourth.save(path, &error));
-    fast::Document fifth;
-    REQUIRE(fifth.open(path, &error));
-    CHECK(fifth.companion("pract/arranger.json") != nullptr);
-    CHECK(fifth.companion("pract/timeline.json") != nullptr &&
-          fifth.companion("pract/timeline.json")->size() == 2);
+    // Fast does not write to entries that are not its own.
+    CHECK(!third.setCompanion("other/timeline.json", "application/json", {1}));
+    CHECK(third.companion("other/arranger.json") == nullptr);
 }
 
 void testOpeningRubbishFailsCleanly() {

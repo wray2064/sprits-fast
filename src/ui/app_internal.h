@@ -12,8 +12,7 @@
 // self_test.cpp the ways of running it with nobody there. They once were one
 // file, and what was private to it is declared here, once, for the others.
 //
-// Nothing here is for a program built on Fast: that is app_extension.h. This header
-// is for the window's own files.
+// This header is for the window's own files.
 
 #include "app/import_image.h"
 #include "app/ink.h"
@@ -31,10 +30,6 @@
 namespace fast {
 
 class CanvasView;
-struct AppExtension;
-
-// What the program running this window adds to it (app_extension.h), or null.
-const AppExtension* currentExtension();
 
 // --- the menus and the windows that open from them ---------------------------------
 

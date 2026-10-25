@@ -6,8 +6,7 @@
 // and captured, pose by pose, as frames.
 //
 // A puppet is built from the engine's own anchors, so that another program
-// reading the document -- Pract, which adds IK, movement ramps and key poses
-// on top -- finds the puppet it is, with nothing to convert:
+// reading the document finds the puppet it is, with nothing to convert:
 //
 //   - A **part** is a sprite of the document that is not a frame (kept after
 //     the frames and tilesets, like them out of the timeline), named in its

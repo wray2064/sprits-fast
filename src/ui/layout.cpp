@@ -105,77 +105,10 @@ void writeAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out
 // Compact: for a small screen. Every panel but the tool and the palette is a
 // tab of one group on the right, and the timeline is put away until it is
 // asked for.
-//
-// A stage (app_extension.h) adds its own panels to the node of the region they name; a
-// stage with no base preset is built by buildStageDock instead.
-using RegionNodes = ImGuiID[5];   // by DockRegion
-
-void dockStagePanels(const Stage& stage, const RegionNodes nodes) {
-    for (const StagePanel& entry : stage.panels) {
-        const ImGuiID node = nodes[static_cast<int>(entry.region)];
-        if (node != 0 && !entry.id.empty()) {
-            ImGui::DockBuilderDockWindow(entry.id.c_str(), node);
-        }
-    }
-}
-
-// The dock of a stage that is exactly the panels it lists: a column each side (split
-// in two when it has lower panels), a strip under the canvas, the canvas in the middle.
-void buildStageDock(ImGuiID dockspace, ImVec2 size, const Stage& stage) {
+void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset) {
     ImGui::DockBuilderRemoveNode(dockspace);
     ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspace, size);
-    bool has[5] = {};
-    for (const StagePanel& entry : stage.panels) {
-        has[static_cast<int>(entry.region)] = true;
-    }
-    const float k = theme::scale();
-    const float sideAt100 = theme::metrics().sidebarWidth / k;
-    const float side = std::min(theme::metrics().sidebarWidth * stage.sideWidth,
-                                std::max(sideAt100 * stage.sideWidth,
-                                         size.x * 0.30f * (1.f + 0.5f * (stage.sideWidth - 1.f))));
-    ImGuiID centre = dockspace;
-    ImGuiID left = 0;
-    ImGuiID right = 0;
-    const bool anyLeft = has[0] || has[1];
-    const bool anyRight = has[2] || has[3];
-    if (anyLeft) {
-        left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left, side / size.x, nullptr, &centre);
-    }
-    if (anyRight) {
-        const float rest = anyLeft ? size.x - side : size.x;
-        right = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, side / rest, nullptr, &centre);
-    }
-    ImGuiID bottom = 0;
-    if (has[4]) {
-        bottom = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Down, 0.30f, nullptr, &centre);
-    }
-    RegionNodes nodes = {};
-    const auto column = [&](ImGuiID whole, bool lower, ImGuiID* upperOut, ImGuiID* lowerOut) {
-        if (whole == 0) {
-            return;
-        }
-        if (lower) {
-            ImGuiID under = 0;
-            *upperOut = ImGui::DockBuilderSplitNode(whole, ImGuiDir_Up, 0.55f, nullptr, &under);
-            *lowerOut = under;
-        } else {
-            *upperOut = whole;
-        }
-    };
-    column(left, has[1], &nodes[0], &nodes[1]);
-    column(right, has[3], &nodes[2], &nodes[3]);
-    nodes[4] = bottom;
-    ImGui::DockBuilderDockWindow(panel::kCanvas, centre);
-    dockStagePanels(stage, nodes);
-    ImGui::DockBuilderFinish(dockspace);
-}
-
-void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset, const Stage* stage = nullptr) {
-    ImGui::DockBuilderRemoveNode(dockspace);
-    ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace, size);
-    RegionNodes nodes = {};
 
     // Every measure here is for 100% and grows with the interface size, so a
     // panel is as roomy at 150% as it is at 100% -- up to what the window can
@@ -183,10 +116,8 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset, const Stag
     // 100%), the Timeline at most half the height, so the canvas keeps the rest.
     const float k = theme::scale();
     const float sideAt100 = theme::metrics().sidebarWidth / k;
-    const float widen = stage != nullptr ? stage->sideWidth : 1.f;
-    const float side = std::min(theme::metrics().sidebarWidth * widen,
-                                std::max(sideAt100 * widen,
-                                         size.x * 0.30f * (1.f + 0.5f * (widen - 1.f))));
+    const float side = std::min(theme::metrics().sidebarWidth,
+                                std::max(sideAt100, size.x * 0.30f));
     ImGuiID centre = dockspace;
     const ImGuiID left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left,
                                                      side / size.x, nullptr, &centre);
@@ -239,8 +170,6 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset, const Stag
         ImGui::DockBuilderDockWindow(panel::kProperties, properties);
         ImGui::DockBuilderDockWindow(panel::kTransform, transform);
         ImGui::DockBuilderDockWindow(panel::kPuppet, properties);
-        nodes[2] = properties;
-        nodes[3] = transform;
     } else {
         // Layers over one group of tabs: the layers always in view, and one of
         // the rest at a time in the space below.
@@ -253,13 +182,6 @@ void buildPreset(ImGuiID dockspace, ImVec2 size, LayoutPreset preset, const Stag
         ImGui::DockBuilderDockWindow(panel::kProperties, tabs);
         ImGui::DockBuilderDockWindow(panel::kTransform, tabs);
         ImGui::DockBuilderDockWindow(panel::kPuppet, tabs);
-        nodes[2] = nodes[3] = tabs;
-    }
-    nodes[0] = tool;
-    nodes[1] = palette;
-    nodes[4] = bottom;
-    if (stage != nullptr) {
-        dockStagePanels(*stage, nodes);
     }
     ImGui::DockBuilderFinish(dockspace);
 }
@@ -293,57 +215,6 @@ void useLayoutPreset(Editor& editor, LayoutPreset preset) {
     editor.timeline.pinned = preset == LayoutPreset::Animation;
     editor.timeline.drawerOpen = false;
     editor.timeline.drawerHot = false;
-    ImGui::MarkIniSettingsDirty();
-}
-
-void useStage(Editor& editor, int index) {
-    if (index < 0 || index >= static_cast<int>(editor.stages.size())) {
-        return;
-    }
-    const size_t count = editor.stages.size();
-    editor.stageLayouts.resize(count);
-    const bool first = editor.stage < 0;
-    if (!first && editor.stage == index) {
-        return;
-    }
-    if (!first && editor.stage < static_cast<int>(count)) {
-        // What the person made of this stage is kept for when they come back.
-        size_t size = 0;
-        const char* ini = ImGui::SaveIniSettingsToMemory(&size);
-        editor.stageLayouts[static_cast<size_t>(editor.stage)].assign(ini, size);
-    }
-    editor.stage = index;
-    const std::string& kept = editor.stageLayouts[static_cast<size_t>(index)];
-    if (!kept.empty()) {
-        editor.pendingLayout = kept;
-        return;
-    }
-    const Stage& stage = editor.stages[static_cast<size_t>(index)];
-    if (stage.base >= 0) {
-        useLayoutPreset(editor, static_cast<LayoutPreset>(std::min(stage.base, 2)));
-        return;
-    }
-    // Exactly the panels it lists: the Fast ones it does not name are closed.
-    const auto listed = [&stage](const char* id) {
-        for (const StagePanel& entry : stage.panels) {
-            if (entry.id == id) {
-                return true;
-            }
-        }
-        return false;
-    };
-    editor.panels.tool = listed(panel::kTool);
-    editor.panels.palette = listed(panel::kPalette);
-    editor.panels.layers = listed(panel::kLayers);
-    editor.panels.elements = listed(panel::kElements);
-    editor.panels.properties = listed(panel::kProperties);
-    editor.panels.transform = listed(panel::kTransform);
-    editor.panels.puppet = listed(panel::kPuppet);
-    editor.panels.references = listed(panel::kReferences);
-    editor.timeline.visible = listed(panel::kTimeline);
-    editor.timeline.pinned = editor.timeline.visible;
-    editor.timeline.drawerOpen = false;
-    editor.panels.resetLayout = true;
     ImGui::MarkIniSettingsDirty();
 }
 
@@ -565,13 +436,7 @@ void drawDockSpace(Editor& editor, ImVec2 pos, ImVec2 size) {
     const ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspace);
     if (editor.panels.resetLayout || node == nullptr) {
         editor.panels.resetLayout = false;
-        const bool staged = editor.stage >= 0 && editor.stage < static_cast<int>(editor.stages.size());
-        const Stage* stage = staged ? &editor.stages[static_cast<size_t>(editor.stage)] : nullptr;
-        if (stage != nullptr && stage->base < 0) {
-            buildStageDock(dockspace, size, *stage);
-        } else {
-            buildPreset(dockspace, size, static_cast<LayoutPreset>(editor.panels.preset), stage);
-        }
+        buildPreset(dockspace, size, static_cast<LayoutPreset>(editor.panels.preset));
         editor.panels.builtAtScale = theme::scale();
         ImGui::MarkIniSettingsDirty();
     }

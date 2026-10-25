@@ -6,8 +6,8 @@
 //
 // A panel does not style a button or lay out a label and its control; it asks
 // for one. That is what keeps forty panels looking like one program, lets a
-// theme or a density change reach all of them at once, and gives Pract the
-// same vocabulary: everything here takes its colours from the theme in force
+// theme or a density change reach all of them at once: everything here takes
+// its colours from the theme in force
 // (ui/theme.h) and its type and spacing from the scales, never from a literal.
 //
 // Every component has the states a person can see: rest, hover, pressed, focus

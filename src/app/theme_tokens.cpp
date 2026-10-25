@@ -299,20 +299,11 @@ bool tokenFromName(const std::string& name, Token* out) {
 namespace {
 
 constexpr size_t kMaxIdLength = 48;
-constexpr size_t kMaxExtraRoles = 64;       // registered, and set by one theme
-constexpr size_t kMaxExtraThemes = 16;
 
 std::vector<Theme>& themeStore() {
     static std::vector<Theme> themes = makeThemes();
     return themes;
 }
-
-std::vector<ExtraRole>& roleStore() {
-    static std::vector<ExtraRole> roles;
-    return roles;
-}
-
-size_t gExtraThemes = 0;
 
 } // namespace
 
@@ -329,116 +320,13 @@ const Theme* findBuiltinTheme(const std::string& id) {
     return nullptr;
 }
 
-// ------------------------------------------------------------------ extra roles --
-
-bool validExtraId(const std::string& id) {
-    if (id.empty() || id.size() > kMaxIdLength) {
-        return false;
-    }
-    const size_t dot = id.find('.');
-    if (dot == std::string::npos || dot == 0 || dot + 1 >= id.size() ||
-        id.find('.', dot + 1) != std::string::npos) {
-        return false;
-    }
-    for (char ch : id) {
-        const bool plain = (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' ||
-                           ch == '.';
-        if (!plain) {
-            return false;
-        }
-    }
-    return true;
-}
-
-int addExtraRoles(const std::vector<ExtraRole>& roles) {
-    int taken = 0;
-    for (const ExtraRole& role : roles) {
-        if (roleStore().size() >= kMaxExtraRoles) {
-            break;
-        }
-        if (!validExtraId(role.id) || findExtraRole(role.id) != nullptr) {
-            continue;
-        }
-        roleStore().push_back(role);
-        ++taken;
-    }
-    return taken;
-}
-
-const std::vector<ExtraRole>& extraRoles() {
-    return roleStore();
-}
-
-const ExtraRole* findExtraRole(const std::string& id) {
-    for (const ExtraRole& role : roleStore()) {
-        if (role.id == id) {
-            return &role;
-        }
-    }
-    return nullptr;
-}
-
-void clearExtraRoles() {
-    roleStore().clear();
-}
-
-Rgba Theme::extraColour(const std::string& roleId) const {
-    const auto set = extra.find(roleId);
-    if (set != extra.end()) {
-        return set->second;
-    }
-    if (const ExtraRole* role = findExtraRole(roleId)) {
-        return dark ? role->dark : role->light;
-    }
-    return Rgba{ 255, 0, 255, 255 };
-}
-
-int addBuiltinThemes(const std::vector<std::string>& themeFiles) {
-    int taken = 0;
-    for (const std::string& text : themeFiles) {
-        if (gExtraThemes >= kMaxExtraThemes) {
-            break;
-        }
-        Theme theme;
-        if (!parseTheme(text, &theme, nullptr) || findBuiltinTheme(theme.id) != nullptr) {
-            continue;
-        }
-        // Dark ones after Fast's dark ones, light ones last: the chooser's order.
-        std::vector<Theme>& store = themeStore();
-        const auto firstLight = std::find_if(store.begin(), store.end(),
-                                             [](const Theme& t) { return !t.dark; });
-        store.insert(theme.dark ? firstLight : store.end(), theme);
-        ++gExtraThemes;
-        ++taken;
-    }
-    return taken;
-}
-
 bool sameColours(const Theme& a, const Theme& b) {
     for (size_t i = 0; i < kTokenCount; ++i) {
         if (a.colour[i] != b.colour[i]) {
             return false;
         }
     }
-    for (const ExtraRole& role : roleStore()) {
-        if (a.extraColour(role.id) != b.extraColour(role.id)) {
-            return false;
-        }
-    }
-    // What a file carried that nobody registered is kept, so it counts.
-    const auto kept = [](const Theme& x, const Theme& y) {
-        for (const auto& pair : x.extra) {
-            if (findExtraRole(pair.first) != nullptr) {
-                continue;
-            }
-            const auto other = y.extra.find(pair.first);
-            if (other == y.extra.end() || other->second != pair.second) {
-                return false;
-            }
-        }
-        return true;
-    };
-    return kept(a, b) && kept(b, a);
+    return true;
 }
 
 // ------------------------------------------------------------ colour arithmetic --
@@ -686,7 +574,6 @@ void applyAccent(Theme* theme, Rgba accent) {
 
 int fixContrast(Theme* theme) {
     std::array<bool, kTokenCount> changed {};
-    std::set<std::string> extraChanged;
     for (int pass = 0; pass < 4; ++pass) {
         bool any = false;
         for (const ContrastIssue& issue : checkTheme(*theme)) {
@@ -699,17 +586,6 @@ int fixContrast(Theme* theme) {
             }
             const std::string front = issue.what.substr(0, on);
             if (!tokenFromName(front, &foreground)) {
-                // One of a program's own roles: a mark or text, so it moves.
-                if (findExtraRole(front) != nullptr) {
-                    const Rgba before = theme->extraColour(front);
-                    const Rgba after = adjustForContrast(before, (*theme)[background],
-                                                         issue.required);
-                    if (after != before) {
-                        theme->extra[front] = after;
-                        extraChanged.insert(front);
-                        any = true;
-                    }
-                }
                 continue;
             }
             // The surfaces are the look, and are told apart by the person's eye:
@@ -730,7 +606,7 @@ int fixContrast(Theme* theme) {
             break;
         }
     }
-    int count = static_cast<int>(extraChanged.size());
+    int count = 0;
     for (bool role : changed) {
         count += role ? 1 : 0;
     }
@@ -848,23 +724,13 @@ bool parseTheme(const std::string& text, Theme* out, ThemeReport* report) {
     std::array<bool, kTokenCount> given {};
     for (const auto& line : lines) {
         Token token;
-        const bool isToken = tokenFromName(line.first, &token);
-        // A role of a program built on Fast ("pract.track"): kept whether or not
-        // this program has it registered, so a theme written with Pract open is
-        // not stripped of Pract's colours by saving it from Fast.
-        const bool isExtra = !isToken && validExtraId(line.first) &&
-                             (theme.extra.count(line.first) > 0 || theme.extra.size() < kMaxExtraRoles);
-        if (!isToken && !isExtra) {
+        if (!tokenFromName(line.first, &token)) {
             ++r.unknownKeys;
             continue;
         }
         Rgba colour;
         if (!parseColour(line.second, &colour)) {
             ++r.badColours;
-            continue;
-        }
-        if (isExtra) {
-            theme.extra[line.first] = colour;
             continue;
         }
         theme[token] = colour;
@@ -903,16 +769,6 @@ std::string serializeTheme(const Theme& theme) {
     out += std::string("base = ") + (theme.dark ? "slate" : "paper") + "\n";
     for (const TokenName& entry : kNames) {
         out += std::string(entry.name) + " = " + colourText(theme[entry.token]) + "\n";
-    }
-    // The roles a program built on Fast registered, each with the colour the
-    // theme gives it, then whatever else the theme carried.
-    for (const ExtraRole& role : roleStore()) {
-        out += role.id + " = " + colourText(theme.extraColour(role.id)) + "\n";
-    }
-    for (const auto& pair : theme.extra) {
-        if (findExtraRole(pair.first) == nullptr) {
-            out += pair.first + " = " + colourText(pair.second) + "\n";
-        }
     }
     return out;
 }
@@ -983,21 +839,6 @@ std::vector<ContrastIssue> checkTheme(const Theme& theme) {
             ContrastIssue issue;
             issue.what = std::string(tokenName(pair.foreground)) + " on " +
                          tokenName(pair.background);
-            issue.ratio = measured;
-            issue.required = required;
-            issues.push_back(issue);
-        }
-    }
-    // Each registered role that says how it is read, on the surface it is drawn on.
-    for (const ExtraRole& role : roleStore()) {
-        const double required = theme.enhanced ? role.enhanced : role.standard;
-        if (required <= 0.0) {
-            continue;
-        }
-        const double measured = contrast(theme.extraColour(role.id), theme[role.against]);
-        if (measured + 1e-9 < required) {
-            ContrastIssue issue;
-            issue.what = role.id + " on " + tokenName(role.against);
             issue.ratio = measured;
             issue.required = required;
             issues.push_back(issue);

@@ -13,9 +13,6 @@ drawn, so nothing degrades no matter how many times you change your mind --
 turn a layer by 23 degrees and its outline is drawn again as a clean line at
 23 degrees, its fill found again inside it, its dither still a dither.
 
-Fast is the small editor that introduces the idea. **Sprit's'pract** is the full
-production suite.
-
 ![Sprit's'fast](docs/screenshot.png)
 
 ## Get it, and get help
@@ -626,10 +623,9 @@ of them -- and after that a frame like any other, to fix by hand. Each part is
 a row of the timeline, the same in every capture.
 
 The puppet is made of the engine's own pivots, sockets and attachments, and the
-pose each frame was captured from is written on it, so a program that animates
-puppets itself -- Sprit's'pract, with its solvers and key poses -- opens a Fast
-puppet as it is. Turning or flipping the canvas turns the puppet and every
-capture with it.
+pose each frame was captured from is written on it, so any program that reads
+LiveSprite documents finds the puppet as it is. Turning or flipping the canvas
+turns the puppet and every capture with it.
 
 ### Cycles
 
@@ -813,9 +809,9 @@ is holding stay valid across an undo.
 
 Files are LiveSprite packages (`.lsprite`): the document, plus whatever an
 application keeps beside it. **Fast carries entries it does not understand
-through a save unchanged**, so opening a file made by Pract and saving it does
-not destroy Pract's data. There is a test for that, because it is the kind of
-promise that quietly stops being true.
+through a save unchanged**, so opening a file made by another program and saving
+it does not destroy that program's data. There is a test for that, because it is
+the kind of promise that quietly stops being true.
 
 ## Licence
 

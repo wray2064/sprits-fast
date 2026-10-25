@@ -31,15 +31,11 @@ uint32_t packRgb(Rgba c) {
     return (static_cast<uint32_t>(c.r) << 16) | (static_cast<uint32_t>(c.g) << 8) | c.b;
 }
 
-// What a person is told a role is called: Fast's own, or one a program built on
-// it registered. An id nobody knows is shown as it is.
+// What a person is told a role is called. An id nobody knows is shown as it is.
 std::string roleLabel(const std::string& name) {
     Token token;
     if (tokenFromName(name, &token)) {
         return tr(tokenLabel(token));
-    }
-    if (const ExtraRole* role = findExtraRole(name)) {
-        return tr(role->label.c_str());
     }
     return name;
 }
@@ -133,16 +129,6 @@ void loadAppearance(Editor& editor) {
 void editRole(Editor& editor, Token token, Rgba colour) {
     const Theme before = editor.appearance.working;
     editor.appearance.working[token] = colour;
-    AppearanceResult ignored;
-    touched(editor, before, &ignored);
-}
-
-void editExtraRole(Editor& editor, const std::string& id, Rgba colour) {
-    if (findExtraRole(id) == nullptr) {
-        return;
-    }
-    const Theme before = editor.appearance.working;
-    editor.appearance.working.extra[id] = colour;
     AppearanceResult ignored;
     touched(editor, before, &ignored);
 }
@@ -536,28 +522,6 @@ AppearanceResult drawAppearanceTab(Editor& editor, CanvasView& /*canvas*/, SDL_W
                 [&](Rgba colour) {
                     const Theme before = a.working;
                     a.working[token] = colour;
-                    touched(editor, before, &result);
-                });
-    }
-    // The roles a program built on Fast added, under the groups it gave them.
-    int extraIndex = 0;
-    std::string extraGroup;
-    for (const ExtraRole& role : extraRoles()) {
-        if (role.group != extraGroup || extraIndex == 0) {
-            extraGroup = role.group;
-            open = theme::foldingHeader(extraGroup.c_str());
-        }
-        ++extraIndex;
-        if (!open) {
-            continue;
-        }
-        const std::string id = role.id;
-        const Rgba current = a.working.extraColour(id);
-        const Rgba baseColour = haveBase ? base.extraColour(id) : current;
-        roleRow(1000 + extraIndex, id, tr(role.label.c_str()), role.alpha, current,
-                haveBase && baseColour != current, baseColour, [&, id](Rgba colour) {
-                    const Theme before = a.working;
-                    a.working.extra[id] = colour;
                     touched(editor, before, &result);
                 });
     }

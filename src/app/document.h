@@ -36,14 +36,6 @@ constexpr const char* kUiStateEntry = "fast/ui-state.json";
 // reason the engine owns the container and the applications own the entries.
 constexpr const char* kFastEntryPrefix = "fast/";
 
-// A program built on Fast (Pract) keeps entries of its own the same way, under
-// a prefix of its own -- "pract/" -- claimed once as it starts, before any
-// document opens. A claimed entry is a companion like Fast's: read and written
-// through companion()/setCompanion(), carried through undo. Unclaimed, it is
-// foreign and written back untouched. A prefix ends in '/'; one that does not,
-// or is Fast's own, is ignored.
-void claimEntryPrefix(const std::string& prefix);
-
 // A picture of the first frame, kept in the package so a library or a recent
 // list can show what a file holds without opening it.
 constexpr const char* kThumbnailEntry = "fast/thumbnail.png";
@@ -54,8 +46,7 @@ constexpr uint32_t    kThumbnailSize = 128;
 // This is Fast's decision, not the engine's. The engine refuses only what it
 // cannot safely represent, which is far larger; everything below that is a
 // judgement about cost, and the cost is steep -- a compile is area times layers,
-// so 4096x4096 with eight layers takes seconds. Pract, which is willing to wait,
-// sets its own.
+// so 4096x4096 with eight layers takes seconds.
 //
 // 16384 on a side leaves room for a long sprite sheet, which is cheap. The area
 // bound is what keeps a raster to 64 MB whatever the aspect ratio.
@@ -192,7 +183,7 @@ public:
     // ---------------------------------------------------------- companions --
 
     // Entries carried in the opened package that Fast does not understand --
-    // Pract's data, another tool's data. Fast writes them back untouched, so
+    // another tool's data. Fast writes them back untouched, so
     // saving here does not destroy someone else's work. This count is how a
     // test proves that.
     size_t foreignEntryCount() const { return foreignEntries_.size(); }
@@ -202,9 +193,8 @@ public:
     // engine's snapshot will not carry them -- the history entries here do,
     // which is what makes an imported reference undo like anything else.
     //
-    // setCompanion refuses a name outside kFastEntryPrefix, or a prefix
-    // claimed with claimEntryPrefix, rather than letting Fast overwrite
-    // another application's entry.
+    // setCompanion refuses a name outside kFastEntryPrefix rather than letting
+    // Fast overwrite another application's entry.
     bool setCompanion(const std::string& name, const std::string& contentType,
                       std::vector<uint8_t> data);
     const std::vector<uint8_t>* companion(const std::string& name) const;

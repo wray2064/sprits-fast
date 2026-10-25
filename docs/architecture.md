@@ -37,26 +37,15 @@ reasons, and the second matters more than it looks:
 2. The toolkit stays replaceable. If the first choice turns out badly, what gets
    rewritten is `src/ui/`, not the editor.
 
-### A window other programs can run
+### The window
 
 The window is a library too, `fast_ui`, and `sprits_fast` is only
-`fast_main.cpp` calling `fast::runApp` with nothing added. A program that is
-Fast and more runs the same window with a `fast::AppExtension`
-(`src/ui/app_extension.h`), which is every door it gets:
+`fast_main.cpp` calling `fast::runApp`. What the program calls itself (title,
+version, links) is in `src/ui/program.h`.
 
-- its **title**, and a **preferences folder** of its own, so its settings,
-  recent files, layout and recovery copies stay apart from Fast's;
-- **menus** after Fast's, and **panels** that dock beside Fast's;
-- the **timeline**: drawn inside the Timeline window in place of Fast's strip,
-  for a program with an animation system of its own (it can still call
-  `drawTimelinePanel` for any part of it).
-
-Its data in a document goes under a package-entry prefix it claims with
-`fast::claimEntryPrefix` (`src/app/document.h`): from then on those entries
-are companions like Fast's own -- read, changed, carried through undo, saved.
-Unclaimed, another program's entries are foreign, and Fast writes them back
-untouched. Keeping these doors generic is the point: nothing in Fast names a
-program built on it.
+Fast's data in a document goes under the package-entry prefix `fast/`
+(`src/app/document.h`). Another program's entries are foreign, and Fast writes
+them back untouched.
 
 ## The document
 
@@ -249,8 +238,8 @@ asynchronous Save As dialog, which is the case that usually gets this wrong.
 Cancel abandons the pending action rather than quietly proceeding with it.
 
 Fast's own data is namespaced under `fast/`. **Entries it does not recognise are
-read, kept, and written back out unchanged.** Opening a file that Pract wrote and
-saving it must not destroy Pract's data — that is the whole reason the engine
+read, kept, and written back out unchanged.** Opening a file that another program
+wrote and saving it must not destroy that program's data — that is the whole reason the engine
 owns the container and applications own the entries, and there is a test for it
 because it is the kind of promise that quietly stops being true during a
 refactor.

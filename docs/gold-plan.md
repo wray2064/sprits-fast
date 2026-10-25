@@ -4,7 +4,7 @@ Asked for 2026-10-19: "prepare Fast for gold-level publication, finish the clean
 test features, fuzz test and prepare the app help and resources; it must be ready
 for Microsoft Store publication." Worked autonomously while the owner was away,
 across session limits; **this file is how a session picks up where the last one
-stopped.** Read it, then `HANDOFF.md` and `docs/handoff.md`, then continue at
+stopped.** Read it, then `docs/handoff.md`, then continue at
 "Resume here".
 
 ## Decisions taken (the owner can overrule any of them)
@@ -26,8 +26,7 @@ stopped.** Read it, then `HANDOFF.md` and `docs/handoff.md`, then continue at
   (that gives the package's `Identity Name` and `Publisher`, left as placeholders in
   the manifest template), host the privacy policy at a public URL, accept the Store
   terms, answer the age-rating questionnaire, and press Submit.
-- Fast and the engine commit to `main` and push (pre-approved). Pract and this
-  workspace's repository stay local.
+- Fast and the engine commit to `main` and push (pre-approved).
 
 ## The checklist
 
@@ -111,11 +110,7 @@ Status: `[ ]` not started, `[~]` partly, `[x]` done. Each item is a commit.
       the debug build and on the release exe that goes in the package; the fuzz quick run
       is one of the suites; the gallery matches; the Store screenshots still equal the
       gallery's images; `dist\SpritsFast-1.0.0.0-x64.msix` rebuilt (4.5 MB)
-- [x] `HANDOFF.md` and `docs/handoff.md` updated; Pract builds on it (4 suites, 2 scripts)
-
-### 7. Next (not started: the owner starts it)
-- [x] Pract brief: the Importer and the Arranger, written into `sprits-pract/docs/plan.md`
-      (committed locally; Pract is not pushed)
+- [x] `docs/handoff.md` updated
 
 ## Resume here
 

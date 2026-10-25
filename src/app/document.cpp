@@ -13,36 +13,13 @@ std::string engineError(ls::LSError error) {
     return std::string(ls::lsErrorString(error));
 }
 
-// The prefixes this program keeps entries under: Fast's, and whatever a
-// program built on it claimed.
-std::vector<std::string>& ownedPrefixes() {
-    static std::vector<std::string> prefixes{ kFastEntryPrefix };
-    return prefixes;
-}
-
-// How long the owned prefix `name` starts with is, or 0 when it is not ours.
+// How long the prefix `name` starts with is, or 0 when the entry is not Fast's.
 size_t ownedPrefixLength(const std::string& name) {
-    for (const std::string& prefix : ownedPrefixes()) {
-        if (name.compare(0, prefix.size(), prefix) == 0) {
-            return prefix.size();
-        }
-    }
-    return 0;
+    const std::string prefix = kFastEntryPrefix;
+    return name.compare(0, prefix.size(), prefix) == 0 ? prefix.size() : 0;
 }
 
 } // namespace
-
-void claimEntryPrefix(const std::string& prefix) {
-    if (prefix.size() < 2 || prefix.back() != '/' || prefix.find('/') != prefix.size() - 1) {
-        return;
-    }
-    for (const std::string& owned : ownedPrefixes()) {
-        if (owned == prefix) {
-            return;
-        }
-    }
-    ownedPrefixes().push_back(prefix);
-}
 
 Document::Document() : engine_(ls::LSContext::create()) {
     // Say what this application works with rather than inheriting a default it
